@@ -33,7 +33,9 @@ import type { BusConnection } from '@nebulahome/bus';
 import { BusClient } from '@nebulahome/bus';
 import { resolveDataLayout } from '@nebulahome/config';
 import {
+  BLUETOOTH_VENDOR,
   busSubjects,
+  ConflictError,
   CORE_DEVICE_INFO_METHOD,
   CORE_SERVICE,
   deviceEventSchema,
@@ -76,6 +78,8 @@ import {
   type TransportStatus,
 } from '@nebulahome/package-runtime';
 
+import { BluetoothBroker } from './bluetooth/broker.js';
+import { createBluezHost } from './bluetooth/host.js';
 import {
   developmentBundleDirectories,
   platformMqttOf,
@@ -93,6 +97,7 @@ import { ModbusBroker } from './modbus/broker.js';
 import { ModbusPool } from './modbus/client.js';
 import { MqttBroker } from './mqtt/broker.js';
 import { databaseAccountStore } from './persistence/accounts.js';
+import { databaseBluetoothStore, loadBluetoothInstances } from './persistence/bluetooth.js';
 import { loadBinding, loadDeviceName, loadExternalId } from './persistence/devices.js';
 import {
   loadInstance,
@@ -111,6 +116,7 @@ import { SerialBroker } from './serial/broker.js';
 import { createLinuxSerialHost } from './serial/host.js';
 import { withAccountLookups } from './services/account-lookups.js';
 import { AccountService } from './services/accounts.js';
+import { serveBluetooth } from './services/bluetooth-management.js';
 import {
   loadBundles,
   loadVendor,
@@ -133,12 +139,14 @@ import { serveModbus } from './services/modbus-management.js';
 import { serveMqtt } from './services/mqtt-management.js';
 import { PackageWatch, type WatchedVendor } from './services/package-watch.js';
 import {
+  platformBluetoothVendor,
   platformMatterVendor,
   platformModbusVendor,
   platformMqttVendor,
 } from './services/platform-vendors.js';
 import { serveSerial } from './services/serial-management.js';
 import { VendorContainersService } from './services/vendor-containers.js';
+import { createBluetoothTransport } from './transports/bluetooth.js';
 import { createMatterTransport } from './transports/matter.js';
 import { createModbusTransport } from './transports/modbus.js';
 import { createMqttHouseTransport } from './transports/mqtt-house.js';
@@ -229,6 +237,7 @@ export class HubService {
   readonly #mqtt: MqttBroker;
   readonly #modbus: ModbusBroker;
   readonly #serial: SerialBroker;
+  readonly #bluetooth: BluetoothBroker;
 
   /** Every Modbus socket of the hub: the polls', the tests', the search's and the vendors'. */
   readonly #modbusPool = new ModbusPool();
@@ -359,6 +368,77 @@ export class HubService {
           )
         ).isDesktop === true,
     });
+    this.#bluetooth = new BluetoothBroker({
+      store: databaseBluetoothStore(options.db),
+      host: createBluezHost(),
+      logger: options.logger,
+
+      /**
+       * Every vendor loaded: their `bluetooth` rules, and the profiles that declare proxies.
+       *
+       * @returns Them.
+       */
+      vendors: () => this.#vendorList(),
+
+      /**
+       * Reads the instances of the house.
+       *
+       * @returns Them.
+       */
+      instances: async () => loadBluetoothInstances(options.db),
+      roles: {
+        /**
+         * Sends an op to a device over its instance's connection, as a command would go.
+         *
+         * @param deviceId - The device.
+         * @param op - The op.
+         * @param args - Its arguments.
+         * @param timeoutMs - How long it may take.
+         * @returns What the device answered.
+         */
+        send: async (deviceId, op, args, timeoutMs) => {
+          const running = this.#running.get(deviceId);
+          const deviceKey = running?.book.claims()[0]?.deviceKey;
+
+          if (running === undefined || deviceKey === undefined) {
+            throw new ConflictError(`${deviceId} is not running`, { details: { deviceId } });
+          }
+
+          return running.connection.send({ deviceKey, op, args }, AbortSignal.timeout(timeoutMs));
+        },
+
+        /**
+         * Finds the device a scanner names.
+         *
+         * @param connectionKey - Its connection.
+         * @param deviceKey - The device, as that connection names it.
+         * @returns Its instance, when one running is it.
+         */
+        deviceOf: (connectionKey, deviceKey) =>
+          [...this.#running.values()].find(
+            (running) =>
+              running.connection.key === connectionKey &&
+              running.book.claims().some((claim) => claim.deviceKey === deviceKey),
+          )?.instance.id,
+      },
+
+      /**
+       * Asks the supervisor whether Docker runs in Docker Desktop, which passes no D-Bus.
+       *
+       * @returns True when it says so.
+       */
+      isDesktop: async () =>
+        (
+          await this.#client.request(
+            busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.status),
+            {},
+            dockerStatusSchema,
+            { timeoutMs: 5000 },
+          )
+        ).isDesktop === true,
+    });
+    this.#transports.register(createBluetoothTransport(this.#bluetooth));
+
     this.#serial.onPlugged((port) => {
       // A device's port came back: started again, its code opens it again.
       if (port.holderIntegrationId !== null) {
@@ -695,16 +775,21 @@ export class HubService {
         this.#registerVendor(vendor);
       }
 
-      // The platform's own, after the bundles: no bundle may call itself `matter`, `mqtt` or
-      // `modbus`.
+      // The platform's own, after the bundles: no bundle may call itself `matter`, `mqtt`,
+      // `modbus` or `bluetooth`.
       this.#registerVendor(platformMatterVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
       this.#registerVendor(platformMqttVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
       this.#registerVendor(platformModbusVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
+      this.#registerVendor(
+        platformBluetoothVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION),
+      );
 
       // After the vendors: a device read through an integration's template needs its driver.
       await this.#modbus.start();
       // Before the instances: a device claims its port as it starts.
       await this.#serial.start();
+      // After the vendors: what is heard is recognised by their rules, proxies by their profiles.
+      await this.#bluetooth.start();
 
       this.#recordFailures(bundles.failures);
       logger.info(
@@ -753,6 +838,7 @@ export class HubService {
           taken: async () => loadTakenDevices(db),
         }),
         ...serveSerial(this.#client, this.#serial),
+        ...serveBluetooth(this.#client, this.#bluetooth),
         ...serveMqtt({
           client: this.#client,
           broker: this.#mqtt,
@@ -836,6 +922,7 @@ export class HubService {
       platform: this.#platform,
       modbus: this.#modbusPool,
       serial: this.#serial,
+      bluetooth: this.#bluetooth,
     };
   }
 
@@ -1155,6 +1242,7 @@ export class HubService {
       logger.warn({ err: error }, 'Could not ask the Modbus servers found again');
     });
     void this.#serial.refresh();
+    this.#bluetooth.reidentify();
   }
 
   /**
@@ -1188,6 +1276,7 @@ export class HubService {
     const platformMatter = this.#vendors.get(MATTER_VENDOR);
     const platformMqtt = this.#vendors.get(MQTT_VENDOR);
     const platformModbus = this.#vendors.get(MODBUS_VENDOR);
+    const platformBluetooth = this.#vendors.get(BLUETOOTH_VENDOR);
 
     return new DiscoveryService({
       vendors: [...this.#vendors.values()].flatMap((vendor) =>
@@ -1300,6 +1389,27 @@ export class HubService {
               vendor: { id: MODBUS_VENDOR, discovery: platformModbus.discovery },
             },
           }),
+      ...(platformBluetooth?.discovery === undefined
+        ? {}
+        : {
+            bluetooth: {
+              /**
+               * Lists the addresses the owner is adding.
+               *
+               * @returns Them, each as the driver it is added as.
+               */
+              devices: () => this.#bluetooth.sightings(),
+
+              /**
+               * Follows the addresses being added.
+               *
+               * @param listener - Called when they change.
+               * @returns What stops following.
+               */
+              onChange: (listener: () => void) => this.#bluetooth.onDevices(listener),
+              vendor: { id: BLUETOOTH_VENDOR, discovery: platformBluetooth.discovery },
+            },
+          }),
     });
   }
 
@@ -1372,6 +1482,7 @@ export class HubService {
     this.#modbus.stop();
     this.#modbusPool.closeAll();
     await this.#serial.stop();
+    await this.#bluetooth.stop();
 
     // Whatever the vendors' own code holds - a UDP port - is let go of with them.
     await Promise.all([...this.#vendors.values()].map(async (vendor) => vendor.release()));
@@ -1511,6 +1622,8 @@ export class HubService {
 
     // Its port goes free: the database frees it with the instance's row, the broker's copy here.
     await this.#serial.releaseInstance(id);
+    // A proxy's row goes with the instance's; the broker's copy here.
+    this.#bluetooth.releaseInstance(id);
 
     // Not refreshed here: the rows are still there until `core` deletes them, and the device
     // would be offered again only to be taken away. `core` says when they are gone, and

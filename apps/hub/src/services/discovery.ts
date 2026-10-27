@@ -18,6 +18,7 @@
 import { createHash } from 'node:crypto';
 
 import {
+  BLUETOOTH_VENDOR,
   DISCOVERY_NEW_FOR_MS,
   MATTER_VENDOR,
   MODBUS_VENDOR,
@@ -52,6 +53,7 @@ import {
   type Transport,
 } from '@nebulahome/package-runtime';
 
+import type { BluetoothSighting } from '../bluetooth/broker.js';
 import { isPrivateIpv4, type MdnsSource } from '../discovery/mdns-source.js';
 import { addressOf as reachedAt, NOTHING_TAKEN, type TakenDevices } from '../domain/taken.js';
 import type { MatterSighting } from '../matter/broker.js';
@@ -158,6 +160,12 @@ export type DiscoveryServiceOptions = {
    * integration whose template it is - so no vendor's rules are asked.
    */
   readonly modbus?: BrokerFeed<ModbusSighting>;
+
+  /**
+   * The house's Bluetooth broker: every address the owner is adding, told again whenever one
+   * comes or goes. Each says the driver that recognised it, so no vendor's rules are asked again.
+   */
+  readonly bluetooth?: BrokerFeed<BluetoothSighting>;
 };
 
 /** One of the platform's brokers, as discovery hears it. */
@@ -182,21 +190,31 @@ type BrokerDevice = {
   readonly kind?: string;
 };
 
+/** A broker whose devices discovery adds as it hears them: Bluetooth's are the ones being added. */
+type FeedSource = BrokerSource | 'bluetooth';
+
 /** The platform's brokers, in the order they are heard. */
-const BROKER_SOURCES = ['matter', 'mqtt', 'modbus'] as const satisfies readonly BrokerSource[];
+const BROKER_SOURCES = [
+  'matter',
+  'mqtt',
+  'modbus',
+  'bluetooth',
+] as const satisfies readonly FeedSource[];
 
 /** How each broker's devices are named where the owner sees them. */
-const BROKER_LABELS: Readonly<Record<BrokerSource, string>> = {
+const BROKER_LABELS: Readonly<Record<FeedSource, string>> = {
   matter: 'Matter',
   mqtt: 'MQTT',
   modbus: 'Modbus',
+  bluetooth: 'Bluetooth',
 };
 
 /** Each broker's own vendor: what takes a device no integration's rules take. */
-const BROKER_VENDORS: Readonly<Record<BrokerSource, string>> = {
+const BROKER_VENDORS: Readonly<Record<FeedSource, string>> = {
   matter: MATTER_VENDOR,
   mqtt: MQTT_VENDOR,
   modbus: MODBUS_VENDOR,
+  bluetooth: BLUETOOTH_VENDOR,
 };
 
 /** A proposed device, and when it was last heard, as a number to compare. */
@@ -1337,7 +1355,7 @@ export class DiscoveryService {
    * @returns Each vendor whose rules all hold and which has a driver on the broker to take it.
    */
   public brokerClaims(
-    source: BrokerSource,
+    source: FeedSource,
     identity: unknown,
   ): { readonly vendor: DiscoveryVendor; readonly association: Association }[] {
     const own = BROKER_VENDORS[source];
@@ -1361,7 +1379,19 @@ export class DiscoveryService {
    * @param source - The broker.
    * @returns Its devices, or none for a broker the hub does not run.
    */
-  #brokerDevices(source: BrokerSource): BrokerDevice[] {
+  #brokerDevices(source: FeedSource): BrokerDevice[] {
+    if (source === 'bluetooth') {
+      return (this.#options.bluetooth?.devices() ?? []).map(({ deviceKey, device }) => ({
+        deviceKey,
+        identity: device,
+        name: device.name,
+        modelCode: null,
+        swVersion: null,
+        macs: [],
+        kind: device.kind,
+      }));
+    }
+
     if (source === 'matter') {
       return (this.#options.matter?.devices() ?? []).map(({ deviceKey, device }) => {
         const { identity } = device;
@@ -1407,7 +1437,7 @@ export class DiscoveryService {
    *
    * @param source - The broker.
    */
-  #hearBroker(source: BrokerSource): void {
+  #hearBroker(source: FeedSource): void {
     const feed = this.#options[source];
 
     if (feed === undefined || !this.#isListening) {
@@ -1567,7 +1597,12 @@ export class DiscoveryService {
       .flatMap((candidate): Candidate[] => {
         const { device } = candidate;
 
-        if (device.source === 'matter' || device.source === 'mqtt' || device.source === 'modbus') {
+        if (
+          device.source === 'matter' ||
+          device.source === 'mqtt' ||
+          device.source === 'modbus' ||
+          device.source === 'bluetooth'
+        ) {
           return device.externalId !== null && this.#taken[device.source].has(device.externalId)
             ? []
             : [candidate];

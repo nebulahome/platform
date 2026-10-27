@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { createLogger } from '@nebulahome/logging';
 import { defineTransport } from '@nebulahome/package-runtime';
 
+import { createBluetoothScanners } from '../bluetooth/scanners.js';
 import { createModbusSessions } from '../modbus/sessions.js';
 import { createSerialSessions } from '../serial/sessions.js';
 import { openWebSocket } from '../transports/managed-socket.js';
@@ -19,12 +20,14 @@ describe('createBundleSdk', () => {
     const udp = createUdpSockets(logger);
     const modbus = createModbusSessions(undefined);
     const serial = createSerialSessions(undefined, 'acme');
+    const bluetooth = createBluetoothScanners(undefined, 'acme');
     const sdk = createBundleSdk({
       version: '1.0.0',
       logger,
       openUdpSocket: udp.open,
       openModbus: modbus.open,
       openSerial: serial.open,
+      bluetooth: bluetooth.bluetooth,
       platform: { mqtt: null },
     });
 
@@ -36,5 +39,6 @@ describe('createBundleSdk', () => {
     expect(sdk.openUdpSocket).toBe(udp.open);
     expect(sdk.openModbus).toBe(modbus.open);
     expect(sdk.openSerial).toBe(serial.open);
+    expect(sdk.bluetooth).toBe(bluetooth.bluetooth);
   });
 });

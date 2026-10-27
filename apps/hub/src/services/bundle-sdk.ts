@@ -15,6 +15,7 @@ import {
   defineAccount,
   defineStreamSource,
   defineTransport,
+  type BundleBluetooth,
   type BundleSdk,
   type OpenModbus,
   type OpenSerial,
@@ -29,16 +30,6 @@ import { openWebSocket } from '../transports/managed-socket.js';
 import { openRtsp } from '../transports/rtsp.js';
 
 /**
- * A piece of the SDK this hub does not offer yet, for a bundle that reaches for it.
- *
- * @param name - The piece.
- * @returns An error naming it.
- */
-function notOffered(name: string): Error {
-  return new Error(`${name} is not offered by this hub yet`);
-}
-
-/**
  * Builds the SDK.
  *
  * @param options - The runtime version, the logger bundle code may write to, and the vendor's
@@ -49,6 +40,8 @@ function notOffered(name: string): Error {
  * @param options.openModbus - Opens a Modbus session tracked as the vendor's.
  * @param options.openSerial - Opens a serial port through the Serial broker, tracked as the
  * vendor's.
+ * @param options.bluetooth - Opens a proxy's scanner on the Bluetooth broker, tracked as the
+ * vendor's.
  * @param options.platform - What the platform runs that bundle code may use: its broker.
  * @returns The SDK.
  */
@@ -58,6 +51,7 @@ export function createBundleSdk(options: {
   readonly openUdpSocket: OpenUdpSocket;
   readonly openModbus: OpenModbus;
   readonly openSerial: OpenSerial;
+  readonly bluetooth: BundleBluetooth;
   readonly platform: PlatformServices;
 }): BundleSdk {
   return {
@@ -70,18 +64,7 @@ export function createBundleSdk(options: {
     openMqtt,
     openModbus: options.openModbus,
     openSerial: options.openSerial,
-    // shortcut: no Bluetooth scanner reaches a bundle yet; the Bluetooth broker hands the real one
-    // in once it runs.
-    bluetooth: {
-      /**
-       * Refuses a scanner: there is no Bluetooth broker to report to yet.
-       *
-       * @throws {Error} Always.
-       */
-      scanner: () => {
-        throw notOffered('bluetooth.scanner');
-      },
-    },
+    bluetooth: options.bluetooth,
     defineStreamSource,
     defineAccount,
     codecs: { lzma: decodeLzma },

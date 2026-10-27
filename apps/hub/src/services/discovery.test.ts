@@ -297,6 +297,7 @@ async function start(
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     },
     service: new DiscoveryService({
       vendors: [options.vendor ?? acme()],
@@ -535,6 +536,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -550,6 +552,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.refresh();
 
@@ -562,6 +565,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.refresh();
 
@@ -582,6 +586,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.refresh();
 
@@ -598,6 +603,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.release('acme');
 
@@ -620,6 +626,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -639,6 +646,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.refresh();
 
@@ -659,6 +667,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.refresh();
 
@@ -674,6 +683,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.release('acme');
 
@@ -690,6 +700,7 @@ describe('DiscoveryService', () => {
       matter: new Map(),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     await built.service.refresh();
     built.mdns.announce(heard('192.168.1.40'));
@@ -725,6 +736,7 @@ describe('DiscoveryService', () => {
           matter: new Map(),
           mqtt: new Map(),
           modbus: new Map(),
+          bluetooth: new Map(),
         }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
@@ -745,6 +757,7 @@ describe('DiscoveryService', () => {
         matter: new Map(),
         mqtt: new Map(),
         modbus: new Map(),
+        bluetooth: new Map(),
       },
     };
     await service.start();
@@ -784,6 +797,7 @@ describe('DiscoveryService', () => {
           matter: new Map(),
           mqtt: new Map(),
           modbus: new Map(),
+          bluetooth: new Map(),
         }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,
@@ -805,6 +819,7 @@ describe('DiscoveryService', () => {
         matter: new Map(),
         mqtt: new Map(),
         modbus: new Map(),
+        bluetooth: new Map(),
       },
     };
     await service.start();
@@ -1077,6 +1092,7 @@ describe('DiscoveryService and the Matter fabric', () => {
       matter: new Map([['3', { instanceId: 'other', kind: 'matter/generic' }]]),
       mqtt: new Map(),
       modbus: new Map(),
+      bluetooth: new Map(),
     };
     const service = new DiscoveryService({
       vendors: [acme],
@@ -1159,6 +1175,7 @@ describe('DiscoveryService and the Modbus broker', () => {
           matter: new Map(),
           mqtt: new Map(),
           modbus: new Map([['modbus-3', { instanceId: 'other', kind: 'modbus/generic' }]]),
+          bluetooth: new Map(),
         }),
       publishChanged: () => undefined,
       queryIntervalMs: 60_000,

@@ -1,6 +1,7 @@
 /**
- * The platform's own vendors, `matter`, `mqtt` and `modbus`: the devices of its brokers no
- * integration claims, and for Modbus the devices read through the owner's templates.
+ * The platform's own vendors, `matter`, `mqtt`, `modbus` and `bluetooth`: the devices of its
+ * brokers no integration claims, for Modbus the devices read through the owner's templates, and
+ * for Bluetooth the BTHome sensors the platform reads itself.
  *
  * Not bundles - nothing to install, nothing read from a folder - but loaded beside the bundles as
  * ones, so that a device no vendor takes is added, run and removed the way every device is: an
@@ -10,6 +11,10 @@
  * leaves them out: their devices are the Brokers page's.
  */
 import {
+  BLUETOOTH_TRANSPORT,
+  BLUETOOTH_VENDOR,
+  BTHOME_KIND,
+  BTHOME_SERVICE_UUID,
   integrationSetupSchema,
   MATTER_GENERIC_KIND,
   MATTER_TRANSPORT,
@@ -25,6 +30,7 @@ import {
 } from '@nebulahome/contracts';
 import {
   bundleManifestSchema,
+  createBthomeIntegration,
   createMatterIntegration,
   createModbusIntegration,
   createMqttIntegration,
@@ -43,7 +49,7 @@ type PlatformVendorSpec = {
   readonly description: string;
   readonly color: string;
   readonly transport: string;
-  readonly kind: 'matter' | 'mqtt' | 'modbus';
+  readonly kind: 'matter' | 'mqtt' | 'modbus' | 'bluetooth';
   readonly driverKind: string;
   readonly driverName: string;
   readonly wire: TransportWire;
@@ -83,6 +89,8 @@ function platformVendor(spec: PlatformVendorSpec, version: string, sdk: string):
     kind: spec.kind,
     // The template of each of its devices comes with the device: this names none of its own.
     ...(spec.kind === 'modbus' ? { template: './template.json' } : {}),
+    // A code kind names its entry; the platform's mapping is the code, and nothing is read.
+    ...(spec.kind === 'bluetooth' ? { entry: './index.js' } : {}),
     setup: './setup.json',
   });
   const driver: LoadedBundle = {
@@ -198,6 +206,36 @@ export function platformModbusVendor(version: string, sdk: string): LoadedVendor
       wire: 'modbus',
       discovery: { modbus: { match: [{ path: 'deviceKey', exists: true }] } },
       integration: createModbusIntegration,
+    },
+    version,
+    sdk,
+  );
+}
+
+/**
+ * Builds the platform's Bluetooth vendor: the BTHome sensors the platform recognises and reads
+ * itself, by the service data BTHome advertises under.
+ *
+ * @param version - The platform's version.
+ * @param sdk - The integration contract the hub implements.
+ * @returns The vendor.
+ */
+export function platformBluetoothVendor(version: string, sdk: string): LoadedVendor {
+  return platformVendor(
+    {
+      id: BLUETOOTH_VENDOR,
+      name: 'Bluetooth',
+      description: 'BTHome sensors heard over Bluetooth, read by the platform.',
+      color: '#0082fc',
+      transport: BLUETOOTH_TRANSPORT,
+      kind: 'bluetooth',
+      driverKind: BTHOME_KIND,
+      driverName: 'BTHome',
+      wire: 'ble',
+      discovery: {
+        bluetooth: { match: [{ path: `serviceData.'${BTHOME_SERVICE_UUID}'`, exists: true }] },
+      },
+      integration: createBthomeIntegration,
     },
     version,
     sdk,

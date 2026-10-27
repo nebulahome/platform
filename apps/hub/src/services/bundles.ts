@@ -26,6 +26,8 @@ import {
   type VendorSdk,
 } from '@nebulahome/package-runtime';
 
+import type { BluetoothBroker } from '../bluetooth/broker.js';
+import { createBluetoothScanners } from '../bluetooth/scanners.js';
 import type { ModbusPool } from '../modbus/client.js';
 import { createModbusSessions } from '../modbus/sessions.js';
 import type { SerialBroker } from '../serial/broker.js';
@@ -90,6 +92,9 @@ export type LoadBundlesOptions = {
 
   /** The hub's Serial broker, which a vendor's ports are opened through. None, as in tests, when absent. */
   readonly serial?: SerialBroker;
+
+  /** The hub's Bluetooth broker, which a vendor's proxies report to. None, as in tests, when absent. */
+  readonly bluetooth?: BluetoothBroker;
 };
 
 /**
@@ -110,8 +115,8 @@ function runtimeOptions(options: Omit<LoadBundlesOptions, 'directory'>) {
     ...(options.verifyVendor === undefined ? {} : { verifyVendor: options.verifyVendor }),
 
     /**
-     * Builds what one vendor's code is handed, with UDP sockets, Modbus sessions and serial ports
-     * of its own to free on release.
+     * Builds what one vendor's code is handed, with UDP sockets, Modbus sessions, serial ports and
+     * Bluetooth scanners of its own to free on release.
      *
      * @param manifest - The vendor.
      * @returns The SDK, and how to let go of what the vendor opens through it.
@@ -120,6 +125,7 @@ function runtimeOptions(options: Omit<LoadBundlesOptions, 'directory'>) {
       const udp = createUdpSockets(logger);
       const modbus = createModbusSessions(options.modbus);
       const serial = createSerialSessions(options.serial, manifest.id);
+      const bluetooth = createBluetoothScanners(options.bluetooth, manifest.id);
 
       return {
         sdk: createBundleSdk({
@@ -128,6 +134,7 @@ function runtimeOptions(options: Omit<LoadBundlesOptions, 'directory'>) {
           openUdpSocket: udp.open,
           openModbus: modbus.open,
           openSerial: serial.open,
+          bluetooth: bluetooth.bluetooth,
           platform: options.platform ?? { mqtt: null },
         }),
         /**
@@ -139,6 +146,7 @@ function runtimeOptions(options: Omit<LoadBundlesOptions, 'directory'>) {
           await udp.closeAll();
           await modbus.closeAll();
           await serial.closeAll();
+          bluetooth.closeAll();
         },
       };
     },

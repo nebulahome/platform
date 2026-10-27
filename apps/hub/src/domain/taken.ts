@@ -7,6 +7,7 @@
  * vendors' ids and addresses mean nothing to each other.
  */
 import {
+  BLUETOOTH_TRANSPORT,
   MATTER_TRANSPORT,
   MODBUS_TRANSPORT,
   MQTT_HOUSE_TRANSPORT,
@@ -57,6 +58,12 @@ export type TakenDevices = {
    * broker's one device, never proposed twice.
    */
   readonly modbus: ReadonlyMap<string, TakenMatter>;
+
+  /**
+   * The Bluetooth devices added, by their address, whichever vendor added them: the broker's one
+   * device, never proposed twice.
+   */
+  readonly bluetooth: ReadonlyMap<string, TakenMatter>;
 };
 
 /** One instance, as far as recognising its device goes. */
@@ -85,6 +92,7 @@ export const NOTHING_TAKEN: TakenDevices = {
   matter: new Map(),
   mqtt: new Map(),
   modbus: new Map(),
+  bluetooth: new Map(),
 };
 
 /**
@@ -129,6 +137,7 @@ export function takenFrom(rows: readonly TakenRow[]): TakenDevices {
   const matter = new Map<string, TakenMatter>();
   const mqtt = new Map<string, TakenMatter>();
   const modbus = new Map<string, TakenMatter>();
+  const bluetooth = new Map<string, TakenMatter>();
 
   for (const row of rows) {
     const [vendorId = ''] = row.kind.split('/');
@@ -149,6 +158,10 @@ export function takenFrom(rows: readonly TakenRow[]): TakenDevices {
         mqtt.set(row.externalId, { instanceId: row.id, kind: row.kind });
       }
 
+      if (row.transport === BLUETOOTH_TRANSPORT) {
+        bluetooth.set(row.externalId.toUpperCase(), { instanceId: row.id, kind: row.kind });
+      }
+
       if (row.transport === MODBUS_TRANSPORT) {
         modbus.set(row.externalId, { instanceId: row.id, kind: row.kind });
       }
@@ -159,5 +172,5 @@ export function takenFrom(rows: readonly TakenRow[]): TakenDevices {
     }
   }
 
-  return { externalIds, hosts, locations, matter, mqtt, modbus };
+  return { externalIds, hosts, locations, matter, mqtt, modbus, bluetooth };
 }
