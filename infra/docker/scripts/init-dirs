@@ -29,5 +29,6 @@ for folder in "$data/hub" "$data/proxy" "$data/packages" "$data/cache/maps" \
   chown nebula:nebula "$folder"
 done
 
-# Inside those, by `nebula`.
-s6-setuidgid nebula mkdir -p "$data/hub/integrations" "$data/proxy/tls"
+# Inside those, by `nebula`. `hub/thread` holds the border router's otbr.conf, which the hub writes
+# and the `otbr` service reads.
+s6-setuidgid nebula mkdir -p "$data/hub/integrations" "$data/hub/thread" "$data/proxy/tls"

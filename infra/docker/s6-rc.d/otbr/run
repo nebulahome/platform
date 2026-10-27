@@ -1,0 +1,67 @@
+#!/command/with-contenv sh
+# The OpenThread Border Router, for the Thread broker's local mode. It waits until Thread is set
+# up: the hub writes hub/thread/otbr.conf in the data directory with the radio and the network
+# interface, then asks the supervisor to restart this service. Root, for the wpan0 interface and
+# the routes; its REST server, which the hub talks to, on loopback only.
+#
+# The file is written by `nebula` and read here by root, so it is never sourced: only RADIO_URL
+# and INFRA_IF are taken, each checked against a strict pattern, and a file that fails leaves the
+# border router waiting, with the reason in the log, instead of starting it on a value nobody
+# checked.
+set -eu
+
+conf="${NEBULA_DATA_DIR:-/data}/hub/thread/otbr.conf"
+
+# Waits for the signal a restart sends, with no radio opened: s6-pause does nothing until then.
+idle() {
+  exec s6-pause
+}
+
+# Whether a whole value matches an extended regular expression.
+matches() {
+  printf '%s\n' "$2" | grep -Eqx -- "$1"
+}
+
+if [ ! -f "$conf" ]; then
+  idle
+fi
+
+radio_url=
+infra_if=
+
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in
+    '' | '#'*) ;;
+    RADIO_URL=*) radio_url="${line#RADIO_URL=}" ;;
+    INFRA_IF=*) infra_if="${line#INFRA_IF=}" ;;
+    *)
+      echo "otbr: $conf holds a line that is not RADIO_URL or INFRA_IF; waiting" >&2
+      idle
+      ;;
+  esac
+done < "$conf"
+
+# A serial radio under /dev, with the URL's own parameters (`?uart-baudrate=460800`), and no
+# way out of /dev.
+case "$radio_url" in *..*) radio_url= ;; esac
+if ! matches 'spinel\+hdlc\+uart:///dev/[A-Za-z0-9_./:?=&+-]+' "$radio_url"; then
+  echo "otbr: RADIO_URL in $conf is not a serial radio under /dev; waiting" >&2
+  idle
+fi
+
+# A network interface's name, as Linux allows it.
+if ! matches '[A-Za-z0-9_.-]{1,15}' "$infra_if"; then
+  echo "otbr: INFRA_IF in $conf is not a network interface name; waiting" >&2
+  idle
+fi
+
+# Thread's own data - the network key among it - where the image's build points OpenThread
+# (OT_POSIX_SETTINGS_PATH), root's alone.
+install -d -m 0700 /data/thread
+
+# -s: to standard error, which s6 keeps, as no syslog runs here. The vendor and model name it on
+# the network: "NebulaHome Border Router" in the _meshcop._udp service phones and hubs list.
+exec otbr-agent -s -I wpan0 -B "$infra_if" \
+  --vendor-name NebulaHome --model-name 'Border Router' \
+  --rest-listen-address 127.0.0.1 --rest-listen-port 8081 \
+  "$radio_url"

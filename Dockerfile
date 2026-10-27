@@ -5,16 +5,60 @@
 #
 #   docker compose -f infra/docker-compose.yml up -d --build     (pnpm docker:up)
 #
-# Three stages: `build` compiles the workspace and prunes it to what runs; `test` is `build` with
-# the PostgreSQL client, for the integration tests that need pg_dump; `runtime` is the
-# TimescaleDB image with Node, NATS and s6 added, and the pruned workspace in /app.
+# Four stages: `otbr` compiles the OpenThread Border Router; `build` compiles the workspace and
+# prunes it to what runs; `test` is `build` with the PostgreSQL client, for the integration tests
+# that need pg_dump; `runtime` is the TimescaleDB image with Node, NATS, the border router and s6
+# added, and the pruned workspace in /app.
 
 ARG NODE_IMAGE=node:22-alpine3.23
 ARG TIMESCALE_IMAGE=timescale/timescaledb:2.29.2-pg16
 ARG NATS_IMAGE=nats:2.14.6-alpine
+# The Alpine release the TimescaleDB image is built on (its /etc/alpine-release): what is compiled
+# here links against the same musl and libstdc++ the runtime has.
+ARG ALPINE_IMAGE=alpine:3.23.5
 
 FROM ${NODE_IMAGE} AS node
 FROM ${NATS_IMAGE} AS nats
+
+# ---------------------------------------------------------------------------------------------
+# otbr: the OpenThread Border Router, for the Thread broker's local mode
+# ---------------------------------------------------------------------------------------------
+# No distribution packages it, so it is built from a pinned commit (release v2026.10.0), with its
+# submodules at the commits that commit records. Only what the platform uses: the REST server the
+# hub talks to, OpenThread's own mDNS (no avahi or mDNSResponder daemon to run) with its SRP
+# advertising and discovery proxies, border routing. No D-Bus, web page, backbone router, NAT64,
+# TREL or firewall (that one would need ipset and ip6tables). Thread's own data in /data/thread.
+FROM ${ALPINE_IMAGE} AS otbr
+
+ARG OTBR_REPOSITORY=https://github.com/openthread/ot-br-posix
+ARG OTBR_COMMIT=cb4bdae242b22287cded07ae3aa10347c2d16d9b
+
+RUN apk add --no-cache build-base cmake ninja git linux-headers pkgconf
+
+WORKDIR /src/ot-br-posix
+RUN git init -q . && \
+    git fetch -q --depth 1 "$OTBR_REPOSITORY" "$OTBR_COMMIT" && \
+    git checkout -q FETCH_HEAD && \
+    git submodule update -q --init --recursive --depth 1
+
+# The policy minimum: Alpine's CMake 4 refuses the bundled cJSON's `cmake_minimum_required` 2.8.
+RUN cmake -S . -B build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+      -DBUILD_TESTING=OFF \
+      -DOTBR_REST=ON \
+      -DOTBR_WEB=OFF \
+      -DOTBR_DBUS=OFF \
+      -DOTBR_MDNS=openthread \
+      -DOTBR_BORDER_ROUTING=ON \
+      -DOTBR_BACKBONE_ROUTER=OFF \
+      -DOTBR_NAT64=OFF \
+      -DOTBR_TREL=OFF \
+      -DOT_FIREWALL=OFF \
+      -DOT_POSIX_SETTINGS_PATH='"/data/thread"' && \
+    cmake --build build --target otbr-agent && \
+    DESTDIR=/out cmake --install build --strip
 
 # ---------------------------------------------------------------------------------------------
 # build: install, compile, prune
@@ -89,6 +133,8 @@ ARG TARGETARCH
 # and the platform is written for 22.
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=nats /usr/local/bin/nats-server /usr/local/bin/nats-server
+# The border router and its command line; they need only the libstdc++ and libgcc below.
+COPY --from=otbr /out/usr/local/sbin/otbr-agent /out/usr/local/sbin/ot-ctl /usr/local/sbin/
 
 # libstdc++ for Node; cifs-utils and nfs-utils for the backup's network locations; openssl for
 # the generated keys and certificate; tzdata so a TZ is honoured; the Docker command line and its
@@ -112,8 +158,11 @@ RUN set -eux; \
       rm "/tmp/s6-${part}.tar.xz" "/tmp/s6-${part}.tar.xz.sha256"; \
     done
 
-# The account the Node services run as. The backup service runs as root: it mounts shares.
-RUN addgroup -S -g 1000 nebula && adduser -S -D -H -u 1000 -G nebula nebula
+# The account the Node services run as. The backup service runs as root: it mounts shares. In
+# `dialout` (gid 20, as on Debian and Ubuntu hosts), which owns the serial ports passed in from
+# the host: the hub's Serial broker opens them.
+RUN addgroup -S -g 1000 nebula && adduser -S -D -H -u 1000 -G nebula nebula && \
+    addgroup nebula dialout
 
 COPY --from=build /app /app
 COPY infra/docker/s6-rc.d /etc/s6-overlay/s6-rc.d

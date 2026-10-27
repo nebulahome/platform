@@ -3,5 +3,9 @@
 
 DATABASE_URL="$(nebula_database_url nebula_hub)"
 export DATABASE_URL
+
+# Matter's Bluetooth pairing goes through BlueZ over D-Bus, not a raw HCI socket, so it shares the
+# adapter with the Bluetooth broker.
+export NOBLE_BINDINGS=dbus
 cd /app/apps/hub
 exec s6-setuidgid nebula node dist/main.js
