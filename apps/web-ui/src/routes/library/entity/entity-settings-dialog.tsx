@@ -267,6 +267,7 @@ export function EntitySettingsDialog(props: EntitySettingsDialogProps) {
             value={name}
             onChange={setName}
             icon={icon}
+            fallback={entityKindOf({ ...entity, ...(choices.get(shown) ?? original) }).icon}
             onIconChange={(view) => {
               setIcon(view.id);
             }}

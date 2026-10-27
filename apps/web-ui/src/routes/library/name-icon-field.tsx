@@ -15,7 +15,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { IconView } from '@nebulahome/contracts';
-import { CatalogueIcon, cn, FieldShell } from '@nebulahome/ui';
+import { AppIcon, CatalogueIcon, cn, FieldShell, type UiIconId } from '@nebulahome/ui';
 
 import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { IconPicker } from '@/routes/library/icon-picker';
@@ -33,6 +33,9 @@ export type NameIconFieldProps = {
 
   /** The icon id, or null for none. */
   readonly icon: string | null;
+
+  /** What the button draws while the icon is null: the kind's own, say. A blank square when not given. */
+  readonly fallback?: UiIconId;
 
   /** Called with the icon picked from the catalogue. */
   readonly onIconChange: (icon: IconView) => void;
@@ -61,6 +64,7 @@ export function NameIconField(props: NameIconFieldProps) {
     value,
     onChange,
     icon,
+    fallback,
     onIconChange,
     hint,
     error,
@@ -107,7 +111,9 @@ export function NameIconField(props: NameIconFieldProps) {
                 : 'border-border-strong bg-surface-raised text-foreground hover:border-foreground-subtle/50 hover:bg-surface-high',
             )}
           >
-            {shown === undefined ? (
+            {shown === undefined && icon === null && fallback !== undefined ? (
+              <AppIcon id={fallback} size={18} />
+            ) : shown === undefined ? (
               <span className="size-4.5 rounded-check bg-surface-high" aria-hidden="true" />
             ) : (
               <CatalogueIcon node={shown.node} frame={shown.frame} size={18} />
