@@ -3,8 +3,9 @@
  *
  * Matter is one of the platform's brokers: the hub holds the controller - one fabric for the
  * house - and every Matter device is reached through it. A node is commissioned once, with the
- * code another app (the maker's, Google Home, Apple Home, Alexa) shares, and is then a device of
- * the house: of the integration whose `discovery.json` recognises it, or of the platform's own
+ * code another app (the maker's, Google Home, Apple Home, Alexa) shares - or, a new device, over
+ * the server's Bluetooth onto Wi-Fi or the house's Thread network - and is then a device of the
+ * house: of the integration whose `discovery.json` recognises it, or of the platform's own
  * `matter` vendor when none does. A bridge is one node with a device per bridged endpoint.
  *
  * The identity a node is recognised by is {@link matterIdentitySchema}: what its Basic Information
@@ -52,6 +53,12 @@ export const HUB_MATTER_CANCEL_METHOD = 'matter_cancel';
 
 /** Closes the controller and opens it again. */
 export const HUB_MATTER_RESTART_METHOD = 'matter_restart';
+
+/** The networks a new device is given: the saved Wi-Fi, and the house's Thread network. */
+export const HUB_MATTER_NETWORKS_METHOD = 'matter_networks';
+
+/** Saves the Wi-Fi a new device is given, or forgets it. */
+export const HUB_MATTER_NETWORKS_SAVE_METHOD = 'matter_networks_save';
 
 /** The UDP port the controller listens on, which the engine does not let anyone change. */
 export const MATTER_PORT = 5540;
@@ -124,9 +131,32 @@ export const matterIdentitySchema = z.object({
 export type MatterIdentity = z.output<typeof matterIdentitySchema>;
 
 /**
+ * How a device is commissioned: `shared` by the code another app shares, over the network it is
+ * already on; `new`, one never set up or reset, over the server's Bluetooth, then given Wi-Fi or
+ * the house's Thread network.
+ */
+export const MATTER_COMMISSION_MODES = ['shared', 'new'] as const;
+
+/** How a device is commissioned. */
+export type MatterCommissionMode = (typeof MATTER_COMMISSION_MODES)[number];
+
+/** The network a new device joins, as the Found step's chip says it. */
+export const MATTER_DEVICE_NETWORKS = ['wifi', 'thread'] as const;
+
+/**
+ * What a job that needs an answer asks: whether to add a device with a test certificate; the
+ * Wi-Fi a new device should join, when none is saved; or for Thread to be set up, which is
+ * answered by cancelling.
+ */
+export const MATTER_QUESTIONS = ['test-certificate', 'needs-wifi', 'needs-thread'] as const;
+
+/** What a job that needs an answer asks. */
+export type MatterQuestion = (typeof MATTER_QUESTIONS)[number];
+
+/**
  * How a commissioning goes. `needs-answer` is a job that stopped before the node joined and waits
- * for the owner: a device whose certificate is a test one, added only when they say so.
- * `cancelled` is a job the owner stopped before the device joined.
+ * for the owner: a device whose certificate is a test one, added only when they say so, or a new
+ * device that needs a network. `cancelled` is a job the owner stopped before the device joined.
  */
 export const MATTER_COMMISSIONING_STATES = [
   'running',
@@ -153,12 +183,21 @@ export const MATTER_COMMISSIONING_STEPS = [
 /** One step of a commissioning. */
 export type MatterCommissioningStepId = (typeof MATTER_COMMISSIONING_STEPS)[number];
 
+/**
+ * The steps of a new device's commissioning, in order: looked for over Bluetooth, found (with the
+ * network it joins), given the network, joining it and the fabric, and added to the house.
+ */
+export const MATTER_NEW_DEVICE_STEPS = ['looking', 'found', 'network', 'joining', 'added'] as const;
+
+/** One step of a new device's commissioning. */
+export type MatterNewDeviceStepId = (typeof MATTER_NEW_DEVICE_STEPS)[number];
+
 /** How one step stands. `warning` is the certificate step of a device with a test certificate. */
 export const MATTER_STEP_STATES = ['pending', 'running', 'done', 'warning', 'failed'] as const;
 
 /** One step of a commissioning, and what it found. */
 export const matterCommissioningStepSchema = z.object({
-  id: z.enum(MATTER_COMMISSIONING_STEPS),
+  id: z.enum([...MATTER_COMMISSIONING_STEPS, 'looking', 'network', 'added']),
   state: z.enum(MATTER_STEP_STATES),
 
   /**
@@ -173,6 +212,9 @@ export const matterCommissioningStepSchema = z.object({
       product: z.string().max(256).nullable().default(null),
       vendorId: z.int().min(0).max(65_535).nullable().default(null),
       productId: z.int().min(0).max(65_535).nullable().default(null),
+
+      /** The network a new device found over Bluetooth joins; absent until it is found. */
+      network: z.enum(MATTER_DEVICE_NETWORKS).optional(),
     })
     .default({
       discriminator: null,
@@ -195,6 +237,12 @@ export type MatterCommissioningStep = z.output<typeof matterCommissioningStepSch
 export const matterCommissioningSchema = z.object({
   id: z.string().min(1).max(64),
   state: z.enum(MATTER_COMMISSIONING_STATES),
+
+  /** By a shared code, or a new device over Bluetooth; shared for a hub that does not say. */
+  mode: z.enum(MATTER_COMMISSION_MODES).optional(),
+
+  /** What it asks while it needs an answer; absent otherwise, and from a hub that does not say. */
+  question: z.enum(MATTER_QUESTIONS).optional(),
   startedAt: timestampSchema,
   finishedAt: timestampSchema.nullable(),
 
@@ -213,6 +261,14 @@ export const matterCommissioningSchema = z.object({
 
 /** One commissioning. */
 export type MatterCommissioning = z.output<typeof matterCommissioningSchema>;
+
+/** Why a new device cannot be paired over the server's Bluetooth. */
+export const MATTER_BLE_PROBLEMS = [
+  'no-adapter',
+  'adapter-off',
+  'proxies-only',
+  'desktop',
+] as const;
 
 /** Where the controller stands, as the Brokers page shows it. */
 export const matterStatusSchema = z.object({
@@ -246,6 +302,18 @@ export const matterStatusSchema = z.object({
 
   /** When this hub made the fabric; null for one made before the hub kept the date. */
   fabricCreatedAt: timestampSchema.nullable().default(null),
+
+  /**
+   * Whether a new device can be paired over the server's Bluetooth, and why not: no adapter, the
+   * adapter turned off, only proxies (which cannot connect), or Docker Desktop. Unavailable for a
+   * hub that does not say.
+   */
+  ble: z
+    .object({
+      isAvailable: z.boolean(),
+      reason: z.enum(MATTER_BLE_PROBLEMS).nullable(),
+    })
+    .optional(),
 });
 
 /** Where the controller stands. */
@@ -392,8 +460,14 @@ export const matterNetworkSchema = z.object({
 /** The fabric's network. */
 export type MatterNetwork = z.output<typeof matterNetworkSchema>;
 
-/** Starts commissioning a node. */
-export const matterCommissionRequestSchema = z.object({ code: matterPairingCodeSchema });
+/**
+ * Starts commissioning a node: by a code shared from another app, the default, or a new device
+ * over Bluetooth with the code on its label.
+ */
+export const matterCommissionRequestSchema = z.object({
+  code: matterPairingCodeSchema,
+  mode: z.enum(MATTER_COMMISSION_MODES).default('shared'),
+});
 
 /** Starts commissioning a node. */
 export type MatterCommissionRequest = z.output<typeof matterCommissionRequestSchema>;
@@ -419,13 +493,27 @@ export type MatterRestoreRequest = z.output<typeof matterRestoreRequestSchema>;
 /** Whether it was removed, and is now offered to be added again. */
 export const matterRestoreReplySchema = z.object({ isRestored: z.boolean() });
 
+/** A Wi-Fi network's name, 1 to 32 bytes. */
+const wifiSsidSchema = z.string().min(1).max(32);
+
+/** A Wi-Fi password: WPA's 8 to 63 characters, or 64 hex digits. */
+const wifiPasswordSchema = z.string().min(8).max(64);
+
 /**
  * The owner's answer to the question a commissioning stopped on: add the device with a test
- * certificate anyway, or not.
+ * certificate anyway, or not; or the Wi-Fi a new device should join, kept for the next one when
+ * `isSaved`.
  */
 export const matterAnswerRequestSchema = z.object({
   jobId: z.string().min(1).max(64),
   isAccepted: z.boolean(),
+  wifi: z
+    .object({
+      ssid: wifiSsidSchema,
+      password: wifiPasswordSchema,
+      isSaved: z.boolean().default(false),
+    })
+    .optional(),
 });
 
 /** The owner's answer. */
@@ -436,3 +524,38 @@ export const matterCancelRequestSchema = z.object({ jobId: z.string().min(1).max
 
 /** Asks the controller to close and open again. */
 export const matterRestartRequestSchema = z.object({});
+
+/** The networks a new device is given, as Matter's Settings show them: never the password. */
+export const matterNetworksSchema = z.object({
+  wifi: z.object({
+    ssid: z.string().max(32).nullable(),
+    hasPassword: z.boolean(),
+  }),
+
+  /** The house's Thread network, read-only here; null while Thread is not set up for Matter. */
+  thread: z
+    .object({
+      networkName: z.string().max(16),
+      channel: z.int().min(0).max(255),
+    })
+    .nullable(),
+});
+
+/** The networks a new device is given. */
+export type MatterNetworks = z.output<typeof matterNetworksSchema>;
+
+/**
+ * Saves the Wi-Fi a new device is given: a password left out keeps the one saved; null forgets
+ * the network.
+ */
+export const matterNetworksSaveRequestSchema = z.object({
+  wifi: z
+    .object({
+      ssid: wifiSsidSchema,
+      password: wifiPasswordSchema.optional(),
+    })
+    .nullable(),
+});
+
+/** Saves the Wi-Fi a new device is given. */
+export type MatterNetworksSaveRequest = z.output<typeof matterNetworksSaveRequestSchema>;

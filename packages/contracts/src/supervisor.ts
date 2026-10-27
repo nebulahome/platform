@@ -127,6 +127,12 @@ export const SUPERVISOR_METHODS = {
 
   /** Takes a project down, and forgets it. */
   composeRemove: 'compose_remove',
+
+  /**
+   * Starts, stops or restarts one of the platform's own s6 services that runs only when a broker
+   * needs it - OTBR, once Thread is set up - from a fixed list.
+   */
+  platformService: 'platform_service',
 } as const;
 
 /** How many samples the supervisor keeps per container: a quarter of an hour at ten seconds. */
@@ -560,6 +566,12 @@ export const dockerStatusSchema = z.object({
    * plugin is not installed, and no compose project can be deployed from here.
    */
   composeVersion: z.string().max(64).nullable(),
+
+  /**
+   * Whether Docker runs in Docker Desktop (Windows, macOS), which passes no USB, no Bluetooth and
+   * no host network through; absent from a supervisor that does not say.
+   */
+  isDesktop: z.boolean().optional(),
 });
 
 /** Whether Docker can be reached. */
@@ -735,6 +747,24 @@ export type ContainerControlRequest = z.output<typeof containerControlRequestSch
 
 /** A reply that says only that the call was taken. */
 export const supervisorAcknowledgementSchema = z.object({ ok: z.literal(true) });
+
+/**
+ * The platform's own services `platform_service` may drive: a hard-coded list, because the
+ * supervisor runs `s6-svc` on what it names.
+ */
+export const SUPERVISED_PLATFORM_SERVICES = ['otbr'] as const;
+
+/** What `platform_service` does to one. */
+export const PLATFORM_SERVICE_ACTIONS = ['start', 'stop', 'restart'] as const;
+
+/** `svc.supervisor.platform_service`: answered with {@link supervisorAcknowledgementSchema}. */
+export const platformServiceRequestSchema = z.strictObject({
+  service: z.enum(SUPERVISED_PLATFORM_SERVICES),
+  action: z.enum(PLATFORM_SERVICE_ACTIONS),
+});
+
+/** Which platform service, and what to do to it. */
+export type PlatformServiceRequest = z.output<typeof platformServiceRequestSchema>;
 
 /** A Docker volume's name, as Docker allows it. */
 export const volumeNameSchema = z
