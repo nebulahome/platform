@@ -26,6 +26,7 @@ import {
   imageTagsRequestSchema,
   managedRequestSchema,
   platformReleasesRequestSchema,
+  platformServiceRequestSchema,
   reconcileRequestSchema,
   resyncRequestSchema,
   SUPERVISOR_METHODS,
@@ -36,6 +37,7 @@ import {
 } from '@nebulahome/contracts';
 
 import type { SupervisorService } from './service.js';
+import { controlPlatformService } from './services/platform-services.js';
 
 /** How many reads are served at once. */
 const READ_CONCURRENCY = 8;
@@ -125,6 +127,15 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
 
       return ok;
     }),
+    client.serve(
+      subject(SUPERVISOR_METHODS.platformService),
+      platformServiceRequestSchema,
+      async (request) => {
+        await controlPlatformService(request);
+
+        return ok;
+      },
+    ),
     client.serve(subject(SUPERVISOR_METHODS.checkUpdates), supervisorEmptyRequestSchema, () => {
       service.checkUpdatesNow();
 

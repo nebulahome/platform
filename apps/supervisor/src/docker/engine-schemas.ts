@@ -38,6 +38,9 @@ export const engineInfoSchema = z.looseObject({
   Name: z.string().optional(),
   NCPU: z.number().optional(),
   MemTotal: z.number().optional(),
+
+  /** `Docker Desktop` on Windows and macOS, the host's distribution elsewhere. */
+  OperatingSystem: z.string().optional(),
 });
 
 /** What the engine says about the machine. */

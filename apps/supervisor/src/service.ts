@@ -990,6 +990,7 @@ export class SupervisorService {
         reason: null,
         platformNetwork: null,
         composeVersion: this.#compose.version,
+        isDesktop: info.OperatingSystem?.includes('Docker Desktop') ?? false,
       };
 
       await this.#refresh();
