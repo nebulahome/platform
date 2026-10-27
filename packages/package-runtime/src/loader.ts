@@ -36,9 +36,12 @@ import {
   TRANSPORT_WIRES,
   withModbusEntityIds,
   withPollingField,
+  type BluetoothProxyProfile,
+  type InfraredProfile,
   type IntegrationSetup,
   type ModbusTemplate,
   type TransportWire,
+  type VendorRole,
 } from '@nebulahome/contracts';
 
 import {
@@ -65,6 +68,7 @@ import {
   type DiscoverySource,
   type VendorDiscovery,
 } from './discovery.js';
+import { createInfraredIntegration } from './infrared-mapping.js';
 import { INSTALL_MARKER_FILE, installMarkerSchema, type InstallMarker } from './install-marker.js';
 import type { Integration } from './integration.js';
 import { createMatterIntegration } from './matter-mapping.js';
@@ -124,6 +128,12 @@ export type LoadedBundle = {
 
   /** The template a Modbus driver reads its devices through, every entity with its id. */
   readonly modbusTemplate?: ModbusTemplate;
+
+  /** That its devices are IR blasters, as its profile declares: what they send, and learn. */
+  readonly infrared?: InfraredProfile;
+
+  /** That its devices can be Bluetooth proxies, as its profile declares: how they scan. */
+  readonly bluetoothProxy?: BluetoothProxyProfile;
 };
 
 /**
@@ -182,6 +192,9 @@ export type LoadedVendor = {
 
   /** The wires its devices are reached over, for its card: see {@link wiresOf}. */
   readonly wires: readonly TransportWire[];
+
+  /** What its devices can be for the brokers, for its chips: see {@link vendorRolesOf}. */
+  readonly roles?: readonly VendorRole[];
 
   /** The transports the vendor ships itself, ready to register: `shelly/rpc`. */
   readonly ownTransports: readonly Transport[];
@@ -622,6 +635,24 @@ export function wiresOf(vendor: VendorManifest, transports: readonly string[]): 
 }
 
 /**
+ * What a vendor's devices can be for the platform's brokers: an IR blaster when one of its
+ * drivers' profiles declares `infrared`, a Bluetooth proxy when one declares `bluetoothProxy`.
+ *
+ * @param drivers - Its drivers that loaded.
+ * @returns The roles, each once, in the order the contracts list them.
+ */
+export function vendorRolesOf(
+  drivers: readonly Pick<LoadedBundle, 'infrared' | 'bluetoothProxy'>[],
+): VendorRole[] {
+  return [
+    ...(drivers.some((driver) => driver.infrared !== undefined) ? (['ir-blaster'] as const) : []),
+    ...(drivers.some((driver) => driver.bluetoothProxy !== undefined)
+      ? (['bluetooth-proxy'] as const)
+      : []),
+  ];
+}
+
+/**
  * Reads one driver directory.
  *
  * @param vendor - The vendor it belongs to, already checked.
@@ -675,7 +706,7 @@ async function readDriver(
     return { ...identity, profile };
   }
 
-  if (manifest.kind === 'matter' || manifest.kind === 'mqtt') {
+  if (manifest.kind === 'matter' || manifest.kind === 'mqtt' || manifest.kind === 'infrared') {
     return identity;
   }
 
@@ -738,6 +769,7 @@ function planDiscovery(
     drivers.map((driver) => ({
       id: driver.driverId,
       name: driver.driverName,
+      kind: driver.manifest.kind,
       transport: driver.manifest.transport,
       models: driver.manifest.models,
       modelCodes: driver.manifest.modelCodes,
@@ -969,7 +1001,12 @@ async function instantiateDriver(
   await options.verify?.(driver.manifest, driver.directory);
 
   if (profile !== undefined) {
-    return { ...identity, integration: createDeclarativeIntegration(driver.manifest, profile) };
+    return {
+      ...identity,
+      ...(profile.infrared === undefined ? {} : { infrared: profile.infrared }),
+      ...(profile.bluetoothProxy === undefined ? {} : { bluetoothProxy: profile.bluetoothProxy }),
+      integration: createDeclarativeIntegration(driver.manifest, profile),
+    };
   }
 
   if (driver.manifest.kind === 'matter') {
@@ -982,6 +1019,10 @@ async function instantiateDriver(
 
   if (driver.manifest.kind === 'modbus') {
     return { ...identity, integration: createModbusIntegration(driver.manifest) };
+  }
+
+  if (driver.manifest.kind === 'infrared') {
+    return { ...identity, integration: createInfraredIntegration(driver.manifest) };
   }
 
   const exported = await defaultOf(options.importModule ?? importFile, entry ?? '');
@@ -1215,6 +1256,7 @@ export async function instantiateVendor(
         manifest,
         drivers.map((driver) => driver.manifest.transport),
       ),
+      roles: vendorRolesOf(drivers),
       ownTransports,
       streams,
       drivers,

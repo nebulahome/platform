@@ -35,6 +35,12 @@ describe('BundleSdk', () => {
       openModbus: () => {
         throw new Error('not opened in this test');
       },
+      openSerial: () => Promise.reject(new Error('not opened in this test')),
+      bluetooth: {
+        scanner: () => {
+          throw new Error('not opened in this test');
+        },
+      },
       defineStreamSource,
       defineAccount,
       codecs: { lzma: () => Buffer.alloc(0) },
@@ -99,6 +105,12 @@ describe('BundleSdk.openUdpSocket', () => {
       },
       openModbus: () => {
         throw new Error('not opened in this test');
+      },
+      openSerial: () => Promise.reject(new Error('not opened in this test')),
+      bluetooth: {
+        scanner: () => {
+          throw new Error('not opened in this test');
+        },
       },
       defineStreamSource,
       defineAccount,

@@ -123,6 +123,33 @@ describe('integrationProfileSchema', () => {
   });
 });
 
+describe('integrationProfileSchema roles', () => {
+  it('lets a device say it is an IR blaster, and a Bluetooth proxy', () => {
+    const parsed = integrationProfileSchema.parse({
+      ...relayProfile(),
+      infrared: { signals: ['ir', 'rf'], receives: true },
+      bluetoothProxy: { modes: ['passive', 'active'] },
+    });
+
+    expect(parsed.infrared).toEqual({ signals: ['ir', 'rf'], receives: true });
+    expect(parsed.bluetoothProxy).toEqual({ modes: ['passive', 'active'] });
+    expect(integrationProfileSchema.parse(relayProfile()).infrared).toBeUndefined();
+  });
+
+  it('refuses a blaster that sends radio only, or a proxy without a mode', () => {
+    expect(
+      integrationProfileSchema.safeParse({
+        ...relayProfile(),
+        infrared: { signals: ['rf'], receives: false },
+      }).success,
+    ).toBe(false);
+    expect(
+      integrationProfileSchema.safeParse({ ...relayProfile(), bluetoothProxy: { modes: [] } })
+        .success,
+    ).toBe(false);
+  });
+});
+
 describe('the declarative ceiling', () => {
   it('refuses a profile that iterates over the payload', () => {
     // The line the tier is drawn on: if the number or kind of entity depends on the payload,

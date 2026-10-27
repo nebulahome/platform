@@ -304,6 +304,51 @@ describe('loadBundleDirectory', () => {
     ]);
   });
 
+  it('gives a vendor the roles its profiles declare, and each driver what it declares', async () => {
+    await writeVendor('acme');
+    await write('acme/blaster', {
+      'driver.json': { ...DRIVER, id: 'blaster', name: 'Blaster' },
+      'setup.json': SETUP,
+      'profile.json': {
+        ...PROFILE,
+        infrared: { signals: ['ir'], receives: true },
+        bluetoothProxy: { modes: ['active'] },
+      },
+    });
+
+    const { vendors, failures } = await loadBundleDirectory({ directory: root, ...options() });
+    const [acme] = vendors;
+
+    expect(failures).toEqual([]);
+    expect(acme?.roles).toEqual(['ir-blaster', 'bluetooth-proxy']);
+    expect(acme?.drivers.map(({ driverId, infrared }) => [driverId, infrared ?? null])).toEqual(
+      expect.arrayContaining([
+        ['blaster', { signals: ['ir'], receives: true }],
+        ['relay', null],
+      ]),
+    );
+  });
+
+  it('runs a driver of kind infrared as the platform’s remote, with no file of its own', async () => {
+    await write('acme', { 'manifest.json': VENDOR });
+    await write('acme/remote', {
+      'driver.json': {
+        id: 'remote',
+        name: 'Remote',
+        transport: 'infrared',
+        kind: 'infrared',
+        setup: './setup.json',
+      },
+      'setup.json': SETUP,
+    });
+
+    const { vendors, failures } = await loadBundleDirectory({ directory: root, ...options() });
+
+    expect(failures).toEqual([]);
+    expect(vendors[0]?.roles).toEqual([]);
+    expect(vendors[0]?.drivers[0]?.integration.transport).toBe('infrared');
+  });
+
   it('builds the transports a vendor ships with the SDK it is handed', async () => {
     await writeVendor('acme', { ...VENDOR, transports: { wire: './wire.js' } });
     await write('acme', { 'wire.js': TRANSPORT });

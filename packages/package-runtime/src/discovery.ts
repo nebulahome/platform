@@ -30,6 +30,7 @@
 import { z } from 'zod';
 
 import {
+  BLUETOOTH_TRANSPORT,
   DEVICE_ADOPTIONS,
   jsonObjectSchema,
   MATTER_TRANSPORT,
@@ -38,7 +39,9 @@ import {
   MQTT_HOUSE_TRANSPORT,
   normalizeMac,
   transportIdSchema,
+  type BluetoothAdvert,
   type JsonObject,
+  type SerialUsb,
 } from '@nebulahome/contracts';
 
 import type { AccountHandle } from './account.js';
@@ -211,24 +214,70 @@ export const modbusDiscoverySchema = brokerDiscoverySchema('values.model').exten
     .default({}),
 });
 
+/**
+ * Which of the serial ports the server sees are the vendor's: rules on the USB strings its adapter
+ * gives (a {@link SerialSighting}) - `vendorId` and `productId`, four lower-case hex digits
+ * (`10c4`, `ea60`), `manufacturer`, `product` and `serialNumber`; the model is `product` unless
+ * said, in the drivers that say `"kind": "serial"`.
+ *
+ * A port the rules take is suggested for the vendor - "Use with …?" - and never taken on its own:
+ * the owner says which device it is.
+ */
+export const serialDiscoverySchema = brokerDiscoverySchema('product');
+
+/**
+ * Which of the devices the house's Bluetooth hears are the vendor's: rules on one advertisement (a
+ * {@link BluetoothSighting}) - its `name`; `manufacturerData.'<company id>'`, the id in decimal,
+ * that `exists` or `startsWith` the data's first bytes in hex; `serviceUuids`, which `contains` a
+ * UUID in lower case; `serviceData.'<uuid>'`, that `exists`. The model is `name` unless said, in
+ * the drivers on the `bluetooth` transport.
+ *
+ * A device the rules take is listed as found for the vendor, and added only by the owner: what a
+ * neighbour's sensor advertises is heard as well as the house's own.
+ */
+export const bluetoothDiscoverySchema = brokerDiscoverySchema('name');
+
 /** Which of a broker's devices are the vendor's. */
 export type BrokerDiscovery = z.output<typeof matterDiscoverySchema>;
 
 /** Which of the Modbus servers found are the vendor's. */
 export type ModbusDiscovery = z.output<typeof modbusDiscoverySchema>;
 
-/** The platform's brokers a vendor may take devices of, and the transport each reaches them on. */
+/** What a vendor's `serial` rules read of a port: the USB strings its adapter gives. */
+export type SerialSighting = SerialUsb;
+
+/** What a vendor's `bluetooth` rules read: one advertisement a scanner heard. */
+export type BluetoothSighting = BluetoothAdvert;
+
+/**
+ * The platform's brokers a vendor may take devices of, and the transport each reaches them on.
+ * Serial has none of its own: its devices are reached over their vendor's transport, through the
+ * port the broker hands it, so its drivers are the ones that say `"kind": "serial"`.
+ */
 export const BROKER_TRANSPORTS = {
   matter: MATTER_TRANSPORT,
   mqtt: MQTT_HOUSE_TRANSPORT,
   modbus: MODBUS_TRANSPORT,
+  bluetooth: BLUETOOTH_TRANSPORT,
 } as const;
 
 /** Where each broker's device says its model, when the vendor's block does not say. */
-const BROKER_MODELS = { matter: 'productId', mqtt: 'model', modbus: 'values.model' } as const;
+const BROKER_MODELS = {
+  matter: 'productId',
+  mqtt: 'model',
+  modbus: 'values.model',
+  serial: 'product',
+  bluetooth: 'name',
+} as const;
 
-/** One of the platform's brokers. */
-export type BrokerSource = keyof typeof BROKER_TRANSPORTS;
+/** One of the platform's brokers whose devices discovery adds as it hears them. */
+export type BrokerSource = 'matter' | 'mqtt' | 'modbus';
+
+/**
+ * One of the platform's brokers a vendor's rules name devices of: those, and the serial ports and
+ * Bluetooth devices the Serial and Bluetooth brokers propose to the owner.
+ */
+export type RuleSource = BrokerSource | 'serial' | 'bluetooth';
 
 /** Validates a whole `discovery.json`. */
 export const vendorDiscoverySchema = z
@@ -245,6 +294,8 @@ export const vendorDiscoverySchema = z
     matter: matterDiscoverySchema.optional(),
     mqtt: mqttDiscoverySchema.optional(),
     modbus: modbusDiscoverySchema.optional(),
+    serial: serialDiscoverySchema.optional(),
+    bluetooth: bluetoothDiscoverySchema.optional(),
 
     /**
      * Who adds a device found. `owner` - the default - proposes it on the vendor's
@@ -274,13 +325,15 @@ export const vendorDiscoverySchema = z
       discovery.listen.length === 0 &&
       discovery.matter === undefined &&
       discovery.mqtt === undefined &&
-      discovery.modbus === undefined
+      discovery.modbus === undefined &&
+      discovery.serial === undefined &&
+      discovery.bluetooth === undefined
     ) {
       ctx.addIssue({
         code: 'custom',
         path: ['listen'],
         message:
-          'A vendor listens somewhere, or says which Matter, MQTT or Modbus devices are its own, or both',
+          'A vendor listens somewhere, or says which Matter, MQTT, Modbus, serial or Bluetooth devices are its own, or both',
       });
     }
 
@@ -308,6 +361,9 @@ export type DiscoveryDriver = {
 
   /** The driver's own name, offered as its one model when it lists none. */
   readonly name: string;
+
+  /** How it is written: a `serial` driver takes the ports the Serial broker proposes. */
+  readonly kind?: string;
 
   /**
    * What reaches its devices. A driver on a broker's transport - `matter`, `mqtt-house` - takes
@@ -507,7 +563,9 @@ export function associateModel(
 ): Association | null {
   const brokers: readonly string[] = Object.values(BROKER_TRANSPORTS);
   const reached = new Set(
-    plan.drivers.filter((driver) => !brokers.includes(driver.transport)).map(({ id }) => id),
+    plan.drivers
+      .filter((driver) => !brokers.includes(driver.transport) && driver.kind !== 'serial')
+      .map(({ id }) => id),
   );
   const coded =
     modelCode === null
@@ -560,15 +618,11 @@ export function associateModel(
  * Whether a device of one of the platform's brokers is the vendor's, by the rules of its block.
  *
  * @param plan - The vendor's discovery.
- * @param broker - Which broker holds the device: `matter`, `mqtt`.
+ * @param broker - Which broker holds the device: `matter`, `mqtt`, `serial`.
  * @param identity - Who the device says it is.
  * @returns True when the vendor has the broker's block and every one of its conditions holds.
  */
-export function matchesBroker(
-  plan: DiscoveryPlan,
-  broker: BrokerSource,
-  identity: unknown,
-): boolean {
+export function matchesBroker(plan: DiscoveryPlan, broker: RuleSource, identity: unknown): boolean {
   return (
     plan.discovery[broker]?.match.every((condition) => conditionHolds(condition, identity)) ?? false
   );
@@ -579,19 +633,22 @@ export function matchesBroker(
  * model.
  *
  * The model the device says is looked up in the `modelCodes` of the vendor's drivers on that
- * broker's transport; one it does not map goes to the vendor's driver there when it has only one.
+ * broker's transport - for serial, its drivers of kind `serial` - and one it does not map goes to
+ * the vendor's driver there when it has only one.
  *
  * @param plan - The vendor's discovery.
- * @param broker - Which broker holds the device: `matter`, `mqtt`.
+ * @param broker - Which broker holds the device: `matter`, `mqtt`, `serial`.
  * @param identity - Who the device says it is.
  * @returns The association, or null when no driver of the vendor on the broker takes it.
  */
 export function associateBroker(
   plan: DiscoveryPlan,
-  broker: BrokerSource,
+  broker: RuleSource,
   identity: unknown,
 ): Association | null {
-  const drivers = plan.drivers.filter((driver) => driver.transport === BROKER_TRANSPORTS[broker]);
+  const drivers = plan.drivers.filter((driver) =>
+    broker === 'serial' ? driver.kind === 'serial' : driver.transport === BROKER_TRANSPORTS[broker],
+  );
   const modelCode = textAt(identity, plan.discovery[broker]?.model ?? BROKER_MODELS[broker]);
   const coded =
     modelCode === null

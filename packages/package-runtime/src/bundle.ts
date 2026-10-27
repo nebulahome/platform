@@ -23,13 +23,16 @@
 import { z } from 'zod';
 
 import {
+  BLUETOOTH_TRANSPORT,
   iconIdSchema,
+  INFRARED_TRANSPORT,
   INTEGRATION_KIND_PATTERN,
   MATTER_TRANSPORT,
   MODBUS_TRANSPORT,
   MQTT_HOUSE_TRANSPORT,
   packageRequiresSchema,
   SEMVER_PATTERN,
+  serialLineSchema,
   TRANSPORT_WIRES,
   transportIdSchema,
   TWIN_FACTS,
@@ -39,18 +42,36 @@ import {
 import { containerDependenciesSchema } from './containers.js';
 
 /**
- * Bundle kind, which is both how it is written and how far it is trusted. `matter`, `mqtt` and
- * `modbus` are drivers one of the platform's broker mappings runs: no profile and no code, so as
- * far trusted as a profile. A `modbus` driver names its template, which the mapping reads.
+ * Bundle kind, which is both how it is written and how far it is trusted. `matter`, `mqtt`,
+ * `modbus` and `infrared` are drivers one of the platform's broker mappings runs: no profile and
+ * no code, so as far trusted as a profile. A `modbus` driver names its template, which the
+ * mapping reads; `infrared` is the platform's own remote, whose buttons come with the device.
+ *
+ * `serial` and `bluetooth` are code drivers, trusted as code is: a `serial` one says how its port
+ * is spoken unless the owner says otherwise, and a `bluetooth` one runs on the platform's
+ * `bluetooth` transport, its devices the addresses the house hears.
  */
-export const BUNDLE_KINDS = ['declarative', 'code', 'matter', 'mqtt', 'modbus'] as const;
+export const BUNDLE_KINDS = [
+  'declarative',
+  'code',
+  'matter',
+  'mqtt',
+  'modbus',
+  'infrared',
+  'serial',
+  'bluetooth',
+] as const;
 
 /** The transport each kind the platform's mappings run is reached on. */
 const MAPPED_KINDS: Readonly<Record<string, string>> = {
   matter: MATTER_TRANSPORT,
   mqtt: MQTT_HOUSE_TRANSPORT,
   modbus: MODBUS_TRANSPORT,
+  infrared: INFRARED_TRANSPORT,
 };
+
+/** The transport a code kind is bound to, for the kinds that are. */
+const BOUND_CODE_KINDS: Readonly<Record<string, string>> = { bluetooth: BLUETOOTH_TRANSPORT };
 
 /** Bundle kind, which is both how it is written and how far it is trusted. */
 export type BundleKind = (typeof BUNDLE_KINDS)[number];
@@ -335,6 +356,13 @@ const driverShape = {
   template: bundlePathSchema.optional(),
 
   /**
+   * How the port is spoken unless the owner says otherwise: `{ "baudRate": 2400 }`, 8N1 and no
+   * flow control unless said. Serial drivers only, and required of them: the device dialog
+   * preselects it beside the port.
+   */
+  serial: serialLineSchema.optional(),
+
+  /**
    * Path to `setup.json`, relative to the driver: what setting up an instance asks.
    *
    * Required of every driver, declarative or code. Without it the interface has no form to
@@ -350,6 +378,7 @@ type KindFiles = {
   readonly profile?: string | undefined;
   readonly entry?: string | undefined;
   readonly template?: string | undefined;
+  readonly serial?: object | undefined;
 };
 
 /**
@@ -374,6 +403,32 @@ function checkKindFiles(manifest: KindFiles, ctx: z.RefinementCtx): void {
       code: 'custom',
       path: ['template'],
       message: `A ${manifest.kind} driver must not name a template`,
+    });
+  }
+
+  if (manifest.kind === 'serial' && manifest.serial === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['serial'],
+      message: 'A serial driver must say how its port is spoken: { "baudRate": … }',
+    });
+  }
+
+  if (manifest.kind !== 'serial' && manifest.serial !== undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['serial'],
+      message: `A ${manifest.kind} driver has no port to speak`,
+    });
+  }
+
+  const bound = BOUND_CODE_KINDS[manifest.kind];
+
+  if (bound !== undefined && manifest.transport !== bound) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['transport'],
+      message: `A ${manifest.kind} driver runs on the ${bound} transport`,
     });
   }
 
@@ -582,6 +637,7 @@ export function resolveManifest(vendor: VendorManifest, driver: DriverManifest):
     ...(driver.profile === undefined ? {} : { profile: driver.profile }),
     ...(driver.entry === undefined ? {} : { entry: driver.entry }),
     ...(driver.template === undefined ? {} : { template: driver.template }),
+    ...(driver.serial === undefined ? {} : { serial: driver.serial }),
     setup: driver.setup,
   };
 }

@@ -227,6 +227,44 @@ describe('driverManifestSchema', () => {
     ).toBe(false);
   });
 
+  it('runs the platform’s remotes on the infrared transport, with neither a profile nor code', () => {
+    const infrared: Record<string, unknown> = {
+      ...driver(),
+      kind: 'infrared',
+      transport: 'infrared',
+    };
+    delete infrared['entry'];
+
+    expect(driverManifestSchema.safeParse(infrared).success).toBe(true);
+    expect(driverManifestSchema.safeParse({ ...infrared, transport: 'http' }).success).toBe(false);
+  });
+
+  it('runs a serial driver as code, saying how its port is spoken: 8N1 unless said', () => {
+    const serial = { ...driver(), kind: 'serial', serial: { baudRate: 2400 } };
+    const parsed = driverManifestSchema.safeParse(serial);
+
+    expect(parsed.data?.serial).toEqual({
+      baudRate: 2400,
+      dataBits: 8,
+      parity: 'none',
+      stopBits: 1,
+      flowControl: 'none',
+    });
+    expect(driverManifestSchema.safeParse({ ...serial, serial: undefined }).success).toBe(false);
+    expect(driverManifestSchema.safeParse({ ...serial, entry: undefined }).success).toBe(false);
+    expect(
+      driverManifestSchema.safeParse({ ...driver(), serial: { baudRate: 9600 } }).success,
+    ).toBe(false);
+  });
+
+  it('runs a bluetooth driver as code on the bluetooth transport', () => {
+    const bluetooth = { ...driver(), kind: 'bluetooth', transport: 'bluetooth' };
+
+    expect(driverManifestSchema.safeParse(bluetooth).success).toBe(true);
+    expect(driverManifestSchema.safeParse({ ...bluetooth, transport: 'http' }).success).toBe(false);
+    expect(driverManifestSchema.safeParse({ ...bluetooth, entry: undefined }).success).toBe(false);
+  });
+
   it('requires a profile from a declarative driver', () => {
     expect(
       driverManifestSchema.safeParse({ ...driver(), kind: 'declarative', entry: undefined })

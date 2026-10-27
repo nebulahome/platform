@@ -14,8 +14,14 @@
  * The UDP socket is here for the protocols that are datagrams - a Govee light answering a
  * multicast scan, a Broadlink blaster - and for the same reason: the hub binds it, joins the group
  * and closes it when the vendor is unloaded, so a bundle cannot leave a port held behind it.
+ *
+ * A serial port and a Bluetooth proxy's scanner go through the hub's brokers in the same spirit: a
+ * port has exactly one holder, which only the Serial broker can tell, and what a proxy hears is the
+ * whole house's, which only the Bluetooth broker puts together.
  */
 import type { z } from 'zod';
+
+import type { BluetoothAdvertInput, SerialLineInput } from '@nebulahome/contracts';
 
 import type { defineAccount } from './account.js';
 import type { Integration } from './integration.js';
@@ -305,6 +311,84 @@ export type ModbusSession = {
 export type OpenModbus = (server: ModbusServerOptions) => ModbusSession;
 
 /**
+ * A serial port held through the Serial broker, which gives every port exactly one holder: bytes
+ * as they come, and bytes to send.
+ *
+ * Once the port is gone - unplugged, closed by the owner from the Brokers page - `onClose` is
+ * called and nothing more arrives; a write then rejects with an error whose `name` is
+ * `SerialClosed`.
+ */
+export type SerialSession = {
+  /**
+   * Sends bytes, resolving once the port took them.
+   *
+   * @throws {Error} `SerialClosed` once the session is closed.
+   */
+  write: (bytes: Uint8Array) => Promise<void>;
+
+  /**
+   * Hears every chunk the port reads, in order, as it arrives: a chunk is not a message, so a
+   * protocol framed by lines or lengths puts the chunks together itself.
+   *
+   * @returns Stops hearing.
+   */
+  onData: (listener: (bytes: Uint8Array) => void) => () => void;
+
+  /**
+   * Hears the port go: unplugged, taken back by the owner, or closed here. Called once.
+   *
+   * @returns Stops hearing.
+   */
+  onClose: (listener: (reason: string) => void) => () => void;
+
+  /** Lets go of the port, so another holder may open it. */
+  close: () => Promise<void>;
+};
+
+/**
+ * Opens a serial port the device holds - the `portId` and `line` its config's `serial` block
+ * carries, as the owner picked them when adding it - through the Serial broker.
+ *
+ * Rejects with an error whose `name` says why: `SerialPortHeld` - another device, a broker, the
+ * console or a container holds it - or `SerialPortMissing` - no such port, or it is not plugged in.
+ */
+export type OpenSerial = (portId: string, line: SerialLineInput) => Promise<SerialSession>;
+
+/** Which proxy is reporting: the device it is, as its connection names it. */
+export type BluetoothScannerOptions = {
+  /** The connection the proxy is reached over: its transport's connection key. */
+  readonly key: string;
+
+  /** The proxy itself, as that connection names its devices. */
+  readonly deviceKey: string;
+};
+
+/**
+ * A Bluetooth proxy's channel to the Bluetooth broker: what it hears goes in here, and the house
+ * sees it as heard by that proxy.
+ */
+export type BluetoothScanner = {
+  /**
+   * Reports advertisements heard - addresses, how loud, what each carries. The broker checks each
+   * and drops one that does not hold; reporting the same one again is how a proxy says it still
+   * hears it.
+   */
+  report: (adverts: readonly BluetoothAdvertInput[]) => void;
+
+  /** Stops reporting: the proxy is no longer one, or its connection went. */
+  close: () => void;
+};
+
+/** The house's Bluetooth, as a vendor whose devices can be proxies reaches it. */
+export type BundleBluetooth = {
+  /**
+   * Opens a proxy's scanner, for a device whose profile declares `bluetoothProxy`. One per proxy:
+   * opening it again replaces the first.
+   */
+  readonly scanner: (options: BluetoothScannerOptions) => BluetoothScanner;
+};
+
+/**
  * The house's MQTT broker, as the hub reaches it: the one the hub runs, with the hub's own
  * username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: a session
  * opened while the broker is still coming up retries until it listens.
@@ -382,6 +466,12 @@ export type BundleSdk = {
   /** A session to a Modbus server, through the hub's one connection to it. */
   readonly openModbus: OpenModbus;
 
+  /** A serial port a device of the vendor holds, through the Serial broker. */
+  readonly openSerial: OpenSerial;
+
+  /** The house's Bluetooth, for a vendor whose devices are proxies. */
+  readonly bluetooth: BundleBluetooth;
+
   /** How a camera's stream source is written, as defineTransport is for a transport. */
   readonly defineStreamSource: typeof defineStreamSource;
 
@@ -400,6 +490,12 @@ export type BundleSdk = {
   /** Drawing pictures, for an image entity. */
   readonly images: BundleImages;
 };
+
+/**
+ * The ops the hub sends a device that plays a role for a broker, over its instance's connection:
+ * reserved, so an integration uses these names for nothing else.
+ */
+export { BLUETOOTH_GATT_OPS, BLUETOOTH_PROXY_OPS, INFRARED_OPS } from '@nebulahome/contracts';
 
 /** What a transport module default-exports. */
 export type TransportFactory = (sdk: BundleSdk) => Transport;

@@ -24,6 +24,7 @@
 import { z } from 'zod';
 
 import {
+  bluetoothProxyProfileSchema,
   CAPABILITIES,
   CAPABILITY_DEFINITIONS,
   ENTITY_DOMAINS,
@@ -32,6 +33,7 @@ import {
   declaredCapabilitiesSchema,
   entityLinkHintSchema,
   iconIdSchema,
+  infraredProfileSchema,
   jsonObjectSchema,
   type CapabilityName,
   IMAGE_CONTENT_TYPES,
@@ -446,6 +448,20 @@ export const integrationProfileSchema = z.strictObject({
 
   /** At least one: a profile that declares no entity describes nothing. */
   entities: z.array(entityProfileSchema).min(1),
+
+  /**
+   * That the device is an IR blaster the Infrared broker sends remotes' codes through: the
+   * signals it sends, and whether it can learn. Its integration answers the reserved
+   * `infrared.*` ops over the device's connection.
+   */
+  infrared: infraredProfileSchema.optional(),
+
+  /**
+   * That the device can be a Bluetooth proxy, listening for the house: the scan modes it runs.
+   * Its integration answers the reserved `bluetooth-proxy.*` ops and reports what it hears through
+   * the SDK's scanner.
+   */
+  bluetoothProxy: bluetoothProxyProfileSchema.optional(),
 });
 
 /** The whole of a declarative bundle. */

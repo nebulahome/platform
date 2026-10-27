@@ -593,3 +593,114 @@ describe('servers the house’s Modbus client finds', () => {
     });
   });
 });
+
+describe('ports the house’s serial broker sees', () => {
+  /** A vendor that knows its UPSes by the USB strings of their cable. */
+  const plan = resolveDiscovery(
+    'acme-ups',
+    vendorDiscoverySchema.parse({
+      serial: {
+        match: [
+          { path: 'vendorId', equals: '0665' },
+          { path: 'product', startsWith: 'USB to Serial' },
+        ],
+      },
+    }),
+    [
+      { id: 'ups', name: 'UPS', kind: 'serial', transport: 'acme-ups/line', models: [] },
+      { id: 'cloud', name: 'Cloud', kind: 'code', transport: 'http', models: [] },
+    ],
+  );
+  const port = {
+    vendorId: '0665',
+    productId: '5161',
+    serialNumber: null,
+    manufacturer: 'INNO TECH',
+    product: 'USB to Serial',
+  };
+
+  it('reads the model from `product` unless said', () => {
+    expect(plan.discovery.serial?.model).toBe('product');
+  });
+
+  it('takes a port whose USB strings every rule holds of, for the vendor’s serial driver', () => {
+    expect(matchesBroker(plan, 'serial', port)).toBe(true);
+    expect(matchesBroker(plan, 'serial', { ...port, vendorId: '10c4' })).toBe(false);
+    expect(associateBroker(plan, 'serial', port)).toEqual({
+      driverId: 'ups',
+      model: 'UPS',
+      modelChoices: ['UPS'],
+    });
+  });
+
+  it('never proposes a serial driver for a device announced on the network', () => {
+    expect(associateModel(plan, null, (driverId) => driverId === 'ups')).toBeNull();
+  });
+});
+
+describe('devices the house’s Bluetooth hears', () => {
+  /** A vendor that knows its tags by their maker's data, and its sensors by their service. */
+  const plan = resolveDiscovery(
+    'acme-ble',
+    vendorDiscoverySchema.parse({
+      bluetooth: {
+        match: [{ path: "manufacturerData.'2985'", startsWith: '0A' }],
+      },
+    }),
+    [
+      {
+        id: 'tag',
+        name: 'Tag',
+        kind: 'bluetooth',
+        transport: 'bluetooth',
+        models: ['Tag', 'Tag Pro'],
+        modelCodes: { 'ACME Tag Pro': 'Tag Pro' },
+      },
+    ],
+  );
+  const advert = {
+    address: 'AA:BB:CC:DD:EE:FF',
+    addressType: 'random',
+    rssi: -60,
+    name: 'ACME Tag Pro',
+    manufacturerData: { '2985': '0a01ff' },
+    serviceUuids: ['fcd2'],
+    at: '2026-10-27T10:00:00.000Z',
+  };
+
+  it('reads the model from `name` unless said', () => {
+    expect(plan.discovery.bluetooth?.model).toBe('name');
+  });
+
+  it('takes an advertisement by its maker’s data, the driver by the name it gives', () => {
+    expect(matchesBroker(plan, 'bluetooth', advert)).toBe(true);
+    expect(
+      matchesBroker(plan, 'bluetooth', { ...advert, manufacturerData: { '2985': '0b01' } }),
+    ).toBe(false);
+    expect(associateBroker(plan, 'bluetooth', advert)).toEqual({
+      driverId: 'tag',
+      model: 'Tag Pro',
+      modelChoices: ['Tag Pro'],
+    });
+  });
+
+  it('reads service UUIDs and service data as rules', () => {
+    const bthome = resolveDiscovery(
+      'acme-ble',
+      vendorDiscoverySchema.parse({
+        bluetooth: {
+          match: [
+            { path: 'serviceUuids', contains: 'fcd2' },
+            { path: "serviceData.'fcd2'", exists: true },
+          ],
+        },
+      }),
+      [],
+    );
+
+    expect(matchesBroker(bthome, 'bluetooth', { ...advert, serviceData: { fcd2: '40' } })).toBe(
+      true,
+    );
+    expect(matchesBroker(bthome, 'bluetooth', advert)).toBe(false);
+  });
+});
