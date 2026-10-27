@@ -93,6 +93,40 @@ export function freeName(taken: readonly string[]): string {
 }
 
 /**
+ * Lets a parameter being dragged land only in the address or the body (`data-parameter-drop`):
+ * left alone, the browser would drop its text into any field it is let go over.
+ */
+function dropOnlyIntoTemplates(): void {
+  /**
+   * Refuses the drag anywhere else.
+   *
+   * @param event - The drag over or the drop.
+   */
+  const refuse = (event: DragEvent): void => {
+    if (event.target instanceof Element && event.target.closest('[data-parameter-drop]') !== null) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (event.dataTransfer !== null) {
+      event.dataTransfer.dropEffect = 'none';
+    }
+  };
+
+  /** Lets drags be again, once this one is over. */
+  const stop = (): void => {
+    document.removeEventListener('dragover', refuse, true);
+    document.removeEventListener('drop', refuse, true);
+    document.removeEventListener('dragend', stop, true);
+  };
+
+  document.addEventListener('dragover', refuse, true);
+  document.addEventListener('drop', refuse, true);
+  document.addEventListener('dragend', stop, true);
+}
+
+/**
  * Whether a header is the one kept secret.
  *
  * @param header - The header.
@@ -200,19 +234,21 @@ export function HttpRequestFields(props: {
             onChange({ ...action, method: method as HttpMethod });
           }}
         />
-        <AliasFormulaField
-          label={t('library.httpRequestFields.address', 'Address')}
-          isLabelHidden
-          required
-          minRows={1}
-          placeholder={URL_EXAMPLE}
-          paint={templateSegments}
-          sources={sources}
-          value={action.url}
-          onChange={(url) => {
-            onChange({ ...action, url: url.replaceAll(/[\r\n]/gu, '') });
-          }}
-        />
+        <div data-parameter-drop>
+          <AliasFormulaField
+            label={t('library.httpRequestFields.address', 'Address')}
+            isLabelHidden
+            required
+            minRows={1}
+            placeholder={URL_EXAMPLE}
+            paint={templateSegments}
+            sources={sources}
+            value={action.url}
+            onChange={(url) => {
+              onChange({ ...action, url: url.replaceAll(/[\r\n]/gu, '') });
+            }}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -248,16 +284,17 @@ export function HttpRequestFields(props: {
                   draggable
                   title={t(
                     'library.httpRequestFields.dragIntoText',
-                    'Drag into the address, the body or a header',
+                    'Drag into the address or the body',
                   )}
                   className={cn(
                     'absolute inset-y-0 left-1.5 z-10 flex cursor-grab items-center active:cursor-grabbing',
                     VARIABLE_TEXT[sources[index]?.color ?? 'blue'],
                   )}
                   onDragStart={(event) => {
-                    // The browser drops the text where it is let go in any field and tells React.
+                    // The browser drops the text where it is let go and tells React.
                     event.dataTransfer.setData('text/plain', `{{ ${name} }}`);
                     event.dataTransfer.effectAllowed = 'copy';
+                    dropOnlyIntoTemplates();
 
                     if (event.currentTarget.parentElement !== null) {
                       event.dataTransfer.setDragImage(event.currentTarget.parentElement, 12, 12);
@@ -476,22 +513,24 @@ export function HttpRequestFields(props: {
             ) : null}
           </div>
           {body.kind === 'none' ? null : (
-            <AliasFormulaField
-              label={t('library.httpRequestFields.body', 'Body')}
-              isLabelHidden
-              minRows={4}
-              placeholder={body.kind === 'json' ? BODY_EXAMPLE : ''}
-              paint={templateSegments}
-              sources={sources}
-              value={body.text}
-              hint={t(
-                'library.httpRequestFields.bodyHint',
-                'Format tidies the indentation. Parameters are sent as numbers, text or true/false, as the entity reports them.',
-              )}
-              onChange={(text) => {
-                setBody({ text });
-              }}
-            />
+            <div data-parameter-drop>
+              <AliasFormulaField
+                label={t('library.httpRequestFields.body', 'Body')}
+                isLabelHidden
+                minRows={4}
+                placeholder={body.kind === 'json' ? BODY_EXAMPLE : ''}
+                paint={templateSegments}
+                sources={sources}
+                value={body.text}
+                hint={t(
+                  'library.httpRequestFields.bodyHint',
+                  'Format tidies the indentation. Parameters are sent as numbers, text or true/false, as the entity reports them.',
+                )}
+                onChange={(text) => {
+                  setBody({ text });
+                }}
+              />
+            </div>
           )}
         </div>
       ) : null}

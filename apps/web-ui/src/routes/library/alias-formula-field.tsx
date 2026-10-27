@@ -75,7 +75,7 @@ const KIND_CLASSES: Readonly<Record<Exclude<AliasSpanKind, 'ident'>, string>> = 
  * transparent border of the same width; the visible one is the frame's.
  */
 const LAYER =
-  'block w-full border border-transparent px-3.5 py-2.5 font-mono text-ui whitespace-pre-wrap break-words';
+  'block w-full border border-transparent px-3.5 font-mono text-ui whitespace-pre-wrap break-words';
 
 /** One source colour the formula can paint. */
 export type FormulaSourceColor = {
@@ -222,6 +222,8 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
   );
   const segments = paint(value, colors);
   const lines = value.split('\n').length;
+  // One line is as tall as the fields beside it (`h-control-field`).
+  const padding = minRows === 1 ? 'py-1.75' : 'py-2.5';
 
   // Where each segment starts in the text: unique, and what React keys the painted spans by.
   const starts = segments.map((segment, index) =>
@@ -261,6 +263,7 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
               aria-hidden="true"
               className={cn(
                 LAYER,
+                padding,
                 'pointer-events-none absolute inset-0 overflow-hidden text-foreground',
               )}
             >
@@ -284,6 +287,7 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
               value={value}
               className={cn(
                 LAYER,
+                padding,
                 'relative resize-none overflow-y-auto bg-transparent',
                 minRows >= 3 ? 'min-h-24' : undefined,
                 'text-transparent caret-foreground placeholder:text-foreground-disabled',

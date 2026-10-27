@@ -4004,7 +4004,7 @@
       "address": "Indirizzo",
       "body": "Corpo",
       "bodyHint": "Formatta sistema il rientro. I parametri sono inviati come numeri, testo o true/false, come li riporta l'entità.",
-      "dragIntoText": "Trascina nell'indirizzo, nel corpo o in un header",
+      "dragIntoText": "Trascina nell'indirizzo o nel corpo",
       "entity": "Entità",
       "entityForName": "Entità per {{name}}",
       "form": "Modulo",

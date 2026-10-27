@@ -242,7 +242,9 @@ export type BlockUi = {
  */
 export function useBlockUi(id: string, isOpenAtFirst: boolean): BlockUi {
   const store = useBlockUiStore();
-  const isOpen = store.isOpen(id, isOpenAtFirst);
+  // Only at first: a block filled in while open stays open rather than shutting under the hand.
+  const [startsOpen] = useState(isOpenAtFirst);
+  const isOpen = store.isOpen(id, startsOpen);
   const version = store.version();
 
   return useMemo(
