@@ -21,6 +21,7 @@ describe('resolveDataLayout', () => {
       integrations: path.join(root, 'hub', 'integrations'),
       matter: path.join(root, 'hub', 'matter'),
       mqtt: path.join(root, 'hub', 'mqtt'),
+      thread: path.join(root, 'hub', 'thread'),
       proxyTls: path.join(root, 'proxy', 'tls'),
       packages: path.join(root, 'packages'),
       containers: path.join(root, 'containers'),

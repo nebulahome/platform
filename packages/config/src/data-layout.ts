@@ -10,6 +10,7 @@
  * ```
  * <NEBULA_DATA_DIR>/
  * ├── hub/integrations/<vendor>/   installed integration bundles
+ * ├── hub/thread/                  the border router's otbr.conf, which `hub` writes
  * ├── proxy/tls/                   certificates and the ACME account key
  * ├── packages/<id>/               one per installed feature package
  * ├── containers/<id>/<volume>/    the volumes of the containers integrations run
@@ -33,6 +34,13 @@ export const INTEGRATIONS_DIRECTORY = 'integrations';
 
 /** The house's Matter fabric - its keys and its nodes - under the folder of `hub`. */
 export const MATTER_DIRECTORY = 'matter';
+
+/**
+ * The platform's border router - `otbr.conf`, its radio and network interface - under the folder
+ * of `hub`, which writes it; the `otbr` service, as root, reads it. Thread's own data, its network
+ * key among it, is root's and lives apart.
+ */
+export const THREAD_DIRECTORY = 'thread';
 
 /**
  * The house's MQTT broker - its retained messages, its usernames, the owner's mappings and
@@ -130,6 +138,9 @@ export type DataLayout = {
   /** The house's MQTT broker, which `hub` runs. */
   readonly mqtt: string;
 
+  /** The configuration of the platform's border router, which `hub` writes. */
+  readonly thread: string;
+
   /** The certificates `proxy` serves and the ACME account key. */
   readonly proxyTls: string;
 
@@ -173,6 +184,7 @@ export function resolveDataLayout(config: {
     integrations: path.join(root, HUB_DIRECTORY, INTEGRATIONS_DIRECTORY),
     matter: path.join(root, HUB_DIRECTORY, MATTER_DIRECTORY),
     mqtt: path.join(root, HUB_DIRECTORY, MQTT_DIRECTORY),
+    thread: path.join(root, HUB_DIRECTORY, THREAD_DIRECTORY),
     proxyTls: path.join(root, PROXY_DIRECTORY, TLS_DIRECTORY),
     packages: path.join(root, PACKAGES_DIRECTORY),
     containers: path.join(root, CONTAINERS_DIRECTORY),
