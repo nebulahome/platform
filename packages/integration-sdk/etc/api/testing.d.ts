@@ -1,4 +1,4 @@
-import { C as TransportSubscription, D as CapabilityState, E as CapabilityName, S as TransportRequest, T as JsonObject, _ as Claim, a as LoadedListenSource, b as ReportedState, c as SightingIdentity, d as ManagedSocketClose, f as ManagedSocketHeaders, g as UdpPeer, h as PlatformServices, i as LoadedDiscovery, m as ManagedUdpSocketOptions, n as LoadedAccount, o as LoadedVendor, p as ManagedSocketOptions, r as LoadedBundle, s as Association, t as BundleFailure, u as BundleSdk, v as DeviceDescriptor, w as EntityId, x as Discovered, y as Integration } from "./chunks/node-index.js";
+import { A as CapabilityName, C as TransportRequest, D as BluetoothAdvert, E as EntityId, O as BluetoothAdvertInput, S as Discovered, T as SerialLine, _ as UdpPeer, a as LoadedListenSource, b as Integration, c as SightingIdentity, d as BundleSdk, f as ManagedSocketClose, g as PlatformServices, h as ManagedUdpSocketOptions, i as LoadedDiscovery, j as CapabilityState, k as JsonObject, m as ManagedSocketOptions, n as LoadedAccount, o as LoadedVendor, p as ManagedSocketHeaders, r as LoadedBundle, s as Association, t as BundleFailure, u as BluetoothScannerOptions, v as Claim, w as TransportSubscription, x as ReportedState, y as DeviceDescriptor } from "./chunks/node-index.js";
 //#region src/testing/fake-sdk.d.ts
 /** The levels a bundle may log at. */
 type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
@@ -69,6 +69,46 @@ type FakeWebSocket = {
    */
   drop: (reason: string, details?: ManagedSocketClose) => void;
 };
+/** A serial port a bundle opened through the fake SDK. */
+type FakeSerialPort = {
+  readonly portId: string;
+  /** The line it was opened at, the defaults filled in: `9600 8N1` unless said. */
+  readonly line: SerialLine;
+  /** What the bundle wrote, a buffer a write, in order. */
+  readonly written: readonly Buffer[];
+  /** Whether the bundle closed it, the test unplugged it, or the release let go of it. */
+  readonly isClosed: boolean;
+  /**
+   * Hands the bundle bytes, as if the port read them: one chunk, as a port reads one.
+   *
+   * @throws {Error} When the port is closed.
+   */
+  feed: (bytes: Uint8Array | string) => void;
+  /**
+   * Takes the port away, as unplugging it or the owner taking it back would, and tells the
+   * bundle why; its writes then fail with `SerialClosed`.
+   *
+   * @param reason - Why; `Unplugged` when not said.
+   */
+  unplug: (reason?: string) => void;
+};
+/** A Bluetooth proxy's scanner a bundle opened through the fake SDK. */
+type FakeBluetoothScanner = {
+  /** Which proxy reports: its connection's key and its device key. */
+  readonly options: BluetoothScannerOptions;
+  /** Every report, as the bundle made it, an empty one too: that is the proxy saying it is alive. */
+  readonly reports: readonly (readonly BluetoothAdvertInput[])[];
+  /**
+   * The advertisements the house keeps of those, read as the broker reads them: 1024 a report at
+   * most, one that does not hold dropped, addresses upper case and hex lower case.
+   *
+   * shortcut: a 128-bit UUID on the Bluetooth base stays as reported, where the hub shortens it to
+   * 16 bits; shorten it here too if a vendor's test ever reads one.
+   */
+  readonly adverts: readonly BluetoothAdvert[];
+  /** Whether the bundle closed it, or opened another for the same proxy. */
+  readonly isClosed: boolean;
+};
 /** What a test builds a fake SDK with. */
 type FakeSdkOptions = {
   /** What the platform runs that the bundle may use: no broker when not said. */
@@ -85,6 +125,10 @@ type FakeSdk = {
   readonly udpSockets: readonly FakeUdpSocket[];
   /** The WebSockets the bundle opened, in order; none is open until the test opens it. */
   readonly webSockets: readonly FakeWebSocket[];
+  /** The serial ports the bundle opened, in order. */
+  readonly serialPorts: readonly FakeSerialPort[];
+  /** The Bluetooth scanners the bundle opened, in order. */
+  readonly bluetoothScanners: readonly FakeBluetoothScanner[];
   /**
    * Closes every socket the bundle left open, as the hub does when it lets go of a vendor.
    *
@@ -266,6 +310,46 @@ type ModbusIdentification = {
  * @throws {Error} When the vendor has no discovery that loaded.
  */
 export declare function identifyModbus(vendor: LoadedVendor, identity: Readonly<Record<string, unknown>>): ModbusIdentification;
+/** What discovery makes of one of the serial ports the server sees. */
+type SerialIdentification = {
+  /** Whether the vendor's `serial` rules take it: every condition holds. */
+  readonly matches: boolean;
+  /** The `serial` driver and the model it names; null when no driver takes the port. */
+  readonly association: Association | null;
+};
+/**
+ * Says what discovery makes of one of the serial ports the server sees, by the vendor's `serial`
+ * rules: whether the Serial broker suggests it for the vendor - "Use with …?" - and as which of its
+ * drivers of kind `serial`. A port is never added on its own: the owner says which device it is.
+ *
+ * @param vendor - The vendor, loaded with `loadIntegration`.
+ * @param usb - What the port's USB adapter says it is: `{ vendorId: '10c4', productId: 'ea60',
+ * manufacturer, product, serialNumber }`, the ids four lower-case hex digits; a field left out is
+ * one it does not say.
+ * @returns What discovery makes of it.
+ * @throws {Error} When the vendor has no discovery that loaded.
+ */
+export declare function identifySerial(vendor: LoadedVendor, usb: Readonly<Record<string, unknown>>): SerialIdentification;
+/** What discovery makes of one of the devices the house's Bluetooth hears. */
+type BluetoothIdentification = {
+  /** Whether the vendor's `bluetooth` rules take it: every condition holds. */
+  readonly matches: boolean;
+  /** The driver on the `bluetooth` transport and the model it names; null when none takes it. */
+  readonly association: Association | null;
+};
+/**
+ * Says what discovery makes of one advertisement the house's Bluetooth heard - from the server's
+ * adapter or a proxy - by the vendor's `bluetooth` rules: whether the device is listed as found for
+ * the vendor, and as which of its drivers on the `bluetooth` transport. The owner adds it.
+ *
+ * @param vendor - The vendor, loaded with `loadIntegration`.
+ * @param advert - The advertisement, as the house keeps it: `address` upper case, `name`,
+ * `manufacturerData` by decimal company id, `serviceData` and `serviceUuids` lower case, a 16-bit
+ * UUID short (`fcd2`), every value hex in lower case; a field left out is one it does not carry.
+ * @returns What discovery makes of it.
+ * @throws {Error} When the vendor has no discovery that loaded.
+ */
+export declare function identifyBluetooth(vendor: LoadedVendor, advert: Readonly<Record<string, unknown>>): BluetoothIdentification;
 //#endregion
 //#region src/testing/load.d.ts
 /** What loading takes. */
@@ -321,4 +405,4 @@ export declare class IntegrationError extends Error {
   constructor(problems: readonly string[]);
 }
 //#endregion
-export type { Association, BundleFailure, DriverHarness, DriverHarnessOptions, FakeSdk, FakeSdkOptions, FakeUdpSocket, FakeWebSocket, HarnessDevice, Identification, LoadIntegrationOptions, LoadedAccount, LoadedBundle, LoadedDiscovery, LoadedIntegration, LoadedListenSource, LoadedVendor, LogLevel, LogRecord, MatterIdentification, ModbusIdentification, MqttIdentification, SentDatagram, SightingIdentity };
+export type { Association, BluetoothIdentification, BundleFailure, DriverHarness, DriverHarnessOptions, FakeBluetoothScanner, FakeSdk, FakeSdkOptions, FakeSerialPort, FakeUdpSocket, FakeWebSocket, HarnessDevice, Identification, LoadIntegrationOptions, LoadedAccount, LoadedBundle, LoadedDiscovery, LoadedIntegration, LoadedListenSource, LoadedVendor, LogLevel, LogRecord, MatterIdentification, ModbusIdentification, MqttIdentification, SentDatagram, SerialIdentification, SightingIdentity };

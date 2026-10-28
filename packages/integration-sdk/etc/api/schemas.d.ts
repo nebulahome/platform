@@ -1,4 +1,4 @@
-import { T as JsonObject, l as TemplateValue } from "./chunks/node-index.js";
+import { k as JsonObject, l as TemplateValue } from "./chunks/node-index.js";
 import { z } from "zod";
 //#region src/schemas.d.ts
 /** Each file's schema, by the name its JSON Schema is written under. */
@@ -21,8 +21,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }>>>;
     internetRequired: z.ZodDefault<z.ZodBoolean>;
     twins: z.ZodOptional<z.ZodArray<z.ZodEnum<{
-      mac: "mac";
       serial: "serial";
+      mac: "mac";
     }>>>;
     setup: z.ZodOptional<z.ZodString>;
     account: z.ZodOptional<z.ZodString>;
@@ -33,9 +33,12 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         matter: "matter";
         mqtt: "mqtt";
         modbus: "modbus";
+        serial: "serial";
         http: "http";
         ble: "ble";
         zigbee: "zigbee";
+        thread: "thread";
+        ir: "ir";
       }>>;
     }, z.core.$strict>]>>>;
     streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -118,6 +121,9 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       matter: "matter";
       mqtt: "mqtt";
       modbus: "modbus";
+      infrared: "infrared";
+      serial: "serial";
+      bluetooth: "bluetooth";
     }>;
     defaultIcon: z.ZodOptional<z.ZodString>;
     webPagePort: z.ZodOptional<z.ZodInt>;
@@ -125,6 +131,23 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     profile: z.ZodOptional<z.ZodString>;
     entry: z.ZodOptional<z.ZodString>;
     template: z.ZodOptional<z.ZodString>;
+    serial: z.ZodOptional<z.ZodObject<{
+      baudRate: z.ZodInt;
+      dataBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<7>, z.ZodLiteral<8>]>>;
+      parity: z.ZodDefault<z.ZodEnum<{
+        none: "none";
+        even: "even";
+        odd: "odd";
+        mark: "mark";
+        space: "space";
+      }>>;
+      stopBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<1.5>, z.ZodLiteral<2>]>>;
+      flowControl: z.ZodDefault<z.ZodEnum<{
+        none: "none";
+        rtscts: "rtscts";
+        xonxoff: "xonxoff";
+      }>>;
+    }, z.core.$strict>>;
     setup: z.ZodString;
     id: z.ZodString;
     name: z.ZodString;
@@ -409,24 +432,24 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       capabilities: z.ZodRecord<z.ZodEnum<{
         number: "number";
         custom: "custom";
-        select: "select";
-        button: "button";
-        sensor_numeric: "sensor_numeric";
-        sensor_text: "sensor_text";
-        sensor_binary: "sensor_binary";
-        on_off: "on_off";
+        image: "image";
         level: "level";
+        on_off: "on_off";
         color_hs: "color_hs";
         color_temp: "color_temp";
         cover: "cover";
         lock: "lock";
         thermostat: "thermostat";
+        sensor_numeric: "sensor_numeric";
+        sensor_binary: "sensor_binary";
+        sensor_text: "sensor_text";
         media_player: "media_player";
         camera: "camera";
+        button: "button";
         update: "update";
         lawn_mower: "lawn_mower";
+        select: "select";
         vacuum: "vacuum";
-        image: "image";
       }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
       state: z.ZodRecord<z.ZodEnum<{
         number: "number";
@@ -560,6 +583,16 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         }>>;
         minIntervalMs: z.ZodDefault<z.ZodInt>;
       }, z.core.$strict>>;
+    }, z.core.$strict>>;
+    infrared: z.ZodOptional<z.ZodObject<{
+      signals: z.ZodUnion<readonly [z.ZodTuple<[z.ZodLiteral<"ir">], null>, z.ZodTuple<[z.ZodLiteral<"ir">, z.ZodLiteral<"rf">], null>]>;
+      receives: z.ZodBoolean;
+    }, z.core.$strict>>;
+    bluetoothProxy: z.ZodOptional<z.ZodObject<{
+      modes: z.ZodArray<z.ZodEnum<{
+        passive: "passive";
+        active: "active";
+      }>>;
     }, z.core.$strict>>;
   }, z.core.$strict>;
   readonly discovery: z.ZodObject<{
@@ -703,6 +736,58 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         options: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
       }, z.core.$strict>>>;
     }, z.core.$strict>>;
+    serial: z.ZodOptional<z.ZodObject<{
+      match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+        path: z.ZodString;
+        equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        exists: z.ZodLiteral<true>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        oneOf: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        startsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        endsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        min: z.ZodOptional<z.ZodNumber>;
+        max: z.ZodOptional<z.ZodNumber>;
+      }, z.core.$strict>]>>;
+      model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+    }, z.core.$strict>>;
+    bluetooth: z.ZodOptional<z.ZodObject<{
+      match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+        path: z.ZodString;
+        equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        exists: z.ZodLiteral<true>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        oneOf: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        startsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        endsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        min: z.ZodOptional<z.ZodNumber>;
+        max: z.ZodOptional<z.ZodNumber>;
+      }, z.core.$strict>]>>;
+      model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
+    }, z.core.$strict>>;
     adopt: z.ZodDefault<z.ZodEnum<{
       owner: "owner";
       automatic: "automatic";
@@ -834,22 +919,22 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       icon: z.ZodOptional<z.ZodString>;
       domain: z.ZodEnum<{
         number: "number";
-        sensor: "sensor";
-        binary_sensor: "binary_sensor";
+        button: "button";
+        select: "select";
         switch: "switch";
         light: "light";
-        select: "select";
-        button: "button";
+        binary_sensor: "binary_sensor";
+        sensor: "sensor";
       }>;
       capabilities: z.ZodRecord<z.ZodEnum<{
         number: "number";
-        select: "select";
-        button: "button";
-        sensor_numeric: "sensor_numeric";
-        sensor_text: "sensor_text";
-        sensor_binary: "sensor_binary";
-        on_off: "on_off";
         level: "level";
+        on_off: "on_off";
+        sensor_numeric: "sensor_numeric";
+        sensor_binary: "sensor_binary";
+        sensor_text: "sensor_text";
+        button: "button";
+        select: "select";
       }> & z.core.$partial, z.ZodObject<{
         read: z.ZodOptional<z.ZodObject<{
           function: z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>, z.ZodLiteral<4>]>;

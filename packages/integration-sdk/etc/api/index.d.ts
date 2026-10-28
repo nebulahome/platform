@@ -1,4 +1,5 @@
 import { z } from "zod";
+//#endregion
 //#region ../contracts/dist/capabilities.d.ts
 /** Every capability an entity may declare. */
 declare const CAPABILITIES: readonly ["on_off", "level", "color_hs", "color_temp", "cover", "lock", "thermostat", "sensor_numeric", "sensor_binary", "sensor_text", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "image", "custom"];
@@ -162,6 +163,78 @@ type JsonObject = {
 /** Any value that survives a JSON round trip unchanged. */
 type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
 //#endregion
+//#region ../contracts/dist/bluetooth.d.ts
+/** How a scanner listens: passive only hears, active also asks devices for more. */
+declare const BLUETOOTH_SCAN_MODES: readonly ["passive", "active"];
+/** How a scanner listens. */
+type BluetoothScanMode = (typeof BLUETOOTH_SCAN_MODES)[number];
+/**
+ * One advertisement a scanner heard: what a proxy reports through `sdk.bluetooth.scanner`, and
+ * what the local adapter's D-Bus signals are turned into.
+ */
+declare const bluetoothAdvertSchema: z.ZodObject<{
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  addressType: z.ZodEnum<{
+    public: "public";
+    random: "random";
+  }>;
+  rssi: z.ZodInt;
+  name: z.ZodOptional<z.ZodString>;
+  manufacturerData: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>>;
+  serviceData: z.ZodOptional<z.ZodRecord<z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>, z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>>;
+  serviceUuids: z.ZodOptional<z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>>;
+  at: z.ZodUnion<readonly [z.ZodDate, z.ZodPipe<z.ZodISODateTime, z.ZodTransform<Date, string>>]>;
+}, z.core.$strip>;
+/** One advertisement heard, as written. */
+type BluetoothAdvertInput = z.input<typeof bluetoothAdvertSchema>;
+/** One advertisement heard. */
+type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
+/**
+ * What a device that can be a proxy declares in its profile: the scan modes it can run.
+ */
+declare const bluetoothProxyProfileSchema: z.ZodObject<{
+  modes: z.ZodArray<z.ZodEnum<{
+    passive: "passive";
+    active: "active";
+  }>>;
+}, z.core.$strict>;
+/** What a device that can be a proxy declares. */
+type BluetoothProxyProfile = z.output<typeof bluetoothProxyProfileSchema>;
+/** Arguments of `bluetooth-proxy.install`. */
+declare const bluetoothProxyInstallArgsSchema: z.ZodObject<{
+  mode: z.ZodEnum<{
+    passive: "passive";
+    active: "active";
+  }>;
+}, z.core.$strip>;
+/** Arguments of `bluetooth-proxy.install`: the mode to scan in. */
+type BluetoothProxyInstallArgs = z.output<typeof bluetoothProxyInstallArgsSchema>;
+/** Arguments of `bluetooth-proxy.filter`. */
+declare const bluetoothProxyFilterArgsSchema: z.ZodObject<{
+  addresses: z.ZodUnion<readonly [z.ZodLiteral<"all">, z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>]>;
+}, z.core.$strip>;
+/** Arguments of `bluetooth-proxy.filter`: the addresses to forward, upper case, or `all`. */
+type BluetoothProxyFilterArgs = z.output<typeof bluetoothProxyFilterArgsSchema>;
+/** What `bluetooth-proxy.state` answers: a device that can be a proxy, and whether it is one. */
+declare const bluetoothProxyStateSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
+  eligible: z.ZodLiteral<true>;
+  installed: z.ZodBoolean;
+  version: z.ZodOptional<z.ZodString>;
+  shipped: z.ZodString;
+  running: z.ZodBoolean;
+}, z.core.$strip>, z.ZodObject<{
+  eligible: z.ZodLiteral<false>;
+  reason: z.ZodEnum<{
+    gen1: "gen1";
+    battery: "battery";
+    firmware: "firmware";
+    "no-bluetooth": "no-bluetooth";
+  }>;
+  update: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strip>], "eligible">;
+/** Whether a device can be a proxy, and whether it is. */
+type BluetoothProxyState = z.output<typeof bluetoothProxyStateSchema>;
+//#endregion
 //#region ../contracts/dist/entity-id.d.ts
 /** The kinds of thing an entity can be. The domain is the part before the dot. */
 declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "image", "custom", "alias"];
@@ -200,24 +273,24 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
   custom: "custom";
-  select: "select";
-  button: "button";
-  sensor_numeric: "sensor_numeric";
-  sensor_text: "sensor_text";
-  sensor_binary: "sensor_binary";
-  on_off: "on_off";
+  image: "image";
   level: "level";
+  on_off: "on_off";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
   lock: "lock";
   thermostat: "thermostat";
+  sensor_numeric: "sensor_numeric";
+  sensor_binary: "sensor_binary";
+  sensor_text: "sensor_text";
   media_player: "media_player";
   camera: "camera";
+  button: "button";
   update: "update";
   lawn_mower: "lawn_mower";
+  select: "select";
   vacuum: "vacuum";
-  image: "image";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -388,6 +461,117 @@ declare const stateReportSchema: z.ZodObject<{
 /** What an adapter publishes when a device reports. */
 type StateReport = z.output<typeof stateReportSchema>;
 //#endregion
+//#region ../contracts/dist/infrared.d.ts
+/** What a code is sent as: infrared, or radio on 433 MHz. */
+declare const INFRARED_SIGNALS: readonly ["ir", "rf"];
+/** What a code is sent as. */
+type InfraredSignal = (typeof INFRARED_SIGNALS)[number];
+/** The protocols the codec recognises a code as; one it does not is raw timings. */
+declare const INFRARED_PROTOCOLS: readonly ["nec", "nec-ext", "samsung32", "sirc", "sirc15", "sirc20", "rc5"];
+/** A protocol the codec recognises. */
+type InfraredProtocolName = (typeof INFRARED_PROTOCOLS)[number];
+/** A code recognised as a protocol: its address and command. */
+declare const infraredProtocolSchema: z.ZodObject<{
+  name: z.ZodEnum<{
+    nec: "nec";
+    "nec-ext": "nec-ext";
+    samsung32: "samsung32";
+    sirc: "sirc";
+    sirc15: "sirc15";
+    sirc20: "sirc20";
+    rc5: "rc5";
+  }>;
+  address: z.ZodInt;
+  command: z.ZodInt;
+}, z.core.$strip>;
+/** A code recognised as a protocol. */
+type InfraredProtocol = z.output<typeof infraredProtocolSchema>;
+/**
+ * A code, whichever blaster learned it: the pulses in microseconds, a mark then a space in turn,
+ * starting with a mark; the carrier an IR code is modulated on (0 for RF, which is on-off keyed);
+ * an RF code's frequency; and the protocol, when the codec recognises one.
+ */
+declare const infraredCodeSchema: z.ZodObject<{
+  signal: z.ZodEnum<{
+    ir: "ir";
+    rf: "rf";
+  }>;
+  carrierHz: z.ZodInt;
+  frequencyHz: z.ZodOptional<z.ZodInt>;
+  pulses: z.ZodArray<z.ZodInt>;
+  protocol: z.ZodOptional<z.ZodObject<{
+    name: z.ZodEnum<{
+      nec: "nec";
+      "nec-ext": "nec-ext";
+      samsung32: "samsung32";
+      sirc: "sirc";
+      sirc15: "sirc15";
+      sirc20: "sirc20";
+      rc5: "rc5";
+    }>;
+    address: z.ZodInt;
+    command: z.ZodInt;
+  }, z.core.$strip>>;
+}, z.core.$strip>;
+/** A code. */
+type InfraredCode = z.output<typeof infraredCodeSchema>;
+/** What a blaster declares in its profile: the signals it sends, and whether it can learn. */
+declare const infraredProfileSchema: z.ZodObject<{
+  signals: z.ZodUnion<readonly [z.ZodTuple<[z.ZodLiteral<"ir">], null>, z.ZodTuple<[z.ZodLiteral<"ir">, z.ZodLiteral<"rf">], null>]>;
+  receives: z.ZodBoolean;
+}, z.core.$strict>;
+/** What a blaster declares. */
+type InfraredProfile = z.output<typeof infraredProfileSchema>;
+/** Arguments of `infrared.send` ({@link INFRARED_OPS}, in `reserved-ops.ts`). */
+declare const infraredSendArgsSchema: z.ZodObject<{
+  code: z.ZodObject<{
+    signal: z.ZodEnum<{
+      ir: "ir";
+      rf: "rf";
+    }>;
+    carrierHz: z.ZodInt;
+    frequencyHz: z.ZodOptional<z.ZodInt>;
+    pulses: z.ZodArray<z.ZodInt>;
+    protocol: z.ZodOptional<z.ZodObject<{
+      name: z.ZodEnum<{
+        nec: "nec";
+        "nec-ext": "nec-ext";
+        samsung32: "samsung32";
+        sirc: "sirc";
+        sirc15: "sirc15";
+        sirc20: "sirc20";
+        rc5: "rc5";
+      }>;
+      address: z.ZodInt;
+      command: z.ZodInt;
+    }, z.core.$strip>>;
+  }, z.core.$strip>;
+}, z.core.$strip>;
+/** Arguments of `infrared.send`. */
+type InfraredSendArgs = z.output<typeof infraredSendArgsSchema>;
+/** Arguments of `infrared.learn`; it resolves with an {@link infraredCodeSchema}. */
+declare const infraredLearnArgsSchema: z.ZodObject<{
+  signal: z.ZodEnum<{
+    ir: "ir";
+    rf: "rf";
+  }>;
+  timeoutMs: z.ZodInt;
+}, z.core.$strip>;
+/** Arguments of `infrared.learn`. */
+type InfraredLearnArgs = z.output<typeof infraredLearnArgsSchema>;
+/** Arguments of `infrared.sweep`. */
+declare const infraredSweepArgsSchema: z.ZodObject<{
+  timeoutMs: z.ZodInt;
+}, z.core.$strip>;
+/** Arguments of `infrared.sweep`. */
+type InfraredSweepArgs = z.output<typeof infraredSweepArgsSchema>;
+/** What `infrared.sweep` resolves with. */
+declare const infraredSweepResultSchema: z.ZodObject<{
+  frequencyHz: z.ZodInt;
+}, z.core.$strip>;
+/** What `infrared.sweep` resolves with. */
+type InfraredSweepResult = z.output<typeof infraredSweepResultSchema>;
+//#endregion
 //#region ../contracts/dist/integration-setup.d.ts
 /** Validates one field of a group. */
 declare const setupFieldSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
@@ -487,6 +671,231 @@ declare const setupFieldSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
 }, z.core.$strict>], "type">;
 /** One field of a group. */
 type SetupField = z.output<typeof setupFieldSchema>;
+//#endregion
+//#region ../contracts/dist/serial.d.ts
+/** What a device of a `serial` driver keeps in its config: its port, and how it is spoken. */
+declare const serialDeviceConfigSchema: z.ZodObject<{
+  portId: z.ZodUUID;
+  line: z.ZodObject<{
+    baudRate: z.ZodInt;
+    dataBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<7>, z.ZodLiteral<8>]>>;
+    parity: z.ZodDefault<z.ZodEnum<{
+      none: "none";
+      even: "even";
+      odd: "odd";
+      mark: "mark";
+      space: "space";
+    }>>;
+    stopBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<1.5>, z.ZodLiteral<2>]>>;
+    flowControl: z.ZodDefault<z.ZodEnum<{
+      none: "none";
+      rtscts: "rtscts";
+      xonxoff: "xonxoff";
+    }>>;
+  }, z.core.$strict>;
+}, z.core.$strict>;
+/** What a device of a `serial` driver keeps in its config. */
+type SerialDeviceConfig = z.output<typeof serialDeviceConfigSchema>;
+/** What a USB adapter says it is, from sysfs; null for what it does not say. */
+declare const serialUsbSchema: z.ZodObject<{
+  vendorId: z.ZodString;
+  productId: z.ZodString;
+  serialNumber: z.ZodNullable<z.ZodString>;
+  manufacturer: z.ZodNullable<z.ZodString>;
+  product: z.ZodNullable<z.ZodString>;
+}, z.core.$strip>;
+/** What a USB adapter says it is. */
+type SerialUsb = z.output<typeof serialUsbSchema>;
+//#endregion
+//#region ../contracts/dist/serial-line.d.ts
+/**
+ * How a port is spoken: the baud rate, and the framing - `9600 8N1` unless said. A driver of kind
+ * `serial` gives its defaults in this shape; the owner may change them when adding a device.
+ */
+declare const serialLineSchema: z.ZodObject<{
+  baudRate: z.ZodInt;
+  dataBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<7>, z.ZodLiteral<8>]>>;
+  parity: z.ZodDefault<z.ZodEnum<{
+    none: "none";
+    even: "even";
+    odd: "odd";
+    mark: "mark";
+    space: "space";
+  }>>;
+  stopBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<1.5>, z.ZodLiteral<2>]>>;
+  flowControl: z.ZodDefault<z.ZodEnum<{
+    none: "none";
+    rtscts: "rtscts";
+    xonxoff: "xonxoff";
+  }>>;
+}, z.core.$strict>;
+/** How a port is spoken, as written. */
+type SerialLineInput = z.input<typeof serialLineSchema>;
+/** How a port is spoken. */
+type SerialLine = z.output<typeof serialLineSchema>;
+//#endregion
+//#region ../contracts/dist/reserved-ops.d.ts
+/**
+ * The ops the hub sends a device that plays a role for one of its brokers - an IR blaster, a
+ * Bluetooth proxy - over its instance's connection, as `{ deviceKey, op, args }`, and the GATT ops
+ * the platform transport `bluetooth` carries.
+ *
+ * A module of its own, importing nothing, because an integration's code imports these names
+ * through the SDK: the SDK's entry point is bundled into every module an integration builds, and
+ * those validate with the hub's zod (`sdk.z`), never one of their own - so nothing that reaches
+ * them may import zod. The arguments' schemas stay with their brokers, in `infrared.ts` and
+ * `bluetooth.ts`.
+ */
+/**
+ * The ops the hub sends a blaster over its instance's connection, as `{ deviceKey, op, args }`.
+ * Reserved: no integration uses these names for anything else.
+ */
+export declare const INFRARED_OPS: {
+  /** Sends a code. */
+  readonly send: "infrared.send";
+  /** Listens for one code: resolves with it, or rejects when nothing came in time. */
+  readonly learn: "infrared.learn";
+  /** Searches the RF frequency of a button held down: resolves with it. */
+  readonly sweep: "infrared.sweep";
+  /** Stops a learn or a sweep under way. */
+  readonly cancel: "infrared.cancel";
+};
+/**
+ * The ops the hub sends a proxy over its instance's connection, as `{ deviceKey, op, args }`.
+ * Reserved: no integration uses these names for anything else.
+ */
+export declare const BLUETOOTH_PROXY_OPS: {
+  /** Whether it can be a proxy and whether it is: answers `bluetoothProxyStateSchema`. */
+  readonly state: "bluetooth-proxy.state";
+  /** Installs the script, or the one shipped now over an older one, and starts it scanning. */
+  readonly install: "bluetooth-proxy.install";
+  /** Stops the script and removes it. */
+  readonly remove: "bluetooth-proxy.remove";
+  /** Which addresses it forwards: the house's, or everything while Nearby is open. */
+  readonly filter: "bluetooth-proxy.filter";
+};
+/**
+ * The ops the platform transport `bluetooth` carries to a device it connects to, GATT on the local
+ * adapter only.
+ */
+export declare const BLUETOOTH_GATT_OPS: {
+  readonly read: "gatt.read";
+  readonly write: "gatt.write";
+  readonly notify: "gatt.notify";
+};
+declare namespace infrared_codes_d_exports {
+  export { BROADLINK_TICK_US, DEFAULT_IR_CARRIER_HZ, FlipperIrCode, FlipperIrFile, InfraredImportProblem, decodeBroadlink, decodeInfraredProtocol, decodePronto, decodeRawTimings, encodeBroadlink, encodeInfraredProtocol, encodePronto, encodeRawTimings, parseFlipperIr, withInfraredProtocol };
+}
+/** One Broadlink tick: 269/8192 ms, about 32.84 µs. */
+declare const BROADLINK_TICK_US: number;
+/** The carrier an infrared code is on when its format does not say: 38 kHz, as most remotes. */
+declare const DEFAULT_IR_CARRIER_HZ = 38000;
+/**
+ * Reads a Broadlink packet, as its app and similar open-source implementations write one: base64
+ * of a type byte, a repeat count, the length of what follows, and each pulse in ticks - one byte,
+ * or 0x00 and two bytes big-endian for a longer one - closed by 0x0d 0x05.
+ *
+ * @param text - The base64.
+ * @returns The code, its protocol recognised where it can be.
+ * @throws {ValidationError} When it is not a packet, or its pulses do not hold.
+ */
+declare function decodeBroadlink(text: string): InfraredCode;
+/**
+ * Writes a code as a Broadlink packet: sent once, closed by 0x0d 0x05 and filled out to whole
+ * 16-byte blocks, as a Broadlink learns one. Radio goes on 315 MHz for a code nearer that than
+ * 433.
+ *
+ * @param code - The code.
+ * @returns The base64.
+ */
+declare function encodeBroadlink(code: InfraredCode): string;
+/**
+ * Reads Pronto hex in its learned form: `0000`, the frequency word, the number of pairs sent once
+ * and of those repeated, then each pair's mark and space in periods of the carrier. What is sent
+ * once comes first, then the repeated part once.
+ *
+ * @param text - The words, four hex digits each.
+ * @returns The code, its protocol recognised where it can be.
+ * @throws {ValidationError} When it is not learned Pronto, or its pulses do not hold.
+ */
+declare function decodePronto(text: string): InfraredCode;
+/**
+ * Writes a code as learned Pronto hex, every pair sent once; a code ending on a mark gets a pause
+ * after it, since Pronto counts pairs.
+ *
+ * @param code - The code.
+ * @returns The words, upper case; null for a radio code, which Pronto cannot carry.
+ */
+declare function encodePronto(code: InfraredCode): string | null;
+/**
+ * Reads a list of microseconds: unsigned, a mark and a space in turn - `9000 4500 560 …` - or
+ * signed, a mark positive and a space negative - `[9000, -4500, 560, …]` - where two of a kind in
+ * a row are one pulse and a leading space is dropped. Spaces, commas, semicolons and brackets all
+ * separate.
+ *
+ * @param text - The list.
+ * @param carrierHz - The carrier, which a list does not say.
+ * @returns The infrared code, its protocol recognised where it can be.
+ * @throws {ValidationError} When a value is not a whole number of microseconds above 0.
+ */
+declare function decodeRawTimings(text: string, carrierHz?: number): InfraredCode;
+/**
+ * Writes a code as a signed list: a mark positive, a space negative.
+ *
+ * @param code - The code.
+ * @returns `9000, -4500, 560, …`.
+ */
+declare function encodeRawTimings(code: InfraredCode): string;
+/**
+ * Recognises the protocol a train of pulses was sent in.
+ *
+ * @param pulses - The pulses, a mark first.
+ * @returns The protocol with its address and command, or undefined for one not recognised.
+ */
+declare function decodeInfraredProtocol(pulses: readonly number[]): InfraredProtocol | undefined;
+/**
+ * A code with its protocol, when its pulses are one the codec recognises.
+ *
+ * @param code - The code.
+ * @returns The code, with `protocol` when an infrared code's pulses are recognised.
+ */
+declare function withInfraredProtocol(code: InfraredCode): InfraredCode;
+/**
+ * Writes a protocol's address and command as a code to send: what a Flipper Zero's `parsed` entry
+ * becomes.
+ *
+ * @param protocol - The protocol, its address and its command.
+ * @returns The code, on the protocol's carrier, the protocol beside it.
+ * @throws {ValidationError} When the address or the command does not fit the protocol.
+ */
+declare function encodeInfraredProtocol(protocol: InfraredProtocol): InfraredCode;
+/** A line of an imported text not understood, and why. */
+type InfraredImportProblem = {
+  /** The line, counted from 1; null for a problem of the whole text. */
+  readonly line: number | null;
+  readonly text: string;
+  readonly reason: string;
+};
+/** A code a Flipper Zero file names: its button's name, and the line its entry starts on. */
+type FlipperIrCode = {
+  readonly name: string;
+  readonly line: number;
+  readonly code: InfraredCode;
+};
+/** What reading a Flipper Zero file found: its codes, and the lines it could not use. */
+type FlipperIrFile = {
+  readonly codes: FlipperIrCode[];
+  readonly problems: InfraredImportProblem[];
+};
+/**
+ * Reads a Flipper Zero `.ir` file - one remote's signals, or a library's - every entry a button:
+ * `name`, then `type: parsed` with a `protocol`, an `address` and a `command`, or `type: raw` with
+ * a `frequency`, a `duty_cycle` and the `data` in microseconds.
+ *
+ * @param text - The file.
+ * @returns The codes, each named as its entry, and every line that could not be used, with why.
+ */
+declare function parseFlipperIr(text: string): FlipperIrFile;
 //#endregion
 //#region ../package-runtime/dist/transport.d.ts
 /** What an integration asks a transport to do, expressed as data. */
@@ -1165,6 +1574,74 @@ type ModbusSession = {
 /** Opens a session to a Modbus server. */
 type OpenModbus = (server: ModbusServerOptions) => ModbusSession;
 /**
+ * A serial port held through the Serial broker, which gives every port exactly one holder: bytes
+ * as they come, and bytes to send.
+ *
+ * Once the port is gone - unplugged, closed by the owner from the Brokers page - `onClose` is
+ * called and nothing more arrives; a write then rejects with an error whose `name` is
+ * `SerialClosed`.
+ */
+type SerialSession = {
+  /**
+   * Sends bytes, resolving once the port took them.
+   *
+   * @throws {Error} `SerialClosed` once the session is closed.
+   */
+  write: (bytes: Uint8Array) => Promise<void>;
+  /**
+   * Hears every chunk the port reads, in order, as it arrives: a chunk is not a message, so a
+   * protocol framed by lines or lengths puts the chunks together itself.
+   *
+   * @returns Stops hearing.
+   */
+  onData: (listener: (bytes: Uint8Array) => void) => () => void;
+  /**
+   * Hears the port go: unplugged, taken back by the owner, or closed here. Called once.
+   *
+   * @returns Stops hearing.
+   */
+  onClose: (listener: (reason: string) => void) => () => void;
+  /** Lets go of the port, so another holder may open it. */
+  close: () => Promise<void>;
+};
+/**
+ * Opens a serial port the device holds - the `portId` and `line` its config's `serial` block
+ * carries, as the owner picked them when adding it - through the Serial broker.
+ *
+ * Rejects with an error whose `name` says why: `SerialPortHeld` - another device, a broker, the
+ * console or a container holds it - or `SerialPortMissing` - no such port, or it is not plugged in.
+ */
+type OpenSerial = (portId: string, line: SerialLineInput) => Promise<SerialSession>;
+/** Which proxy is reporting: the device it is, as its connection names it. */
+type BluetoothScannerOptions = {
+  /** The connection the proxy is reached over: its transport's connection key. */
+  readonly key: string;
+  /** The proxy itself, as that connection names its devices. */
+  readonly deviceKey: string;
+};
+/**
+ * A Bluetooth proxy's channel to the Bluetooth broker: what it hears goes in here, and the house
+ * sees it as heard by that proxy.
+ */
+type BluetoothScanner = {
+  /**
+   * Reports advertisements heard - addresses, how loud, what each carries. The broker checks each
+   * and drops one that does not hold; reporting the same one again is how a proxy says it still
+   * hears it.
+   */
+  report: (adverts: readonly BluetoothAdvertInput[]) => void;
+  /** Stops reporting: the proxy is no longer one, or its connection went. */
+  close: () => void;
+};
+/** The house's Bluetooth, as a vendor whose devices can be proxies reaches it. */
+type BundleBluetooth = {
+  /**
+   * Opens a proxy's scanner, for a device whose profile declares `bluetoothProxy`. One per proxy:
+   * opening it again replaces the first.
+   */
+  readonly scanner: (options: BluetoothScannerOptions) => BluetoothScanner;
+};
+/**
  * The house's MQTT broker, as the hub reaches it: the one the hub runs, with the hub's own
  * username - or the broker `NEBULA_MQTT_URL` names. Read again each time it is needed: a session
  * opened while the broker is still coming up retries until it listens.
@@ -1193,7 +1670,14 @@ type PalettedPicture = {
   /** One index into the palette per pixel, row after row from the top left. */
   readonly pixels: Uint8Array;
 };
-/** What a bundle drawing a picture needs, and could not bring as a dependency. */
+/**
+ * The platform's infrared codec, `infrared-codes.ts`: Broadlink packets, Pronto hex, raw timings
+ * and Flipper Zero `.ir` files read into the platform's code and written back out, and the
+ * protocols recognised in it. A blaster's integration converts between its own format and the
+ * code the `infrared.*` ops carry with it.
+ */
+type InfraredCodec = typeof infrared_codes_d_exports;
+/** What a bundle decoding what its devices send needs, and could not bring as a dependency. */
 type BundleCodecs = {
   /**
    * Unpacks an LZMA stream in the alone format (`.lzma`): a 13-byte header - the properties and
@@ -1202,6 +1686,14 @@ type BundleCodecs = {
    * @throws {Error} When the stream is corrupt.
    */
   readonly lzma: (bytes: Uint8Array) => Buffer;
+  /**
+   * The infrared codec: `decodeBroadlink`, `encodeBroadlink`, `decodePronto`, `encodePronto`,
+   * `decodeRawTimings`, `encodeRawTimings`, `parseFlipperIr`, `decodeInfraredProtocol`,
+   * `encodeInfraredProtocol`, `withInfraredProtocol`. Handed over rather than imported because it
+   * validates with zod, which a bundle's code reaches only as `sdk.z`; a code that does not hold
+   * throws a `ValidationError`.
+   */
+  readonly infrared: InfraredCodec;
 };
 /** Pictures a bundle draws, for an image entity. */
 type BundleImages = {
@@ -1227,6 +1719,10 @@ type BundleSdk = {
   readonly openMqtt: OpenMqtt;
   /** A session to a Modbus server, through the hub's one connection to it. */
   readonly openModbus: OpenModbus;
+  /** A serial port a device of the vendor holds, through the Serial broker. */
+  readonly openSerial: OpenSerial;
+  /** The house's Bluetooth, for a vendor whose devices are proxies. */
+  readonly bluetooth: BundleBluetooth;
   /** How a camera's stream source is written, as defineTransport is for a transport. */
   readonly defineStreamSource: typeof defineStreamSource;
   /** An RTSP session over TCP, yielding a camera's H.264 as it comes. */
@@ -1361,6 +1857,10 @@ type AccountHandle = {
 };
 //#endregion
 //#region ../package-runtime/dist/discovery.d.ts
+/** What a vendor's `serial` rules read of a port: the USB strings its adapter gives. */
+type SerialSighting = SerialUsb;
+/** What a vendor's `bluetooth` rules read: one advertisement a scanner heard. */
+type BluetoothSighting = BluetoothAdvert;
 /**
  * What a listening source heard: a device, how to reach it, and what it said.
  *
@@ -1494,4 +1994,4 @@ export declare function defineAccountModule(factory: AccountFactory): AccountFac
  */
 export declare function defineStreamModule(factory: StreamFactory): StreamFactory;
 //#endregion
-export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, ImageBlob, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };
+export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothProxyFilterArgs, BluetoothProxyInstallArgs, BluetoothProxyProfile, BluetoothProxyState, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };

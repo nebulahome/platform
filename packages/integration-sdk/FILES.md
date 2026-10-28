@@ -128,7 +128,7 @@ the vendor's models by series, across its drivers - the series by name, the mode
 counting order - and a device's page says its series where it would say the driver's name. A
 model given no series is grouped under its driver. Every model named must be in `models`.
 
-`transport` is a platform transport - `http`, `mqtt`, `matter`, `mqtt-house`, `modbus` - or one the driver's own vendor
+`transport` is a platform transport - `http`, `mqtt`, `matter`, `mqtt-house`, `modbus`, `bluetooth` - or one the driver's own vendor
 ships, named after the vendor: `shelly/rpc`. Never another vendor's: vendors load in no particular
 order, and a driver leaning on another's transport would load or not by luck.
 
@@ -204,6 +204,54 @@ duplicate:
 The rules that tie these together - a number is not read from coils, a coil is not written with
 06, a table read with 02 or 04 cannot be written back without an address - are checked when the
 bundle loads, with the words the editor uses.
+
+A driver of the vendor's **serial devices** - a UPS on a USB cable, a meter on an RS485 adapter -
+is code (`"kind": "serial"` with an `entry`) on a transport of the vendor's own, and says how its
+port is spoken:
+
+```json
+{
+  "id": "ups",
+  "name": "UPS",
+  "transport": "acme/line",
+  "kind": "serial",
+  "serial": { "baudRate": 2400 },
+  "entry": "./index.js",
+  "setup": "./setup.json"
+}
+```
+
+- `serial` - `baudRate`, then `dataBits` (5 to 8, 8 unless said), `parity` (`none`, `even`, `odd`,
+  `mark`, `space`; `none`), `stopBits` (1, 1.5 or 2; 1) and `flowControl` (`none`, `rtscts`,
+  `xonxoff`; `none`): `9600 8N1` is `{ "baudRate": 9600 }`. Required of a serial driver, refused on
+  any other.
+- Adding a device asks for the port - the free ones, those the vendor's `serial` rules recognise
+  first (below) - and the line, the driver's preselected, before the driver's own fields. The
+  device's transport configuration then carries `serial: { portId, line }` beside what its
+  `setup.json` asks: the transport's `configSchema` takes it, its `connectionKey` is the port, and
+  it opens it with `sdk.openSerial(config.serial.portId, config.serial.line)`.
+- A port has one holder - a device, the Thread broker, the owner's console, a container - and the
+  hub gives the device its port when its instance starts. One another holder has stays with it:
+  `openSerial` rejects with an error named `SerialPortHeld`, and the Brokers page shows the two as
+  a conflict. No such port, or one unplugged, is `SerialPortMissing`. A port is open once:
+  opening it again while it is open is `SerialPortHeld` too.
+- The session hands over bytes as the port reads them - a chunk is not a message, so a protocol
+  framed by lines or lengths puts them together itself - and `onClose` hears the port go,
+  unplugged or taken back; a write after that rejects with `SerialClosed`. A port on the network
+  (raw TCP, RFC 2217) is opened the same way.
+
+A driver of the vendor's **Bluetooth devices** is code (`"kind": "bluetooth"` with an `entry`) on
+the platform's `bluetooth` transport, `"transport": "bluetooth"`. Its devices are never added by
+address: the owner adds one from the Bluetooth broker's Found or Nearby, and its device key is its
+address, upper case. Its claim reads `{ deviceKey, kind, name, advert }`, the advertisement it was
+recognised from; it follows its address with the subscription `{ "op": "follow", "args": {
+"address": "…" } }` and is delivered each advertisement heard from it, by the server's adapter or
+any proxy - one carrying the same name, maker's and service data at most once a minute. Its
+requests are GATT on the server's own adapter: `gatt.read { service, characteristic }` answers `{
+data }`, `gatt.write { service, characteristic, data, withResponse }`, `gatt.notify { service,
+characteristic, isOn }`, whose values are delivered as `{ service, characteristic, data }` - hex
+throughout. They are refused when the server has no usable adapter, or only proxies hear the
+device: proxies listen and never connect. `BLUETOOTH_GATT_OPS` names them.
 
 `defaultIcon` names the icon a device of this driver starts with, by its id in the platform's
 icon catalogue (`packages/icons/catalogue.json` lists the platform's own ids - `light`,
@@ -473,6 +521,54 @@ removed, the servers found are asked again.
   `unitId`.
 - `model` - where the server says its model, looked up in the `modelCodes` of the vendor's drivers
   that say `"kind": "modbus"`; `values.model` when absent.
+
+**Serial ports.** The server sees every serial port plugged into it - by the strings its USB
+adapter gives - and every port on the network the owner added. A port is the vendor's when its
+`serial` rules take it, and the Serial broker's page then suggests it, "Use with …?": the owner adds
+the device, nothing is taken on its own. A port recognised as a Thread radio is suggested as one by
+the platform.
+
+```json
+{
+  "serial": {
+    "match": [
+      { "path": "vendorId", "equals": "0665" },
+      { "path": "product", "startsWith": "USB to Serial" }
+    ],
+    "model": "product"
+  }
+}
+```
+
+- `match` - at least one condition, all of which must hold of the adapter: `vendorId` and
+  `productId` (four lower-case hex digits, `10c4`), `manufacturer`, `product` and `serialNumber`
+  (`null` when the adapter does not say).
+- `model` - where the adapter says its model, looked up in the `modelCodes` of the vendor's drivers
+  that say `"kind": "serial"`; `product` when absent.
+
+**Bluetooth devices.** The house hears every device advertising near the server's adapter and its
+Bluetooth proxies. One is the vendor's when its `bluetooth` rules take an advertisement of it, and
+it is listed for the vendor on the Bluetooth broker's Found tab; the owner adds it - a neighbour's
+sensor is heard as well as the house's own. The platform recognises BTHome sensors itself.
+
+```json
+{
+  "bluetooth": {
+    "match": [{ "path": "manufacturerData.'2985'", "startsWith": "0a" }],
+    "model": "name"
+  }
+}
+```
+
+- `match` - at least one condition, all of which must hold of one advertisement: `address` (upper
+  case), `addressType` (`public`, `random`), `rssi`, `name`, `manufacturerData.'<company id>'` -
+  the id in decimal, the bytes after it in lower-case hex, read with `startsWith` or `exists` -
+  `serviceUuids` (a list, read with `contains`) and `serviceData.'<uuid>'` (read with `exists`).
+  UUIDs are lower case, a 16-bit one short: `fcd2`.
+- `model` - where the advertisement says its model, looked up in the `modelCodes` of the vendor's
+  drivers on the `bluetooth` transport; `name` when absent.
+
+A vendor may have `serial` or `bluetooth` alone, with no `listen`.
 
 A vendor may have `mqtt` alone, with no `listen`. A device that more than one vendor's rules take,
 and one that none takes, is added as the platform's own MQTT device, and one added so before the
@@ -754,11 +850,14 @@ import them:
 | `openUdpSocket`      | a UDP socket the hub binds, joins to a multicast group, and closes with the vendor    |
 | `openMqtt`           | an MQTT session with a client certificate, for a vendor's own broker                  |
 | `openModbus`         | a Modbus session through the hub's one connection to a server, closed with the vendor |
+| `openSerial`         | a serial port a device of the vendor holds, through the Serial broker                 |
+| `bluetooth.scanner`  | a Bluetooth proxy's channel to the Bluetooth broker, for what it hears                |
 | `defineStreamSource` | the contract a camera's stream source is written against                              |
 | `openRtsp`           | an RTSP(S) session over TCP, yielding a camera's H.264 as it comes                    |
 | `platform.mqtt`      | the house's MQTT broker the hub runs, with the hub's username; null if it cannot      |
 | `defineAccount`      | the contract an account's sign-in module is written against                           |
 | `codecs.lzma`        | unpacks an LZMA stream in the alone format, as some clouds pack maps                  |
+| `codecs.infrared`    | infrared and radio codes: Broadlink, Pronto, raw timings, Flipper `.ir`, protocols    |
 | `images.png`         | encodes a picture of a palette as a PNG, for an image entity                          |
 | `logger`             | the hub's logger, for what happens outside a connection                               |
 
@@ -776,6 +875,97 @@ the configuration names, as `connect` is handed it in `context.account`. Its `id
 both. It is **code**, so the vendor sits at the tier a code driver does - reviewed before a
 catalogue carries it; `verifyVendor` is where the hub asks. Its types come from
 `@nebulahome/integration-sdk`, and `pnpm typecheck` holds it to them.
+
+## A device that plays a broker's role
+
+A device of the vendor may work for one of the platform's brokers: an **IR blaster** sends the
+codes of the remotes the Infrared broker keeps, a **Bluetooth proxy** listens for the Bluetooth
+broker. Its driver's profile says so - only a declarative profile can - and the vendor's page shows
+the role:
+
+```json
+{
+  "entities": [ … ],
+  "infrared": { "signals": ["ir", "rf"], "receives": true },
+  "bluetoothProxy": { "modes": ["passive", "active"] }
+}
+```
+
+The broker then sends the device **reserved ops** over its instance's own connection, as a command
+would go: `connection.send({ deviceKey, op, args }, signal)`, `deviceKey` the instance's first bound
+claim's and `signal` aborted at the op's timeout. The vendor's transport answers them in `send`:
+it resolves with the answer, or throws an error whose message is a sentence the page shows. The
+names are reserved - a vendor uses them for nothing else - and exported as `INFRARED_OPS` and
+`BLUETOOTH_PROXY_OPS`, their arguments' types beside them:
+
+```ts
+send: async (request, signal) => {
+  switch (request.op) {
+    case BLUETOOTH_PROXY_OPS.state:
+      return proxyState(request.deviceKey, signal); // BluetoothProxyState
+    case BLUETOOTH_PROXY_OPS.filter:
+      return forward(request.deviceKey, request.args as BluetoothProxyFilterArgs);
+    // … the device's own requests
+  }
+},
+```
+
+**An IR blaster** declares `infrared: { signals: ["ir"] | ["ir", "rf"], receives }` - the signals it
+sends, and whether it can learn. It is online while its instance is running. Codes cross the ops in
+the platform's shape, `InfraredCode` - `{ signal, carrierHz, frequencyHz?, pulses, protocol? }`, the
+pulses in microseconds, a mark then a space in turn, starting with a mark; an RF code's `carrierHz`
+is 0 and its `frequencyHz` says the band - and the vendor converts to and from its own format with
+`sdk.codecs.infrared`: `decodeBroadlink` / `encodeBroadlink`, `decodePronto` / `encodePronto`
+(learned Pronto hex; `null` for RF), `decodeRawTimings` / `encodeRawTimings`, `parseFlipperIr` (a
+Flipper Zero `.ir` file, its parsed and raw entries), `decodeInfraredProtocol`,
+`encodeInfraredProtocol` and `withInfraredProtocol` (NEC and its extended form, Samsung32, Sony SIRC
+12/15/20, RC5). A code that does not hold throws a `ValidationError`.
+
+| Op                | Arguments               | The hub waits     | Answer                                                |
+| ----------------- | ----------------------- | ----------------- | ----------------------------------------------------- |
+| `infrared.send`   | `{ code }`              | 10 s              | resolve once sent                                     |
+| `infrared.learn`  | `{ signal, timeoutMs }` | `timeoutMs` + 5 s | a code of that signal; reject when nothing came       |
+| `infrared.sweep`  | `{ timeoutMs }`         | `timeoutMs` + 5 s | `{ frequencyHz }`, RF only, asked before an RF learn  |
+| `infrared.cancel` | `{}`                    | 10 s              | stop the learn or sweep under way, which then rejects |
+
+A learned code needs no protocol, nor an RF one its frequency: the hub adds what it recognises and
+what the sweep found. A learn that rejects with an error named `TimeoutError` or `AbortError`, or
+at or after `timeoutMs`, reads "Nothing reached the blaster in 30 s." on the page; any other shows
+its message.
+
+**A Bluetooth proxy** declares `bluetoothProxy: { modes }`, the scan modes it can run, `passive`
+and `active`, each once.
+
+| Op                        | Arguments       | The hub waits | Answer                                                    |
+| ------------------------- | --------------- | ------------- | --------------------------------------------------------- |
+| `bluetooth-proxy.state`   | `{}`            | 10 s          | `BluetoothProxyState`; anything else counts as no answer  |
+| `bluetooth-proxy.install` | `{ mode }`      | 60 s          | install the script, or update it, and run it in that mode |
+| `bluetooth-proxy.remove`  | `{}`            | 10 s          | stop the script and remove it; throw to refuse            |
+| `bluetooth-proxy.filter`  | `{ addresses }` | 10 s          | forward those addresses from now on                       |
+
+- `state` answers `{ eligible: true, installed, version?, shipped, running }` - the script on the
+  device, the one the vendor ships now, whether it runs - or `{ eligible: false, reason, update? }`,
+  the reason `gen1`, `battery`, `firmware` or `no-bluetooth`, and `update` whether a firmware update
+  the device offers would make it eligible. The hub asks it for the list of devices that could be
+  proxies, when the device's scanner opens, and after an install, a second apart until it says
+  `running`. The script is outdated when `version` and `shipped` are both strict semver and
+  `version` is the lower, otherwise whenever they differ.
+- `install` is also how the owner changes the mode and updates the script; a throw fails the job
+  with its message.
+- `filter` is `"all"` while somebody has Nearby open, otherwise the house's devices, those being
+  added and those a rule recognises - upper case, sorted, 4096 at most. It comes at the hub's
+  start, when the scanner opens, on every change and again every five minutes. Keep only the last
+  one; a script that restarted forwards nothing until it is told again.
+
+What the proxy hears reaches the house through `sdk.bluetooth.scanner({ key, deviceKey })`: `key`
+is the instance connection's key and `deviceKey` the device's on it, or the hub cannot tell which
+proxy reports. Open it when the connection comes up, close it with the connection; opening it again
+replaces the first. `report(adverts)` takes 1024 `BluetoothAdvertInput`s at most a call, each `{
+address, addressType, rssi, name?, manufacturerData?, serviceData?, serviceUuids?, at }` - the
+address in either case, `rssi` a whole number of dBm, the company ids in decimal, hex in either
+case, a 128-bit UUID on the Bluetooth base shortened by the hub. One that does not hold is dropped.
+`report([])` says the proxy is alive: report at least every two minutes, or it shows offline. A
+device the owner did not make a proxy is not listened to.
 
 ## A camera's picture
 

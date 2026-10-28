@@ -33,7 +33,8 @@ Every JSON file names its schema, so the editor checks it as it is typed:
 ```
 
 `FILES.md`, beside this file, says what each of them holds in full - discovery, accounts, setup
-forms, the profile's grammar and its limits, firmware updates, cameras and pictures.
+forms, the profile's grammar and its limits, firmware updates, serial and Bluetooth devices, IR
+blasters and Bluetooth proxies, cameras and pictures.
 
 ## The command
 
@@ -87,9 +88,11 @@ light.command('light.device', 'on_off', { command: 'turn_on' }); // → the HTTP
 
 `identify` says what discovery makes of a device heard, `identifyMatter` what the vendor's `matter`
 rules make of one of the house's Matter devices, `identifyMqtt` what its `mqtt` rules make of a
-device the house's MQTT broker hears, and `createFakeSdk` is the SDK handed to
-the code, recording what it logged and sent: its UDP sockets and WebSockets connect to nothing, and
-a test opens, delivers to and drops them.
+device the house's MQTT broker hears, `identifyModbus`, `identifySerial` and `identifyBluetooth` the
+same of a Modbus server, a serial port and a Bluetooth advertisement, and `createFakeSdk` is the
+SDK handed to the code, recording what it logged and sent: its UDP sockets, WebSockets and serial
+ports connect to nothing, and a test opens, delivers to and drops them; a proxy's Bluetooth scanner
+keeps what it reported.
 
 ## Releasing
 

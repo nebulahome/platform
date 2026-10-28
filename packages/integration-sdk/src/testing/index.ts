@@ -8,13 +8,18 @@
  * - {@link identify} says what discovery makes of a device heard;
  * - {@link identifyMatter} says what it makes of one of the house's Matter devices;
  * - {@link identifyMqtt} says what it makes of a device the house's MQTT broker hears;
+ * - {@link identifyModbus} says what it makes of a Modbus server the network search found;
+ * - {@link identifySerial} says whether the Serial broker suggests a port for the vendor;
+ * - {@link identifyBluetooth} says what it makes of an advertisement the house heard;
  * - {@link createFakeSdk} is the SDK a test hands a module, recording what it logged and sent.
  */
 
 export {
   createFakeSdk,
   type FakeSdk,
+  type FakeBluetoothScanner,
   type FakeSdkOptions,
+  type FakeSerialPort,
   type FakeUdpSocket,
   type FakeWebSocket,
   type LogLevel,
@@ -29,13 +34,17 @@ export {
 } from './harness.js';
 export {
   identify,
+  identifyBluetooth,
   identifyMatter,
   identifyModbus,
   identifyMqtt,
+  identifySerial,
+  type BluetoothIdentification,
   type Identification,
   type MatterIdentification,
   type ModbusIdentification,
   type MqttIdentification,
+  type SerialIdentification,
 } from './identify.js';
 export { loadIntegration, type LoadedIntegration, type LoadIntegrationOptions } from './load.js';
 export { IntegrationError } from '../project.js';

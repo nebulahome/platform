@@ -17,13 +17,16 @@ import { run } from '../src/cli/index.js';
 import type { ManagedSocket, ManagedSocketOptions } from '../src/index.js';
 import { packIntegration } from '../src/pack.js';
 import { IntegrationError } from '../src/project.js';
+import { jsonSchemaOf } from '../src/schemas.js';
 import {
   createFakeSdk,
   driverHarness,
   identify,
+  identifyBluetooth,
   identifyMatter,
   identifyModbus,
   identifyMqtt,
+  identifySerial,
   loadIntegration,
   type FakeSdk,
 } from '../src/testing/index.js';
@@ -455,6 +458,101 @@ describe('testing', () => {
     });
   });
 
+  it('says which serial ports and Bluetooth devices its rules take, and as which driver', async () => {
+    // A code driver that maps nothing: enough for the loader to hold the driver.
+    const module = (id: string, transport: string): string =>
+      `export default (sdk) => ({ id: 'fixture/${id}', transport: '${transport}', optionsSchema: sdk.z.object({}), discovery: {}, claim: () => null, subscriptions: () => [], describe: () => { throw new Error('unused'); }, toState: () => [], toCommand: () => { throw new Error('unused'); } });\n`;
+
+    await edit('src/discovery.json', (discovery) => ({
+      ...discovery,
+      serial: { match: [{ path: 'vendorId', equals: '0665' }] },
+      bluetooth: { match: [{ path: "manufacturerData.'2985'", startsWith: '0A' }] },
+    }));
+
+    for (const [id, driver] of [
+      [
+        'ups',
+        { transport: 'fixture/lan', kind: 'serial', serial: { baudRate: 2400 }, models: ['UPS'] },
+      ],
+      [
+        'tag',
+        {
+          transport: 'bluetooth',
+          kind: 'bluetooth',
+          models: ['Tag', 'Tag Pro'],
+          modelCodes: { 'ACME Tag Pro': 'Tag Pro' },
+        },
+      ],
+    ] as const) {
+      await mkdir(path.join(root, 'src', id));
+      await writeFile(
+        path.join(root, 'src', id, 'driver.json'),
+        JSON.stringify({ id, name: id, ...driver, entry: './index.js', setup: './setup.json' }),
+      );
+      await writeFile(
+        path.join(root, 'src', id, 'setup.json'),
+        JSON.stringify({ transport: { fields: [] } }),
+      );
+      await writeFile(path.join(root, 'src', id, 'index.js'), module(id, driver.transport));
+    }
+
+    const { vendor, failures } = await loadIntegration({ root });
+    const port = {
+      vendorId: '0665',
+      productId: '5161',
+      serialNumber: null,
+      manufacturer: 'INNO TECH',
+      product: 'USB to Serial',
+    };
+    const advert = {
+      address: 'AA:BB:CC:DD:EE:FF',
+      name: 'ACME Tag Pro',
+      manufacturerData: { '2985': '0a01ff' },
+    };
+
+    expect(failures).toEqual([]);
+    expect(identifySerial(vendor, port)).toEqual({
+      matches: true,
+      association: { driverId: 'ups', model: 'UPS', modelChoices: ['UPS'] },
+    });
+    expect(identifySerial(vendor, { ...port, vendorId: '10c4' })).toEqual({
+      matches: false,
+      association: null,
+    });
+    expect(identifyBluetooth(vendor, advert)).toEqual({
+      matches: true,
+      association: { driverId: 'tag', model: 'Tag Pro', modelChoices: ['Tag Pro'] },
+    });
+    expect(identifyBluetooth(vendor, { ...advert, manufacturerData: { '2985': '0b' } })).toEqual({
+      matches: false,
+      association: null,
+    });
+  });
+
+  it("gives editors the new kinds, a profile's roles and the serial and Bluetooth rules", () => {
+    const text = (name: Parameters<typeof jsonSchemaOf>[0]): string =>
+      JSON.stringify(jsonSchemaOf(name));
+
+    expect(text('driver')).toMatch(/"serial".*"bluetooth"/u);
+    expect(text('driver')).toContain('"baudRate"');
+    expect(text('profile')).toContain('"bluetoothProxy"');
+    expect(text('profile')).toContain('"receives"');
+    expect(Object.keys(jsonSchemaOf('discovery')['properties'] as object)).toEqual(
+      expect.arrayContaining(['serial', 'bluetooth']),
+    );
+  });
+
+  it('hands the code the infrared codec, a code written out and read back the same', () => {
+    const { codecs } = createFakeSdk().sdk;
+    const nec = codecs.infrared.encodeInfraredProtocol({ name: 'nec', address: 4, command: 8 });
+
+    expect(codecs.infrared.decodeBroadlink(codecs.infrared.encodeBroadlink(nec)).protocol).toEqual({
+      name: 'nec',
+      address: 4,
+      command: 8,
+    });
+  });
+
   it('says which piece of the SDK a test did not fake', () => {
     const { sdk } = createFakeSdk();
 
@@ -597,5 +695,86 @@ describe('fake WebSockets', () => {
       }),
     ).toBe(own);
     expect(fake.webSockets).toEqual([]);
+  });
+});
+
+describe('fake serial ports', () => {
+  it('opens at the line given, keeps what is written and hands over what the test feeds', async () => {
+    const fake = createFakeSdk();
+    const session = await fake.sdk.openSerial('port-1', { baudRate: 2400 });
+    const heard: string[] = [];
+
+    session.onData((bytes) => heard.push(Buffer.from(bytes).toString()));
+    await session.write(Buffer.from('Q1\r'));
+    fake.serialPorts[0]?.feed('(230.0 ');
+
+    expect(fake.serialPorts[0]?.line).toEqual({
+      baudRate: 2400,
+      dataBits: 8,
+      parity: 'none',
+      stopBits: 1,
+      flowControl: 'none',
+    });
+    expect(fake.serialPorts[0]?.written.map(String)).toEqual(['Q1\r']);
+    expect(heard).toEqual(['(230.0 ']);
+  });
+
+  it('holds a port once, and refuses a write once it is unplugged, as the broker does', async () => {
+    const fake = createFakeSdk();
+    const session = await fake.sdk.openSerial('port-1', { baudRate: 9600 });
+    const closes: string[] = [];
+
+    session.onClose((reason) => closes.push(reason));
+
+    await expect(fake.sdk.openSerial('port-1', { baudRate: 9600 })).rejects.toMatchObject({
+      name: 'SerialPortHeld',
+    });
+    await expect(fake.sdk.openSerial('port-2', { baudRate: 1 })).rejects.toThrow(/line/u);
+
+    fake.serialPorts[0]?.unplug();
+
+    expect(closes).toEqual(['Unplugged']);
+    await expect(session.write(Buffer.from('x'))).rejects.toMatchObject({ name: 'SerialClosed' });
+    await expect(fake.sdk.openSerial('port-1', { baudRate: 9600 })).resolves.toBeDefined();
+  });
+});
+
+describe('fake Bluetooth scanners', () => {
+  const advert = {
+    address: 'aa:bb:cc:dd:ee:ff',
+    addressType: 'random',
+    rssi: -60,
+    serviceData: { FCD2: '40' },
+    at: '2026-10-28T10:00:00.000Z',
+  } as const;
+
+  it('keeps every report, and the advertisements the house would keep of it', () => {
+    const fake = createFakeSdk();
+    const scanner = fake.sdk.bluetooth.scanner({ key: 'plug.local', deviceKey: 'shellyplug-1' });
+
+    scanner.report([advert, { ...advert, rssi: 99 }]);
+    scanner.report([]);
+
+    expect(fake.bluetoothScanners[0]?.reports).toHaveLength(2);
+    expect(fake.bluetoothScanners[0]?.adverts).toEqual([
+      {
+        ...advert,
+        address: 'AA:BB:CC:DD:EE:FF',
+        serviceData: { fcd2: '40' },
+        at: new Date(advert.at),
+      },
+    ]);
+  });
+
+  it('closes the scanner a proxy had when it opens another, and takes nothing once closed', () => {
+    const fake = createFakeSdk();
+    const options = { key: 'plug.local', deviceKey: 'shellyplug-1' };
+    const first = fake.sdk.bluetooth.scanner(options);
+
+    fake.sdk.bluetooth.scanner(options);
+    first.report([advert]);
+
+    expect(fake.bluetoothScanners.map(({ isClosed }) => isClosed)).toEqual([true, false]);
+    expect(fake.bluetoothScanners[0]?.reports).toEqual([]);
   });
 });

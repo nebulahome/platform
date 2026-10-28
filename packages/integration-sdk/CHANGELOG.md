@@ -3,6 +3,32 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.6.0
+
+Serial ports, Bluetooth, IR blasters and Bluetooth proxies.
+
+- A driver may be `"kind": "serial"`: code on a transport of the vendor's own, with a `serial`
+  block saying how its port is spoken (`{ "baudRate": 2400 }`, 8N1 unless said). Adding a device
+  asks for the port, and `sdk.openSerial(portId, line)` opens it through the platform's Serial
+  broker, which gives every port one holder.
+- A driver may be `"kind": "bluetooth"`: code on the platform's `bluetooth` transport, its devices
+  the addresses the house hears, added from the Bluetooth broker's Found or Nearby; its requests
+  are GATT on the server's own adapter (`BLUETOOTH_GATT_OPS`).
+- `discovery.json` may say which serial ports (`serial`, rules on the USB adapter's strings) and
+  which Bluetooth devices (`bluetooth`, rules on an advertisement) are the vendor's; `listen` may
+  then be left out.
+- A declarative profile may say its device is an IR blaster (`infrared: { signals, receives }`) or
+  a Bluetooth proxy (`bluetoothProxy: { modes }`), and the vendor's transport then answers the
+  reserved ops the brokers send over the device's connection: `INFRARED_OPS` and
+  `BLUETOOTH_PROXY_OPS`, exported with their arguments' and answers' types.
+- `sdk.bluetooth.scanner({ key, deviceKey })` is a proxy's channel to the Bluetooth broker for the
+  advertisements it hears, and `sdk.codecs.infrared` is the platform's infrared codec: Broadlink,
+  Pronto, raw timings, Flipper Zero `.ir` files, and NEC, Samsung32, Sony SIRC and RC5.
+- `identifySerial` and `identifyBluetooth` in `@nebulahome/integration-sdk/testing` say what the
+  vendor's rules take; `createFakeSdk()` opens serial ports a test feeds and reads
+  (`serialPorts`), keeps what a proxy's scanner reports (`bluetoothScanners`) and hands over the
+  real infrared codec.
+
 ## 1.5.0
 
 A Modbus template's entities say their icon, and its units are the platform's.

@@ -177,3 +177,75 @@ export function identifyModbus(
 
   return { matches, association: matches ? associateBroker(plan, 'modbus', identity) : null };
 }
+
+/** What discovery makes of one of the serial ports the server sees. */
+export type SerialIdentification = {
+  /** Whether the vendor's `serial` rules take it: every condition holds. */
+  readonly matches: boolean;
+
+  /** The `serial` driver and the model it names; null when no driver takes the port. */
+  readonly association: Association | null;
+};
+
+/**
+ * Says what discovery makes of one of the serial ports the server sees, by the vendor's `serial`
+ * rules: whether the Serial broker suggests it for the vendor - "Use with …?" - and as which of its
+ * drivers of kind `serial`. A port is never added on its own: the owner says which device it is.
+ *
+ * @param vendor - The vendor, loaded with `loadIntegration`.
+ * @param usb - What the port's USB adapter says it is: `{ vendorId: '10c4', productId: 'ea60',
+ * manufacturer, product, serialNumber }`, the ids four lower-case hex digits; a field left out is
+ * one it does not say.
+ * @returns What discovery makes of it.
+ * @throws {Error} When the vendor has no discovery that loaded.
+ */
+export function identifySerial(
+  vendor: LoadedVendor,
+  usb: Readonly<Record<string, unknown>>,
+): SerialIdentification {
+  const plan = vendor.discovery?.plan;
+
+  if (plan === undefined) {
+    throw new Error(`${vendor.manifest.id} has no discovery.json that loaded`);
+  }
+
+  const matches = matchesBroker(plan, 'serial', usb);
+
+  return { matches, association: matches ? associateBroker(plan, 'serial', usb) : null };
+}
+
+/** What discovery makes of one of the devices the house's Bluetooth hears. */
+export type BluetoothIdentification = {
+  /** Whether the vendor's `bluetooth` rules take it: every condition holds. */
+  readonly matches: boolean;
+
+  /** The driver on the `bluetooth` transport and the model it names; null when none takes it. */
+  readonly association: Association | null;
+};
+
+/**
+ * Says what discovery makes of one advertisement the house's Bluetooth heard - from the server's
+ * adapter or a proxy - by the vendor's `bluetooth` rules: whether the device is listed as found for
+ * the vendor, and as which of its drivers on the `bluetooth` transport. The owner adds it.
+ *
+ * @param vendor - The vendor, loaded with `loadIntegration`.
+ * @param advert - The advertisement, as the house keeps it: `address` upper case, `name`,
+ * `manufacturerData` by decimal company id, `serviceData` and `serviceUuids` lower case, a 16-bit
+ * UUID short (`fcd2`), every value hex in lower case; a field left out is one it does not carry.
+ * @returns What discovery makes of it.
+ * @throws {Error} When the vendor has no discovery that loaded.
+ */
+export function identifyBluetooth(
+  vendor: LoadedVendor,
+  advert: Readonly<Record<string, unknown>>,
+): BluetoothIdentification {
+  const plan = vendor.discovery?.plan;
+
+  if (plan === undefined) {
+    throw new Error(`${vendor.manifest.id} has no discovery.json that loaded`);
+  }
+
+  const matches = matchesBroker(plan, 'bluetooth', advert);
+
+  return { matches, association: matches ? associateBroker(plan, 'bluetooth', advert) : null };
+}

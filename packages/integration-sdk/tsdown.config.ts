@@ -8,7 +8,42 @@
  * not bundled: its types are the SDK's (`sdk.z`), and the hub hands its own copy at run time.
  * rolldown, which builds an integration's code, ships a native binary and cannot be bundled.
  */
+import type { Plugin } from 'rolldown';
 import { defineConfig, type UserConfig } from 'tsdown';
+
+/**
+ * Fails the build of the entry an integration's code imports when its JavaScript imports zod or
+ * one of Node's modules: an integration's build bundles that entry into every module and refuses
+ * zod, so one runtime export of something that validates would break every integration's build.
+ *
+ * @returns The plugin.
+ */
+function importsNothing(): Plugin {
+  return {
+    name: 'nebulahome:imports-nothing',
+
+    /**
+     * Checks what each chunk of JavaScript imports.
+     *
+     * @param outputOptions - The output's options.
+     * @param bundle - What was written.
+     */
+    generateBundle(outputOptions, bundle) {
+      for (const chunk of Object.values(bundle)) {
+        const refused =
+          chunk.type === 'chunk' && chunk.fileName.endsWith('.js')
+            ? chunk.imports.filter((id) => /^(?:zod|node:)/u.test(id))
+            : [];
+
+        if (refused.length > 0) {
+          this.error(
+            `${chunk.fileName} imports ${refused.join(', ')}: an integration could not build`,
+          );
+        }
+      }
+    },
+  };
+}
 
 /** What both builds share. */
 const shared: UserConfig = {
@@ -28,9 +63,10 @@ export default defineConfig([
   {
     ...shared,
     // What an integration's own code imports: types, and functions that only type it. Nothing
-    // here may read a file - it is bundled into the integration's modules.
+    // here may read a file or import zod - it is bundled into the integration's modules.
     entry: { index: 'src/index.ts' },
     platform: 'neutral',
+    plugins: [importsNothing()],
     clean: true,
     outputOptions: { chunkFileNames: 'chunks/[name].js' },
   },

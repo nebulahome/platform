@@ -10,6 +10,10 @@
  * The rest of the SDK: `@nebulahome/integration-sdk/testing` for tests, the
  * `nebulahome-integration` command to check, build and pack a release, and
  * `@nebulahome/integration-sdk/schemas/*.schema.json` for the editor.
+ *
+ * Nothing here may import zod either: a module validates with `sdk.z`, and the build refuses a
+ * module that brings its own. So what validates - the infrared codec - is handed over on the SDK
+ * (`sdk.codecs.infrared`), and only names that import nothing are exported as values.
  */
 
 export {
@@ -20,13 +24,20 @@ export {
   defineTransportModule,
 } from './modules.js';
 
+// The ops the hub sends a device playing a broker's role, and the `bluetooth` transport's GATT ops.
+export { BLUETOOTH_GATT_OPS, BLUETOOTH_PROXY_OPS, INFRARED_OPS } from '@nebulahome/contracts';
+
 // The SDK the hub hands a module.
 export type {
+  BluetoothScanner,
+  BluetoothScannerOptions,
+  BundleBluetooth,
   BundleCodecs,
   BundleImages,
   BundleLogFn,
   BundleLogger,
   BundleSdk,
+  InfraredCodec,
   IntegrationFactory,
   ManagedMqtt,
   ManagedMqttOptions,
@@ -37,15 +48,48 @@ export type {
   ManagedUdpSocket,
   ManagedUdpSocketOptions,
   OpenMqtt,
+  OpenSerial,
   OpenUdpSocket,
   OpenWebSocket,
   PalettedPicture,
   PaletteColour,
   PlatformMqtt,
   PlatformServices,
+  SerialSession,
   StreamFactory,
   TransportFactory,
   UdpPeer,
+} from '@nebulahome/package-runtime';
+
+// A serial port's line, a Bluetooth advertisement, an infrared code, the roles a profile declares
+// and what the reserved ops carry.
+export type {
+  BluetoothAdvert,
+  BluetoothAdvertInput,
+  BluetoothProxyFilterArgs,
+  BluetoothProxyInstallArgs,
+  BluetoothProxyProfile,
+  BluetoothProxyState,
+  BluetoothScanMode,
+  InfraredCode,
+  InfraredLearnArgs,
+  InfraredProfile,
+  InfraredProtocol,
+  InfraredProtocolName,
+  InfraredSendArgs,
+  InfraredSignal,
+  InfraredSweepArgs,
+  InfraredSweepResult,
+  SerialDeviceConfig,
+  SerialLine,
+  SerialLineInput,
+} from '@nebulahome/contracts';
+export type {
+  BluetoothSighting,
+  FlipperIrCode,
+  FlipperIrFile,
+  InfraredImportProblem,
+  SerialSighting,
 } from '@nebulahome/package-runtime';
 
 // A transport: where every I/O of an integration happens.
