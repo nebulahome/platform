@@ -171,10 +171,17 @@ export const threadStatusSchema = z.object({
 
   /** The network; null before one is formed or joined. */
   network: threadNetworkSchema.nullable(),
+
+  /**
+   * The nodes of the network by role, unknown ones included; and the house's devices on it, and
+   * how many of them answer, for the Brokers card.
+   */
   devices: z.object({
     routers: z.int().min(0),
     endDevices: z.int().min(0),
     sleepy: z.int().min(0),
+    total: z.int().min(0),
+    online: z.int().min(0),
   }),
 
   /**
