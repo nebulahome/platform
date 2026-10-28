@@ -253,6 +253,34 @@ describe('createMdnsSource', () => {
     ]);
   });
 
+  it("reads a TXT value that is not text as hex: a border router's extended PAN ID", () => {
+    const { open, opened } = fakeSockets();
+    const heard: MdnsAnnouncement[] = [];
+    const source = createMdnsSource({ logger: silent(), open, interfaces: () => ['10.0.0.2'] });
+    const name = 'NebulaHome Border Router._meshcop._udp.local';
+
+    source.start(['_meshcop._udp'], (announcement) => {
+      heard.push(announcement);
+    });
+    opened[0]?.answer({
+      answers: [{ name: '_meshcop._udp.local', type: 'PTR', ttl: 120, data: name }],
+      additionals: [
+        { ...SRV, name, data: { ...SRV.data, port: 49_154 } },
+        {
+          ...TXT,
+          name,
+          data: [
+            Buffer.from('nn=Casa'),
+            Buffer.concat([Buffer.from('xp='), Buffer.from('dead00beef00cafe', 'hex')]),
+          ],
+        },
+        A,
+      ],
+    });
+
+    expect(heard[0]?.txt).toEqual({ nn: 'Casa', xp: 'dead00beef00cafe' });
+  });
+
   it('asks for what an answer left out, and reports the device once it has it', () => {
     // A PTR answer alone says a device exists, not where: the SRV and TXT records are asked for by
     // name rather than the device being ignored until it announces itself again.

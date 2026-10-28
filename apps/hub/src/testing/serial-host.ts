@@ -1,6 +1,7 @@
 /**
  * A machine's serial ports in memory, for the Serial broker's tests: ports plugged and unplugged
- * by hand, and opened ports that record what was written and say what a test makes them say.
+ * by hand, and opened ports that record what was written and say what a test makes them say -
+ * or what a device on them would answer, a Thread radio's Spinel.
  */
 import type { SerialLine } from '@nebulahome/contracts';
 import type { SerialSession } from '@nebulahome/package-runtime';
@@ -31,6 +32,9 @@ export type FakeSerialHost = SerialHost & {
 
   /** Unplugs a port: it leaves the list, and an open one closes. */
   readonly unplug: (devicePath: string) => void;
+
+  /** What the device on a port answers what is written to it; nothing when not set. */
+  respond: ((devicePath: string, bytes: Uint8Array) => Uint8Array | null) | undefined;
 };
 
 /**
@@ -44,6 +48,7 @@ export function createFakeSerialHost(ports: SeenSerialPort[] = []): FakeSerialHo
   const host: FakeSerialHost = {
     ports,
     opened: new Map(),
+    respond: undefined,
 
     /**
      * Reads the ports plugged in.
@@ -126,13 +131,24 @@ export function createFakeSerialHost(ports: SeenSerialPort[] = []): FakeSerialHo
 
       const session: SerialSession = {
         /**
-         * Records what is written.
+         * Records what is written, and has the device answer it.
          *
          * @param bytes - The bytes.
          * @returns At once.
          */
         write: async (bytes) => {
           written.push(Buffer.from(bytes));
+
+          const answer = host.respond?.(devicePath, bytes) ?? null;
+
+          if (answer !== null) {
+            // A moment later, as a device answers.
+            setImmediate(() => {
+              for (const listener of dataListeners) {
+                listener(answer);
+              }
+            });
+          }
 
           return Promise.resolve();
         },

@@ -221,6 +221,9 @@ importers:
       '@matter/main':
         specifier: 0.17.9
         version: 0.17.9
+      '@matter/thread-br-client':
+        specifier: 0.17.9
+        version: 0.17.9
       '@nebulahome/bus':
         specifier: workspace:*
         version: link:../../packages/bus

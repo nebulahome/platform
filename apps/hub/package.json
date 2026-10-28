@@ -16,6 +16,7 @@
     "@jellybrick/dbus-next": "0.10.3",
     "@matter-server/ws-controller": "1.4.0",
     "@matter/main": "0.17.9",
+    "@matter/thread-br-client": "0.17.9",
     "@nebulahome/bus": "workspace:*",
     "@nebulahome/config": "workspace:*",
     "@nebulahome/contracts": "workspace:*",

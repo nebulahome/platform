@@ -208,6 +208,22 @@ function txtOf(txt: unknown): Record<string, string> {
 }
 
 /**
+ * A TXT value as text, or - one that is not, such as a Thread border router's extended PAN ID in
+ * `_meshcop._udp` - as hex, which a reader can turn back into its bytes.
+ *
+ * @param value - The value's bytes.
+ * @returns The text, or lower-case hex.
+ */
+function textOrHex(value: Buffer): string {
+  const text = value.toString('utf8');
+
+  return Buffer.from(text, 'utf8').equals(value) &&
+    !value.some((byte) => byte < 0x20 || byte === 0x7f)
+    ? text
+    : value.toString('hex');
+}
+
+/**
  * Decodes the strings of a TXT record into keys and values.
  *
  * @param data - What `dns-packet` decoded: one buffer per `key=value` string.
@@ -218,19 +234,17 @@ function decodeTxt(data: unknown): Record<string, string | true> {
   const decoded: Record<string, string | true> = {};
 
   for (const each of strings) {
-    const text = Buffer.isBuffer(each)
-      ? each.toString('utf8')
-      : typeof each === 'string'
-        ? each
-        : '';
-    const equals = text.indexOf('=');
+    const bytes = Buffer.isBuffer(each)
+      ? each
+      : Buffer.from(typeof each === 'string' ? each : '', 'utf8');
+    const equals = bytes.indexOf(0x3d);
 
     if (equals === -1) {
-      if (text.length > 0) {
-        decoded[text] = true;
+      if (bytes.length > 0) {
+        decoded[bytes.toString('utf8')] = true;
       }
     } else if (equals > 0) {
-      decoded[text.slice(0, equals)] = text.slice(equals + 1);
+      decoded[bytes.subarray(0, equals).toString('utf8')] = textOrHex(bytes.subarray(equals + 1));
     }
   }
 

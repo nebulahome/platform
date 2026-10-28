@@ -53,6 +53,7 @@ import {
   serialDeviceConfigSchema,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
+  supervisorAcknowledgementSchema,
   type DeviceEventPayload,
   type DeviceInfoRequest,
   type EntityId,
@@ -115,6 +116,7 @@ import {
 import { databaseModbusStore } from './persistence/modbus.js';
 import { databaseSerialStore, loadSerialInstances } from './persistence/serial.js';
 import { loadTakenDevices } from './persistence/taken.js';
+import { databaseThreadStore } from './persistence/thread.js';
 import { loadVendorSettings } from './persistence/vendors.js';
 import { SerialBroker } from './serial/broker.js';
 import { createLinuxSerialHost } from './serial/host.js';
@@ -151,7 +153,10 @@ import {
   platformMqttVendor,
 } from './services/platform-vendors.js';
 import { serveSerial } from './services/serial-management.js';
+import { serveThread } from './services/thread-management.js';
 import { VendorContainersService } from './services/vendor-containers.js';
+import { ThreadBroker } from './thread/broker.js';
+import { createLinuxThreadHost } from './thread/host.js';
 import { createBluetoothTransport } from './transports/bluetooth.js';
 import { createInfraredTransport } from './transports/infrared.js';
 import { createMatterTransport } from './transports/matter.js';
@@ -246,6 +251,7 @@ export class HubService {
   readonly #serial: SerialBroker;
   readonly #bluetooth: BluetoothBroker;
   readonly #infrared: InfraredBroker;
+  readonly #thread: ThreadBroker;
 
   /** Every Modbus socket of the hub: the polls', the tests', the search's and the vendors'. */
   readonly #modbusPool = new ModbusPool();
@@ -281,22 +287,6 @@ export class HubService {
     for (const transport of options.transports ?? []) {
       this.#transports.register(transport);
     }
-
-    this.#matter = new MatterBroker({
-      open: options.config.HUB_MATTER_ENABLED ? options.matter : undefined,
-      storageDir: resolveDataLayout(options.config).matter,
-      logger: options.logger,
-      version: options.config.NEBULA_PLATFORM_VERSION,
-      isLanReachable: options.config.HUB_DISCOVERY_ENABLED,
-
-      /**
-       * Reads which Matter devices the house has.
-       *
-       * @returns Their external ids.
-       */
-      inHouse: async () => new Set((await loadTakenDevices(options.db)).matter.keys()),
-    });
-    this.#transports.register(createMatterTransport(this.#matter));
 
     this.#mqtt = new MqttBroker({
       storageDir: resolveDataLayout(options.config).mqtt,
@@ -474,6 +464,74 @@ export class HubService {
     this.#infrared.onSaved((deviceIds) => {
       void this.#reloadAll(deviceIds, 'its remote changed');
     });
+
+    this.#thread = new ThreadBroker({
+      store: databaseThreadStore(options.db),
+      host: createLinuxThreadHost({ configDir: resolveDataLayout(options.config).thread }),
+      serial: this.#serial,
+      supervisor: {
+        /**
+         * Asks the supervisor how the platform runs: its network, and Docker Desktop.
+         *
+         * @returns What it says.
+         */
+        status: async () =>
+          this.#client.request(
+            busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.status),
+            {},
+            dockerStatusSchema,
+            { timeoutMs: 5000 },
+          ),
+
+        /**
+         * Has the supervisor start, stop or restart the border router.
+         *
+         * @param action - Which.
+         * @returns Once done; a stop once the service is down.
+         */
+        service: async (action) => {
+          await this.#client.request(
+            busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.platformService),
+            { service: 'otbr', action },
+            supervisorAcknowledgementSchema,
+            // The supervisor waits up to 20 s for the service to go down.
+            { timeoutMs: 30_000 },
+          );
+        },
+      },
+      mdns: createMdnsSource({ logger: options.logger }),
+      logger: options.logger,
+
+      /**
+       * The Matter fabric's network: its Thread nodes, their roles and links.
+       *
+       * @returns It.
+       */
+      matterNetwork: () => this.#matter.network(),
+
+      /**
+       * Reads the instances of the house: the Matter devices among them.
+       *
+       * @returns Them.
+       */
+      instances: async () => loadBluetoothInstances(options.db),
+    });
+
+    this.#matter = new MatterBroker({
+      open: options.config.HUB_MATTER_ENABLED ? options.matter : undefined,
+      storageDir: resolveDataLayout(options.config).matter,
+      logger: options.logger,
+      version: options.config.NEBULA_PLATFORM_VERSION,
+      isLanReachable: options.config.HUB_DISCOVERY_ENABLED,
+
+      /**
+       * Reads which Matter devices the house has.
+       *
+       * @returns Their external ids.
+       */
+      inHouse: async () => new Set((await loadTakenDevices(options.db)).matter.keys()),
+    });
+    this.#transports.register(createMatterTransport(this.#matter));
 
     this.#serial.onPlugged((port) => {
       // A device's port came back: started again, its code opens it again.
@@ -827,6 +885,7 @@ export class HubService {
       await this.#serial.start();
       // After the vendors: what is heard is recognised by their rules, proxies by their profiles.
       await this.#bluetooth.start();
+      await this.#thread.start();
       // After the vendors: blasters are the devices whose profiles declare one.
       await this.#infrared.start();
 
@@ -879,6 +938,7 @@ export class HubService {
         ...serveSerial(this.#client, this.#serial),
         ...serveBluetooth(this.#client, this.#bluetooth),
         ...serveInfrared(this.#client, this.#infrared),
+        ...serveThread(this.#client, this.#thread),
         ...serveMqtt({
           client: this.#client,
           broker: this.#mqtt,
@@ -1548,6 +1608,7 @@ export class HubService {
     await this.#serial.stop();
     await this.#bluetooth.stop();
     this.#infrared.stop();
+    await this.#thread.stop();
 
     // Whatever the vendors' own code holds - a UDP port - is let go of with them.
     await Promise.all([...this.#vendors.values()].map(async (vendor) => vendor.release()));
