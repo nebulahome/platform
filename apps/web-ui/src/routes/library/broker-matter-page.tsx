@@ -49,6 +49,7 @@ import { AddMatterDialog } from '@/routes/library/broker-matter/add-dialog';
 import { MatterDevices } from '@/routes/library/broker-matter/matter-devices';
 import { MatterOverview } from '@/routes/library/broker-matter/matter-overview';
 import { everyRow, rowsOf } from '@/routes/library/broker-matter/matter-rows';
+import { MatterSettingsDialog } from '@/routes/library/broker-matter/matter-settings-dialog';
 import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
@@ -94,6 +95,8 @@ export function MatterBrokerPage() {
   const queryClient = useQueryClient();
   const can = useSession((state) => state.can);
   const canWrite = can('device:write');
+  const canConfigure = can('integration:configure');
+  const [isConfiguring, setConfiguring] = useState(false);
   const [tab, setTab] = useTab<MatterTab>(TABS);
   const [isAdding, setIsAdding] = useState(false);
 
@@ -150,7 +153,7 @@ export function MatterBrokerPage() {
 
   const network = useQuery({
     queryKey: BROKER_QUERY_KEYS.matterNetwork,
-    enabled: tab === 'network',
+    enabled: tab === 'network' || tab === 'devices',
     refetchInterval: REFRESH_MS,
 
     /**
@@ -269,6 +272,17 @@ export function MatterBrokerPage() {
           actions={
             canWrite && found !== undefined && found.state !== 'disabled' ? (
               <>
+                {canConfigure ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setConfiguring(true);
+                    }}
+                  >
+                    <AppIcon id="settings" size={15} />
+                    {t('brokers.matter.openSettings', 'Settings')}
+                  </Button>
+                ) : null}
                 {found.state === 'running' ? (
                   <Button
                     onClick={() => {
@@ -345,6 +359,13 @@ export function MatterBrokerPage() {
                   rows={rows}
                   icons={icons}
                   vendorNames={vendorNames}
+                  threadNodes={
+                    new Set(
+                      (network.data?.nodes ?? []).flatMap((point) =>
+                        point.network === 'thread' && point.nodeId !== null ? [point.nodeId] : [],
+                      ),
+                    )
+                  }
                   isRestoring={restore.isPending}
                   isLeaving={leave.isPending}
                   {...(canWrite
@@ -388,9 +409,17 @@ export function MatterBrokerPage() {
             <AddMatterDialog
               isOpen={isAdding}
               job={found.commissioning}
+              ble={found.ble}
               onClose={() => {
                 setIsAdding(false);
                 refresh();
+              }}
+            />
+          ) : null}
+          {isConfiguring ? (
+            <MatterSettingsDialog
+              onClose={() => {
+                setConfiguring(false);
               }}
             />
           ) : null}

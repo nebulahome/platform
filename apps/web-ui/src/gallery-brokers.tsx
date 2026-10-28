@@ -20,6 +20,8 @@ import { ImportDialog } from '@/routes/library/broker-infrared/import-dialog';
 import { LearnDialog } from '@/routes/library/broker-infrared/learn-dialog';
 import { InfraredRemotePage } from '@/routes/library/broker-infrared/remote-page';
 import { InfraredBrokerPage } from '@/routes/library/broker-infrared-page';
+import { AddMatterDialog } from '@/routes/library/broker-matter/add-dialog';
+import { MatterSettingsDialog } from '@/routes/library/broker-matter/matter-settings-dialog';
 import {
   ConsoleDialog,
   NetworkPortDialog,
@@ -27,6 +29,12 @@ import {
   UseWithDialog,
 } from '@/routes/library/broker-serial/serial-dialogs';
 import { SerialBrokerPage } from '@/routes/library/broker-serial-page';
+import {
+  Ipv6FixDialog,
+  ThreadSettingsDialog,
+  ThreadSetupDialog,
+} from '@/routes/library/broker-thread/thread-dialogs';
+import { ThreadBrokerPage } from '@/routes/library/broker-thread-page';
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { BLUETOOTH_SAMPLE_STATUS, bluetoothSampleCache } from '@/testing/bluetooth-samples';
 import { SAMPLE_AREAS } from '@/testing/broker-samples';
@@ -38,6 +46,7 @@ import {
   infraredSampleCache,
   necSample,
 } from '@/testing/infrared-samples';
+import { matterNewDeviceSample, matterSampleCache } from '@/testing/matter-samples';
 import {
   SERIAL_SAMPLE_FREE_ID,
   SERIAL_SAMPLE_PORTS,
@@ -45,6 +54,13 @@ import {
   SERIAL_SAMPLE_VENDORS,
   serialSampleCache,
 } from '@/testing/serial-samples';
+import {
+  THREAD_SAMPLE_BEFORE,
+  THREAD_SAMPLE_IPV6,
+  THREAD_SAMPLE_NO_HOST,
+  THREAD_SAMPLE_STATUS,
+  threadSampleCache,
+} from '@/testing/thread-samples';
 
 /** What a section needs. */
 type SectionProps = {
@@ -233,6 +249,41 @@ BLUETOOTH_CACHE.setQueryData(['brokers', 'bluetooth', 'job', 'proxy-job'], {
   ],
 });
 
+/** The Thread broker's tabs. */
+const THREAD_TABS = ['overview', 'devices', 'network', 'border-routers'] as const;
+
+/** The caches the Thread samples read: set up, before setup, on a bridge, IPv6 to fix. */
+const THREAD_CACHE = threadSampleCache();
+const THREAD_BEFORE_CACHE = threadSampleCache(THREAD_SAMPLE_BEFORE);
+const THREAD_NO_HOST_CACHE = threadSampleCache(THREAD_SAMPLE_NO_HOST);
+const THREAD_IPV6_CACHE = threadSampleCache(THREAD_SAMPLE_IPV6);
+
+/** The setup job half way: the radio answered, the network forming. */
+const THREAD_SETTING_UP = {
+  ...THREAD_SAMPLE_STATUS,
+  setup: {
+    id: 'setup-1',
+    state: 'running' as const,
+    startedAt: new Date('2026-10-27T10:00:00Z'),
+    finishedAt: null,
+    error: null,
+    steps: [
+      { id: 'border-router' as const, state: 'done' as const, message: 'OTBR 2026.10.0' },
+      { id: 'radio' as const, state: 'done' as const, message: 'RCP SL-OPENTHREAD/2.4.4.0' },
+      { id: 'network' as const, state: 'running' as const, message: null },
+      { id: 'matter' as const, state: 'pending' as const, message: null },
+    ],
+  },
+};
+
+/** The cache Matter's new dialogs read. */
+const MATTER_CACHE = matterSampleCache();
+
+MATTER_CACHE.setQueryData(['brokers', 'matter', 'networks'], {
+  wifi: { ssid: 'Casa-2.4G', hasPassword: true },
+  thread: { networkName: 'NebulaHome-1A2B', channel: 15 },
+});
+
 /**
  * The newer brokers' sections.
  *
@@ -418,6 +469,101 @@ export function BrokerGallery() {
                 defaultMode="passive"
                 roomOf={(areaId) => SAMPLE_AREAS.find((area) => area.id === areaId)?.name ?? null}
                 {...(name === 'Add proxy' ? {} : { jobId: 'proxy-job' })}
+              />
+            )
+          }
+        />
+      </Section>
+      {THREAD_TABS.map((tab) => (
+        <Section
+          key={tab}
+          title={`Thread · ${tab}`}
+          note="The house's Thread network: the platform's border router on a SkyConnect, leader of NebulaHome-1A2B, three routers, end devices and an unknown node; a HomePod on this network, a Nest Hub on another."
+        >
+          <SamplePage cache={THREAD_CACHE} at={`/brokers/thread?tab=${tab}`}>
+            <ThreadBrokerPage />
+          </SamplePage>
+        </Section>
+      ))}
+      <Section
+        title="Thread · before setup"
+        note="No tabs and no hero actions: the panel that says Thread needs a radio, Set up, and what it needs."
+      >
+        <SamplePage cache={THREAD_BEFORE_CACHE} at="/brokers/thread">
+          <ThreadBrokerPage />
+        </SamplePage>
+      </Section>
+      <Section
+        title="Thread · no host"
+        note="On a bridge network: the warning, and Set up disabled with why."
+      >
+        <SamplePage cache={THREAD_NO_HOST_CACHE} at="/brokers/thread">
+          <ThreadBrokerPage />
+        </SamplePage>
+      </Section>
+      <Section
+        title="Thread · ipv6"
+        note="The host does not take the border router's routes: the Border router card warns, with How to fix."
+      >
+        <SamplePage cache={THREAD_IPV6_CACHE} at="/brokers/thread">
+          <ThreadBrokerPage />
+        </SamplePage>
+      </Section>
+      <Section
+        title="Thread · dialogs"
+        note="Set up (radio, network, starting), Settings, How to fix."
+      >
+        <DialogSamples
+          cache={THREAD_CACHE}
+          names={['Set up', 'Set up · starting', 'Thread settings', 'How to fix']}
+          render={(name, close) =>
+            name === 'Set up' ? (
+              <ThreadSetupDialog status={THREAD_SAMPLE_BEFORE} onClose={close} />
+            ) : name === 'Set up · starting' ? (
+              <ThreadSetupDialog status={THREAD_SETTING_UP} onClose={close} />
+            ) : name === 'Thread settings' ? (
+              <ThreadSettingsDialog status={THREAD_SAMPLE_STATUS} onClose={close} />
+            ) : (
+              <Ipv6FixDialog status={THREAD_SAMPLE_IPV6} onClose={close} />
+            )
+          }
+        />
+      </Section>
+      <Section
+        title="Matter · new devices"
+        note="Add device's choice (New device off when the adapter cannot connect), a new device's code, its pairing, the stops on Thread and Wi-Fi, and Settings' networks."
+      >
+        <DialogSamples
+          cache={MATTER_CACHE}
+          names={[
+            'Add · choice',
+            'Add · no Bluetooth',
+            'Add · pairing',
+            'Add · needs Thread',
+            'Add · needs Wi-Fi',
+            'Matter settings',
+          ]}
+          render={(name, close) =>
+            name === 'Matter settings' ? (
+              <MatterSettingsDialog onClose={close} />
+            ) : (
+              <AddMatterDialog
+                isOpen
+                onClose={close}
+                ble={
+                  name === 'Add · no Bluetooth'
+                    ? { isAvailable: false, reason: 'desktop' }
+                    : { isAvailable: true, reason: null }
+                }
+                job={
+                  name === 'Add · pairing'
+                    ? matterNewDeviceSample()
+                    : name === 'Add · needs Thread'
+                      ? matterNewDeviceSample('needs-thread')
+                      : name === 'Add · needs Wi-Fi'
+                        ? matterNewDeviceSample('needs-wifi')
+                        : null
+                }
               />
             )
           }

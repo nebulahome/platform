@@ -477,6 +477,36 @@ export const MATTER_SAMPLE_TEST: MatterCommissioning = {
   ],
 };
 
+/**
+ * A new device paired over the server's Bluetooth, at a point of its job.
+ *
+ * @param question - The question it stopped on, if any.
+ * @returns The job.
+ */
+export function matterNewDeviceSample(
+  question?: 'needs-wifi' | 'needs-thread',
+): MatterCommissioning {
+  const network = question === 'needs-thread' ? 'thread' : 'wifi';
+
+  return {
+    ...MATTER_SAMPLE_ADDING,
+    id: `job-new-${question ?? 'running'}`,
+    mode: 'new',
+    state: question === undefined ? 'running' : 'needs-answer',
+    ...(question === undefined ? {} : { question }),
+    steps: [
+      step('looking', 'done', { address: 'BLE · -55 dBm through hci0' }),
+      step('found', question === undefined ? 'done' : 'warning', {
+        product: question === 'needs-thread' ? 'Eve Energy' : 'Meross Smart Plug Mini',
+        network,
+      }),
+      step('network', question === undefined ? 'running' : 'pending', { network }),
+      step('joining', 'pending'),
+      step('added', 'pending'),
+    ],
+  };
+}
+
 /** The Shelly plug just added through Matter, offered to link with the one the house had. */
 export const MATTER_SAMPLE_TWIN: LinkSuggestionView = {
   id: '00000000-0000-4000-8000-0000000000a1',

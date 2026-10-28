@@ -31,6 +31,9 @@ export type MatterDevicesProps = {
   readonly icons: DeviceIcons;
   readonly vendorNames: ReadonlyMap<string, string>;
 
+  /** The nodes that reach the house over Thread, for their tag. */
+  readonly threadNodes?: ReadonlySet<string>;
+
   /** Adds a device taken out of the house back; absent when the person may not. */
   readonly onRestore?: (identity: MatterIdentity) => void;
   readonly isRestoring: boolean;
@@ -174,6 +177,7 @@ export function MatterDevices(props: MatterDevicesProps) {
                 icons={icons}
                 vendorNames={vendorNames}
                 isTagged
+                isOnThread={props.threadNodes?.has(row.node.nodeId) === true}
                 {...restore(row)}
                 {...(row.children.length === 0
                   ? {}

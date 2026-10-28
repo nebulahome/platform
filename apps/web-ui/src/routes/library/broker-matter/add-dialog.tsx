@@ -1,7 +1,15 @@
 /**
- * Adding a Matter device: the code, then the job.
+ * Adding a Matter device: new, or already in another app; the code; then the job.
  *
- * One dialog with four faces. **The code** - one large field, an example of where a Matter code is
+ * It opens on the choice: **New device** - one never set up, or reset, which this server pairs
+ * over its Bluetooth and puts on Wi-Fi or this Thread network (disabled, with why and the way to
+ * the Bluetooth page, when the server's adapter cannot connect) - or **Already in another app**,
+ * the share-code path as it always was. A new device's code can be scanned from its QR code where
+ * the browser gives a camera (not on plain HTTP); its job stops at Found when the device needs
+ * Thread and Thread is not set up (a link to Thread's page), or needs Wi-Fi and none is saved (the
+ * Wi-Fi fields, inline).
+ *
+ * Then one dialog with four faces. **The code** - one large field, an example of where a Matter code is
  * printed, and the footnote that it goes over the house's network only. **The job** -
  * its steps, and the picture of the device finding its way in; closed before the device joined the
  * fabric, it stops - as it does when the page is left with the dialog open - and once it joined it
@@ -13,13 +21,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
-import type { LinkReason, LinkSuggestionView, MatterCommissioning } from '@nebulahome/contracts';
-import { AppIcon, Button, cn, Modal, Note } from '@nebulahome/ui';
+import type {
+  LinkReason,
+  LinkSuggestionView,
+  MatterCommissioning,
+  MatterCommissionMode,
+  MatterStatus,
+} from '@nebulahome/contracts';
+import { AppIcon, Button, cn, Modal, Note, TextField, WizardSteps } from '@nebulahome/ui';
 
 import exampleQr from '@/assets/matter/example-qr.svg';
 import { MatterLogo } from '@/components/brand-logos';
+import { translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import {
   answerMatter,
@@ -43,6 +58,8 @@ import {
   StepList,
   stepsDone,
 } from '@/routes/library/broker-matter/matter-steps';
+import { ScanQrButton } from '@/routes/library/broker-matter/scan-qr';
+import { ChoiceCard } from '@/routes/library/broker-parts';
 import { BrokerMark } from '@/routes/library/brokers-page';
 import { devicePath } from '@/routes/library/device/device-path';
 import { TransportMark, useVendorsById, wayName } from '@/routes/library/transport-marks';
@@ -58,7 +75,36 @@ export type AddMatterDialogProps = {
 
   /** The fabric's last commissioning, as the page reads it. */
   readonly job: MatterCommissioning | null;
+
+  /** Whether a new device can be paired over the server's Bluetooth, and why not. */
+  readonly ble?: MatterStatus['ble'];
 };
+
+/**
+ * Why a new device cannot be paired here, in words.
+ *
+ * @param reason - What the hub said.
+ * @returns The words.
+ */
+function bleReasonOf(reason: NonNullable<MatterStatus['ble']>['reason']): string {
+  switch (reason) {
+    case 'adapter-off':
+      return translate('brokers.matter.new.adapterOff', 'The server’s Bluetooth adapter is off.');
+    case 'proxies-only':
+      return translate(
+        'brokers.matter.new.proxiesOnly',
+        'Bluetooth proxies only listen: pairing needs this server’s own adapter.',
+      );
+    case 'desktop':
+      return translate(
+        'brokers.matter.new.desktop',
+        'Docker Desktop passes no Bluetooth through to the server.',
+      );
+    case 'no-adapter':
+    case null:
+      return translate('brokers.matter.new.noAdapter', 'This server has no Bluetooth adapter.');
+  }
+}
 
 /**
  * Renders the dialog.
@@ -71,6 +117,11 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
   const queryClient = useQueryClient();
   const { isOpen, onClose, job } = props;
   const [code, setCode] = useState('');
+  const isBleAvailable = props.ble?.isAvailable === true;
+  const [mode, setMode] = useState<MatterCommissionMode | null>(null);
+  const [choice, setChoice] = useState<MatterCommissionMode>(isBleAvailable ? 'new' : 'shared');
+  const [ssid, setSsid] = useState('');
+  const [password, setPassword] = useState('');
 
   // The job the dialog follows: the one it started, or one still under way when it opened.
   const [followed, setFollowed] = useState<string | null>(null);
@@ -91,7 +142,7 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
      * @param pairingCode - The code.
      * @returns The job.
      */
-    mutationFn: async (pairingCode: string) => commissionMatter(pairingCode),
+    mutationFn: async (pairingCode: string) => commissionMatter(pairingCode, mode ?? 'shared'),
 
     /**
      * Follows the job.
@@ -107,12 +158,20 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
 
   const answer = useMutation({
     /**
-     * Answers the test certificate's question.
+     * Answers the question the job stopped on: a test certificate, or the Wi-Fi a new device asks
+     * for.
      *
-     * @param isAccepted - Whether to add it anyway.
+     * @param isAccepted - Whether to go on.
      * @returns The job.
      */
-    mutationFn: async (isAccepted: boolean) => answerMatter(shown?.id ?? '', isAccepted),
+    mutationFn: async (isAccepted: boolean) =>
+      answerMatter(
+        shown?.id ?? '',
+        isAccepted,
+        isAccepted && shown?.question === 'needs-wifi'
+          ? { ssid: ssid.trim(), password, isSaved: true }
+          : undefined,
+      ),
 
     /** Reads the job again. */
     onSettled: refresh,
@@ -151,8 +210,172 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
     }
 
     commission.reset();
+    setMode(null);
     onClose();
   };
+
+  if (shown === null && mode === null) {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={close}
+        size="form"
+        layout="card"
+        lead={<BrokerMark size={44} isLit />}
+        title={t('brokers.matter.add.title', 'Add a Matter device')}
+        description={t('brokers.matter.add.choiceLine', 'New, or already in another app?')}
+        footer={
+          <>
+            <span />
+            <span className="flex items-center gap-2">
+              <Button variant="bare" onClick={close}>
+                {t('common.cancel', 'Cancel')}
+              </Button>
+              <Button
+                onClick={() => {
+                  setMode(choice);
+                }}
+              >
+                {t('common.next', 'Next')}
+              </Button>
+            </span>
+          </>
+        }
+      >
+        <div role="radiogroup" className="flex flex-col gap-2.5">
+          <ChoiceCard
+            isChosen={choice === 'new'}
+            isDisabled={!isBleAvailable}
+            onSelect={() => {
+              setChoice('new');
+            }}
+            className="items-start py-3.5"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-field bg-[#5b9dff]/12 text-[#5b9dff]">
+              <AppIcon id="bluetooth" size={18} />
+            </span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-ui font-medium text-foreground">
+                {t('brokers.matter.add.new', 'New device')}
+              </span>
+              <span className="text-ui-sm leading-normal text-foreground-muted">
+                {t(
+                  'brokers.matter.add.newLine',
+                  'Never set up, or reset. This server pairs it over Bluetooth, then it joins Wi-Fi or Thread.',
+                )}
+              </span>
+            </span>
+          </ChoiceCard>
+          {isBleAvailable ? null : (
+            <p className="-mt-1 flex flex-wrap items-center gap-x-2 pl-12 text-caption text-foreground-muted">
+              {bleReasonOf(props.ble?.reason ?? null)}
+              <Link
+                to="/brokers/bluetooth"
+                className="font-medium text-primary hover:text-primary-hover"
+              >
+                {t('brokers.matter.add.openBluetooth', 'Open Bluetooth')}
+              </Link>
+            </p>
+          )}
+          <ChoiceCard
+            isChosen={choice === 'shared'}
+            onSelect={() => {
+              setChoice('shared');
+            }}
+            className="items-start py-3.5"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-field bg-primary/12 text-primary">
+              <AppIcon id="qr-code" size={18} />
+            </span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-ui font-medium text-foreground">
+                {t('brokers.matter.add.shared', 'Already in another app')}
+              </span>
+              <span className="text-ui-sm leading-normal text-foreground-muted">
+                {t(
+                  'brokers.matter.add.sharedLine',
+                  'In another home app: share a pairing code from there.',
+                )}
+              </span>
+            </span>
+          </ChoiceCard>
+          <p className="mt-1 flex items-center gap-2 text-caption text-foreground-subtle">
+            <AppIcon id="info" size={14} />
+            {t(
+              'brokers.matter.add.keepClose',
+              'Keep the device within a few metres of the server while it pairs.',
+            )}
+          </p>
+        </div>
+      </Modal>
+    );
+  }
+
+  if (shown === null && mode === 'new') {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={close}
+        size="form"
+        layout="card"
+        lead={<BrokerMark size={44} isLit />}
+        title={t('brokers.matter.new.title', 'Add a new device')}
+        description={t('brokers.matter.new.line', 'Its setup code, from the device or its box')}
+        closesOnBackdrop={code === ''}
+        footer={
+          <>
+            <span />
+            <span className="flex items-center gap-2">
+              <Button
+                variant="bare"
+                onClick={() => {
+                  setMode(null);
+                }}
+              >
+                {t('common.back', 'Back')}
+              </Button>
+              <Button
+                disabled={!isWholeCode(code)}
+                isBusy={commission.isPending}
+                onClick={() => {
+                  commission.mutate(code);
+                }}
+              >
+                {t('common.next', 'Next')}
+              </Button>
+            </span>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-5">
+          <WizardSteps
+            layout="stacked"
+            current={0}
+            steps={[
+              t('brokers.matter.new.code', 'Code'),
+              t('brokers.matter.new.pairing', 'Pairing'),
+              t('brokers.matter.new.done', 'Done'),
+            ]}
+          />
+          <PairingCodeField
+            value={code}
+            onChange={setCode}
+            onSubmit={() => {
+              commission.mutate(cleanCode(code));
+            }}
+          />
+          <ScanQrButton
+            onCode={(scanned) => {
+              setCode(cleanCode(scanned));
+            }}
+          />
+          {commission.error === null ? null : (
+            <Note tone="danger">{toMessage(commission.error)}</Note>
+          )}
+        </div>
+      </Modal>
+    );
+  }
 
   if (shown === null) {
     return (
@@ -261,7 +484,9 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
     );
   }
 
-  const isAsking = shown.state === 'needs-answer';
+  const isNew = shown.mode === 'new';
+  const question = shown.state === 'needs-answer' ? (shown.question ?? 'test-certificate') : null;
+  const isAsking = question === 'test-certificate';
   const product = shown.steps.find((step) => step.id === 'found')?.detail.product ?? null;
 
   return (
@@ -272,11 +497,13 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
       layout="card"
       lead={<BrokerMark size={44} isLit />}
       title={
-        isAsking
-          ? t('brokers.matter.adding.testTitle', 'This device has a test certificate')
-          : shown.state === 'failed'
-            ? t('brokers.matter.adding.failedTitle', 'The device was not added')
-            : t('brokers.matter.adding.title', 'Adding the device')
+        question === 'needs-thread'
+          ? t('brokers.matter.new.needsThreadTitle', 'This device uses Thread')
+          : isAsking
+            ? t('brokers.matter.adding.testTitle', 'This device has a test certificate')
+            : shown.state === 'failed'
+              ? t('brokers.matter.adding.failedTitle', 'The device was not added')
+              : t('brokers.matter.adding.title', 'Adding the device')
       }
       description={
         isAsking
@@ -292,7 +519,53 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
               )
       }
       footer={
-        isAsking ? (
+        question === 'needs-thread' ? (
+          <>
+            <span />
+            <span className="flex items-center gap-2">
+              <Button
+                variant="bare"
+                isBusy={answer.isPending}
+                onClick={() => {
+                  answer.mutate(false);
+                }}
+              >
+                {t('common.cancel', 'Cancel')}
+              </Button>
+              <Link
+                to="/brokers/thread"
+                onClick={close}
+                className="press inline-flex h-control items-center gap-2 rounded-pill bg-primary px-4 text-ui font-medium text-primary-foreground"
+              >
+                {t('brokers.matter.new.setUpThread', 'Set up Thread')}
+              </Link>
+            </span>
+          </>
+        ) : question === 'needs-wifi' ? (
+          <>
+            <span />
+            <span className="flex items-center gap-2">
+              <Button
+                variant="bare"
+                isBusy={answer.isPending && !answer.variables}
+                onClick={() => {
+                  answer.mutate(false);
+                }}
+              >
+                {t('common.cancel', 'Cancel')}
+              </Button>
+              <Button
+                disabled={ssid.trim() === ''}
+                isBusy={answer.isPending && answer.variables}
+                onClick={() => {
+                  answer.mutate(true);
+                }}
+              >
+                {t('brokers.matter.new.continue', 'Continue')}
+              </Button>
+            </span>
+          </>
+        ) : isAsking ? (
           <>
             <Button
               variant="bare"
@@ -350,6 +623,17 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
       }
     >
       <div className="flex flex-col gap-5">
+        {isNew ? (
+          <WizardSteps
+            layout="stacked"
+            current={shown.state === 'succeeded' ? 2 : 1}
+            steps={[
+              t('brokers.matter.new.code', 'Code'),
+              t('brokers.matter.new.pairing', 'Pairing'),
+              t('brokers.matter.new.done', 'Done'),
+            ]}
+          />
+        ) : null}
         <div className="flex flex-wrap items-center gap-7">
           <JoinAnimation phase={joinPhaseOf(shown)} done={stepsDone(shown)} />
           <div className="min-w-0 grow">
@@ -372,9 +656,51 @@ export function AddMatterDialog(props: AddMatterDialogProps) {
             </span>
           </div>
         ) : null}
+        {question === 'needs-thread' ? (
+          <Note tone="warning">
+            {t(
+              'brokers.matter.new.needsThread',
+              'This device uses Thread. Set up Thread first, then add it again.',
+            )}
+          </Note>
+        ) : null}
+        {question === 'needs-wifi' ? (
+          <div className="flex flex-col gap-3 rounded-card border border-border px-4 py-4">
+            <span className="flex items-center gap-2 text-ui font-medium text-foreground">
+              <AppIcon id="wifi" size={15} className="text-cyan" />
+              {t('brokers.matter.new.whichWifi', 'Which Wi-Fi should it join?')}
+            </span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TextField
+                label={t('brokers.matter.new.ssid', 'Network name')}
+                value={ssid}
+                autoComplete="off"
+                onChange={(event) => {
+                  setSsid(event.target.value);
+                }}
+              />
+              <TextField
+                label={t('brokers.matter.new.password', 'Password')}
+                type="password"
+                value={password}
+                autoComplete="new-password"
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                }}
+              />
+            </div>
+            <span className="text-caption text-foreground-subtle">
+              {t(
+                'brokers.matter.new.wifiSaved',
+                'Saved for the next devices too, in Matter › Settings. Most devices need a 2.4 GHz network.',
+              )}
+            </span>
+          </div>
+        ) : null}
         {shown.state === 'failed' && shown.error !== null ? (
           <Note tone="danger">{shown.error}</Note>
         ) : null}
+
         {answer.error === null ? null : <Note tone="danger">{toMessage(answer.error)}</Note>}
       </div>
     </Modal>

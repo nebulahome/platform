@@ -117,9 +117,22 @@ describe('MatterBrokerPage', () => {
     expect(screen.getAllByRole('button', { name: 'Remove from fabric' })).toHaveLength(1);
   });
 
+  it('opens on new or shared, New device off while the server cannot pair over Bluetooth', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Add a Matter device' });
+
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>('radio', { name: /New device/u }).disabled,
+    ).toBe(true);
+    expect(within(dialog).getByText('This server has no Bluetooth adapter.')).toBeTruthy();
+  });
+
   it('takes a whole code before it adds a device', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Add a Matter device' });
     const add = within(dialog).getByRole<HTMLButtonElement>('button', { name: 'Add device' });
@@ -134,6 +147,7 @@ describe('MatterBrokerPage', () => {
   it('offers Paste only where the browser shares the clipboard', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Add a Matter device' });
 
@@ -151,6 +165,7 @@ describe('MatterBrokerPage', () => {
     try {
       renderPage();
       fireEvent.click(screen.getByRole('button', { name: 'Add device' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
       expect(
         within(
           screen.getByRole('dialog', { name: 'Add a Matter device' }),

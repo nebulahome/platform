@@ -57,6 +57,7 @@ import { ModbusTemplatePage } from '@/routes/library/broker-modbus/template-edit
 import { ModbusBrokerPage } from '@/routes/library/broker-modbus-page';
 import { MqttBrokerPage } from '@/routes/library/broker-mqtt-page';
 import { SerialBrokerPage } from '@/routes/library/broker-serial-page';
+import { ThreadBrokerPage } from '@/routes/library/broker-thread-page';
 import { BrokersPage } from '@/routes/library/brokers-page';
 import { DevicePage } from '@/routes/library/device/device-page';
 import { DevicesPage } from '@/routes/library/devices-page';
@@ -420,6 +421,14 @@ export function SessionRoutes() {
           element={
             <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
               <BluetoothBrokerPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/brokers/thread"
+          element={
+            <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
+              <ThreadBrokerPage />
             </RequiresPermission>
           }
         />

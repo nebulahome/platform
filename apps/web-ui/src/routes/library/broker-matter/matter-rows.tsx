@@ -153,6 +153,9 @@ export type MatterDeviceRowProps = {
   /** Whether the integration that took it is named. */
   readonly isTagged?: boolean;
 
+  /** Whether it reaches the house over Thread: a tag after its name, the way to the Thread page. */
+  readonly isOnThread?: boolean;
+
   /** How it hangs from its bridge: not at all, from the line, or at the line's end. */
   readonly hang?: 'none' | 'middle' | 'last';
 
@@ -223,6 +226,14 @@ export function MatterDeviceRow(props: MatterDeviceRowProps) {
   const title: ReactNode = (
     <span className="inline-flex items-center gap-2">
       {row.name}
+      {props.isOnThread === true ? (
+        <Link
+          to="/brokers/thread"
+          className="inline-flex h-5 items-center rounded-pill border border-thread/50 bg-thread/10 px-1.75 text-label font-normal tracking-normal text-thread hover:bg-thread/20"
+        >
+          {t('brokers.matter.threadTag', 'Thread')}
+        </Link>
+      ) : null}
       {view === undefined ? null : <WaysTag ways={waysOfDevice(view)} />}
     </span>
   );

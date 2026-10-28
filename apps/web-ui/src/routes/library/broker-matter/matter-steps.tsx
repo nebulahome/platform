@@ -338,12 +338,19 @@ export function StepList(props: StepListProps) {
                 vendor: hex(detail.vendorId),
                 product: hex(detail.productId ?? 0),
               });
-        const said = [detail.address, detail.product ?? ids].filter(
-          (part): part is string => part !== null,
-        );
+        const said = [
+          detail.address,
+          detail.product ?? ids,
+          detail.network === undefined ? null : detail.network === 'thread' ? 'Thread' : 'Wi-Fi',
+        ].filter((part): part is string => part !== null);
 
         return {
-          title: t('brokers.matter.step.found', 'Found it on the network'),
+          title:
+            job.mode === 'new' && detail.product !== null
+              ? t('brokers.matter.step.foundNamed', 'Found “{{product}}”', {
+                  product: detail.product,
+                })
+              : t('brokers.matter.step.found', 'Found it on the network'),
           detail:
             said.length > 0
               ? said.join(' · ')

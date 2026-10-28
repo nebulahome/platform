@@ -125,7 +125,8 @@ export function PulseStrip(props: {
  * @param props.onSelect - Picks it.
  * @param props.children - What it is.
  * @param props.trailing - What is said of it on the right.
- * @param props.className - The caller's classes.
+ * @param props.className - The caller's classes, for its button.
+ * @param props.extra - Fields under it while it is chosen.
  * @returns The card.
  */
 export function ChoiceCard(props: {
@@ -135,41 +136,52 @@ export function ChoiceCard(props: {
   readonly children: ReactNode;
   readonly trailing?: ReactNode;
   readonly className?: string;
+
+  /** Fields under the choice, shown while it is chosen: outside its button, in its card. */
+  readonly extra?: ReactNode;
 }) {
-  const { isChosen, isDisabled = false, onSelect, children, trailing } = props;
+  const { isChosen, isDisabled = false, onSelect, children, trailing, extra } = props;
 
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={isChosen}
-      disabled={isDisabled}
-      onClick={onSelect}
+    <div
       className={cn(
-        'flex w-full items-center gap-3.5 rounded-inner border px-4 py-3 text-left focus-visible:ring-3 focus-visible:ring-primary/25 focus-visible:outline-none',
+        'flex flex-col rounded-inner border focus-within:ring-3 focus-within:ring-primary/25',
         isChosen
           ? 'border-primary/70 bg-primary/8 ring-1 ring-primary/30'
           : 'border-border bg-surface hover:border-border-strong',
-        isDisabled && 'cursor-default opacity-55 hover:border-border',
-        props.className,
+        isDisabled && 'opacity-55 hover:border-border',
       )}
     >
-      <span
-        aria-hidden="true"
+      <button
+        type="button"
+        role="radio"
+        aria-checked={isChosen}
+        disabled={isDisabled}
+        onClick={onSelect}
         className={cn(
-          'flex size-4.5 shrink-0 items-center justify-center rounded-full border-[1.5px]',
-          isDisabled ? 'invisible' : isChosen ? 'border-primary' : 'border-foreground-subtle',
+          'flex w-full items-center gap-3.5 px-4 py-3 text-left focus-visible:outline-none',
+          isDisabled && 'cursor-default',
+          props.className,
         )}
       >
-        {isChosen ? <span className="size-2 rounded-full bg-primary" /> : null}
-      </span>
-      <span className="flex min-w-0 grow items-center gap-3">{children}</span>
-      {trailing === undefined ? null : (
-        <span className="flex shrink-0 items-center gap-3 text-ui-sm text-foreground-muted">
-          {trailing}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'flex size-4.5 shrink-0 items-center justify-center rounded-full border-[1.5px]',
+            isDisabled ? 'invisible' : isChosen ? 'border-primary' : 'border-foreground-subtle',
+          )}
+        >
+          {isChosen ? <span className="size-2 rounded-full bg-primary" /> : null}
         </span>
-      )}
-    </button>
+        <span className="flex min-w-0 grow items-center gap-3">{children}</span>
+        {trailing === undefined ? null : (
+          <span className="flex shrink-0 items-center gap-3 text-ui-sm text-foreground-muted">
+            {trailing}
+          </span>
+        )}
+      </button>
+      {isChosen && extra !== undefined ? <div className="px-4 pb-4 pl-12">{extra}</div> : null}
+    </div>
   );
 }
 
