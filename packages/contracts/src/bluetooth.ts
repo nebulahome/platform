@@ -202,33 +202,24 @@ export const bluetoothProxyProfileSchema = z.strictObject({
 export type BluetoothProxyProfile = z.output<typeof bluetoothProxyProfileSchema>;
 
 /**
- * The ops the hub sends a proxy over its instance's connection, as `{ deviceKey, op, args }`.
- * Reserved: no integration uses these names for anything else.
+ * Arguments of `bluetooth-proxy.state` and `bluetooth-proxy.remove` ({@link BLUETOOTH_PROXY_OPS},
+ * in `reserved-ops.ts`).
  */
-export const BLUETOOTH_PROXY_OPS = {
-  /** Whether it can be a proxy and whether it is: answers {@link bluetoothProxyStateSchema}. */
-  state: 'bluetooth-proxy.state',
-
-  /** Installs the script, or the one shipped now over an older one, and starts it scanning. */
-  install: 'bluetooth-proxy.install',
-
-  /** Stops the script and removes it. */
-  remove: 'bluetooth-proxy.remove',
-
-  /** Which addresses it forwards: the house's, or everything while Nearby is open. */
-  filter: 'bluetooth-proxy.filter',
-} as const;
-
-/** Arguments of `bluetooth-proxy.state` and `bluetooth-proxy.remove`. */
 export const bluetoothProxyEmptyArgsSchema = z.object({});
 
 /** Arguments of `bluetooth-proxy.install`. */
 export const bluetoothProxyInstallArgsSchema = z.object({ mode: z.enum(BLUETOOTH_SCAN_MODES) });
 
+/** Arguments of `bluetooth-proxy.install`: the mode to scan in. */
+export type BluetoothProxyInstallArgs = z.output<typeof bluetoothProxyInstallArgsSchema>;
+
 /** Arguments of `bluetooth-proxy.filter`. */
 export const bluetoothProxyFilterArgsSchema = z.object({
   addresses: z.union([z.literal('all'), z.array(bluetoothAddressSchema).max(4096)]),
 });
+
+/** Arguments of `bluetooth-proxy.filter`: the addresses to forward, upper case, or `all`. */
+export type BluetoothProxyFilterArgs = z.output<typeof bluetoothProxyFilterArgsSchema>;
 
 /** What `bluetooth-proxy.state` answers: a device that can be a proxy, and whether it is one. */
 export const bluetoothProxyStateSchema = z.discriminatedUnion('eligible', [
@@ -255,17 +246,7 @@ export const bluetoothProxyStateSchema = z.discriminatedUnion('eligible', [
 /** Whether a device can be a proxy, and whether it is. */
 export type BluetoothProxyState = z.output<typeof bluetoothProxyStateSchema>;
 
-/**
- * The ops the platform transport `bluetooth` carries to a device it connects to, GATT on the local
- * adapter only.
- */
-export const BLUETOOTH_GATT_OPS = {
-  read: 'gatt.read',
-  write: 'gatt.write',
-  notify: 'gatt.notify',
-} as const;
-
-/** One characteristic of a device. */
+/** One characteristic of a device ({@link BLUETOOTH_GATT_OPS}, in `reserved-ops.ts`). */
 const gattTargetShape = { service: bluetoothUuidSchema, characteristic: bluetoothUuidSchema };
 
 /** Arguments of `gatt.read`; it answers {@link bluetoothGattValueSchema}. */

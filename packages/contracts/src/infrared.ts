@@ -193,26 +193,11 @@ export const infraredProfileSchema = z.strictObject({
 /** What a blaster declares. */
 export type InfraredProfile = z.output<typeof infraredProfileSchema>;
 
-/**
- * The ops the hub sends a blaster over its instance's connection, as `{ deviceKey, op, args }`.
- * Reserved: no integration uses these names for anything else.
- */
-export const INFRARED_OPS = {
-  /** Sends a code. */
-  send: 'infrared.send',
-
-  /** Listens for one code: resolves with it, or rejects when nothing came in time. */
-  learn: 'infrared.learn',
-
-  /** Searches the RF frequency of a button held down: resolves with it. */
-  sweep: 'infrared.sweep',
-
-  /** Stops a learn or a sweep under way. */
-  cancel: 'infrared.cancel',
-} as const;
+/** Arguments of `infrared.send` ({@link INFRARED_OPS}, in `reserved-ops.ts`). */
+export const infraredSendArgsSchema = z.object({ code: infraredCodeSchema });
 
 /** Arguments of `infrared.send`. */
-export const infraredSendArgsSchema = z.object({ code: infraredCodeSchema });
+export type InfraredSendArgs = z.output<typeof infraredSendArgsSchema>;
 
 /** How long a blaster listens or sweeps at most. */
 const timeoutSchema = z.int().min(1000).max(120_000);
@@ -223,13 +208,22 @@ export const infraredLearnArgsSchema = z.object({
   timeoutMs: timeoutSchema,
 });
 
+/** Arguments of `infrared.learn`. */
+export type InfraredLearnArgs = z.output<typeof infraredLearnArgsSchema>;
+
 /** Arguments of `infrared.sweep`. */
 export const infraredSweepArgsSchema = z.object({ timeoutMs: timeoutSchema });
+
+/** Arguments of `infrared.sweep`. */
+export type InfraredSweepArgs = z.output<typeof infraredSweepArgsSchema>;
 
 /** What `infrared.sweep` resolves with. */
 export const infraredSweepResultSchema = z.object({
   frequencyHz: z.int().min(1_000_000).max(10_000_000_000),
 });
+
+/** What `infrared.sweep` resolves with. */
+export type InfraredSweepResult = z.output<typeof infraredSweepResultSchema>;
 
 /** Arguments of `infrared.cancel`. */
 export const infraredCancelArgsSchema = z.object({});
