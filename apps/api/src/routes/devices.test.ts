@@ -397,6 +397,44 @@ describe('with the hub answering and nothing saved', () => {
     });
   });
 
+  it('adds a serial driver’s device only with its port and line, and nobody else’s', async () => {
+    const meter = {
+      id: 'relay-meter',
+      kind: 'relay/meter',
+      model: 'Meter',
+      name: 'Meter',
+      transportConfig: {},
+    };
+    const serial = { portId: '5b0e2f6a-1c3d-4e5f-8a9b-0c1d2e3f4a5b', line: { baudRate: 2400 } };
+    const authorization = await bearer('device:write');
+    const portless = await server.inject({
+      method: 'POST',
+      url: '/api/v1/devices',
+      headers: { authorization },
+      payload: meter,
+    });
+    // Past the check, the vendor's missing package refuses it: the port and line were taken.
+    const ported = await server.inject({
+      method: 'POST',
+      url: '/api/v1/devices',
+      headers: { authorization },
+      payload: { ...meter, transportConfig: { serial } },
+    });
+    const printer = await server.inject({
+      method: 'POST',
+      url: '/api/v1/devices',
+      headers: { authorization },
+      payload: { ...NEW_PRINTER, transportConfig: { ...NEW_PRINTER.transportConfig, serial } },
+    });
+
+    expect(portless.statusCode).toBe(400);
+    expect(portless.json()).toMatchObject({
+      error: { details: { issues: [{ path: 'transportConfig.serial' }] } },
+    });
+    expect(ported.statusCode).toBe(409);
+    expect(printer.statusCode).toBe(400);
+  });
+
   it('refuses to add a device of a vendor nobody has set up, and says so', async () => {
     // The address may be right; the key is missing. The reply sends the owner to the vendor
     // page rather than back to the device form.

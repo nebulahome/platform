@@ -1,12 +1,15 @@
 /**
  * The broker routes against a hub that answers on a bus in memory: who may read and drive the
  * house's Matter fabric, a pairing code checked before the hub is asked, and a node with nothing
- * in the house removed from the fabric alone; who may read the MQTT broker and who may change who
- * connects to it, and a client's password answered once.
+ * in the house removed from the fabric alone; who may read the MQTT broker and who may change who connects to it, and a client's
+ * password answered once. Every broker's card, one the hub cannot read failed on its own.
  */
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { HUB_INFRARED_STATUS_METHOD } from '@nebulahome/contracts';
+
+import { brokerRequests, failingStatuses } from '../testing/brokers-fake.js';
 import {
   bearer,
   buildTestServer,
@@ -27,6 +30,8 @@ describe('the broker routes', () => {
   beforeEach(() => {
     matterRequests.length = 0;
     mqttRequests.length = 0;
+    brokerRequests.length = 0;
+    failingStatuses.clear();
   });
 
   afterAll(async () => {
@@ -50,8 +55,12 @@ describe('the broker routes', () => {
     expect(brokers.json()).toEqual({
       items: [
         { id: 'matter', state: 'running', devices: { total: 1, online: 1, linked: 0 } },
+        { id: 'thread', state: 'running', devices: { total: 3, online: 2, linked: 0 } },
+        { id: 'bluetooth', state: 'running', devices: { total: 2, online: 1, linked: 0 } },
         { id: 'mqtt', state: 'running', devices: { total: 1, online: 1, linked: 0 } },
         { id: 'modbus', state: 'running', devices: { total: 1, online: 1, linked: 0 } },
+        { id: 'serial', state: 'running', devices: { total: 1, online: 1, linked: 0 } },
+        { id: 'infrared', state: 'running', devices: { total: 1, online: 1, linked: 0 } },
       ],
     });
     expect(nodes.json()).toEqual({ items: [MATTER_LAMP] });
@@ -67,6 +76,28 @@ describe('the broker routes', () => {
       nodes: [{ nodeId: '7', network: 'thread', networkName: 'Casa', channel: 15 }],
       links: [],
     });
+  });
+
+  it('lists a broker the hub cannot read as failed, the others standing', async () => {
+    failingStatuses.add(HUB_INFRARED_STATUS_METHOD);
+
+    const brokers = await server.inject({
+      method: 'GET',
+      url: '/api/v1/brokers',
+      headers: { authorization: await bearer('device:read') },
+    });
+    const { items } = brokers.json<{ items: { id: string; state: string }[] }>();
+
+    expect(brokers.statusCode).toBe(200);
+    expect(items.map((item) => `${item.id} ${item.state}`)).toEqual([
+      'matter running',
+      'thread running',
+      'bluetooth running',
+      'mqtt running',
+      'modbus running',
+      'serial running',
+      'infrared failed',
+    ]);
   });
 
   it('starts commissioning with the code as written, and answers at once', async () => {

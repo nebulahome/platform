@@ -44,6 +44,8 @@ import {
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
   HUB_SERVICE,
+  BLUETOOTH_TRANSPORT,
+  INFRARED_TRANSPORT,
   MATTER_TRANSPORT,
   MODBUS_TRANSPORT,
   MQTT_HOUSE_TRANSPORT,
@@ -51,6 +53,7 @@ import {
   PACKAGE_DEVICE_PREFIX,
   packageDeviceId,
   probeReplySchema,
+  serialDeviceConfigSchema,
   SYSTEM_DEVICE_ID,
   unregisterDeviceReplySchema,
   ValidationError,
@@ -702,21 +705,18 @@ export async function createDevice(
 ): Promise<DeviceView> {
   const { vendor, driver } = await kindOf(context, body.kind);
   const model = checkModel(vendor, driver.id, body.model);
-  const values = validateSetup(driver.setup, body, 'complete');
-  const stored = forStorage(driver.setup, values, context.secretsKey);
+  const { rest, serial } = splitSerial(driver, body.transportConfig, true);
+  const values = validateSetup(driver.setup, { ...body, transportConfig: rest }, 'complete');
+  const stored = withSerial(forStorage(driver.setup, values, context.secretsKey), serial);
   const icon = iconFor(context, body.icon, driver);
 
   if (body.areaId !== undefined) {
     await checkRoom(context.db, body.areaId);
   }
 
-  // A broker's device is reached through the house's fabric, broker or Modbus client, not the
-  // vendor's account or setup.
-  if (
-    driver.transport !== MATTER_TRANSPORT &&
-    driver.transport !== MQTT_HOUSE_TRANSPORT &&
-    driver.transport !== MODBUS_TRANSPORT
-  ) {
+  // A broker's device is reached through the house's fabric, broker, Modbus client, Bluetooth or
+  // an infrared blaster, not the vendor's account or setup.
+  if (!BROKER_TRANSPORTS.has(driver.transport)) {
     await requireVendorSetup(context, vendor);
   }
 
@@ -798,20 +798,87 @@ function mergedForStorage(
   current: StoredRow,
   body: DeviceUpdate,
 ): SetupValues {
+  const { rest, serial } = splitSerial(driver, body.transportConfig ?? {}, false);
   const change = validateSetup(
     driver.setup,
-    { transportConfig: body.transportConfig ?? {}, options: body.options ?? {} },
+    { transportConfig: rest, options: body.options ?? {} },
     'partial',
   );
 
-  return forStorage(
-    driver.setup,
-    {
-      transportConfig: { ...asObject(current.transportConfig), ...change.transportConfig },
-      options: { ...asObject(current.options), ...change.options },
-    },
-    context.secretsKey,
+  return withSerial(
+    forStorage(
+      driver.setup,
+      {
+        transportConfig: { ...asObject(current.transportConfig), ...change.transportConfig },
+        options: { ...asObject(current.options), ...change.options },
+      },
+      context.secretsKey,
+    ),
+    serial,
   );
+}
+
+/** The transports of the platform's brokers: their devices need no vendor account or setup. */
+const BROKER_TRANSPORTS: ReadonlySet<string> = new Set([
+  MATTER_TRANSPORT,
+  MQTT_HOUSE_TRANSPORT,
+  MODBUS_TRANSPORT,
+  BLUETOOTH_TRANSPORT,
+  INFRARED_TRANSPORT,
+]);
+
+/**
+ * Takes a `serial` driver's port and line off the transport configuration the form sent: the
+ * driver's own fields do not declare it, and the hub reads it to give the device its port.
+ *
+ * @param driver - The driver; one without a `serial` line keeps `serial` as an unknown field.
+ * @param transportConfig - What the form sent.
+ * @param isRequired - Whether a device without a port is refused: on create, not on a change.
+ * @returns The rest, for the driver's own fields, and the port and line, checked.
+ * @throws {ValidationError} When the port or line is not one.
+ */
+function splitSerial(
+  driver: IntegrationKind,
+  transportConfig: JsonObject,
+  isRequired: boolean,
+): { readonly rest: JsonObject; readonly serial: JsonObject | undefined } {
+  if (driver.serial === undefined) {
+    return { rest: transportConfig, serial: undefined };
+  }
+
+  const { serial, ...rest } = transportConfig;
+
+  if (serial === undefined && !isRequired) {
+    return { rest, serial: undefined };
+  }
+
+  const parsed = serialDeviceConfigSchema.safeParse(serial);
+
+  if (!parsed.success) {
+    throw new ValidationError('The device needs a serial port and how it is spoken', {
+      details: {
+        issues: parsed.error.issues.map((issue) => ({
+          path: ['transportConfig', 'serial', ...issue.path.map(String)].join('.'),
+          message: issue.message,
+        })),
+      },
+    });
+  }
+
+  return { rest, serial: parsed.data };
+}
+
+/**
+ * Puts a `serial` driver's port and line back beside the driver's own fields.
+ *
+ * @param stored - The documents to store.
+ * @param serial - The port and line, when there are.
+ * @returns The documents, the transport configuration carrying them.
+ */
+function withSerial(stored: SetupValues, serial: JsonObject | undefined): SetupValues {
+  return serial === undefined
+    ? stored
+    : { ...stored, transportConfig: { ...stored.transportConfig, serial } };
 }
 
 /**

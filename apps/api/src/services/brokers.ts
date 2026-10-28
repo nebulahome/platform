@@ -1,7 +1,8 @@
 /**
  * The platform's brokers, read through and driven: the house's Matter fabric and its MQTT broker,
- * which `hub` holds (ARCHITECTURE.md 4.2). The Modbus broker's own methods are `modbus.ts`'s; its
- * card is counted here with the others.
+ * which `hub` holds (ARCHITECTURE.md 4.2). The other brokers' own methods are in their own files -
+ * `modbus.ts`, `thread.ts`, `bluetooth.ts`, `serial.ts`, `infrared.ts` - and their cards are
+ * counted here with these two.
  *
  * Everything here is a question to the hub. What it adds is what removing something means for the
  * house: a node's devices - or a mapping's - are removed the way any device is - `hub` lets go,
@@ -59,6 +60,8 @@ import {
   mqttStatusSchema,
   mqttTopicsReplySchema,
   NotFoundError,
+  type BrokerId,
+  type BrokerState,
   type BrokerSummary,
   type MatterAnswerRequest,
   type MatterCommissioning,
@@ -75,9 +78,13 @@ import {
 } from '@nebulahome/contracts';
 import { schema } from '@nebulahome/db';
 
+import { bluetoothStatus } from './bluetooth.js';
 import { deleteDevice, type DevicesContext, type RemovedDevice } from './devices.js';
+import { infraredStatus } from './infrared.js';
 import { busOf, listCatalogue, reloadOnHub, type IntegrationsContext } from './integrations.js';
 import { modbusStatus } from './modbus.js';
+import { serialStatus } from './serial.js';
+import { threadStatus } from './thread.js';
 
 /**
  * Where the Matter fabric stands.
@@ -129,32 +136,68 @@ export async function matterNetwork(context: IntegrationsContext): Promise<Matte
   );
 }
 
+/** How many devices a card counts, and how many of them answer. */
+type CardCount = { readonly total: number; readonly online: number };
+
 /**
- * The brokers, for their cards.
+ * One broker's card, from its status.
  *
  * @param context - The request's collaborators.
- * @returns Each broker, how it stands and how many nodes answer.
- * @throws {DeviceUnavailableError} When the hub cannot be asked.
+ * @param id - The broker.
+ * @param status - Its status, being asked.
+ * @param countOf - What the card counts, from the status.
+ * @returns The card; `failed` with nothing counted when the hub did not answer for the broker,
+ * so one broker that does not answer leaves the others' cards standing.
+ */
+async function cardOf<TStatus extends { readonly state: BrokerState }>(
+  context: IntegrationsContext,
+  id: BrokerId,
+  status: Promise<TStatus>,
+  countOf: (status: TStatus) => CardCount,
+): Promise<BrokerSummary> {
+  try {
+    const read = await status;
+    const { total, online } = countOf(read);
+
+    return { id, state: read.state, devices: { total, online, linked: 0 } };
+  } catch (error: unknown) {
+    context.logger.warn({ err: error, broker: id }, 'Could not read a broker for its card');
+
+    return { id, state: 'failed', devices: { total: 0, online: 0, linked: 0 } };
+  }
+}
+
+/**
+ * The brokers, for their cards, in the order the Brokers page lists them.
+ *
+ * @param context - The request's collaborators.
+ * @returns Each broker, how it stands and how many of its devices answer.
  */
 export async function listBrokers(context: IntegrationsContext): Promise<BrokerSummary[]> {
-  const [status, linked, mqtt, modbus] = await Promise.all([
-    matterStatus(context),
+  const [cards, linked] = await Promise.all([
+    Promise.all([
+      cardOf(context, MATTER_VENDOR, matterStatus(context), (status) => status.nodes),
+      cardOf(context, 'thread', threadStatus(context), (status) => status.devices),
+      cardOf(context, 'bluetooth', bluetoothStatus(context), (status) => status.devices),
+      cardOf(context, MQTT_VENDOR, mqttStatus(context), (status) => ({
+        total: status.discovery.devices,
+        online: status.discovery.devices,
+      })),
+      cardOf(context, MODBUS_VENDOR, modbusStatus(context), (status) => status.devices),
+      cardOf(context, 'serial', serialStatus(context), (status) => status.devices),
+      cardOf(context, 'infrared', infraredStatus(context), (status) => status.devices),
+    ]),
     // A count on a card: a database that cannot answer it leaves the card standing.
     linkedMatterDevices(context).catch((error: unknown) => {
       context.logger.warn({ err: error }, 'Could not count the linked Matter devices');
 
       return 0;
     }),
-    mqttStatus(context),
-    modbusStatus(context),
   ]);
-  const heard = mqtt.discovery.devices;
 
-  return [
-    { id: MATTER_VENDOR, state: status.state, devices: { ...status.nodes, linked } },
-    { id: MQTT_VENDOR, state: mqtt.state, devices: { total: heard, online: heard, linked: 0 } },
-    { id: MODBUS_VENDOR, state: modbus.state, devices: { ...modbus.devices, linked: 0 } },
-  ];
+  return cards.map((card) =>
+    card.id === MATTER_VENDOR ? { ...card, devices: { ...card.devices, linked } } : card,
+  );
 }
 
 /**

@@ -177,6 +177,7 @@ import { AuditLog } from '../services/audit.js';
 import { EventFanout } from '../services/events.js';
 import { MaintenanceMonitor } from '../services/maintenance.js';
 
+import { serveBrokersFake } from './brokers-fake.js';
 import { testIcons } from './icons.js';
 import { testMapTiles } from './map-tiles.js';
 import { servePacketManagerFake } from './packet-manager-fake.js';
@@ -394,6 +395,20 @@ export const CATALOGUE: CatalogueReply = {
           name: 'Switch',
           transport: 'mqtt',
           models: [],
+          setup: {
+            transport: { constants: {}, fields: [] },
+            options: { constants: {}, fields: [] },
+          },
+        },
+        {
+          // A `serial` driver: its devices are added on a port of the Serial broker.
+          id: 'relay/meter',
+          vendorId: 'relay',
+          driverId: 'meter',
+          name: 'Meter',
+          transport: 'relay/line',
+          models: [],
+          serial: { baudRate: 2400, dataBits: 8, parity: 'none', stopBits: 1, flowControl: 'none' },
           setup: {
             transport: { constants: {}, fields: [] },
             options: { constants: {}, fields: [] },
@@ -886,6 +901,7 @@ export async function buildTestServer(
   backupRequests.length = 0;
 
   const subscriptions = [
+    ...serveBrokersFake(hub),
     ...servePacketManagerFake(
       new BusClient({ transport, source: 'packet-manager', logger, requestTimeoutMs: 500 }),
       new BusClient({ transport, source: 'mqtt', logger, requestTimeoutMs: 500 }),
