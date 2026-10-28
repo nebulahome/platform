@@ -49,6 +49,8 @@ import { AliasesPage } from '@/routes/library/aliases-page';
 import { AreasPage } from '@/routes/library/areas-page';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { AutomationsPage } from '@/routes/library/automations-page';
+import { InfraredRemotePage } from '@/routes/library/broker-infrared/remote-page';
+import { InfraredBrokerPage } from '@/routes/library/broker-infrared-page';
 import { MatterBrokerPage } from '@/routes/library/broker-matter-page';
 import { ModbusTemplatePage } from '@/routes/library/broker-modbus/template-editor/template-page';
 import { ModbusBrokerPage } from '@/routes/library/broker-modbus-page';
@@ -384,6 +386,22 @@ export function SessionRoutes() {
           element={
             <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
               <ModbusTemplatePage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/brokers/infrared"
+          element={
+            <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
+              <InfraredBrokerPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/brokers/infrared/remotes/:remoteId"
+          element={
+            <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
+              <InfraredRemotePage />
             </RequiresPermission>
           }
         />

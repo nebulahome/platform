@@ -68,6 +68,7 @@ import { DeviceProblem } from '@/routes/library/device/device-problem';
 import { entityGroupsOf } from '@/routes/library/device/entity-groups';
 import { LinkDialog, type LinkRequest } from '@/routes/library/device/link-dialog';
 import { useLinkDrag } from '@/routes/library/device/link-drag';
+import { useTransportFacts } from '@/routes/library/device/transport-facts';
 import { useDevicePage, type DevicePageView } from '@/routes/library/device/use-device-page';
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { DeviceIcon } from '@/routes/library/device-icon';
@@ -498,6 +499,7 @@ export function DevicePage() {
    */
   const wayNameOf = (way: DeviceWay): string => wayName(way, vendors, matter);
   const versions = new Set(ways.map((way) => way.swVersion));
+  const transportFacts = useTransportFacts(view?.device);
 
   const canConfigure =
     view !== undefined &&
@@ -516,7 +518,15 @@ export function DevicePage() {
     view === undefined
       ? null
       : deviceStatusOf(view.device, view.standing, firmware?.updateEntityId !== null);
-  const connection = view === undefined ? null : deviceConnectionHealth(view.device, view.standing);
+  const health = view === undefined ? null : deviceConnectionHealth(view.device, view.standing);
+  // The broker that reaches the device says how, once the device is up.
+  const connection =
+    health === null ||
+    transportFacts.line === null ||
+    health.tone === 'danger' ||
+    health.tone === 'neutral'
+      ? health
+      : { ...health, detail: transportFacts.line };
   const signal =
     view === undefined ? null : deviceSignalHealth(view.lines, view.device.transport.toUpperCase());
   const integration =
@@ -591,6 +601,15 @@ export function DevicePage() {
                       <AppIcon id="external-link" size={15} />
                       {t('device.device.openItsWebPage', 'Open its web page')}
                     </a>
+                  )}
+                  {transportFacts.remoteId === null ? null : (
+                    <Link
+                      to={`/brokers/infrared/remotes/${transportFacts.remoteId}`}
+                      className="press inline-flex h-control items-center gap-2 rounded-pill border border-border-strong bg-surface-raised px-3.5 text-ui font-medium text-foreground transition-colors hover:bg-surface-high"
+                    >
+                      <AppIcon id="grip-vertical" size={15} />
+                      {t('device.device.editButtons', 'Edit buttons')}
+                    </Link>
                   )}
                   {canConfigure ? (
                     <Button

@@ -72,6 +72,7 @@ import { LogViewer } from '@/components/log-viewer';
 import { PasswordField } from '@/components/password-field';
 import { Sidebar } from '@/components/sidebar';
 import { CONTAINER_QUERY_KEYS } from '@/containers/api';
+import { BrokerGallery } from '@/gallery-brokers';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
 import { readingOf } from '@/library/entity-reading';
@@ -1502,6 +1503,8 @@ function Gallery() {
             </MemoryRouter>
           </QueryClientProvider>
         </Section>
+
+        <BrokerGallery />
 
         <Section
           title="Matter network"

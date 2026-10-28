@@ -317,3 +317,34 @@ export function CapabilityChip(props: { readonly children: ReactNode }) {
     </span>
   );
 }
+
+/**
+ * A broker's own empty state, small and in place: a dashed card with its mark, what is missing,
+ * how to give it, and the way there. The house's large empty state is for a whole page.
+ *
+ * @param props - What it says.
+ * @param props.mark - The broker's mark, or a glyph.
+ * @param props.title - What is missing.
+ * @param props.children - How to give it.
+ * @param props.action - The way there.
+ * @returns The card.
+ */
+export function BrokerEmpty(props: {
+  readonly mark: ReactNode;
+  readonly title: string;
+  readonly children: ReactNode;
+  readonly action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-card border border-dashed border-border-strong px-6 py-11 text-center">
+      <span className="mb-1 flex size-16 items-center justify-center rounded-inner border border-border-strong bg-surface-raised">
+        {props.mark}
+      </span>
+      <span className="text-title font-medium text-foreground">{props.title}</span>
+      <span className="max-w-120 text-ui leading-normal text-foreground-muted">
+        {props.children}
+      </span>
+      {props.action === undefined ? null : <span className="mt-1">{props.action}</span>}
+    </div>
+  );
+}
