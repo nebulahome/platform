@@ -36,12 +36,12 @@ describe('Broadlink', () => {
     0x26, 0x00, 0x08, 0x00, 0x00, 0x01, 0x12, 0x89, 0x11, 0x33, 0x0d, 0x05, 0, 0, 0, 0,
   ]).toString('base64');
 
-  it('reads ticks of 269/8192 ms, a long one escaped by 0x00, without the 0x0d 0x05 close', () => {
-    expect(BROADLINK_TICK_US).toBeCloseTo(32.84, 2);
+  it('reads ticks of 8192/269 µs, a long one escaped by 0x00, without the 0x0d 0x05 close', () => {
+    expect(BROADLINK_TICK_US).toBeCloseTo(30.45, 2);
     expect(decodeBroadlink(packet)).toEqual({
       signal: 'ir',
       carrierHz: 38_000,
-      pulses: [8997, 4499, 558, 1675],
+      pulses: [8344, 4172, 518, 1553],
     });
   });
 
@@ -57,7 +57,7 @@ describe('Broadlink', () => {
       signal: 'rf',
       carrierHz: 0,
       frequencyHz: 433_920_000,
-      pulses: [328, 657],
+      pulses: [305, 609],
     });
     expect(Buffer.from(encodeBroadlink(code), 'base64')[0]).toBe(0xb2);
   });
@@ -65,7 +65,7 @@ describe('Broadlink', () => {
   it('sends a train as many times as its repeat byte says', () => {
     const twice = Buffer.from([0x26, 0x01, 0x04, 0x00, 0x11, 0x33, 0x0d, 0x05]).toString('base64');
 
-    expect(decodeBroadlink(twice).pulses).toEqual([558, 1675, 558, 1675]);
+    expect(decodeBroadlink(twice).pulses).toEqual([518, 1553, 518, 1553]);
   });
 
   it('recognises the protocol a learned code was sent in', () => {

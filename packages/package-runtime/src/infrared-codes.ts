@@ -22,8 +22,12 @@ import {
   type InfraredProtocolName,
 } from '@nebulahome/contracts';
 
-/** One Broadlink tick: 269/8192 ms, about 32.84 µs. */
-export const BROADLINK_TICK_US = (269 / 8192) * 1000;
+/**
+ * One Broadlink tick: 8192/269 µs, about 30.45 µs - a duration in µs times 269/8192 is ticks,
+ * as measured against real firmware (broadlink-async). The inverse, 32.84 µs, made codes from
+ * other sources about 7 % short on the air.
+ */
+export const BROADLINK_TICK_US = 8192 / 269;
 
 /** The carrier an infrared code is on when its format does not say: 38 kHz, as most remotes. */
 export const DEFAULT_IR_CARRIER_HZ = 38_000;

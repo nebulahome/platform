@@ -3,6 +3,13 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.6.1
+
+- `sdk.codecs.infrared`: a Broadlink tick is 8192/269 µs, about 30.45 µs, as measured against real
+  firmware (broadlink-async), not 32.84 µs. Codes imported from other formats went out about 7 %
+  short; a code learned and sent again by the same Broadlink was right either way.
+  `BROADLINK_TICK_US` says the new value.
+
 ## 1.6.0
 
 Serial ports, Bluetooth, IR blasters and Bluetooth proxies.

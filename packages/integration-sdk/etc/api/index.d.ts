@@ -786,7 +786,11 @@ export declare const BLUETOOTH_GATT_OPS: {
 declare namespace infrared_codes_d_exports {
   export { BROADLINK_TICK_US, DEFAULT_IR_CARRIER_HZ, FlipperIrCode, FlipperIrFile, InfraredImportProblem, decodeBroadlink, decodeInfraredProtocol, decodePronto, decodeRawTimings, encodeBroadlink, encodeInfraredProtocol, encodePronto, encodeRawTimings, parseFlipperIr, withInfraredProtocol };
 }
-/** One Broadlink tick: 269/8192 ms, about 32.84 µs. */
+/**
+ * One Broadlink tick: 8192/269 µs, about 30.45 µs - a duration in µs times 269/8192 is ticks,
+ * as measured against real firmware (broadlink-async). The inverse, 32.84 µs, made codes from
+ * other sources about 7 % short on the air.
+ */
 declare const BROADLINK_TICK_US: number;
 /** The carrier an infrared code is on when its format does not say: 38 kHz, as most remotes. */
 declare const DEFAULT_IR_CARRIER_HZ = 38000;
