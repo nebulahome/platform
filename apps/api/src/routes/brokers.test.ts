@@ -1,14 +1,16 @@
 /**
  * The broker routes against a hub that answers on a bus in memory: who may read and drive the
  * house's Matter fabric, a pairing code checked before the hub is asked, and a node with nothing
- * in the house removed from the fabric alone; who may read the MQTT broker and who may change who connects to it, and a client's
+ * in the house removed from the fabric alone; the Wi-Fi a new device is given, its password never
+ * audited; who may read the MQTT broker and who may change who connects to it, and a client's
  * password answered once. Every broker's card, one the hub cannot read failed on its own.
  */
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HUB_INFRARED_STATUS_METHOD } from '@nebulahome/contracts';
 
+import { AuditLog } from '../services/audit.js';
 import { brokerRequests, failingStatuses } from '../testing/brokers-fake.js';
 import {
   bearer,
@@ -22,6 +24,8 @@ import {
 
 let server: FastifyInstance;
 
+const audited = vi.spyOn(AuditLog.prototype, 'record');
+
 describe('the broker routes', () => {
   beforeAll(async () => {
     server = await buildTestServer(true);
@@ -32,6 +36,7 @@ describe('the broker routes', () => {
     mqttRequests.length = 0;
     brokerRequests.length = 0;
     failingStatuses.clear();
+    audited.mockClear();
   });
 
   afterAll(async () => {
@@ -100,17 +105,98 @@ describe('the broker routes', () => {
     ]);
   });
 
-  it('starts commissioning with the code as written, and answers at once', async () => {
+  it('starts commissioning with the code as written, shared or new, and answers at once', async () => {
     const response = await server.inject({
       method: 'POST',
       url: '/api/v1/brokers/matter/commission',
       headers: { authorization: await bearer('device:write') },
       payload: { code: '3497-011-2332' },
     });
+    const fresh = await server.inject({
+      method: 'POST',
+      url: '/api/v1/brokers/matter/commission',
+      headers: { authorization: await bearer('device:write') },
+      payload: { code: '3497-011-2332', mode: 'new' },
+    });
 
     expect(response.statusCode).toBe(202);
     expect(response.json()).toMatchObject({ id: 'job-1', state: 'running' });
-    expect(matterRequests).toEqual(['commission 34970112332']);
+    expect(fresh.statusCode).toBe(202);
+    expect(matterRequests).toEqual(['commission 34970112332 shared', 'commission 34970112332 new']);
+    expect(audited).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: 'matter.commission', details: { mode: 'new' } }),
+    );
+  });
+
+  it('answers a new device’s Wi-Fi question, never auditing the password', async () => {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/brokers/matter/commission/job-1/answer',
+      headers: { authorization: await bearer('device:write') },
+      payload: {
+        isAccepted: true,
+        wifi: { ssid: 'Casa', password: 'correct-horse', isSaved: true },
+      },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(brokerRequests).toEqual([
+      {
+        method: 'matter_answer',
+        request: {
+          jobId: 'job-1',
+          isAccepted: true,
+          wifi: { ssid: 'Casa', password: 'correct-horse', isSaved: true },
+        },
+      },
+    ]);
+    expect(audited).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: { wifi: { ssid: 'Casa', isSaved: true }, isAccepted: true },
+      }),
+    );
+    expect(JSON.stringify(audited.mock.calls)).not.toContain('correct-horse');
+  });
+
+  it('reads and saves the networks a new device is given with integration:configure only', async () => {
+    const writer = await server.inject({
+      method: 'GET',
+      url: '/api/v1/brokers/matter/networks',
+      headers: { authorization: await bearer('device:write') },
+    });
+    const read = await server.inject({
+      method: 'GET',
+      url: '/api/v1/brokers/matter/networks',
+      headers: { authorization: await bearer('integration:configure') },
+    });
+    const short = await server.inject({
+      method: 'PUT',
+      url: '/api/v1/brokers/matter/networks',
+      headers: { authorization: await bearer('integration:configure') },
+      payload: { wifi: { ssid: 'Casa', password: 'short' } },
+    });
+    const saved = await server.inject({
+      method: 'PUT',
+      url: '/api/v1/brokers/matter/networks',
+      headers: { authorization: await bearer('integration:configure') },
+      payload: { wifi: { ssid: 'Casa', password: 'correct-horse' } },
+    });
+
+    expect(writer.statusCode).toBe(403);
+    expect(read.json()).toEqual({
+      wifi: { ssid: 'Casa', hasPassword: true },
+      thread: { networkName: 'NebulaHome', channel: 15 },
+    });
+    expect(short.statusCode).toBe(400);
+    expect(saved.json()).toMatchObject({ wifi: { ssid: 'Casa', hasPassword: true } });
+    expect(JSON.stringify(saved.json())).not.toContain('correct-horse');
+    expect(audited).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'matter.networks.save',
+        details: { ssid: 'Casa', isPasswordChanged: true },
+      }),
+    );
+    expect(JSON.stringify(audited.mock.calls)).not.toContain('correct-horse');
   });
 
   it('refuses what is no pairing code before asking the hub, and whoever may not add devices', async () => {

@@ -1,5 +1,6 @@
 /**
- * The hub's Thread, Bluetooth, Serial and Infrared brokers, on the harness's bus.
+ * The hub's Thread, Bluetooth, Serial and Infrared brokers and Matter's networks, on the
+ * harness's bus.
  *
  * Each method a route test drives is served with the contracts' own request schema, so a body the
  * api builds wrong fails here as it would in the hub. What each was asked is kept in order in
@@ -35,6 +36,9 @@ import {
   HUB_INFRARED_REMOTE_SAVE_METHOD,
   HUB_INFRARED_REMOTES_METHOD,
   HUB_INFRARED_STATUS_METHOD,
+  HUB_MATTER_ANSWER_METHOD,
+  HUB_MATTER_NETWORKS_METHOD,
+  HUB_MATTER_NETWORKS_SAVE_METHOD,
   HUB_SERIAL_CONSOLE_OPEN_METHOD,
   HUB_SERIAL_CONSOLE_READ_METHOD,
   HUB_SERIAL_CONSOLE_WRITE_METHOD,
@@ -54,6 +58,8 @@ import {
   infraredIdRequestSchema,
   infraredLearnRequestSchema,
   infraredRemoteSaveRequestSchema,
+  matterAnswerRequestSchema,
+  matterNetworksSaveRequestSchema,
   serialConsoleOpenRequestSchema,
   serialConsoleReadRequestSchema,
   serialConsoleWriteRequestSchema,
@@ -68,6 +74,8 @@ import {
   type InfraredButton,
   type InfraredRemote,
   type InfraredStatus,
+  type MatterCommissioning,
+  type MatterNetworks,
   type SerialPort,
   type SerialStatus,
   type ThreadStatus,
@@ -229,6 +237,12 @@ export const THREAD_NETWORK_KEY = '00112233445566778899aabbccddeeff';
 /** The active dataset the fake border router holds. */
 export const THREAD_DATASET = '0e080000000000010000000300000f35060004001fffe0';
 
+/** The networks a new Matter device is given. */
+const MATTER_NETWORKS: MatterNetworks = {
+  wifi: { ssid: 'Casa', hasPassword: true },
+  thread: { networkName: 'NebulaHome', channel: 15 },
+};
+
 /**
  * Serves the brokers on the hub's side of the bus.
  *
@@ -377,5 +391,21 @@ export function serveBrokersFake(hub: BusClient): BusSubscription[] {
     serve(HUB_THREAD_REMOVE_METHOD, empty, () => ({ isRemoved: true })),
     serve(HUB_THREAD_NETWORK_KEY_METHOD, empty, () => ({ networkKey: THREAD_NETWORK_KEY })),
     serve(HUB_THREAD_DATASET_METHOD, empty, () => ({ dataset: THREAD_DATASET })),
+
+    serve(HUB_MATTER_NETWORKS_METHOD, empty, () => MATTER_NETWORKS),
+    serve(HUB_MATTER_NETWORKS_SAVE_METHOD, matterNetworksSaveRequestSchema, (request) => ({
+      ...MATTER_NETWORKS,
+      wifi: { ssid: request.wifi?.ssid ?? null, hasPassword: request.wifi !== null },
+    })),
+    serve(HUB_MATTER_ANSWER_METHOD, matterAnswerRequestSchema, (request): MatterCommissioning => ({
+      id: request.jobId,
+      state: request.isAccepted ? 'running' : 'cancelled',
+      startedAt: AT,
+      finishedAt: null,
+      nodeId: null,
+      error: null,
+      steps: [],
+      deviceId: null,
+    })),
   ];
 }

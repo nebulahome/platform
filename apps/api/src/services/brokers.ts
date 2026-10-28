@@ -18,6 +18,8 @@ import {
   HUB_MATTER_CANCEL_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
   HUB_MATTER_NETWORK_METHOD,
+  HUB_MATTER_NETWORKS_METHOD,
+  HUB_MATTER_NETWORKS_SAVE_METHOD,
   HUB_MATTER_NODES_METHOD,
   HUB_MATTER_REMOVE_METHOD,
   HUB_MATTER_RESTART_METHOD,
@@ -42,6 +44,7 @@ import {
   matterCommissioningSchema,
   MODBUS_VENDOR,
   matterNetworkSchema,
+  matterNetworksSchema,
   matterNodesReplySchema,
   matterRemoveReplySchema,
   matterRestoreReplySchema,
@@ -65,7 +68,10 @@ import {
   type BrokerSummary,
   type MatterAnswerRequest,
   type MatterCommissioning,
+  type MatterCommissionRequest,
   type MatterNetwork,
+  type MatterNetworks,
+  type MatterNetworksSaveRequest,
   type MatterNode,
   type MatterRestoreRequest,
   type MatterStatus,
@@ -224,28 +230,63 @@ export async function linkedMatterDevices(context: IntegrationsContext): Promise
 }
 
 /**
- * Starts commissioning a node shared by another app.
+ * Starts commissioning a node: one shared by another app, or a new device over Bluetooth.
  *
  * @param context - The request's collaborators.
- * @param code - Its pairing code, already checked.
+ * @param request - Its pairing code, already checked, and which way it is added.
  * @returns The job, running: the page reads the status until it ends.
- * @throws {ConflictError} When Matter is off, or a commissioning runs already.
+ * @throws {ConflictError} When Matter is off, a commissioning runs already, or Bluetooth cannot
+ * pair a new device.
  */
 export async function commissionMatter(
   context: IntegrationsContext,
-  code: string,
+  request: MatterCommissionRequest,
 ): Promise<MatterCommissioning> {
   return busOf(context).request(
     busSubjects.service(HUB_SERVICE, HUB_MATTER_COMMISSION_METHOD),
-    { code },
+    request,
     matterCommissioningSchema,
     { traceId: context.traceId },
   );
 }
 
 /**
+ * The networks a new device is given: the saved Wi-Fi, never its password, and Thread's.
+ *
+ * @param context - The request's collaborators.
+ * @returns Them.
+ */
+export async function matterNetworks(context: IntegrationsContext): Promise<MatterNetworks> {
+  return busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORKS_METHOD),
+    {},
+    matterNetworksSchema,
+    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+  );
+}
+
+/**
+ * Saves the Wi-Fi a new device is given, or forgets it.
+ *
+ * @param context - The request's collaborators.
+ * @param request - The network; a password left out keeps the one saved.
+ * @returns The networks then.
+ */
+export async function saveMatterNetworks(
+  context: IntegrationsContext,
+  request: MatterNetworksSaveRequest,
+): Promise<MatterNetworks> {
+  return busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORKS_SAVE_METHOD),
+    request,
+    matterNetworksSchema,
+    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+  );
+}
+
+/**
  * Answers the question a commissioning stopped on: whether to add a device whose certificate is a
- * test one.
+ * test one, or the Wi-Fi a new device should join.
  *
  * @param context - The request's collaborators.
  * @param answer - The job, and the owner's answer.

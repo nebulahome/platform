@@ -1296,7 +1296,7 @@ export async function buildTestServer(
       busSubjects.service(HUB_SERVICE, HUB_MATTER_COMMISSION_METHOD),
       matterCommissionRequestSchema,
       (request): MatterCommissioning => {
-        matterRequests.push(`commission ${request.code}`);
+        matterRequests.push(`commission ${request.code} ${request.mode}`);
 
         return {
           id: 'job-1',

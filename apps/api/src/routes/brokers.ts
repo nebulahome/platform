@@ -9,15 +9,19 @@
  * (`integration:configure`); a client's password is answered once and never written to the audit.
  * Restarting the Matter controller, or stopping a commissioning, is `device:write`. Commissioning
  * is answered at once, `202` with the job: a node takes longer than a request waits, and the page
- * reads the status until the job ends.
+ * reads the status until the job ends. The Wi-Fi a new device is given is configuring an
+ * integration; its password is never answered, nor written to the audit.
  */
 import { z } from 'zod';
 
 import {
   brokersReplySchema,
+  matterAnswerRequestSchema,
   matterCommissioningSchema,
   matterCommissionRequestSchema,
   matterNetworkSchema,
+  matterNetworksSaveRequestSchema,
+  matterNetworksSchema,
   matterNodeIdSchema,
   matterNodesReplySchema,
   matterRestoreReplySchema,
@@ -37,6 +41,7 @@ import {
   mqttTopicsReplySchema,
   type MatterCommissioning,
   type MatterNetwork,
+  type MatterNetworks,
   type MatterStatus,
   type MqttStatus,
 } from '@nebulahome/contracts';
@@ -50,11 +55,13 @@ import {
   commissionMatter,
   listBrokers,
   matterNetwork,
+  matterNetworks,
   matterNodes,
   matterStatus,
   removeMatterNode,
   restartMatter,
   restoreMatterDevice,
+  saveMatterNetworks,
   addMqttClient,
   mqttClients,
   mqttDevices,
@@ -200,7 +207,7 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
     {
       method: 'POST',
       url: '/brokers/matter/commission',
-      summary: 'Add a Matter device shared by another app, with its pairing code',
+      summary: 'Add a Matter device shared by another app, or a new one, with its pairing code',
       tag: 'Brokers',
       permission: 'device:write',
       body: matterCommissionRequestSchema,
@@ -211,16 +218,13 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
     /**
      * Starts commissioning a node.
      *
-     * @param route - The pairing code, and who is asking.
+     * @param route - The pairing code, shared or new, and who is asking.
      * @returns The job, running.
      */
     async (route): Promise<MatterCommissioning> => {
       requirePermission(route.identity, 'device:write');
 
-      const job = await commissionMatter(
-        forRequest(context, route.request.traceId),
-        route.body.code,
-      );
+      const job = await commissionMatter(forRequest(context, route.request.traceId), route.body);
 
       // Never the code: it opens the device to whoever holds it while its window is open.
       await context.audit.record({
@@ -231,7 +235,7 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         identity: route.identity,
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
-        details: {},
+        details: { mode: route.body.mode },
       });
 
       return job;
@@ -243,11 +247,12 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
     {
       method: 'POST',
       url: '/brokers/matter/commission/:jobId/answer',
-      summary: 'Answer the question a commissioning stopped on: add a test device anyway, or not',
+      summary:
+        'Answer the question a commissioning stopped on: add a test device anyway, or its Wi-Fi',
       tag: 'Brokers',
       permission: 'device:write',
       params: z.object({ jobId: z.string().min(1).max(64) }),
-      body: z.object({ isAccepted: z.boolean() }),
+      body: matterAnswerRequestSchema.omit({ jobId: true }),
       response: matterCommissioningSchema,
       successStatus: ACCEPTED_STATUS,
     },
@@ -261,11 +266,13 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
     async (route): Promise<MatterCommissioning> => {
       requirePermission(route.identity, 'device:write');
 
+      const { wifi, isAccepted } = route.body;
       const job = await answerMatter(forRequest(context, route.request.traceId), {
+        ...route.body,
         jobId: route.params.jobId,
-        isAccepted: route.body.isAccepted,
       });
 
+      // The Wi-Fi by its name alone: its password is the house's.
       await context.audit.record({
         action: 'matter.commission',
         resourceType: 'matter',
@@ -274,10 +281,83 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         identity: route.identity,
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
-        details: { testCertificate: route.body.isAccepted ? 'accepted' : 'refused' },
+        details:
+          wifi === undefined
+            ? { testCertificate: isAccepted ? 'accepted' : 'refused' }
+            : { wifi: { ssid: wifi.ssid, isSaved: wifi.isSaved }, isAccepted },
       });
 
       return job;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/brokers/matter/networks',
+      summary: 'Read the networks a new Matter device is given: the Wi-Fi, never its password',
+      tag: 'Brokers',
+      permission: 'integration:configure',
+      response: matterNetworksSchema,
+    },
+
+    /**
+     * Reads the networks.
+     *
+     * @param route - Who is asking.
+     * @returns The saved Wi-Fi's name and whether it has a password, and Thread's.
+     */
+    async (route): Promise<MatterNetworks> => {
+      requirePermission(route.identity, 'integration:configure');
+
+      return matterNetworks(forRequest(context, route.request.traceId));
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'PUT',
+      url: '/brokers/matter/networks',
+      summary: 'Save the Wi-Fi a new Matter device is given, or forget it',
+      tag: 'Brokers',
+      permission: 'integration:configure',
+      body: matterNetworksSaveRequestSchema,
+      response: matterNetworksSchema,
+    },
+
+    /**
+     * Saves the Wi-Fi: a password left out keeps the one saved.
+     *
+     * @param route - The network, and who is asking.
+     * @returns The networks then.
+     */
+    async (route): Promise<MatterNetworks> => {
+      requirePermission(route.identity, 'integration:configure');
+
+      const networks = await saveMatterNetworks(
+        forRequest(context, route.request.traceId),
+        route.body,
+      );
+      const { wifi } = route.body;
+
+      // Never the password: only whether one was sent.
+      await context.audit.record({
+        action: 'matter.networks.save',
+        resourceType: 'matter',
+        resourceId: 'networks',
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: {
+          ssid: wifi?.ssid ?? null,
+          isPasswordChanged: wifi?.password !== undefined,
+        },
+      });
+
+      return networks;
     },
   );
 
