@@ -662,6 +662,39 @@
   );
 }
 
+/* The newer brokers' squares, each lit in its own mark's colour the same way. */
+@utility thread-glow {
+  background-image: radial-gradient(
+    120% 120% at 0% 0%,
+    color-mix(in srgb, var(--color-thread) 20%, transparent),
+    transparent 60%
+  );
+}
+
+@utility bluetooth-glow {
+  background-image: radial-gradient(
+    120% 120% at 0% 0%,
+    color-mix(in srgb, #5b9dff 20%, transparent),
+    transparent 60%
+  );
+}
+
+@utility serial-glow {
+  background-image: radial-gradient(
+    120% 120% at 0% 0%,
+    color-mix(in srgb, #f0c27b 18%, transparent),
+    transparent 60%
+  );
+}
+
+@utility infrared-glow {
+  background-image: radial-gradient(
+    120% 120% at 0% 0%,
+    color-mix(in srgb, #f7895c 18%, transparent),
+    transparent 60%
+  );
+}
+
 @utility matter-glow {
   background-image: radial-gradient(
     120% 120% at 0% 0%,
