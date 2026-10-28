@@ -284,6 +284,9 @@ export const infraredStatusSchema = z.object({
 
   /** The learn jobs listening or sweeping now. */
   learning: z.array(infraredListeningSchema).max(64),
+
+  /** The remotes, and how many have a blaster online: the Brokers card's count. */
+  devices: z.object({ total: z.int().min(0), online: z.int().min(0) }),
 });
 
 /** Where the broker stands. */
@@ -490,9 +493,17 @@ export const infraredImportRequestSchema = z.object({
 /** Asks for a code in every format Show code copies. */
 export const infraredCodeFormatsRequestSchema = z.object({ code: infraredCodeSchema });
 
-/** The code in each format; null for one that cannot carry it - Pronto has no RF. */
+/**
+ * The code in each format - null for one that cannot carry it, Pronto has no RF - and what Show
+ * code says of it: the protocol its pulses are, or "Raw · 68 pulses · 38 kHz".
+ */
 export const infraredCodeFormatsReplySchema = z.object({
   broadlink: z.string().max(16_384).nullable(),
   pronto: z.string().max(65_536).nullable(),
   raw: z.string().max(65_536),
+
+  /** The protocol the pulses are read as now; null for raw timings and for RF. */
+  protocol: infraredProtocolSchema.nullable(),
+  pulseCount: z.int().min(1).max(INFRARED_MAXIMUM_PULSES),
+  carrierHz: z.int().min(0).max(1_000_000),
 });

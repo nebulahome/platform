@@ -100,9 +100,9 @@ export type TransportWire = (typeof TRANSPORT_WIRES)[number];
  * listener, the house's Matter fabric - a node commissioned and not yet added - or the house's
  * MQTT broker - a device that announced itself on it, or that the owner mapped - or the house's
  * Modbus client - a device the owner added at an address - or the house's serial ports - a port
- * an integration's rule recognises - or its Bluetooth - a device a scanner hears. Declared here
- * rather than beside the discovered devices, because a vendor lists the ways it can be found and
- * the discovery module already reads this file.
+ * an integration's rule recognises - or its Bluetooth - a device a scanner hears - or its Infrared
+ * broker - a remote the owner made. Declared here rather than beside the discovered devices,
+ * because a vendor lists the ways it can be found and the discovery module already reads this file.
  */
 export const DISCOVERY_SOURCES = [
   'mdns',
@@ -112,6 +112,7 @@ export const DISCOVERY_SOURCES = [
   'modbus',
   'serial',
   'bluetooth',
+  'infrared',
 ] as const;
 
 /** How a device can be heard. */
