@@ -216,6 +216,7 @@ function kindOf(bundle: LoadedBundle): IntegrationKind {
     ...(manifest.modelSeries === undefined ? {} : { modelSeries: manifest.modelSeries }),
     ...(manifest.defaultIcon === undefined ? {} : { defaultIcon: manifest.defaultIcon }),
     setup: bundle.setup,
+    ...(manifest.serial === undefined ? {} : { serial: manifest.serial }),
     ...(manifest.webPagePort === undefined ? {} : { webPagePort: manifest.webPagePort }),
     ...(manifest.webPagePath === undefined ? {} : { webPagePath: manifest.webPagePath }),
   };
