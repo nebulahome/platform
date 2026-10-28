@@ -56,6 +56,7 @@ import {
 import type { BluetoothSighting } from '../bluetooth/broker.js';
 import { isPrivateIpv4, type MdnsSource } from '../discovery/mdns-source.js';
 import { addressOf as reachedAt, NOTHING_TAKEN, type TakenDevices } from '../domain/taken.js';
+import type { InfraredSighting } from '../infrared/broker.js';
 import type { MatterSighting } from '../matter/broker.js';
 import type { ModbusSighting } from '../modbus/broker.js';
 import type { MqttSighting } from '../mqtt/broker.js';
@@ -166,6 +167,12 @@ export type DiscoveryServiceOptions = {
    * comes or goes. Each says the driver that recognised it, so no vendor's rules are asked again.
    */
   readonly bluetooth?: BrokerFeed<BluetoothSighting>;
+
+  /**
+   * The house's Infrared broker: every remote the owner made, told again whenever one changes.
+   * Each names its driver, `infrared/remote`; no vendor has rules for it.
+   */
+  readonly infrared?: BrokerFeed<InfraredSighting>;
 };
 
 /** One of the platform's brokers, as discovery hears it. */
@@ -190,8 +197,11 @@ type BrokerDevice = {
   readonly kind?: string;
 };
 
-/** A broker whose devices discovery adds as it hears them: Bluetooth's are the ones being added. */
-type FeedSource = BrokerSource | 'bluetooth';
+/** A broker whose devices vendors' rules may take: Bluetooth's are the ones being added. */
+type RuledSource = BrokerSource | 'bluetooth';
+
+/** A broker whose devices discovery adds as it hears them: Infrared's remotes take no rules. */
+type FeedSource = RuledSource | 'infrared';
 
 /** The platform's brokers, in the order they are heard. */
 const BROKER_SOURCES = [
@@ -199,6 +209,7 @@ const BROKER_SOURCES = [
   'mqtt',
   'modbus',
   'bluetooth',
+  'infrared',
 ] as const satisfies readonly FeedSource[];
 
 /** How each broker's devices are named where the owner sees them. */
@@ -207,10 +218,11 @@ const BROKER_LABELS: Readonly<Record<FeedSource, string>> = {
   mqtt: 'MQTT',
   modbus: 'Modbus',
   bluetooth: 'Bluetooth',
+  infrared: 'Infrared',
 };
 
 /** Each broker's own vendor: what takes a device no integration's rules take. */
-const BROKER_VENDORS: Readonly<Record<FeedSource, string>> = {
+const BROKER_VENDORS: Readonly<Record<RuledSource, string>> = {
   matter: MATTER_VENDOR,
   mqtt: MQTT_VENDOR,
   modbus: MODBUS_VENDOR,
@@ -1355,7 +1367,7 @@ export class DiscoveryService {
    * @returns Each vendor whose rules all hold and which has a driver on the broker to take it.
    */
   public brokerClaims(
-    source: FeedSource,
+    source: RuledSource,
     identity: unknown,
   ): { readonly vendor: DiscoveryVendor; readonly association: Association }[] {
     const own = BROKER_VENDORS[source];
@@ -1380,6 +1392,18 @@ export class DiscoveryService {
    * @returns Its devices, or none for a broker the hub does not run.
    */
   #brokerDevices(source: FeedSource): BrokerDevice[] {
+    if (source === 'infrared') {
+      return (this.#options.infrared?.devices() ?? []).map(({ deviceKey, device }) => ({
+        deviceKey,
+        identity: device,
+        name: device.name,
+        modelCode: null,
+        swVersion: null,
+        macs: [],
+        kind: device.kind,
+      }));
+    }
+
     if (source === 'bluetooth') {
       return (this.#options.bluetooth?.devices() ?? []).map(({ deviceKey, device }) => ({
         deviceKey,
@@ -1447,10 +1471,13 @@ export class DiscoveryService {
     const heard = new Set<string>();
     const nowMs = this.#now();
     const macs = new Map<string, Set<string>>();
+    const ruled = source === 'infrared' ? undefined : source;
 
     for (const device of this.#brokerDevices(source)) {
       const [only, other] =
-        device.kind === undefined ? this.brokerClaims(source, device.identity) : [];
+        device.kind === undefined && ruled !== undefined
+          ? this.brokerClaims(ruled, device.identity)
+          : [];
 
       // Every vendor that takes a Matter device, so a device of theirs found over its own
       // transport can say the house reaches it through Matter too.
@@ -1460,7 +1487,10 @@ export class DiscoveryService {
         }
       }
 
-      const fallback = associateBroker(feed.vendor.discovery.plan, source, device.identity);
+      const fallback =
+        ruled === undefined
+          ? null
+          : associateBroker(feed.vendor.discovery.plan, ruled, device.identity);
       const chosen =
         device.kind !== undefined
           ? this.#ofKind(device.kind, feed.vendor)

@@ -37,7 +37,11 @@ import type { ModbusSighting } from '../modbus/broker.js';
 
 import type { LoadedListenSource } from './bundles.js';
 import { DiscoveryService, SCAN_DURATION_MS, type DiscoveryVendor } from './discovery.js';
-import { platformMatterVendor, platformModbusVendor } from './platform-vendors.js';
+import {
+  platformInfraredVendor,
+  platformMatterVendor,
+  platformModbusVendor,
+} from './platform-vendors.js';
 
 /**
  * A logger that writes nowhere.
@@ -1203,6 +1207,58 @@ describe('DiscoveryService and the Modbus broker', () => {
         ['modbus-1', 'modbus/generic', 'Modbus device', 'automatic'],
         ['modbus-2', 'acme/meter', 'Meter', 'automatic'],
       ]);
+    } finally {
+      await service.stop();
+    }
+  });
+});
+
+describe('DiscoveryService and the Infrared broker', () => {
+  it('adds each remote as the platform’s remote, and not one in the house already', async () => {
+    const platform = platformInfraredVendor('1.0.0', '1.6.0');
+    const remote = (deviceKey: string) => ({
+      deviceKey,
+      device: { deviceKey, kind: 'infrared/remote', name: `Remote ${deviceKey}`, buttons: [] },
+    });
+    const service = new DiscoveryService({
+      vendors: [],
+      mdns: fakeMdns(),
+      transports: new Registry<Transport>('transport'),
+      integrations: new Registry<Integration>('integration'),
+      logger: silent(),
+      vendorSettings: () => Promise.resolve({}),
+      taken: () =>
+        Promise.resolve({
+          externalIds: new Set(['infrared\ninfrared-2']),
+          hosts: new Set<string>(),
+          locations: new Map(),
+          matter: new Map(),
+          mqtt: new Map(),
+          modbus: new Map(),
+          bluetooth: new Map(),
+        }),
+      publishChanged: () => undefined,
+      queryIntervalMs: 60_000,
+      ttlMs: 60_000,
+      probeIntervalMs: 60_000,
+      infrared: {
+        devices: () => [remote('infrared-1'), remote('infrared-2')],
+        onChange: () => () => undefined,
+        vendor: {
+          id: 'infrared',
+          discovery: platform.discovery!,
+        },
+      },
+    });
+
+    await service.start();
+
+    try {
+      expect(
+        service
+          .list()
+          .map((device) => [device.externalId, device.kind, device.source, device.adoption]),
+      ).toEqual([['infrared-1', 'infrared/remote', 'infrared', 'automatic']]);
     } finally {
       await service.stop();
     }

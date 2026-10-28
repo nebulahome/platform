@@ -1,7 +1,8 @@
 /**
- * The platform's own vendors, `matter`, `mqtt`, `modbus` and `bluetooth`: the devices of its
- * brokers no integration claims, for Modbus the devices read through the owner's templates, and
- * for Bluetooth the BTHome sensors the platform reads itself.
+ * The platform's own vendors, `matter`, `mqtt`, `modbus`, `bluetooth` and `infrared`: the devices
+ * of its brokers no integration claims, for Modbus the devices read through the owner's templates,
+ * for Bluetooth the BTHome sensors the platform reads itself, and for Infrared the remotes the
+ * house learned.
  *
  * Not bundles - nothing to install, nothing read from a folder - but loaded beside the bundles as
  * ones, so that a device no vendor takes is added, run and removed the way every device is: an
@@ -15,6 +16,9 @@ import {
   BLUETOOTH_VENDOR,
   BTHOME_KIND,
   BTHOME_SERVICE_UUID,
+  INFRARED_REMOTE_KIND,
+  INFRARED_TRANSPORT,
+  INFRARED_VENDOR,
   integrationSetupSchema,
   MATTER_GENERIC_KIND,
   MATTER_TRANSPORT,
@@ -31,6 +35,7 @@ import {
 import {
   bundleManifestSchema,
   createBthomeIntegration,
+  createInfraredIntegration,
   createMatterIntegration,
   createModbusIntegration,
   createMqttIntegration,
@@ -40,6 +45,7 @@ import {
   type Integration,
   type LoadedBundle,
   type LoadedVendor,
+  type VendorDiscovery,
 } from '@nebulahome/package-runtime';
 
 /** What tells one platform vendor from the other. */
@@ -49,16 +55,22 @@ type PlatformVendorSpec = {
   readonly description: string;
   readonly color: string;
   readonly transport: string;
-  readonly kind: 'matter' | 'mqtt' | 'modbus' | 'bluetooth';
+  readonly kind: 'matter' | 'mqtt' | 'modbus' | 'bluetooth' | 'infrared';
   readonly driverKind: string;
   readonly driverName: string;
   readonly wire: TransportWire;
 
-  /** The vendor's `discovery.json`: its broker's block, a rule every device holds. */
-  readonly discovery: JsonObject;
+  /**
+   * The vendor's `discovery.json`: its broker's block, a rule every device holds; null for a broker
+   * whose every device names its driver, which no rule is asked of.
+   */
+  readonly discovery: JsonObject | null;
 
   readonly integration: (manifest: { readonly id: string }) => Integration;
 };
+
+/** The discovery of a vendor whose devices each name their driver: added at once, by no rule. */
+const NO_RULES: VendorDiscovery = { listen: [], match: [], identity: {}, adopt: 'automatic' };
 
 /**
  * Builds one of the platform's vendors.
@@ -115,7 +127,9 @@ function platformVendor(spec: PlatformVendorSpec, version: string, sdk: string):
     discovery: {
       plan: resolveDiscovery(
         spec.id,
-        vendorDiscoverySchema.parse({ ...spec.discovery, adopt: 'automatic' }),
+        spec.discovery === null
+          ? NO_RULES
+          : vendorDiscoverySchema.parse({ ...spec.discovery, adopt: 'automatic' }),
         [{ id: driverId, name: spec.driverName, transport: spec.transport, models: [] }],
       ),
       sources: [],
@@ -236,6 +250,35 @@ export function platformBluetoothVendor(version: string, sdk: string): LoadedVen
         bluetooth: { match: [{ path: `serviceData.'${BTHOME_SERVICE_UUID}'`, exists: true }] },
       },
       integration: createBthomeIntegration,
+    },
+    version,
+    sdk,
+  );
+}
+
+/**
+ * Builds the platform's Infrared vendor: the remotes the house learned, each button a button of the
+ * house, sent through an integration's IR blaster.
+ *
+ * @param version - The platform's version.
+ * @param sdk - The integration contract the hub implements.
+ * @returns The vendor.
+ */
+export function platformInfraredVendor(version: string, sdk: string): LoadedVendor {
+  return platformVendor(
+    {
+      id: INFRARED_VENDOR,
+      name: 'Infrared',
+      description: 'Remotes the house learned, sent through an IR blaster, by the platform.',
+      color: '#e5484d',
+      transport: INFRARED_TRANSPORT,
+      kind: 'infrared',
+      driverKind: INFRARED_REMOTE_KIND,
+      driverName: 'Remote',
+      wire: 'ir',
+      // Every remote names its driver: the broker proposes it as `infrared/remote`.
+      discovery: null,
+      integration: createInfraredIntegration,
     },
     version,
     sdk,

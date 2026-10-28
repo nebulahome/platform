@@ -41,6 +41,8 @@ import {
   deviceEventSchema,
   deviceInfoReplySchema,
   dockerStatusSchema,
+  INFRARED_TRANSPORT,
+  INFRARED_VENDOR,
   MATTER_TRANSPORT,
   MATTER_VENDOR,
   MODBUS_TRANSPORT,
@@ -91,6 +93,7 @@ import { createMdnsSource, type MdnsSource } from './discovery/mdns-source.js';
 import { DeviceBook } from './domain/devices.js';
 import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
+import { InfraredBroker } from './infrared/broker.js';
 import { MatterBroker } from './matter/broker.js';
 import type { OpenMatterFabric } from './matter/fabric.js';
 import { ModbusBroker } from './modbus/broker.js';
@@ -99,6 +102,7 @@ import { MqttBroker } from './mqtt/broker.js';
 import { databaseAccountStore } from './persistence/accounts.js';
 import { databaseBluetoothStore, loadBluetoothInstances } from './persistence/bluetooth.js';
 import { loadBinding, loadDeviceName, loadExternalId } from './persistence/devices.js';
+import { databaseInfraredStore } from './persistence/infrared.js';
 import {
   loadInstance,
   loadInstances,
@@ -132,6 +136,7 @@ import { ConnectionPool } from './services/connections.js';
 import { DiscoveryService, type Detected } from './services/discovery.js';
 import { IdentificationService, type Identified } from './services/identification.js';
 import { ImageStore } from './services/images.js';
+import { serveInfrared } from './services/infrared-management.js';
 import { publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
 import { serveMatter } from './services/matter-management.js';
@@ -140,6 +145,7 @@ import { serveMqtt } from './services/mqtt-management.js';
 import { PackageWatch, type WatchedVendor } from './services/package-watch.js';
 import {
   platformBluetoothVendor,
+  platformInfraredVendor,
   platformMatterVendor,
   platformModbusVendor,
   platformMqttVendor,
@@ -147,6 +153,7 @@ import {
 import { serveSerial } from './services/serial-management.js';
 import { VendorContainersService } from './services/vendor-containers.js';
 import { createBluetoothTransport } from './transports/bluetooth.js';
+import { createInfraredTransport } from './transports/infrared.js';
 import { createMatterTransport } from './transports/matter.js';
 import { createModbusTransport } from './transports/modbus.js';
 import { createMqttHouseTransport } from './transports/mqtt-house.js';
@@ -238,6 +245,7 @@ export class HubService {
   readonly #modbus: ModbusBroker;
   readonly #serial: SerialBroker;
   readonly #bluetooth: BluetoothBroker;
+  readonly #infrared: InfraredBroker;
 
   /** Every Modbus socket of the hub: the polls', the tests', the search's and the vendors'. */
   readonly #modbusPool = new ModbusPool();
@@ -396,16 +404,8 @@ export class HubService {
          * @param timeoutMs - How long it may take.
          * @returns What the device answered.
          */
-        send: async (deviceId, op, args, timeoutMs) => {
-          const running = this.#running.get(deviceId);
-          const deviceKey = running?.book.claims()[0]?.deviceKey;
-
-          if (running === undefined || deviceKey === undefined) {
-            throw new ConflictError(`${deviceId} is not running`, { details: { deviceId } });
-          }
-
-          return running.connection.send({ deviceKey, op, args }, AbortSignal.timeout(timeoutMs));
-        },
+        send: async (deviceId, op, args, timeoutMs) =>
+          this.#sendRole(deviceId, op, args, timeoutMs),
 
         /**
          * Finds the device a scanner names.
@@ -438,6 +438,42 @@ export class HubService {
         ).isDesktop === true,
     });
     this.#transports.register(createBluetoothTransport(this.#bluetooth));
+
+    this.#infrared = new InfraredBroker({
+      store: databaseInfraredStore(options.db),
+      logger: options.logger,
+
+      /**
+       * Every vendor loaded: the profiles that declare blasters.
+       *
+       * @returns Them.
+       */
+      vendors: () => this.#vendorList(),
+
+      /**
+       * Reads the instances of the house: the blasters, and the remotes' devices.
+       *
+       * @returns Them.
+       */
+      instances: async () => loadBluetoothInstances(options.db),
+      roles: {
+        /**
+         * Sends an op to a blaster over its instance's connection, as a command would go.
+         *
+         * @param deviceId - The blaster.
+         * @param op - The op.
+         * @param args - Its arguments.
+         * @param timeoutMs - How long it may take.
+         * @returns What the blaster answered.
+         */
+        send: async (deviceId, op, args, timeoutMs) =>
+          this.#sendRole(deviceId, op, args, timeoutMs),
+      },
+    });
+    this.#transports.register(createInfraredTransport(this.#infrared));
+    this.#infrared.onSaved((deviceIds) => {
+      void this.#reloadAll(deviceIds, 'its remote changed');
+    });
 
     this.#serial.onPlugged((port) => {
       // A device's port came back: started again, its code opens it again.
@@ -783,6 +819,7 @@ export class HubService {
       this.#registerVendor(
         platformBluetoothVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION),
       );
+      this.#registerVendor(platformInfraredVendor(config.NEBULA_PLATFORM_VERSION, RUNTIME_VERSION));
 
       // After the vendors: a device read through an integration's template needs its driver.
       await this.#modbus.start();
@@ -790,6 +827,8 @@ export class HubService {
       await this.#serial.start();
       // After the vendors: what is heard is recognised by their rules, proxies by their profiles.
       await this.#bluetooth.start();
+      // After the vendors: blasters are the devices whose profiles declare one.
+      await this.#infrared.start();
 
       this.#recordFailures(bundles.failures);
       logger.info(
@@ -839,6 +878,7 @@ export class HubService {
         }),
         ...serveSerial(this.#client, this.#serial),
         ...serveBluetooth(this.#client, this.#bluetooth),
+        ...serveInfrared(this.#client, this.#infrared),
         ...serveMqtt({
           client: this.#client,
           broker: this.#mqtt,
@@ -1243,6 +1283,8 @@ export class HubService {
     });
     void this.#serial.refresh();
     this.#bluetooth.reidentify();
+    // A blaster comes and goes with its integration's profile.
+    void this.#infrared.refresh();
   }
 
   /**
@@ -1277,6 +1319,7 @@ export class HubService {
     const platformMqtt = this.#vendors.get(MQTT_VENDOR);
     const platformModbus = this.#vendors.get(MODBUS_VENDOR);
     const platformBluetooth = this.#vendors.get(BLUETOOTH_VENDOR);
+    const platformInfrared = this.#vendors.get(INFRARED_VENDOR);
 
     return new DiscoveryService({
       vendors: [...this.#vendors.values()].flatMap((vendor) =>
@@ -1410,6 +1453,27 @@ export class HubService {
               vendor: { id: BLUETOOTH_VENDOR, discovery: platformBluetooth.discovery },
             },
           }),
+      ...(platformInfrared?.discovery === undefined
+        ? {}
+        : {
+            infrared: {
+              /**
+               * Lists the remotes the owner made, each with its buttons.
+               *
+               * @returns Them.
+               */
+              devices: () => this.#infrared.devices(),
+
+              /**
+               * Follows the remotes being saved and removed.
+               *
+               * @param listener - Called when they change.
+               * @returns What stops following.
+               */
+              onChange: (listener: () => void) => this.#infrared.onDevices(listener),
+              vendor: { id: INFRARED_VENDOR, discovery: platformInfrared.discovery },
+            },
+          }),
     });
   }
 
@@ -1483,10 +1547,60 @@ export class HubService {
     this.#modbusPool.closeAll();
     await this.#serial.stop();
     await this.#bluetooth.stop();
+    this.#infrared.stop();
 
     // Whatever the vendors' own code holds - a UDP port - is let go of with them.
     await Promise.all([...this.#vendors.values()].map(async (vendor) => vendor.release()));
     await this.#client.drain();
+  }
+
+  /**
+   * Sends one of the ops a device plays a broker's role with - a Bluetooth proxy's, an IR
+   * blaster's - over its instance's connection, as a command would go.
+   *
+   * @param deviceId - The device.
+   * @param op - The op.
+   * @param args - Its arguments.
+   * @param timeoutMs - How long it may take.
+   * @returns What the device answered.
+   * @throws {ConflictError} When the device is not running.
+   */
+  async #sendRole(
+    deviceId: string,
+    op: string,
+    args: JsonObject,
+    timeoutMs: number,
+  ): Promise<unknown> {
+    const running = this.#running.get(deviceId);
+    const deviceKey = running?.book.claims()[0]?.deviceKey;
+
+    if (running === undefined || deviceKey === undefined) {
+      throw new ConflictError(`${deviceId} is not running`, { details: { deviceId } });
+    }
+
+    return running.connection.send({ deviceKey, op, args }, AbortSignal.timeout(timeoutMs));
+  }
+
+  /**
+   * Starts some instances again, one after another, so they are identified anew.
+   *
+   * @param ids - The instances.
+   * @param why - What changed, for the log.
+   * @returns Once they started again; a failure is logged.
+   */
+  async #reloadAll(ids: readonly string[], why: string): Promise<void> {
+    for (const id of ids) {
+      try {
+        // One after another: they share the one connection.
+        // eslint-disable-next-line no-await-in-loop -- see above
+        await this.reloadInstance(id);
+      } catch (error: unknown) {
+        this.#options.logger.warn(
+          { err: error, instanceId: id, why },
+          'Could not start a device again',
+        );
+      }
+    }
   }
 
   /**
@@ -1611,12 +1725,14 @@ export class HubService {
       }
     }
 
-    if (instance?.transport === MODBUS_TRANSPORT) {
+    if (instance?.transport === MODBUS_TRANSPORT || instance?.transport === INFRARED_TRANSPORT) {
       const deviceKey = await loadExternalId(this.#options.db, id);
 
       // Its row goes, or discovery would add the device straight back.
-      if (deviceKey !== null) {
+      if (deviceKey !== null && instance.transport === MODBUS_TRANSPORT) {
         await this.#modbus.release(deviceKey);
+      } else if (deviceKey !== null) {
+        await this.#infrared.release(deviceKey);
       }
     }
 
@@ -1624,6 +1740,8 @@ export class HubService {
     await this.#serial.releaseInstance(id);
     // A proxy's row goes with the instance's; the broker's copy here.
     this.#bluetooth.releaseInstance(id);
+    // A blaster's remotes let go of it with the instance's row; the broker's copy here.
+    this.#infrared.releaseInstance(id);
 
     // Not refreshed here: the rows are still there until `core` deletes them, and the device
     // would be offered again only to be taken away. `core` says when they are gone, and
@@ -1670,6 +1788,8 @@ export class HubService {
     }
 
     await recordStatus(this.#options.db, id, 'stopped');
+    // A blaster stopped: its remotes' buttons cannot be sent.
+    void this.#infrared.refresh();
     this.#options.logger.info({ instanceId: id }, 'Integration instance stopped');
   }
 
@@ -1735,9 +1855,9 @@ export class HubService {
         subscriptions,
       });
 
-      // A Modbus device is identified again on every start, never bound from the kept claim: the
-      // claim holds its template, which the owner may have changed since.
-      if (instance.transport === MODBUS_TRANSPORT) {
+      // A Modbus device or a remote is identified again on every start, never bound from the kept
+      // claim: the claim holds its template or its buttons, which the owner may have changed since.
+      if (instance.transport === MODBUS_TRANSPORT || instance.transport === INFRARED_TRANSPORT) {
         await recordStatus(db, instance.id, 'identifying');
         this.#listen(this.#running.get(instance.id), await loadExternalId(db, instance.id));
 
@@ -1752,6 +1872,8 @@ export class HubService {
         book.bind(restored.binding);
         await this.#applySubscriptions(instance.id);
         await recordStatus(db, instance.id, 'running');
+        // A blaster runs: its remotes' buttons can be sent.
+        void this.#infrared.refresh();
         logger.info(
           { instanceId: instance.id, kind: instance.kind, externalId: restored.externalId },
           'Integration instance started',
@@ -1791,6 +1913,8 @@ export class HubService {
 
       await this.#pool.release(stored.id);
       await recordStatus(db, stored.id, 'failed', message);
+      // A blaster that failed cannot send, whatever its row said before the hub started.
+      void this.#infrared.refresh();
       logger.error({ instanceId: stored.id, kind: stored.kind }, message);
     }
   }
@@ -1899,6 +2023,8 @@ export class HubService {
       running.book.bind(found.binding);
       await this.#applySubscriptions(id);
       await recordStatus(db, id, 'running');
+      // A blaster runs, or a remote is in the house: the Infrared broker reads them again.
+      void this.#infrared.refresh();
       await this.#announceUpdated(id);
       await this.#refreshDiscovery();
       logger.info(
@@ -1914,6 +2040,8 @@ export class HubService {
       const message = error instanceof Error ? error.message : String(error);
 
       await recordStatus(db, id, 'failed', message);
+      // A blaster that failed cannot send, whatever its row said before the hub started.
+      void this.#infrared.refresh();
       await this.#announceUpdated(id);
       logger.error({ instanceId: id, kind: running.instance.kind }, message);
     }
