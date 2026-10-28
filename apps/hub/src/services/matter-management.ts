@@ -5,9 +5,12 @@
  * and answers with the job at once, since a node takes longer than a request waits, and
  * `matter_cancel` stops it before the device joined; `matter_restart` opens the controller again;
  * `matter_remove` takes a node off the fabric; `matter_restore` brings back a device removed from
- * the house whose node is still on it. Removing the devices of a node from the house is `api`'s
+ * the house whose node is still on it; `matter_networks` and `matter_networks_save` read and keep
+ * the Wi-Fi a new device is given, never handing its password back. Removing the devices of a node from the house is `api`'s
  * ordinary device removal, which tells the broker through the hub's `forget`.
  */
+import { z } from 'zod';
+
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
@@ -15,6 +18,8 @@ import {
   HUB_MATTER_CANCEL_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
   HUB_MATTER_NETWORK_METHOD,
+  HUB_MATTER_NETWORKS_METHOD,
+  HUB_MATTER_NETWORKS_SAVE_METHOD,
   HUB_MATTER_NODES_METHOD,
   HUB_MATTER_REMOVE_METHOD,
   HUB_MATTER_RESTART_METHOD,
@@ -25,6 +30,7 @@ import {
   matterCancelRequestSchema,
   matterCommissionRequestSchema,
   matterNetworkRequestSchema,
+  matterNetworksSaveRequestSchema,
   matterNodesRequestSchema,
   matterRemoveRequestSchema,
   matterRestartRequestSchema,
@@ -142,12 +148,13 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
       matterAnswerRequestSchema,
 
       /**
-       * Passes on whether to add a device with a test certificate anyway.
+       * Passes on the owner's answer: a device with a test certificate added anyway, or the Wi-Fi
+       * a new device joins.
        *
        * @param request - The job and the answer.
        * @returns The job.
        */
-      (request) => broker.answer(request.jobId, request.isAccepted),
+      (request) => broker.answer(request.jobId, request.isAccepted, request.wifi),
     ),
 
     client.serve(
@@ -200,10 +207,35 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
       /**
        * Starts commissioning a node.
        *
-       * @param request - Its pairing code.
+       * @param request - Its pairing code, and whether it is shared or a new device.
        * @returns The job, running.
        */
-      (request) => broker.commission(request.code),
+      (request) => broker.commission(request.code, request.mode),
+    ),
+
+    client.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORKS_METHOD),
+      z.object({}),
+
+      /**
+       * Says which networks a new device is given.
+       *
+       * @returns The Wi-Fi saved, without its password, and the Thread network.
+       */
+      async () => broker.networks(),
+    ),
+
+    client.serve(
+      busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORKS_SAVE_METHOD),
+      matterNetworksSaveRequestSchema,
+
+      /**
+       * Saves the Wi-Fi a new device is given, or forgets it.
+       *
+       * @param request - The Wi-Fi, or null.
+       * @returns The networks, as they now are.
+       */
+      async (request) => broker.saveNetworks(request),
     ),
 
     client.serve(

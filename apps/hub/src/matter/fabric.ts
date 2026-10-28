@@ -23,9 +23,11 @@ import {
   Logger,
   LogLevel,
   MatterController,
+  type CommissioningRequest,
 } from '@matter-server/ws-controller';
 
 import type {
+  MATTER_DEVICE_NETWORKS,
   MATTER_LINK_STRENGTHS,
   MATTER_NETWORK_KINDS,
   MATTER_NETWORKS,
@@ -35,6 +37,24 @@ import type { MatterNodeSnapshot, MatterUpdateOffer } from '@nebulahome/package-
 
 /** The log destination commissioning steps are read from while one runs. */
 const STEPS_DESTINATION = 'commissioning-steps';
+
+/** The network a new device joins. */
+export type MatterDeviceNetwork = (typeof MATTER_DEVICE_NETWORKS)[number];
+
+/**
+ * What a new device - never set up, or reset - is commissioned with: found over Bluetooth, then
+ * given the house's Wi-Fi or Thread network, whichever it takes.
+ */
+export type MatterNewDevice = {
+  /** The Wi-Fi saved or typed; null when there is none. */
+  readonly wifi: { readonly ssid: string; readonly password: string } | null;
+
+  /** The house's Thread network's active dataset, as TLV hex; null when Matter has none. */
+  readonly threadDataset: string | null;
+
+  /** Told the network the device takes, once the controller says. */
+  readonly onNetwork: (network: MatterDeviceNetwork) => void;
+};
 
 /** One command, on one endpoint's cluster. */
 export type MatterInvoke = {
@@ -123,13 +143,19 @@ export type MatterFabric = {
   readonly node: (nodeId: string) => FabricNode | undefined;
 
   /**
-   * Commissions a node shared by another app, over the network.
+   * Commissions a node: one shared by another app, over the network it is on; or a new device,
+   * over Bluetooth, onto a network.
    *
    * @param code - Its manual pairing code or QR text.
    * @param onStep - Told the number of each commissioning step as it starts.
+   * @param newDevice - For a new device, the networks it may be given.
    * @returns The new node's id.
    */
-  readonly commission: (code: string, onStep?: (step: number) => void) => Promise<string>;
+  readonly commission: (
+    code: string,
+    onStep?: (step: number) => void,
+    newDevice?: MatterNewDevice,
+  ) => Promise<string>;
 
   /** Takes a node off the fabric. */
   readonly decommission: (nodeId: string) => Promise<void>;
@@ -167,6 +193,16 @@ export type MatterFabricOptions = {
    * one the owner said yes to.
    */
   readonly acceptTestCertificates?: boolean;
+
+  /**
+   * Whether the controller may look for devices over Bluetooth: only while the server's adapter
+   * can connect. noble reaches BlueZ over D-Bus (`NOBLE_BINDINGS=dbus`), beside the Bluetooth
+   * broker.
+   */
+  readonly ble?: boolean;
+
+  /** Whether the house has Thread: the controller then looks for border routers for the map. */
+  readonly threadDiagnostics?: boolean;
 };
 
 /**
@@ -182,6 +218,74 @@ export function commissioningStepOf(text: string): number | undefined {
   const match = /Executing commissioning step (\d+)\.\d+:/u.exec(text);
 
   return match?.[1] === undefined ? undefined : Number(match[1]);
+}
+
+/**
+ * Which network a line of matter.js's commissioning log says the device takes: the one it is
+ * configured on, or the other of the one it does not support.
+ *
+ * shortcut: read from matter.js's debug log, since the engine says nothing else of the device's
+ * network interfaces before it fails; upgrade when ws-controller reports them.
+ *
+ * @param text - The line.
+ * @returns The network, or undefined for any other line.
+ */
+export function deviceNetworkOf(text: string): MatterDeviceNetwork | undefined {
+  if (/Configuring WiFi network|does not support any Thread network interface/u.test(text)) {
+    return 'wifi';
+  }
+
+  return /Configuring Thread network|does not support any WiFi network interface/u.test(text)
+    ? 'thread'
+    : undefined;
+}
+
+/**
+ * Whether a commissioning failed because the device was given no network to join.
+ *
+ * @param message - Why it failed.
+ * @returns True when no Wi-Fi or Thread credentials were configured.
+ */
+export function isMissingNetworkFailure(message: string): boolean {
+  return /No Wi-Fi\/Thread network credentials are configured/iu.test(message);
+}
+
+/**
+ * What the controller is asked to commission: a shared device over the network only; a new one
+ * over Bluetooth as well, with the networks there are for it.
+ *
+ * @param nodeId - The node id it gets.
+ * @param code - Its pairing code.
+ * @param newDevice - For a new device, its networks.
+ * @returns The request.
+ */
+export function commissionRequestOf(
+  nodeId: NodeId,
+  code: string,
+  newDevice?: Pick<MatterNewDevice, 'wifi' | 'threadDataset'>,
+): CommissioningRequest {
+  const request = code.startsWith('MT:') ? { qrCode: code } : { manualCode: code };
+
+  if (newDevice === undefined) {
+    return { nodeId, onNetworkOnly: true, ...request };
+  }
+
+  return {
+    nodeId,
+    onNetworkOnly: false,
+    ...request,
+    ...(newDevice.wifi === null
+      ? {}
+      : {
+          wifiCredentials: {
+            wifiSsid: newDevice.wifi.ssid,
+            wifiCredentials: newDevice.wifi.password,
+          },
+        }),
+    ...(newDevice.threadDataset === null
+      ? {}
+      : { threadCredentials: { operationalDataset: newDevice.threadDataset } }),
+  };
 }
 
 /**
@@ -319,12 +423,14 @@ export const openMatterFabric: OpenMatterFabric = async (options) => {
   const environment = Environment.default;
 
   environment.vars.set('storage.path', storageDir);
+  // Set either way: the environment is the process's, and outlives a controller opened with it.
+  environment.vars.set('ble.enable', options.ble === true);
 
   const config = await ConfigStorage.create(environment);
   const controller = await MatterController.create(environment, config, {
     serverVersion: version,
-    // No Thread here: no border router to look for, and nothing to probe for one.
-    disableThreadDiagnostics: true,
+    // Without Thread, no border router to look for, and nothing to probe for one.
+    disableThreadDiagnostics: options.threadDiagnostics !== true,
     ...(options.acceptTestCertificates === true ? { enableTestNetDcl: true } : {}),
   });
   const handler = controller.commandHandler;
@@ -408,43 +514,52 @@ export const openMatterFabric: OpenMatterFabric = async (options) => {
     node: (nodeId) => nodeOf(NodeId(BigInt(nodeId))),
 
     /**
-     * Commissions a node over the network, with an id of its own.
+     * Commissions a node, with an id of its own.
      *
      * @param code - Its pairing code.
      * @param onStep - Told each step as it starts.
+     * @param newDevice - For a new device, its networks, and who to tell which it takes.
      * @returns The node's id.
      */
-    commission: async (code, onStep) => {
+    commission: async (code, onStep, newDevice) => {
       const nodeId = NodeId(
         await config.allocateNodeId((candidate) => handler.isNodeIdInUse(NodeId(candidate))),
       );
-      const request = code.startsWith('MT:') ? { qrCode: code } : { manualCode: code };
 
       // The certificates load from the DCL behind the start, which waits for none of it; an
       // attestation before they did fails with "DclCertificateService is still initializing".
       await controller.certificateService();
 
-      // Heard only while it runs: matter.js says a line a packet at info.
+      // Heard only while it runs: matter.js says a line a packet at info. The commissioner's own
+      // lines at debug say which network a new device takes.
       Logger.destinations[STEPS_DESTINATION] = LogDestination({
         name: STEPS_DESTINATION,
         level: LogLevel.INFO,
+        facilityLevels: newDevice === undefined ? {} : { ControllerCommissioner: LogLevel.DEBUG },
 
         /**
-         * Reads a step out of a line.
+         * Reads a step, or a new device's network, out of a line.
          *
          * @param text - The line.
          */
         write: (text) => {
           const step = commissioningStepOf(text);
+          const network = newDevice === undefined ? undefined : deviceNetworkOf(text);
 
           if (step !== undefined) {
             onStep?.(step);
+          }
+
+          if (network !== undefined) {
+            newDevice?.onNetwork(network);
           }
         },
       });
 
       try {
-        const committed = await handler.commissionNode({ nodeId, onNetworkOnly: true, ...request });
+        const committed = await handler.commissionNode(
+          commissionRequestOf(nodeId, code, newDevice),
+        );
 
         return String(committed.nodeId);
       } finally {

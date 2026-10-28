@@ -113,6 +113,7 @@ import {
   recordStatus,
   type IntegrationInstance,
 } from './persistence/instances.js';
+import { databaseMatterNetworksStore } from './persistence/matter.js';
 import { databaseModbusStore } from './persistence/modbus.js';
 import { databaseSerialStore, loadSerialInstances } from './persistence/serial.js';
 import { loadTakenDevices } from './persistence/taken.js';
@@ -515,6 +516,11 @@ export class HubService {
        * @returns Them.
        */
       instances: async () => loadBluetoothInstances(options.db),
+
+      /** Opens the Matter controller again with Thread's diagnostics, or without. */
+      onChange: () => {
+        void this.#matter.refresh();
+      },
     });
 
     this.#matter = new MatterBroker({
@@ -530,6 +536,30 @@ export class HubService {
        * @returns Their external ids.
        */
       inHouse: async () => new Set((await loadTakenDevices(options.db)).matter.keys()),
+      bluetooth: this.#bluetooth,
+      networks: databaseMatterNetworksStore(options.db, this.#secretsKey),
+      thread: {
+        /**
+         * Whether Thread is set up.
+         *
+         * @returns True with a border router.
+         */
+        isSetUp: () => this.#thread.isSetUp(),
+
+        /**
+         * The dataset a new Thread device is given.
+         *
+         * @returns The TLV hex, or null.
+         */
+        dataset: async () => this.#thread.matterDataset(),
+
+        /**
+         * The network Matter's Settings show.
+         *
+         * @returns Its name and channel, or null.
+         */
+        network: async () => this.#thread.matterNetwork(),
+      },
     });
     this.#transports.register(createMatterTransport(this.#matter));
 
@@ -855,9 +885,8 @@ export class HubService {
     // Held until discovery is built: a vendor installed meanwhile is swapped in after, rather than
     // into a hub half started.
     await this.#serialised(async () => {
-      // Neither throws: a broker that cannot start says why on the Brokers page.
+      // No broker throws: one that cannot start says why on the Brokers page.
       await this.#mqtt.start();
-      await this.#matter.start();
 
       const bundles = await this.#loadAll();
 
@@ -886,6 +915,9 @@ export class HubService {
       // After the vendors: what is heard is recognised by their rules, proxies by their profiles.
       await this.#bluetooth.start();
       await this.#thread.start();
+      // After Bluetooth and Thread: the controller opens with what they offer it - pairing over
+      // the server's adapter, the border routers to look for - rather than open twice.
+      await this.#matter.start();
       // After the vendors: blasters are the devices whose profiles declare one.
       await this.#infrared.start();
 

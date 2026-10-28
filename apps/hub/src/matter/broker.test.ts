@@ -12,9 +12,10 @@ import type {
   TransportInbound,
 } from '@nebulahome/package-runtime';
 
+import { memoryMatterNetworksStore } from '../persistence/matter.js';
 import { createMatterTransport } from '../transports/matter.js';
 
-import { MatterBroker } from './broker.js';
+import { MatterBroker, type MatterBrokerOptions } from './broker.js';
 import type { MatterFabricEvents, OpenMatterFabric } from './fabric.js';
 
 /**
@@ -101,6 +102,7 @@ function fakeFabric() {
   );
   const calls: string[] = [];
   const opens: string[] = [];
+  const openedWith: { ble: boolean; threadDiagnostics: boolean }[] = [];
 
   // A commissioning that runs until the controller closes.
   const closing: (() => void)[] = [];
@@ -109,12 +111,55 @@ function fakeFabric() {
   const open: OpenMatterFabric = (options) => {
     events = options.events;
     opens.push(options.acceptTestCertificates === true ? 'accepting test' : 'as it is');
+    openedWith.push({
+      ble: options.ble === true,
+      threadDiagnostics: options.threadDiagnostics === true,
+    });
 
     return Promise.resolve({
       fabricId: 'abc',
       nodes: () => [...nodes.values()],
       node: (nodeId) => nodes.get(nodeId),
-      commission: (code, onStep) => {
+      commission: (code, onStep, newDevice) => {
+        if (newDevice !== undefined) {
+          // A new device: 44444444444 takes Thread, any other Wi-Fi; 55555555555 says nothing of
+          // its network when given none.
+          const network = code === '44444444444' ? 'thread' : 'wifi';
+
+          calls.push(
+            `commission ${code} new, wifi ${newDevice.wifi?.ssid ?? 'none'}, thread ${newDevice.threadDataset ?? 'none'}`,
+          );
+          onStep?.(0);
+
+          if (
+            code === '55555555555' &&
+            newDevice.wifi === null &&
+            newDevice.threadDataset === null
+          ) {
+            return Promise.reject(
+              new Error(
+                'Commission failed: No Wi-Fi/Thread network credentials are configured for commissioning and no Ethernet interface is available on the device and no interface already connected.',
+              ),
+            );
+          }
+
+          newDevice.onNetwork(network);
+
+          if ((network === 'wifi' ? newDevice.wifi : newDevice.threadDataset) === null) {
+            return new Promise<string>((resolve, reject) => {
+              closing.push(() => {
+                reject(new Error('The controller closed'));
+              });
+            });
+          }
+
+          onStep?.(16);
+          onStep?.(18);
+          nodes.set('9', { ...plug, nodeId: '9', commissionedAt: null });
+
+          return Promise.resolve('9');
+        }
+
         calls.push(`commission ${code}`);
 
         if (code === '00000000000') {
@@ -231,6 +276,7 @@ function fakeFabric() {
     open,
     calls,
     opens,
+    openedWith,
 
     /**
      * Has the fabric say a node changed.
@@ -266,12 +312,14 @@ let storageDir: string | undefined;
  * @param open - How the fabric opens; the fake when not said.
  * @param inHouse - The devices the house has; every one of the fabric when not said.
  * @param before - Done to the fake before the broker opens it.
+ * @param extra - The Bluetooth, networks and Thread the broker is given.
  * @returns The broker and the fake.
  */
 async function started(
   open?: OpenMatterFabric | null,
   inHouse: ReadonlySet<string> = new Set(['2', '4', '4:2', '4:3']),
   before?: (fabric: ReturnType<typeof fakeFabric>) => void,
+  extra: Pick<MatterBrokerOptions, 'bluetooth' | 'networks' | 'thread'> = {},
 ) {
   storageDir ??= await mkdtemp(path.join(os.tmpdir(), 'nebula-matter-'));
 
@@ -286,6 +334,7 @@ async function started(
     version: '1.0.0',
     isLanReachable: true,
     inHouse: () => Promise.resolve(inHouse),
+    ...extra,
   });
 
   await broker.start();
@@ -560,5 +609,234 @@ describe('the matter transport', () => {
     }
 
     expect(keys).toEqual(['2', '4', '4:2', '4:3']);
+  });
+});
+
+/**
+ * The server's Bluetooth, as the Bluetooth broker hands it to Matter.
+ *
+ * @param isAvailable - Whether the adapter can connect.
+ * @returns It, what Matter told it, and how to turn its adapter off.
+ */
+function fakeBluetooth(isAvailable = true) {
+  const pairing: boolean[] = [];
+  const offListeners = new Set<() => void>();
+  const state = { isAvailable };
+  const bluetooth: NonNullable<MatterBrokerOptions['bluetooth']> = {
+    canConnect: () =>
+      state.isAvailable
+        ? { isAvailable: true, reason: null }
+        : { isAvailable: false, reason: 'adapter-off' },
+    markPairing: (isPairing) => {
+      pairing.push(isPairing);
+    },
+    onAdapterOff: (listener) => {
+      offListeners.add(listener);
+
+      return () => offListeners.delete(listener);
+    },
+  };
+
+  return {
+    bluetooth,
+    pairing,
+    turnOff: () => {
+      state.isAvailable = false;
+
+      for (const listener of offListeners) {
+        listener();
+      }
+    },
+  };
+}
+
+/**
+ * Waits for the job to stand some way.
+ *
+ * @param broker - The broker.
+ * @param isThere - Whether it does.
+ * @returns Once it does.
+ */
+async function until(
+  broker: MatterBroker,
+  isThere: (job: ReturnType<MatterBroker['status']>['commissioning']) => boolean,
+): Promise<void> {
+  await vi.waitFor(() => {
+    expect(isThere(broker.status().commissioning)).toBe(true);
+  });
+}
+
+describe('MatterBroker, new devices', () => {
+  it('refuses a new device while the server cannot pair over Bluetooth, and says why', async () => {
+    const { broker } = await started(undefined, undefined, undefined, {
+      bluetooth: fakeBluetooth(false).bluetooth,
+    });
+
+    expect(broker.status().ble).toEqual({ isAvailable: false, reason: 'adapter-off' });
+    expect(() => broker.commission('33333333333', 'new')).toThrow(/adapter is off/u);
+
+    const { broker: none } = await started();
+
+    expect(none.status().ble).toEqual({ isAvailable: false, reason: 'no-adapter' });
+  });
+
+  it('pairs a Wi-Fi device over Bluetooth with the saved Wi-Fi, step by step', async () => {
+    const networks = memoryMatterNetworksStore();
+    const { bluetooth, pairing } = fakeBluetooth();
+
+    await networks.saveWifi({ ssid: 'Casa', password: 'secret-pass' });
+
+    const { broker, fabric } = await started(undefined, undefined, undefined, {
+      bluetooth,
+      networks,
+      thread: {
+        isSetUp: () => true,
+        dataset: async () => Promise.resolve('0e08aabb'),
+        network: async () => Promise.resolve({ networkName: 'Casa', channel: 15 }),
+      },
+    });
+
+    // Bluetooth was usable when it opened, and Thread set up.
+    expect(fabric.openedWith).toEqual([{ ble: true, threadDiagnostics: true }]);
+
+    const job = broker.commission('33333333333', 'new');
+
+    expect(job.mode).toBe('new');
+    expect(job.steps.map((step) => [step.id, step.state])).toEqual([
+      ['looking', 'running'],
+      ['found', 'pending'],
+      ['network', 'pending'],
+      ['joining', 'pending'],
+      ['added', 'pending'],
+    ]);
+
+    await until(broker, (now) => now?.nodeId === '9');
+
+    expect(fabric.calls).toEqual(['commission 33333333333 new, wifi Casa, thread 0e08aabb']);
+    expect(pairing).toEqual([true, false]);
+    expect(
+      broker
+        .status()
+        .commissioning?.steps.map((step) => [step.id, step.state, step.detail.network]),
+    ).toEqual([
+      ['looking', 'done', undefined],
+      ['found', 'done', 'wifi'],
+      ['network', 'done', undefined],
+      ['joining', 'done', undefined],
+      ['added', 'running', undefined],
+    ]);
+    expect(
+      broker.status((nodeId) => (nodeId === '9' ? 'plug-9' : undefined)).commissioning,
+    ).toMatchObject({ state: 'succeeded', deviceId: 'plug-9' });
+  });
+
+  it('asks for the Wi-Fi a device needs, saves it when asked, and pairs it with it', async () => {
+    const networks = memoryMatterNetworksStore();
+    const { broker, fabric } = await started(undefined, undefined, undefined, {
+      bluetooth: fakeBluetooth().bluetooth,
+      networks,
+    });
+    const job = broker.commission('33333333333', 'new');
+
+    await until(broker, (now) => now?.state === 'needs-answer');
+
+    const asking = broker.status().commissioning;
+
+    expect(asking).toMatchObject({ question: 'needs-wifi' });
+    expect(asking?.steps.find((step) => step.id === 'found')?.detail.network).toBe('wifi');
+
+    const answered = broker.answer(job.id, true, {
+      ssid: 'Casa',
+      password: 'secret-pass',
+      isSaved: true,
+    });
+
+    expect(answered.state).toBe('running');
+    expect(answered.question).toBeUndefined();
+    await until(broker, (now) => now?.nodeId === '9');
+    expect(fabric.calls).toEqual([
+      'commission 33333333333 new, wifi none, thread none',
+      'commission 33333333333 new, wifi Casa, thread none',
+    ]);
+    await expect(networks.wifi()).resolves.toEqual({ ssid: 'Casa', password: 'secret-pass' });
+  });
+
+  it('stops on a Thread device while Thread is not set up, answered by cancelling', async () => {
+    const { broker } = await started(undefined, undefined, undefined, {
+      bluetooth: fakeBluetooth().bluetooth,
+      networks: memoryMatterNetworksStore(),
+    });
+    const job = broker.commission('44444444444', 'new');
+
+    await until(broker, (now) => now?.state === 'needs-answer');
+    expect(broker.status().commissioning).toMatchObject({ question: 'needs-thread' });
+    expect(
+      broker.status().commissioning?.steps.find((step) => step.id === 'found')?.detail.network,
+    ).toBe('thread');
+    expect(broker.cancel(job.id)).toMatchObject({ state: 'cancelled' });
+  });
+
+  it('asks for Wi-Fi when a device given no network did not say which it takes', async () => {
+    const { broker } = await started(undefined, undefined, undefined, {
+      bluetooth: fakeBluetooth().bluetooth,
+    });
+
+    broker.commission('55555555555', 'new');
+    await until(broker, (now) => now?.state === 'needs-answer');
+    expect(broker.status().commissioning).toMatchObject({ question: 'needs-wifi' });
+  });
+
+  it('opens the controller with Bluetooth for a new device, and without once the adapter goes', async () => {
+    const { bluetooth, turnOff } = fakeBluetooth();
+    const state = { isAvailable: false };
+    const late: NonNullable<MatterBrokerOptions['bluetooth']> = {
+      ...bluetooth,
+      // The adapter is found after the controller opened.
+      canConnect: () =>
+        state.isAvailable ? bluetooth.canConnect() : { isAvailable: false, reason: 'no-adapter' },
+    };
+    const { broker, fabric } = await started(undefined, undefined, undefined, { bluetooth: late });
+
+    expect(fabric.openedWith).toEqual([{ ble: false, threadDiagnostics: false }]);
+    state.isAvailable = true;
+
+    const job = broker.commission('33333333333', 'new');
+
+    await vi.waitFor(() => {
+      expect(fabric.openedWith.at(-1)).toEqual({ ble: true, threadDiagnostics: false });
+    });
+    await until(broker, (now) => now?.state === 'needs-answer');
+    broker.cancel(job.id);
+    state.isAvailable = false;
+    turnOff();
+    await vi.waitFor(() => {
+      expect(fabric.openedWith.at(-1)).toEqual({ ble: false, threadDiagnostics: false });
+    });
+  });
+
+  it("says the networks a new device is given, never the Wi-Fi's password", async () => {
+    const networks = memoryMatterNetworksStore();
+    const { broker } = await started(undefined, undefined, undefined, {
+      networks,
+      thread: {
+        isSetUp: () => true,
+        dataset: async () => Promise.resolve(null),
+        network: async () => Promise.resolve({ networkName: 'Casa', channel: 15 }),
+      },
+    });
+
+    await expect(broker.networks()).resolves.toEqual({
+      wifi: { ssid: null, hasPassword: false },
+      thread: { networkName: 'Casa', channel: 15 },
+    });
+    await expect(
+      broker.saveNetworks({ wifi: { ssid: 'Casa', password: 'secret-pass' } }),
+    ).resolves.toMatchObject({ wifi: { ssid: 'Casa', hasPassword: true } });
+    // A password left out keeps the saved one.
+    await broker.saveNetworks({ wifi: { ssid: 'Casa' } });
+    await expect(networks.wifi()).resolves.toEqual({ ssid: 'Casa', password: 'secret-pass' });
+    await expect(broker.saveNetworks({ wifi: null })).resolves.toMatchObject({
+      wifi: { ssid: null, hasPassword: false },
+    });
   });
 });

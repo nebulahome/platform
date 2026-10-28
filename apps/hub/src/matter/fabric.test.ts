@@ -1,8 +1,73 @@
+import { NodeId } from '@matter/main';
 import { describe, expect, it } from 'vitest';
 
 import { jsonValueSchema } from '@nebulahome/contracts';
 
-import { commissioningStepOf, isTestCertificateFailure, jsonSafe, readNode } from './fabric.js';
+import {
+  commissioningStepOf,
+  commissionRequestOf,
+  deviceNetworkOf,
+  isMissingNetworkFailure,
+  isTestCertificateFailure,
+  jsonSafe,
+  readNode,
+} from './fabric.js';
+
+describe('commissionRequestOf', () => {
+  it('asks for a shared device over the network only, by its manual code or QR text', () => {
+    expect(commissionRequestOf(NodeId(9n), '34970112332')).toEqual({
+      nodeId: NodeId(9n),
+      onNetworkOnly: true,
+      manualCode: '34970112332',
+    });
+    expect(commissionRequestOf(NodeId(9n), 'MT:Y.K9042C00KA0648G00')).toEqual({
+      nodeId: NodeId(9n),
+      onNetworkOnly: true,
+      qrCode: 'MT:Y.K9042C00KA0648G00',
+    });
+  });
+
+  it('asks for a new device over Bluetooth too, with the networks there are for it', () => {
+    expect(
+      commissionRequestOf(NodeId(9n), '34970112332', {
+        wifi: { ssid: 'Casa', password: 'secret-pass' },
+        threadDataset: '0e08aabb',
+      }),
+    ).toEqual({
+      nodeId: NodeId(9n),
+      onNetworkOnly: false,
+      manualCode: '34970112332',
+      wifiCredentials: { wifiSsid: 'Casa', wifiCredentials: 'secret-pass' },
+      threadCredentials: { operationalDataset: '0e08aabb' },
+    });
+    expect(
+      commissionRequestOf(NodeId(9n), '34970112332', { wifi: null, threadDataset: null }),
+    ).toEqual({ nodeId: NodeId(9n), onNetworkOnly: false, manualCode: '34970112332' });
+  });
+});
+
+describe('deviceNetworkOf', () => {
+  it("reads a new device's network from the commissioner's lines", () => {
+    expect(deviceNetworkOf('Configuring WiFi network ...')).toBe('wifi');
+    expect(deviceNetworkOf('Commissionee does not support any Thread network interface')).toBe(
+      'wifi',
+    );
+    expect(deviceNetworkOf('Configuring Thread network ...')).toBe('thread');
+    expect(deviceNetworkOf('Commissionee does not support any WiFi network interface')).toBe(
+      'thread',
+    );
+    expect(deviceNetworkOf('WiFi network is not configured')).toBeUndefined();
+  });
+
+  it('tells a device given no network', () => {
+    expect(
+      isMissingNetworkFailure(
+        'Commission failed: No Wi-Fi/Thread network credentials are configured for commissioning',
+      ),
+    ).toBe(true);
+    expect(isMissingNetworkFailure('Commission failed: PASE timed out')).toBe(false);
+  });
+});
 
 describe('readNode', () => {
   it('reads the details, and lists a node whose details throw as unavailable', () => {

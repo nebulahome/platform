@@ -1,6 +1,7 @@
 /**
- * The Thread broker's settings row against a real database: what the store writes is what
- * migration 0003 made, the radio's port a foreign key that lets go when the port is forgotten.
+ * The Thread broker's settings row and Matter's networks row against a real database: what the
+ * stores write is what migration 0003 made, the radio's port a foreign key that lets go when the
+ * port is forgotten, and the Wi-Fi password sealed in its column.
  *
  * Requires the development stack, migrated:
  *
@@ -11,18 +12,23 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createDatabase, schema } from '@nebulahome/db';
+import { createDatabase, isSealed, schema } from '@nebulahome/db';
 
+import { databaseMatterNetworksStore } from '@/persistence/matter.js';
 import { databaseSerialStore } from '@/persistence/serial.js';
 import { databaseThreadStore, THREAD_DEFAULTS } from '@/persistence/thread.js';
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
+
+/** A secrets key. */
+const KEY = Buffer.alloc(32, 5);
 
 let database: ReturnType<typeof createDatabase>;
 
 /** Empties the rows the tests write. */
 async function clear(): Promise<void> {
   await database.db.delete(schema.registry.threadSettings);
+  await database.db.delete(schema.registry.matterNetworks);
   await database.db.delete(schema.registry.serialPorts);
 }
 
@@ -83,5 +89,27 @@ describe('the Thread store', () => {
       mode: 'external',
       externalUrl: 'http://192.168.1.20:8081',
     });
+  });
+});
+
+describe("the store of Matter's networks", () => {
+  it('seals the Wi-Fi password in its column, opens it, keeps it, and forgets the network', async () => {
+    const store = databaseMatterNetworksStore(database.db, KEY);
+
+    await expect(store.wifi()).resolves.toBeNull();
+    await store.saveWifi({ ssid: 'Casa', password: 'secret-pass' });
+
+    const [row] = await database.db.select().from(schema.registry.matterNetworks);
+
+    expect(row?.wifiSsid).toBe('Casa');
+    expect(isSealed(row?.wifiPasswordSealed)).toBe(true);
+    expect(JSON.stringify(row)).not.toContain('secret-pass');
+    await expect(store.wifi()).resolves.toEqual({ ssid: 'Casa', password: 'secret-pass' });
+
+    await store.saveWifi({ ssid: 'Casa' });
+    await expect(store.wifi()).resolves.toEqual({ ssid: 'Casa', password: 'secret-pass' });
+
+    await store.saveWifi(null);
+    await expect(store.wifi()).resolves.toBeNull();
   });
 });

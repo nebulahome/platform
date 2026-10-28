@@ -23,12 +23,16 @@ import {
   ConflictError,
   DeviceUnavailableError,
   MATTER_COMMISSIONING_STEPS,
+  MATTER_NEW_DEVICE_STEPS,
   MATTER_PORT,
   type MatterCommissioning,
   type MatterCommissioningStep,
-  type MatterCommissioningStepId,
+  type MatterCommissionMode,
   type BrokerState,
   type MatterNetwork,
+  type MatterNetworks,
+  type MatterNetworksSaveRequest,
+  type MatterQuestion,
   type MatterStatus,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -44,12 +48,18 @@ import {
   type MatterUpdateOffer,
 } from '@nebulahome/package-runtime';
 
+import type { BluetoothBroker } from '../bluetooth/broker.js';
+import type { MatterNetworksStore, MatterWifi } from '../persistence/matter.js';
+
 import {
+  isMissingNetworkFailure,
   isTestCertificateFailure,
   MATTER_ENGINE,
   type FabricNode,
+  type MatterDeviceNetwork,
   type MatterFabric,
   type MatterInvoke,
+  type MatterNewDevice,
   type MatterWrite,
   type OpenMatterFabric,
 } from './fabric.js';
@@ -103,21 +113,34 @@ export function ssidOf(attributes: MatterAttributes): string | null {
   return typeof id === 'string' && id !== '' ? Buffer.from(id, 'base64').toString('utf8') : null;
 }
 
+/** Why a new device cannot be paired over the server's Bluetooth, in words. */
+const BLE_PROBLEMS: Readonly<Record<NonNullable<MatterStatus['ble']>['reason'] & string, string>> =
+  {
+    'no-adapter': 'this server has no Bluetooth adapter',
+    'adapter-off': "the server's Bluetooth adapter is off",
+    'proxies-only': 'Bluetooth proxies cannot pair devices',
+    desktop: 'Docker Desktop passes no Bluetooth through',
+  };
+
 /**
- * The steps of a commissioning, as the job starts: the code read, the device being looked for.
+ * The steps of a commissioning, as the job starts: the code read and the device being looked
+ * for on the network; or, a new device, looked for over Bluetooth.
  *
  * @param code - The pairing code, checked.
+ * @param mode - By a shared code, or a new device.
  * @returns The steps.
  */
-function freshSteps(code: string): MatterCommissioningStep[] {
+function freshSteps(code: string, mode: MatterCommissionMode): MatterCommissioningStep[] {
   const isQrCode = code.startsWith('MT:');
+  const first = mode === 'new' ? 'looking' : 'code';
+  const running = mode === 'new' ? 'looking' : 'found';
 
-  return MATTER_COMMISSIONING_STEPS.map((id) => ({
+  return (mode === 'new' ? MATTER_NEW_DEVICE_STEPS : MATTER_COMMISSIONING_STEPS).map((id) => ({
     id,
-    state: id === 'code' ? 'done' : id === 'found' ? 'running' : 'pending',
+    state: id === running ? 'running' : id === 'code' ? 'done' : 'pending',
     detail: {
-      discriminator: id === 'code' ? discriminatorOf(code) : null,
-      isQrCode: id === 'code' && isQrCode,
+      discriminator: id === first ? discriminatorOf(code) : null,
+      isQrCode: id === first && isQrCode,
       address: null,
       product: null,
       vendorId: null,
@@ -159,9 +182,13 @@ export function discriminatorOf(code: string): number | null {
  */
 function advance(
   steps: readonly MatterCommissioningStep[],
-  running: MatterCommissioningStepId,
+  running: MatterCommissioningStep['id'],
 ): MatterCommissioningStep[] {
-  const at = MATTER_COMMISSIONING_STEPS.indexOf(running);
+  const at = steps.findIndex((step) => step.id === running);
+
+  if (at === -1) {
+    return [...steps];
+  }
 
   return steps.map((step, index) => {
     if (index < at) {
@@ -177,15 +204,22 @@ function advance(
  * Which step a step of matter.js's commissioning is.
  *
  * @param step - Its number.
- * @returns The step the page shows, or undefined for one it does not.
+ * @param mode - By a shared code, or a new device.
+ * @returns The step the page shows.
  */
-function stepOf(step: number): MatterCommissioningStepId {
+function stepOf(step: number, mode: MatterCommissionMode): MatterCommissioningStep['id'] {
+  if (mode === 'new') {
+    // Any step means the device answered over Bluetooth; step 16 gives it its network, and from
+    // step 18 on it is reached on that network, joining the fabric.
+    return step < 16 ? 'found' : step < 18 ? 'network' : 'joining';
+  }
+
   // Up to the attestation (step 10), the device was found and its certificate is being checked;
   // after it, it is joining the fabric.
   return step <= 10 ? 'certificate' : 'joining';
 }
 
-/** A commissioning stopped on a test certificate, waiting for the owner. */
+/** A commissioning stopped on a question, waiting for the owner. */
 type Pending = { readonly jobId: string; readonly code: string; readonly timer: NodeJS.Timeout };
 
 /** One device of a node, for discovery. */
@@ -214,7 +248,28 @@ export type MatterBrokerOptions = {
 
   /** The external ids of the Matter devices the house has, removed ones included until they go. */
   readonly inHouse: () => Promise<ReadonlySet<string>>;
+
+  /** The server's Bluetooth, which pairs new devices; none where it is not given. */
+  readonly bluetooth?: Pick<BluetoothBroker, 'canConnect' | 'markPairing' | 'onAdapterOff'>;
+
+  /** The Wi-Fi a new device is given. */
+  readonly networks?: MatterNetworksStore;
+
+  /** The house's Thread network, as the Thread broker hands it to Matter. */
+  readonly thread?: {
+    /** Whether Thread is set up: the controller then looks for border routers. */
+    readonly isSetUp: () => boolean;
+
+    /** The active dataset, TLV hex; null when Matter is not handed the network. */
+    readonly dataset: () => Promise<string | null>;
+
+    /** Its name and channel, for Matter's Settings; null when Matter is not handed it. */
+    readonly network: () => Promise<{ networkName: string; channel: number } | null>;
+  };
 };
+
+/** What the controller was opened with, besides test certificates. */
+type OpenedWith = { readonly ble: boolean; readonly threadDiagnostics: boolean };
 
 /**
  * What is thrown when something is asked of a fabric that is not there.
@@ -259,6 +314,12 @@ export class MatterBroker {
   /** The last time the controller was opened again, so the next waits for it. */
   #reopening: Promise<void> = Promise.resolve();
 
+  /** What the open controller was opened with; undefined while none is. */
+  #openedWith: OpenedWith | undefined;
+
+  /** The Wi-Fi the owner typed for the job of a new device, which its next run is given. */
+  #typedWifi: MatterWifi | null = null;
+
   /**
    * Keeps the options; nothing opens until {@link MatterBroker.start}.
    *
@@ -267,6 +328,9 @@ export class MatterBroker {
   public constructor(options: MatterBrokerOptions) {
     this.#options = options;
     this.#state = options.open === undefined ? 'disabled' : 'starting';
+    options.bluetooth?.onAdapterOff(() => {
+      void this.refresh();
+    });
   }
 
   /**
@@ -339,11 +403,14 @@ export class MatterBroker {
       throw notRunning(this.#state, this.#error);
     }
 
-    return open({
+    const wanted = this.#wanted();
+    const fabric = await open({
       storageDir,
       logger,
       version,
       acceptTestCertificates,
+      ble: wanted.ble,
+      threadDiagnostics: wanted.threadDiagnostics,
       events: {
         /**
          * Hands a node's change on.
@@ -366,6 +433,93 @@ export class MatterBroker {
         },
       },
     });
+
+    this.#openedWith = wanted;
+
+    return fabric;
+  }
+
+  /**
+   * What the controller should be opened with now: Bluetooth while the server's adapter can
+   * connect, Thread's diagnostics once Thread is set up.
+   *
+   * @returns The options.
+   */
+  #wanted(): OpenedWith {
+    return {
+      ble: this.bleStatus().isAvailable,
+      threadDiagnostics: this.#options.thread?.isSetUp() === true,
+    };
+  }
+
+  /**
+   * Opens the controller again when what it was opened with is no longer what it should be: the
+   * adapter came or went, Thread was set up or removed. Never under a device being added, but for
+   * the job that asks.
+   *
+   * @param isForJob - Whether the job under way asks, before it pairs over Bluetooth.
+   * @returns Once open again, or left as it was; never throws.
+   */
+  public async refresh(isForJob = false): Promise<void> {
+    const wanted = this.#wanted();
+    const opened = this.#openedWith;
+    const isBusy = this.#job?.state === 'running' || this.#job?.state === 'needs-answer';
+
+    if (
+      this.#fabric === undefined ||
+      opened === undefined ||
+      (opened.ble === wanted.ble && opened.threadDiagnostics === wanted.threadDiagnostics) ||
+      (isBusy && !isForJob)
+    ) {
+      return;
+    }
+
+    this.#options.logger.info(wanted, 'Opening the Matter controller again with what it can use');
+    await this.#reopenAsWas();
+  }
+
+  /**
+   * Whether a new device can be paired over the server's Bluetooth now.
+   *
+   * @returns The answer, and why not.
+   */
+  public bleStatus(): NonNullable<MatterStatus['ble']> {
+    return this.#options.bluetooth?.canConnect() ?? { isAvailable: false, reason: 'no-adapter' };
+  }
+
+  /**
+   * The networks a new device is given: the Wi-Fi saved, never its password, and the house's
+   * Thread network when it is handed to Matter.
+   *
+   * @returns Them.
+   */
+  public async networks(): Promise<MatterNetworks> {
+    const [wifi, thread] = await Promise.all([
+      this.#options.networks?.wifi() ?? null,
+      this.#options.thread?.network() ?? null,
+    ]);
+
+    return {
+      wifi: { ssid: wifi?.ssid ?? null, hasPassword: (wifi?.password ?? null) !== null },
+      thread,
+    };
+  }
+
+  /**
+   * Saves the Wi-Fi a new device is given, or forgets it.
+   *
+   * @param request - The Wi-Fi; a password left out keeps the saved one; null forgets it.
+   * @returns The networks, as they now are.
+   * @throws {ConflictError} Where the hub keeps no networks.
+   */
+  public async saveNetworks(request: MatterNetworksSaveRequest): Promise<MatterNetworks> {
+    if (this.#options.networks === undefined) {
+      throw new ConflictError('Networks for new devices are not kept here');
+    }
+
+    await this.#options.networks.saveWifi(request.wifi);
+
+    return this.networks();
   }
 
   /**
@@ -387,6 +541,7 @@ export class MatterBroker {
 
     await this.#fabric?.stop();
     this.#fabric = undefined;
+    this.#openedWith = undefined;
   }
 
   /**
@@ -434,6 +589,7 @@ export class MatterBroker {
       controllerVersion: MATTER_ENGINE,
       port: MATTER_PORT,
       fabricCreatedAt: this.#fabricCreatedAt,
+      ble: this.bleStatus(),
     };
   }
 
@@ -460,16 +616,19 @@ export class MatterBroker {
     }
 
     const node = this.node(job.nodeId);
-    const reading = job.steps.find((step) => step.id === 'reading');
+    const isNew = job.mode === 'new';
+    const reading = job.steps.find((step) => step.id === (isNew ? 'added' : 'reading'));
+    const found = job.steps.find((step) => step.id === 'found');
 
-    if (node !== undefined && reading?.state === 'running') {
+    if (node !== undefined && reading?.state === 'running' && found?.detail.product === null) {
       const [root] = scopesOf(node.attributes);
       const product =
         root === undefined ? null : (deviceSnapshotOf(node, root).identity.productName ?? null);
 
+      // A new device's last step is its being added; a shared one's, its being in the house.
       this.#job = {
         ...job,
-        steps: advance(job.steps, 'in-house').map((step) =>
+        steps: (isNew ? job.steps : advance(job.steps, 'in-house')).map((step) =>
           step.id === 'found' ? { ...step, detail: { ...step.detail, product } } : step,
         ),
       };
@@ -502,7 +661,7 @@ export class MatterBroker {
         state: 'succeeded',
         finishedAt: new Date(),
         steps: current.steps.map((step) =>
-          step.id === 'in-house' ? { ...step, state: 'failed' } : step,
+          step.id === (isNew ? 'added' : 'in-house') ? { ...step, state: 'failed' } : step,
         ),
       };
     }
@@ -675,50 +834,71 @@ export class MatterBroker {
   }
 
   /**
-   * Starts commissioning a node shared by another app.
+   * Starts commissioning a node: shared by another app, over the network it is on; or a new
+   * device, over the server's Bluetooth, onto the house's Wi-Fi or Thread network.
    *
    * @param code - Its pairing code, already checked.
+   * @param mode - By a shared code, or a new device.
    * @returns The job, running.
    * @throws {Error} When the fabric is not open, or a commissioning runs already.
+   * @throws {ConflictError} For a new device, when the server's Bluetooth cannot pair it.
    */
-  public commission(code: string): MatterCommissioning {
+  public commission(code: string, mode: MatterCommissionMode = 'shared'): MatterCommissioning {
     const fabric = this.#require();
 
     if (this.#job?.state === 'running' || this.#job?.state === 'needs-answer') {
       throw new ConflictError('A device is being added already; wait for it to finish');
     }
 
+    const ble = this.bleStatus();
+
+    if (mode === 'new' && !ble.isAvailable) {
+      throw new ConflictError(
+        `A new device pairs over this server's Bluetooth, and ${BLE_PROBLEMS[ble.reason ?? 'no-adapter']}`,
+      );
+    }
+
     const job: MatterCommissioning = {
       id: randomUUID(),
       state: 'running',
+      mode,
       startedAt: new Date(),
       finishedAt: null,
       nodeId: null,
       error: null,
-      steps: freshSteps(code),
+      steps: freshSteps(code, mode),
       deviceId: null,
     };
 
     this.#job = job;
     this.#joinedAt = null;
-    this.#options.logger.info({ job: job.id }, 'Commissioning a Matter device');
-    void this.#run(job.id, code, fabric, false);
+    this.#typedWifi = null;
+    this.#options.logger.info({ job: job.id, mode }, 'Commissioning a Matter device');
+    void (mode === 'new' ? this.#runNew(job.id, code) : this.#run(job.id, code, fabric, false));
 
     return job;
   }
 
   /**
-   * Answers the question a commissioning stopped on: whether to add a device whose certificate
-   * is a test one. Yes opens the controller again taking test certificates, adds the device with
-   * the same code, and opens it again as it was; meanwhile the house's Matter devices are out of
-   * reach for a few seconds.
+   * Answers the question a commissioning stopped on. A test certificate: yes opens the controller
+   * again taking test certificates, adds the device with the same code, and opens it again as it
+   * was; meanwhile the house's Matter devices are out of reach for a few seconds. A new device's
+   * Wi-Fi: the network typed, with which it is looked for again. Thread not set up: only no.
    *
    * @param jobId - The job.
-   * @param isAccepted - Whether to add it anyway.
+   * @param isAccepted - Whether to add it anyway, or with the Wi-Fi given.
+   * @param wifi - The Wi-Fi typed, for a device that needs one.
+   * @param wifi.ssid - Its name.
+   * @param wifi.password - Its password.
+   * @param wifi.isSaved - Whether it is kept for the next device.
    * @returns The job, as it now stands.
    * @throws {ConflictError} When nothing waits for that answer.
    */
-  public answer(jobId: string, isAccepted: boolean): MatterCommissioning {
+  public answer(
+    jobId: string,
+    isAccepted: boolean,
+    wifi?: { ssid: string; password: string; isSaved: boolean },
+  ): MatterCommissioning {
     const job = this.#job;
     const pending = this.#pending;
 
@@ -729,9 +909,25 @@ export class MatterBroker {
     clearTimeout(pending.timer);
     this.#pending = undefined;
 
+    const { question, ...asked } = job;
+
+    if (question === 'needs-wifi' || question === 'needs-thread') {
+      if (!isAccepted || question === 'needs-thread' || wifi === undefined) {
+        this.#job = { ...asked, state: 'cancelled', finishedAt: new Date() };
+
+        return this.#job;
+      }
+
+      this.#typedWifi = { ssid: wifi.ssid, password: wifi.password };
+      this.#job = { ...asked, state: 'running', steps: advance(asked.steps, 'network') };
+      void this.#withWifi(jobId, pending.code, wifi.isSaved);
+
+      return this.#job;
+    }
+
     if (!isAccepted) {
       this.#job = {
-        ...job,
+        ...asked,
         state: 'failed',
         finishedAt: new Date(),
         error: 'Not added: its certificate is a test one',
@@ -740,7 +936,7 @@ export class MatterBroker {
       return this.#job;
     }
 
-    this.#job = { ...job, state: 'running', steps: advance(job.steps, 'joining') };
+    this.#job = { ...asked, state: 'running', steps: advance(asked.steps, 'joining') };
     void this.#withTestCertificates(jobId, pending.code);
 
     return this.#job;
@@ -785,13 +981,16 @@ export class MatterBroker {
   }
 
   /**
-   * Whether a job was cancelled.
+   * Whether a job was stopped under its commissioning: cancelled, or cut off on a question.
    *
    * @param jobId - The job.
-   * @returns True when it is the broker's job, cancelled.
+   * @returns True when it is the broker's job, cancelled or waiting for an answer.
    */
-  #isCancelled(jobId: string): boolean {
-    return this.#job?.id === jobId && this.#job.state === 'cancelled';
+  #isStopped(jobId: string): boolean {
+    return (
+      this.#job?.id === jobId &&
+      (this.#job.state === 'cancelled' || this.#job.state === 'needs-answer')
+    );
   }
 
   /**
@@ -805,13 +1004,140 @@ export class MatterBroker {
     try {
       await this.#reopen(true);
 
-      if (!this.#isCancelled(jobId)) {
+      if (!this.#isStopped(jobId)) {
         await this.#run(jobId, code, this.#require(), true);
       }
     } catch (error: unknown) {
       this.#fail(jobId, error);
     } finally {
       await this.#reopenAsWas();
+    }
+  }
+
+  /**
+   * Adds a new device: the controller opened with Bluetooth first, when it was not.
+   *
+   * @param jobId - The job.
+   * @param code - The device's pairing code.
+   * @returns Once the device joined, failed, or waits for the owner's answer.
+   */
+  async #runNew(jobId: string, code: string): Promise<void> {
+    try {
+      await this.refresh(true);
+
+      if (!this.#isStopped(jobId)) {
+        await this.#run(jobId, code, this.#require(), false);
+      }
+    } catch (error: unknown) {
+      this.#fail(jobId, error);
+    }
+  }
+
+  /**
+   * Looks for a new device again with the Wi-Fi the owner typed, once the controller cut off for
+   * the question is open again; saved first when they asked.
+   *
+   * @param jobId - The job.
+   * @param code - The device's pairing code.
+   * @param isSaved - Whether the Wi-Fi is kept for the next device.
+   * @returns Once the device joined, failed, or waits for another answer.
+   */
+  async #withWifi(jobId: string, code: string, isSaved: boolean): Promise<void> {
+    const wifi = this.#typedWifi;
+
+    if (isSaved && wifi !== null) {
+      // Not saving it does not stop this device: it is told again next time.
+      await this.#options.networks
+        ?.saveWifi({ ssid: wifi.ssid, password: wifi.password ?? undefined })
+        .catch((error: unknown) => {
+          this.#options.logger.warn({ err: error }, 'Could not save the Wi-Fi for new devices');
+        });
+    }
+
+    await this.#reopening;
+    await this.#runNew(jobId, code);
+  }
+
+  /**
+   * Stops a job on a question for the owner, kept for a while for their answer.
+   *
+   * @param jobId - The job.
+   * @param code - Its pairing code, to commission again with.
+   * @param question - What it asks.
+   * @param steps - How its steps stand while it waits.
+   */
+  #ask(
+    jobId: string,
+    code: string,
+    question: MatterQuestion,
+    steps: (step: MatterCommissioningStep) => MatterCommissioningStep,
+  ): void {
+    this.#pending = {
+      jobId,
+      code,
+      timer: setTimeout(() => {
+        this.#pending = undefined;
+        this.#fail(
+          jobId,
+          new Error(
+            question === 'test-certificate'
+              ? "No answer came in time: share it again from the maker's app"
+              : 'No answer came in time: add the device again',
+          ),
+        );
+      }, ANSWER_WITHIN_MS),
+    };
+    this.#pending.timer.unref();
+    this.#update(jobId, (job) => ({
+      ...job,
+      state: 'needs-answer',
+      question,
+      steps: job.steps.map((step) => {
+        const changed = steps(step);
+
+        return changed === step && step.state === 'running'
+          ? { ...step, state: 'pending' }
+          : changed;
+      }),
+    }));
+    this.#options.logger.info({ job: jobId, question }, 'A Matter commissioning asks the owner');
+  }
+
+  /**
+   * Hears which network a new device takes: the Found step says it, and a device needing a
+   * network Matter has none of is cut off with a question.
+   *
+   * @param jobId - The job.
+   * @param code - Its pairing code.
+   * @param network - The network the device takes.
+   * @param given - What the commissioning was given.
+   */
+  #onNetwork(
+    jobId: string,
+    code: string,
+    network: MatterDeviceNetwork,
+    given: Pick<MatterNewDevice, 'wifi' | 'threadDataset'>,
+  ): void {
+    const job = this.#job;
+    const found = job?.steps.find((step) => step.id === 'found');
+
+    if (job?.id !== jobId || job.state !== 'running' || found?.detail.network !== undefined) {
+      return;
+    }
+
+    const isMissing = network === 'wifi' ? given.wifi === null : given.threadDataset === null;
+    const said = job.steps.map((step) =>
+      step.id === 'found'
+        ? { ...step, state: 'done' as const, detail: { ...step.detail, network } }
+        : step,
+    );
+
+    this.#job = { ...job, steps: isMissing ? said : advance(said, 'network') };
+
+    if (isMissing) {
+      this.#ask(jobId, code, network === 'wifi' ? 'needs-wifi' : 'needs-thread', (step) => step);
+      // The device would wait for a network it is not given: the commissioning is cut off.
+      void this.#reopenAsWas();
     }
   }
 
@@ -864,12 +1190,61 @@ export class MatterBroker {
     fabric: MatterFabric,
     isAcceptingTest: boolean,
   ): Promise<void> {
-    try {
-      const nodeId = await fabric.commission(code, (step) => {
-        this.#update(jobId, (job) => ({ ...job, steps: advance(job.steps, stepOf(step)) }));
-      });
+    const mode = this.#job?.mode ?? 'shared';
+    const { bluetooth } = this.#options;
+    let given: Pick<MatterNewDevice, 'wifi' | 'threadDataset'> = {
+      wifi: null,
+      threadDataset: null,
+    };
 
-      if (this.#isCancelled(jobId)) {
+    try {
+      if (mode === 'new') {
+        const [saved, threadDataset] = await Promise.all([
+          this.#typedWifi ?? this.#options.networks?.wifi() ?? null,
+          this.#options.thread?.dataset() ?? null,
+        ]);
+
+        // A Wi-Fi with no password is not one matter.js gives a device.
+        given = {
+          wifi:
+            saved?.password === null || saved?.password === undefined
+              ? null
+              : { ssid: saved.ssid, password: saved.password },
+          threadDataset,
+        };
+        bluetooth?.markPairing(true);
+      }
+
+      const nodeId = await fabric
+        .commission(
+          code,
+          (step) => {
+            this.#update(jobId, (job) => ({
+              ...job,
+              steps: advance(job.steps, stepOf(step, mode)),
+            }));
+          },
+          mode === 'new'
+            ? {
+                ...given,
+                /**
+                 * Hears which network the device takes.
+                 *
+                 * @param network - Which.
+                 */
+                onNetwork: (network) => {
+                  this.#onNetwork(jobId, code, network, given);
+                },
+              }
+            : undefined,
+        )
+        .finally(() => {
+          if (mode === 'new') {
+            bluetooth?.markPairing(false);
+          }
+        });
+
+      if (this.#isStopped(jobId)) {
         // Cut off too late: it joined all the same, and leaves again.
         this.#options.logger.info({ job: jobId, nodeId }, 'A cancelled Matter device joined');
         await this.#reopening;
@@ -884,45 +1259,38 @@ export class MatterBroker {
       }
 
       this.#joinedAt = new Date();
-      this.#update(jobId, (job) => ({ ...job, nodeId, steps: advance(job.steps, 'reading') }));
+      this.#update(jobId, (job) => ({
+        ...job,
+        nodeId,
+        steps: advance(job.steps, mode === 'new' ? 'added' : 'reading'),
+      }));
       this.#options.logger.info({ job: jobId, nodeId }, 'A Matter device was commissioned');
       this.#tellNodes();
     } catch (error: unknown) {
-      if (this.#isCancelled(jobId)) {
+      if (this.#isStopped(jobId)) {
         return;
       }
 
       const message = error instanceof Error ? error.message : String(error);
 
       if (!isAcceptingTest && isTestCertificateFailure(message)) {
-        this.#pending = {
-          jobId,
-          code,
-          timer: setTimeout(() => {
-            this.#pending = undefined;
-            this.#fail(
-              jobId,
-              new Error("No answer came in time: share it again from the maker's app"),
-            );
-          }, ANSWER_WITHIN_MS),
-        };
-        this.#pending.timer.unref();
-        this.#update(jobId, (job) => ({
-          ...job,
-          state: 'needs-answer',
-          steps: job.steps.map((step) => {
-            if (step.id === 'found') {
-              return { ...step, state: 'done' };
-            }
+        this.#ask(jobId, code, 'test-certificate', (step) => {
+          if (step.id === 'found') {
+            return { ...step, state: 'done' };
+          }
 
-            if (step.id === 'certificate') {
-              return { ...step, state: 'warning' };
-            }
+          return step.id === 'certificate' ? { ...step, state: 'warning' } : step;
+        });
 
-            return step.state === 'running' ? { ...step, state: 'pending' } : step;
-          }),
-        }));
-        this.#options.logger.info({ job: jobId }, 'A Matter device has a test certificate');
+        return;
+      }
+
+      // Given no network at all, the device did not say which it takes: Wi-Fi is asked for, and a
+      // Thread device says so the next time.
+      if (mode === 'new' && given.wifi === null && isMissingNetworkFailure(message)) {
+        this.#ask(jobId, code, 'needs-wifi', (step) =>
+          step.id === 'looking' || step.id === 'found' ? { ...step, state: 'done' } : step,
+        );
 
         return;
       }
