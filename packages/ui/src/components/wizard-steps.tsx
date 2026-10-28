@@ -7,7 +7,8 @@
  *
  * `inline` sets each name beside its circle, a 28px rule joining one to the next, small enough for
  * a dialog's header. `stacked` is the brokers' wizards: the steps spread across the dialog's width
- * under its header, each circle above its name, centred, and a rule between the circles.
+ * under its header, each circle above its name, centred, a rule between the circles, and a step
+ * done ticked in `success`.
  */
 import { useTranslation } from 'react-i18next';
 
@@ -37,21 +38,25 @@ export type WizardStepsProps = {
  * @param props.index - The step, from 0.
  * @param props.isDone - Whether it is behind.
  * @param props.isLit - Whether it is done or the current one.
+ * @param props.isStacked - Across the dialog: a step done is ticked in `success` there.
  * @returns The circle.
  */
 function StepCircle(props: {
   readonly index: number;
   readonly isDone: boolean;
   readonly isLit: boolean;
+  readonly isStacked?: boolean;
 }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
         'flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-mono-caption',
-        props.isLit
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border-strong bg-surface text-foreground-subtle',
+        props.isStacked === true && props.isDone
+          ? 'border-success/45 bg-success/14 text-success'
+          : props.isLit
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-border-strong bg-surface text-foreground-subtle',
       )}
     >
       {props.isDone ? <AppIcon id="check" size={12} strokeWidth={2.5} /> : props.index + 1}
@@ -104,7 +109,7 @@ export function WizardSteps(props: WizardStepsProps) {
                 role="presentation"
                 className={cn(
                   'mt-3 h-px min-w-4 flex-1',
-                  index <= current ? 'bg-primary' : 'bg-border-strong',
+                  index <= current ? 'bg-success/45' : 'bg-border-strong',
                 )}
               />
             ),
@@ -113,7 +118,7 @@ export function WizardSteps(props: WizardStepsProps) {
               aria-current={isCurrent ? 'step' : undefined}
               className="-mx-3 flex shrink-0 flex-col items-center gap-2 px-0"
             >
-              <StepCircle index={index} isDone={isDone} isLit={isDone || isCurrent} />
+              <StepCircle index={index} isDone={isDone} isLit={isDone || isCurrent} isStacked />
               {name}
             </li>,
           ];
