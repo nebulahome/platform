@@ -19,6 +19,8 @@ export * from './discovery.js';
 export * from './evaluate.js';
 export * from './expression.js';
 export * from './infrared-codes.js';
+// The same, as the one object the SDK hands a bundle (`sdk.codecs.infrared`).
+export * as infraredCodec from './infrared-codes.js';
 export * from './infrared-mapping.js';
 export * from './install-marker.js';
 export * from './integration.js';

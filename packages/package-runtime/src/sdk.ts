@@ -24,6 +24,7 @@ import type { z } from 'zod';
 import type { BluetoothAdvertInput, SerialLineInput } from '@nebulahome/contracts';
 
 import type { defineAccount } from './account.js';
+import type * as infraredCodes from './infrared-codes.js';
 import type { Integration } from './integration.js';
 import type { defineStreamSource, OpenRtsp, StreamSource } from './stream.js';
 import type { defineTransport, Transport } from './transport.js';
@@ -424,7 +425,15 @@ export type PalettedPicture = {
   readonly pixels: Uint8Array;
 };
 
-/** What a bundle drawing a picture needs, and could not bring as a dependency. */
+/**
+ * The platform's infrared codec, `infrared-codes.ts`: Broadlink packets, Pronto hex, raw timings
+ * and Flipper Zero `.ir` files read into the platform's code and written back out, and the
+ * protocols recognised in it. A blaster's integration converts between its own format and the
+ * code the `infrared.*` ops carry with it.
+ */
+export type InfraredCodec = typeof infraredCodes;
+
+/** What a bundle decoding what its devices send needs, and could not bring as a dependency. */
 export type BundleCodecs = {
   /**
    * Unpacks an LZMA stream in the alone format (`.lzma`): a 13-byte header - the properties and
@@ -433,6 +442,15 @@ export type BundleCodecs = {
    * @throws {Error} When the stream is corrupt.
    */
   readonly lzma: (bytes: Uint8Array) => Buffer;
+
+  /**
+   * The infrared codec: `decodeBroadlink`, `encodeBroadlink`, `decodePronto`, `encodePronto`,
+   * `decodeRawTimings`, `encodeRawTimings`, `parseFlipperIr`, `decodeInfraredProtocol`,
+   * `encodeInfraredProtocol`, `withInfraredProtocol`. Handed over rather than imported because it
+   * validates with zod, which a bundle's code reaches only as `sdk.z`; a code that does not hold
+   * throws a `ValidationError`.
+   */
+  readonly infrared: InfraredCodec;
 };
 
 /** Pictures a bundle draws, for an image entity. */

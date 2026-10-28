@@ -12,6 +12,7 @@ import { createLogger } from '@nebulahome/logging';
 
 import { defineAccount } from './account.js';
 import type { DiscoverySourceFactory, Sighting } from './discovery.js';
+import * as infraredCodes from './infrared-codes.js';
 import type { BundleSdk, ManagedUdpSocketOptions, TransportFactory } from './sdk.js';
 import { defineStreamSource } from './stream.js';
 import { defineTransport } from './transport.js';
@@ -43,7 +44,7 @@ describe('BundleSdk', () => {
       },
       defineStreamSource,
       defineAccount,
-      codecs: { lzma: () => Buffer.alloc(0) },
+      codecs: { lzma: () => Buffer.alloc(0), infrared: infraredCodes },
       images: { png: () => Buffer.alloc(0) },
       openRtsp: () => {
         throw new Error('not opened in this test');
@@ -114,7 +115,7 @@ describe('BundleSdk.openUdpSocket', () => {
       },
       defineStreamSource,
       defineAccount,
-      codecs: { lzma: () => Buffer.alloc(0) },
+      codecs: { lzma: () => Buffer.alloc(0), infrared: infraredCodes },
       images: { png: () => Buffer.alloc(0) },
       openRtsp: () => {
         throw new Error('not opened in this test');
