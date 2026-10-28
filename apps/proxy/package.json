@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/proxy",
-  "version": "2026.10.0-alpha.8",
+  "version": "2026.10.0-alpha.9",
   "private": true,
   "type": "module",
   "scripts": {
