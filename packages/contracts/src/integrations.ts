@@ -21,6 +21,7 @@ import { integrationSetupSchema } from './integration-setup.js';
 import { jsonObjectSchema } from './json.js';
 import { PACKAGE_ID_PATTERN } from './package-id.js';
 import { packageRequiresSchema } from './package-requires.js';
+import { serialLineSchema } from './serial-line.js';
 
 /** What an integration may say makes two of its devices one: the same MAC, the same serial. */
 export const TWIN_FACTS = ['mac', 'serial'] as const;
@@ -355,6 +356,13 @@ export const integrationKindSchema = z.object({
 
   /** What setting up an instance asks. */
   setup: integrationSetupSchema,
+
+  /**
+   * A `serial` driver's line, which the add dialog preselects: such a device is added on a port
+   * of the Serial broker, `transportConfig.serial` holding the port and line. Absent for every
+   * other driver.
+   */
+  serial: serialLineSchema.optional(),
 
   /**
    * The port the device serves its own web page on, when it has one.

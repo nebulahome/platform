@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { serialLineSchema, serialLineText } from './serial-line.js';
 import {
   serialClaimSchema,
   serialConsoleWriteRequestSchema,
   serialDeviceConfigSchema,
-  serialLineSchema,
-  serialLineText,
   serialNetworkPortSaveRequestSchema,
 } from './serial.js';
 
