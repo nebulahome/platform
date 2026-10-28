@@ -15,6 +15,14 @@ import { ImportDialog } from '@/routes/library/broker-infrared/import-dialog';
 import { LearnDialog } from '@/routes/library/broker-infrared/learn-dialog';
 import { InfraredRemotePage } from '@/routes/library/broker-infrared/remote-page';
 import { InfraredBrokerPage } from '@/routes/library/broker-infrared-page';
+import {
+  ConsoleDialog,
+  NetworkPortDialog,
+  SerialSettingsDialog,
+  UseWithDialog,
+} from '@/routes/library/broker-serial/serial-dialogs';
+import { SerialBrokerPage } from '@/routes/library/broker-serial-page';
+import { DeviceDialog } from '@/routes/library/device-dialog';
 import { SAMPLE_AREAS } from '@/testing/broker-samples';
 import {
   INFRARED_SAMPLE_BLASTERS,
@@ -24,6 +32,13 @@ import {
   infraredSampleCache,
   necSample,
 } from '@/testing/infrared-samples';
+import {
+  SERIAL_SAMPLE_FREE_ID,
+  SERIAL_SAMPLE_PORTS,
+  SERIAL_SAMPLE_STATUS,
+  SERIAL_SAMPLE_VENDORS,
+  serialSampleCache,
+} from '@/testing/serial-samples';
 
 /** What a section needs. */
 type SectionProps = {
@@ -173,6 +188,23 @@ for (const phase of ['listening', 'captured', 'failed', 'sweeping'] as const) {
   });
 }
 
+/** The Serial broker's tabs. */
+const SERIAL_TABS = ['overview', 'ports', 'devices'] as const;
+
+/** The caches the Serial samples read: a house with ports, and a container that sees none. */
+const SERIAL_CACHE = serialSampleCache();
+const SERIAL_EMPTY_CACHE = serialSampleCache(true);
+
+/** Victron's VE.Direct, the integration whose serial driver the add dialog shows. */
+const VICTRON = SERIAL_SAMPLE_VENDORS.find((vendor) => vendor.id === 'victron');
+
+/** The free VE.Direct cable. */
+const SERIAL_FREE =
+  SERIAL_SAMPLE_PORTS.find((port) => port.id === SERIAL_SAMPLE_FREE_ID) ?? SERIAL_SAMPLE_PORTS[0];
+
+/** What a VE.Direct cable says, a field a line, as the console shows it. */
+const VE_DIRECT_LINES = ['PID	0xA389', 'FW	0161', 'V	13284', 'I	-240', 'SOC	874', 'Alarm	OFF'];
+
 /**
  * The newer brokers' sections.
  *
@@ -250,6 +282,74 @@ export function BrokerGallery() {
                 onClose={close}
                 remote={INFRARED_SAMPLE_TV}
                 jobId={name === 'Learn · ready' ? undefined : `learn-${name.slice(8)}`}
+              />
+            )
+          }
+        />
+      </Section>
+      {SERIAL_TABS.map((tab) => (
+        <Section
+          key={tab}
+          title={`Serial · ${tab}`}
+          note="The house's Serial broker: the SkyConnect Thread holds, a zigbee2mqtt coordinator, a ser2net port, a free VE.Direct cable Victron recognises, an unplugged CH340."
+        >
+          <SamplePage cache={SERIAL_CACHE} at={`/brokers/serial?tab=${tab}`}>
+            <SerialBrokerPage />
+          </SamplePage>
+        </Section>
+      ))}
+      <Section
+        title="Serial · no access"
+        note="The container sees no port: the compose snippet and the Docker Desktop way round."
+      >
+        <SamplePage cache={SERIAL_EMPTY_CACHE} at="/brokers/serial?tab=ports">
+          <SerialBrokerPage />
+        </SamplePage>
+      </Section>
+      <Section
+        title="Serial · dialogs"
+        note="Use with… on the free VE.Direct cable, a serial driver's add dialog, a network port, Settings, the Console."
+      >
+        <DialogSamples
+          cache={SERIAL_CACHE}
+          names={['Use with', 'Serial device', 'Network port', 'Serial settings', 'Console']}
+          render={(name, close) =>
+            name === 'Use with' && SERIAL_FREE !== undefined ? (
+              <UseWithDialog
+                port={SERIAL_FREE}
+                vendors={SERIAL_SAMPLE_VENDORS}
+                onClose={close}
+                onThread={close}
+                onDevice={close}
+              />
+            ) : name === 'Serial device' && VICTRON !== undefined ? (
+              <DeviceDialog
+                target={{ mode: 'create', vendor: VICTRON, existingIds: [] }}
+                onClose={close}
+                onSaved={close}
+              />
+            ) : name === 'Network port' ? (
+              <NetworkPortDialog onClose={close} />
+            ) : name === 'Serial settings' ? (
+              <SerialSettingsDialog
+                status={SERIAL_SAMPLE_STATUS}
+                ports={SERIAL_SAMPLE_PORTS.map((port, index) =>
+                  index === 4 ? { ...port, isIgnored: true } : port,
+                )}
+                onClose={close}
+              />
+            ) : SERIAL_FREE === undefined ? null : (
+              <ConsoleDialog
+                port={SERIAL_FREE}
+                onClose={close}
+                sample={VE_DIRECT_LINES.map((text, index) => ({
+                  seq: index + 1,
+                  at: new Date(Date.parse('2026-10-27T10:41:02.118Z') + index),
+                  direction: 'in' as const,
+                  data: [...new TextEncoder().encode(text)]
+                    .map((byte) => byte.toString(16).padStart(2, '0'))
+                    .join(''),
+                }))}
               />
             )
           }

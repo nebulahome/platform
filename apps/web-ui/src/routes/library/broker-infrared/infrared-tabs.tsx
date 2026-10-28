@@ -514,6 +514,7 @@ export function InfraredBlasters(props: InfraredBlastersProps) {
                 </span>
                 <span className="flex w-20 items-center gap-1.5 text-ui-sm">
                   <StatusDot
+                    isBare
                     tone={blaster.isOnline ? 'success' : 'warning'}
                     title={
                       blaster.isOnline

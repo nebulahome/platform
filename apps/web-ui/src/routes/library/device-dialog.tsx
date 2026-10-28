@@ -35,17 +35,21 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
+  BLUETOOTH_TRANSPORT,
+  INFRARED_TRANSPORT,
   integrationIdSchema,
   MATTER_TRANSPORT,
   MODBUS_TRANSPORT,
   MQTT_HOUSE_TRANSPORT,
   modelChoicesOf,
+  serialDeviceConfigSchema,
   suggestDeviceId,
   type DeviceProbeReply,
   type DeviceView,
   type IntegrationVendorView,
   type JsonObject,
   type ModelChoice,
+  type SerialDeviceConfig,
 } from '@nebulahome/contracts';
 import { AppIcon, Button, Modal, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
@@ -68,6 +72,7 @@ import { ConfirmRemoval } from '@/routes/library/confirm-removal';
 import { DeviceIcon, useCatalogueIcons } from '@/routes/library/device-icon';
 import { ModelList } from '@/routes/library/model-list';
 import { NameIconField } from '@/routes/library/name-icon-field';
+import { SerialPortFields } from '@/routes/library/serial-port-fields';
 import { SetupForm } from '@/routes/library/setup-form';
 import { TagField } from '@/routes/library/tag-field';
 import { useVendorsById, wayName } from '@/routes/library/transport-marks';
@@ -82,6 +87,12 @@ export type DeviceDialogTarget =
 
       /** The ids already taken, so the one suggested is free. */
       readonly existingIds: readonly string[];
+
+      /** The driver to start at: Serial's Use with… names the one picked. */
+      readonly kind?: string;
+
+      /** For a serial driver: the port and line chosen already, by Use with…. */
+      readonly serial?: SerialDeviceConfig;
     }
   | {
       readonly mode: 'edit';
@@ -236,7 +247,9 @@ export function DeviceDialog(props: DeviceDialogProps) {
   const brokerOf = (transport: string | undefined): string | null =>
     transport === MATTER_TRANSPORT ||
     transport === MQTT_HOUSE_TRANSPORT ||
-    transport === MODBUS_TRANSPORT
+    transport === MODBUS_TRANSPORT ||
+    transport === BLUETOOTH_TRANSPORT ||
+    transport === INFRARED_TRANSPORT
       ? transport
       : null;
   const broker = brokerOf(existing?.transport);
@@ -249,10 +262,21 @@ export function DeviceDialog(props: DeviceDialogProps) {
             broker,
         );
 
-  const [choice, setChoice] = useState<ModelChoice | undefined>(() =>
-    initialChoice(choices, existing),
+  const preset = target?.mode === 'create' ? target : undefined;
+  const [choice, setChoice] = useState<ModelChoice | undefined>(
+    () =>
+      choices.find((each) => preset?.kind !== undefined && each.kind === preset.kind) ??
+      initialChoice(choices, existing),
   );
   const driver = vendor?.drivers.find((each) => each.id === choice?.kind);
+  // A serial driver's device is put on a port of the Serial broker, with its line.
+  const [serial, setSerial] = useState<SerialDeviceConfig | null>(() => {
+    const held = serialDeviceConfigSchema.safeParse(existing?.transportConfig['serial']);
+
+    return preset?.serial ?? (held.success ? held.data : null);
+  });
+  const serialConfig =
+    driver?.serial === undefined ? null : (serial ?? { portId: '', line: driver.serial });
 
   const [name, setName] = useState(() => existing?.name ?? choice?.model ?? '');
   const [isNameEdited, setNameEdited] = useState(false);
@@ -306,27 +330,39 @@ export function DeviceDialog(props: DeviceDialogProps) {
     const options = toValues(driver.setup.options, drafts.options, mode);
     const isIdValid = existing !== undefined || integrationIdSchema.safeParse(id).success;
     const isNameValid = name.trim() !== '';
+    const isPortMissing = serialConfig !== null && serialConfig.portId === '';
 
     setErrors({
       transport: transport.errors,
       options: options.errors,
       general: !isNameValid
         ? t('library.deviceDialog.deviceNeedsAName', 'The device needs a name.')
-        : isIdValid
-          ? undefined
-          : t(
-              'library.deviceDialog.idMustBeLowercase',
-              'The id must be lowercase letters, digits and dashes, starting with a letter.',
-            ),
+        : isPortMissing
+          ? t('library.deviceDialog.pickAPort', 'Pick the serial port it is on.')
+          : isIdValid
+            ? undefined
+            : t(
+                'library.deviceDialog.idMustBeLowercase',
+                'The id must be lowercase letters, digits and dashes, starting with a letter.',
+              ),
     });
 
     const isClean =
       isIdValid &&
       isNameValid &&
+      !isPortMissing &&
       Object.keys(transport.errors).length === 0 &&
       Object.keys(options.errors).length === 0;
 
-    return isClean ? { transportConfig: transport.values, options: options.values } : null;
+    return isClean
+      ? {
+          transportConfig:
+            serialConfig === null
+              ? transport.values
+              : { ...transport.values, serial: { ...serialConfig } },
+          options: options.values,
+        }
+      : null;
   };
 
   /**
@@ -717,6 +753,15 @@ export function DeviceDialog(props: DeviceDialogProps) {
       }
     >
       <div className="flex flex-col gap-4">
+        {serialConfig === null || vendor === undefined || driver?.serial === undefined ? null : (
+          <SerialPortFields
+            vendorId={vendor.id}
+            deviceId={existing?.id}
+            driverLine={driver.serial}
+            value={serialConfig}
+            onChange={setSerial}
+          />
+        )}
         <NameIconField
           value={name}
           onChange={rename}

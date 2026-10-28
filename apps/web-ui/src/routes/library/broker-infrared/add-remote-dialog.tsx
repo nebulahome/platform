@@ -213,7 +213,11 @@ export function AddRemoteDialog(props: AddRemoteDialogProps) {
                 trailing={
                   each.isOnline ? (
                     <span className="flex items-center gap-1.5 text-success">
-                      <StatusDot tone="success" title={t('brokers.infrared.online', 'Online')} />
+                      <StatusDot
+                        isBare
+                        tone="success"
+                        title={t('brokers.infrared.online', 'Online')}
+                      />
                       {t('brokers.infrared.online', 'Online')}
                     </span>
                   ) : (

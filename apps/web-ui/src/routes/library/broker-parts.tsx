@@ -7,7 +7,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AppIcon, Button, cn } from '@nebulahome/ui';
+import { AppIcon, Button, cn, IconButton } from '@nebulahome/ui';
 
 import { copyText } from '@/lib/clipboard';
 
@@ -193,20 +193,28 @@ export function CopyButton(props: {
   const { t } = useTranslation();
   const [isCopied, setCopied] = useState(false);
 
+  /** Puts the text on the clipboard. */
+  const copy = (): void => {
+    void copyText(props.value).then(setCopied);
+  };
+
+  if (props.isCompact === true) {
+    return (
+      <IconButton
+        label={isCopied ? t('brokers.parts.copied', 'Copied') : t('brokers.parts.copy', 'Copy')}
+        onClick={copy}
+      >
+        <AppIcon id={isCopied ? 'check' : 'copy'} size={14} />
+      </IconButton>
+    );
+  }
+
   return (
-    <Button
-      variant="ghost"
-      size="compact"
-      onClick={() => {
-        void copyText(props.value).then(setCopied);
-      }}
-    >
+    <Button variant="ghost" size="compact" onClick={copy}>
       <AppIcon id={isCopied ? 'check' : 'copy'} size={14} />
-      {props.isCompact === true
-        ? null
-        : isCopied
-          ? t('brokers.parts.copied', 'Copied')
-          : (props.label ?? t('brokers.parts.copy', 'Copy'))}
+      {isCopied
+        ? t('brokers.parts.copied', 'Copied')
+        : (props.label ?? t('brokers.parts.copy', 'Copy'))}
     </Button>
   );
 }
