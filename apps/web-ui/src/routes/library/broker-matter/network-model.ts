@@ -6,12 +6,13 @@
  * routers, for a house that has no Thread radio of its own), and nodes on Ethernet. Around each,
  * the devices that go through it, then theirs - a Thread router's end devices - and a bridge's
  * devices behind it. That tree is laid out radially: each thing fans out away from the middle,
- * its devices around it. A link the tree does not use (a Thread mesh's other neighbours) is still
+ * its devices around it (`network-map/radial-layout`). A link the tree does not use (a Thread mesh's other neighbours) is still
  * drawn. Nothing of it is kept: the map is worked out afresh from the fabric each time.
  */
 import type { MatterNetwork, MatterNetworkLink, MatterNetworkNode } from '@nebulahome/contracts';
 
 import type { MatterRow } from '@/routes/library/broker-matter/matter-rows';
+import { radialLayout } from '@/routes/library/network-map/radial-layout';
 
 /** The controller's id on the map. */
 export const CONTROLLER_ID = 'controller';
@@ -20,12 +21,6 @@ export const CONTROLLER_ID = 'controller';
 const FIRST_RING = 380;
 const BRANCH = 270;
 const BEHIND_BRIDGE = 220;
-
-/** How far apart, in degrees, the devices hanging on one thing are spread. */
-const FAN_STEP = 40;
-
-/** How far a lone device turns from the way its parent faces, so a chain does not run straight. */
-const BEND = 32;
 
 /** How much wider than tall the map is laid out: it is drawn in a wide box. */
 const WIDE = 1.5;
@@ -267,16 +262,6 @@ export function networkMapOf(
   const links: MapLink[] = [];
   const treeLinks = new Set<string>();
   /**
-   * How many points end a branch: what its share of the circle is weighed by.
-   *
-   * @param branch - The branch.
-   * @returns The count; one for a point nothing hangs on.
-   */
-  const leavesOf = (branch: Branch): number =>
-    branch.children.length === 0
-      ? 1
-      : branch.children.reduce((sum, child) => sum + leavesOf(child), 0);
-  /**
    * How many devices reach the house through a point.
    *
    * @param branch - The point.
@@ -340,31 +325,25 @@ export function networkMapOf(
     return branch.network === 'wifi' ? 'wifi' : 'thread';
   };
 
-  /**
-   * Places a branch and what hangs on it.
-   *
-   * @param branch - It.
-   * @param parent - What it hangs on.
-   * @param x - Its centre.
-   * @param y - Its centre.
-   * @param angle - The way out from the middle, in degrees.
-   * @param sector - How wide a fan it may take, in degrees.
-   */
-  const place = (
-    branch: Branch,
-    parent: string,
-    x: number,
-    y: number,
-    angle: number,
-    sector: number,
-  ): void => {
-    points.push({
-      ...branch,
-      through: devicesUnder(branch),
-      ...aboutOf(branch),
-      x: x * WIDE,
-      y,
-    });
+  const laidOut = radialLayout(roots, CONTROLLER_ID, {
+    firstRing: FIRST_RING,
+    wide: WIDE,
+
+    /**
+     * How far a point's devices sit from it: a bridge's close behind it, the rest further out
+     * the more there are.
+     *
+     * @param branch - The point.
+     * @returns The distance.
+     */
+    distanceOf: (branch) =>
+      branch.children.every((child) => child.isBehindBridge)
+        ? BEHIND_BRIDGE
+        : Math.max(BRANCH, branch.children.length * 48),
+  });
+
+  for (const { branch, parent, x, y } of laidOut) {
+    points.push({ ...branch, through: devicesUnder(branch), ...aboutOf(branch), x, y });
     links.push({
       id: `${parent}->${branch.id}`,
       source: parent,
@@ -372,49 +351,6 @@ export function networkMapOf(
       look: lookOf(branch, parent === CONTROLLER_ID),
     });
     treeLinks.add(pairKey(parent, branch.id));
-
-    const count = branch.children.length;
-    const spread = Math.min(sector, (count - 1) * FAN_STEP);
-    const distance = branch.children.every((child) => child.isBehindBridge)
-      ? BEHIND_BRIDGE
-      : Math.max(BRANCH, count * 48);
-
-    branch.children.forEach((child, index) => {
-      const childAngle =
-        count === 1 ? angle + BEND : angle - spread / 2 + (spread * index) / (count - 1);
-      const radians = (childAngle * Math.PI) / 180;
-
-      place(
-        child,
-        branch.id,
-        x + Math.cos(radians) * distance,
-        y + Math.sin(radians) * distance,
-        childAngle,
-        Math.max(spread / Math.max(count, 1), 50),
-      );
-    });
-  };
-
-  const total = roots.reduce((sum, root) => sum + leavesOf(root), 0);
-  const [first] = roots;
-
-  // The first branch faces left, the way the box is widest; the others follow round.
-  let start = 180 - (first === undefined ? 0 : (180 * leavesOf(first)) / Math.max(total, 1));
-
-  for (const root of roots) {
-    const sector = (360 * leavesOf(root)) / Math.max(total, 1);
-    const angle = start + sector / 2;
-    const radians = (angle * Math.PI) / 180;
-
-    place(
-      root,
-      CONTROLLER_ID,
-      Math.cos(radians) * FIRST_RING,
-      Math.sin(radians) * FIRST_RING,
-      angle,
-      Math.min(sector, 160),
-    );
-    start += sector;
   }
 
   // The mesh's other links: two routers that hear each other, a device heard by two.

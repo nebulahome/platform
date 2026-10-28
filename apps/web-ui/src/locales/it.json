@@ -1260,7 +1260,12 @@
       "starting": "Si avvia",
       "unavailable": "Nessun hardware"
     },
-    "title": "Broker"
+    "title": "Broker",
+    "parts": {
+      "copied": "Copiato",
+      "copy": "Copia",
+      "viewAll": "Vedi tutto"
+    }
   },
   "camera": {
     "connecting": "Connessione…",

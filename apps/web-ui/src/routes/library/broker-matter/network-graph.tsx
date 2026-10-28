@@ -7,47 +7,20 @@
  * badge - and a bridge's devices behind it on dotted links. Links are straight and coloured by
  * the network, Wi-Fi cyan and Thread magenta, dashed red to a device that does not answer.
  *
- * Every point can be dragged, and the map zoomed and fitted; nothing of it is kept, so a page
- * opened again lays it out afresh. Hovering a point - or focusing it, or clicking it, which keeps
+ * The canvas - dragging, zoom, fit, arrange, the legend and the cards' place - is the network
+ * maps' own (`network-map/map-canvas`). Hovering a point - or focusing it, or clicking it, which keeps
  * it open - shows a card: a device's (its name opens its page) with its MAC, last call,
  * transport and role, link quality and node; a router's with its network and channel and how many
  * devices go through it, saying that it is not a Matter device and so shares no more.
  */
-import '@xyflow/react/dist/base.css';
-
-import {
-  Background,
-  BackgroundVariant,
-  Handle,
-  NodeToolbar,
-  Position,
-  ReactFlow,
-  ReactFlowProvider,
-  useNodesState,
-  useReactFlow,
-  useStore,
-  type Edge,
-  type Node,
-  type NodeProps,
-} from '@xyflow/react';
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { MatterNetwork } from '@nebulahome/contracts';
-import { AppIcon, cn, IconButton, Pill, Segmented, type UiIconId } from '@nebulahome/ui';
+import { AppIcon, cn, Pill, Segmented, type UiIconId } from '@nebulahome/ui';
 
 import { relativeTime } from '@/lib/format-time';
-import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { useLasted } from '@/routes/library/broker-matter/matter-overview';
 import { LIGHT_TYPES, type MatterRow } from '@/routes/library/broker-matter/matter-rows';
 import {
@@ -59,18 +32,10 @@ import {
 import { BrokerMark } from '@/routes/library/brokers-page';
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon, type DeviceIcons } from '@/routes/library/device-icon';
-
-/** How long a card stays once the pointer left, for it to reach the card. */
-const CARD_GRACE_MS = 160;
-
-/** How long after another network is shown the map is fitted to it: its points measured. */
-const FIT_AFTER_MS = 60;
-
-/** How long Arrange takes the points home. */
-const ARRANGE_MS = 500;
+import { CardRow, MapCanvas, MapLabel } from '@/routes/library/network-map/map-canvas';
 
 /** How each link is drawn. */
-const LINK_STYLES: Record<LinkLook, CSSProperties> = {
+export const LINK_STYLES: Record<LinkLook, CSSProperties> = {
   controller: { stroke: 'var(--color-foreground-muted)', strokeWidth: 1.5, opacity: 0.45 },
   wifi: { stroke: 'var(--color-cyan)', strokeWidth: 2.2, opacity: 0.85 },
   thread: { stroke: 'var(--color-thread)', strokeWidth: 2.2, opacity: 0.85 },
@@ -89,44 +54,6 @@ const LINK_STYLES: Record<LinkLook, CSSProperties> = {
   },
 };
 
-/** Where the links meet a point: its centre, unseen and not to be dragged from. */
-const HANDLE =
-  'top-1/2! left-1/2! size-px! min-h-0! min-w-0! -translate-1/2! border-0! opacity-0! pointer-events-none!';
-
-/** A point, as the map holds it. */
-type PointNode = Node<{ readonly point: MapPoint; readonly icons: DeviceIcons }, 'point'>;
-
-/** Which point's card is open on hover, and how a point opens and closes it. */
-type CardControl = {
-  readonly hovered: string | null;
-  readonly show: (id: string) => void;
-  readonly hide: () => void;
-};
-
-/** No card at all, outside a map. */
-const NO_CARD: CardControl = {
-  hovered: null,
-
-  /**
-   * Opens nothing.
-   *
-   * @returns Nothing.
-   */
-  show: () => undefined,
-
-  /**
-   * Closes nothing.
-   *
-   * @returns Nothing.
-   */
-  hide: () => undefined,
-};
-
-const CardContext = createContext<CardControl>(NO_CARD);
-
-/** The map's one kind of point, drawn by what it is. */
-const NODE_TYPES = { point: MapPointNode };
-
 /** What the tab needs. */
 export type NetworkGraphProps = {
   /** The fabric's network; undefined while it is read. */
@@ -142,300 +69,89 @@ export type NetworkGraphProps = {
  * @returns The filter, the map and its controls.
  */
 export function NetworkGraph(props: NetworkGraphProps) {
-  return (
-    <ReactFlowProvider>
-      <NetworkMapView {...props} />
-    </ReactFlowProvider>
-  );
-}
-
-/**
- * The tab, inside the map's provider.
- *
- * @param props - See {@link NetworkGraphProps}.
- * @returns The filter, the map and its controls.
- */
-function NetworkMapView(props: NetworkGraphProps) {
   const { t } = useTranslation();
   const { network, rows, icons } = props;
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
   const [filter, setFilter] = useState<NetworkFilter>('all');
   const map = useMemo(
     () => networkMapOf(network ?? { collectedAt: null, nodes: [], links: [] }, rows, filter),
     [network, rows, filter],
   );
-
-  /**
-   * The map's points, where they were dragged to kept, the new ones where the layout puts them.
-   *
-   * @param before - The points as they are.
-   * @returns The points.
-   */
-  const pointsOf = (before: readonly PointNode[]): PointNode[] => {
-    const was = new Map(before.map((node) => [node.id, node]));
-
-    return map.points.map((point) => ({
-      id: point.id,
-      type: 'point',
-      position: was.get(point.id)?.position ?? { x: point.x, y: point.y },
-      selected: was.get(point.id)?.selected ?? false,
-      data: { point, icons },
-    }));
-  };
-
-  const [nodes, setNodes, onNodesChange] = useNodesState<PointNode>(pointsOf([]));
-  const isReduced = useReducedMotion();
-
-  /**
-   * Takes every point back where the layout puts it, whatever was dragged: gliding there, the
-   * links following, unless motion is reduced.
-   */
-  const arrange = (): void => {
-    const from = new Map(nodes.map((node) => [node.id, node.position]));
-    const home = pointsOf([]);
-    const started = performance.now();
-
-    /**
-     * Draws one frame of the way home.
-     *
-     * @param now - The frame's time.
-     */
-    const frame = (now: number): void => {
-      const done = isReduced ? 1 : Math.min((now - started) / ARRANGE_MS, 1);
-      // Ease in and out.
-      const eased = done < 0.5 ? 2 * done * done : 1 - (-2 * done + 2) ** 2 / 2;
-
-      setNodes(
-        home.map((node) => {
-          const start = from.get(node.id) ?? node.position;
-
-          return {
-            ...node,
-            position: {
-              x: start.x + (node.position.x - start.x) * eased,
-              y: start.y + (node.position.y - start.y) * eased,
-            },
-          };
-        }),
-      );
-
-      if (done < 1) {
-        requestAnimationFrame(frame);
-      } else {
-        setTimeout(() => {
-          void fitView({ padding: 0.2, maxZoom: 1, duration: 300 });
-        }, FIT_AFTER_MS);
-      }
-    };
-
-    requestAnimationFrame(frame);
-  };
-
-  useEffect(() => {
-    setNodes(pointsOf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- laid out again when the map changes
-  }, [map, icons, setNodes]);
-
-  // Another network shown: the map is fitted to it once its points are the ones drawn, and they
-  // have been measured - a moment later.
-  const fitted = useRef(filter);
-
-  useEffect(() => {
-    const isDrawn =
-      nodes.length === map.points.length &&
-      nodes.every((node, index) => node.id === map.points[index]?.id);
-
-    if (fitted.current === filter || !isDrawn) {
-      return;
-    }
-
-    fitted.current = filter;
-    setTimeout(() => {
-      void fitView({ padding: 0.2, maxZoom: 1, duration: 300 });
-    }, FIT_AFTER_MS);
-  }, [nodes, map, filter, fitView]);
-
-  const edges = useMemo(
-    (): Edge[] =>
+  const links = useMemo(
+    () =>
       map.links.map((link) => ({
         id: link.id,
         source: link.source,
         target: link.target,
-        type: 'straight',
         style: LINK_STYLES[link.look],
-        selectable: false,
-        focusable: false,
       })),
     [map],
   );
 
-  const [hovered, setHovered] = useState<string | null>(null);
-  const closing = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const card = useMemo(
-    (): CardControl => ({
-      hovered,
-
-      /**
-       * Opens a point's card.
-       *
-       * @param id - The point.
-       */
-      show: (id) => {
-        clearTimeout(closing.current);
-        setHovered(id);
-      },
-
-      /** Closes the card a moment later, unless the pointer reaches it. */
-      hide: () => {
-        clearTimeout(closing.current);
-        closing.current = setTimeout(() => {
-          setHovered(null);
-        }, CARD_GRACE_MS);
-      },
-    }),
-    [hovered],
-  );
-
-  useEffect(
-    () => () => {
-      clearTimeout(closing.current);
-    },
-    [],
-  );
-
-  const isEmpty = map.points.length <= 1;
-
   return (
-    <div className="relative h-[min(680px,75vh)] overflow-hidden rounded-panel border border-border bg-canvas">
-      <CardContext.Provider value={card}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={NODE_TYPES}
-          onNodesChange={onNodesChange}
-          onNodeMouseEnter={(event, node) => {
-            card.show(node.id);
-          }}
-          onNodeMouseLeave={() => {
-            card.hide();
-          }}
-          nodeOrigin={[0.5, 0.5]}
-          nodesConnectable={false}
-          selectNodesOnDrag={false}
-          edgesFocusable={false}
-          fitView
-          fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-          minZoom={0.3}
-          maxZoom={2}
-          proOptions={{ hideAttribution: true }}
-          aria-label={t('brokers.matter.map.label', 'The Matter network')}
-        >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={22}
-            size={1.2}
-            color="var(--color-border)"
-            bgColor="var(--color-canvas)"
-          />
-        </ReactFlow>
-      </CardContext.Provider>
-      {isEmpty ? (
-        <p className="pointer-events-none absolute inset-x-6 top-6 text-center text-ui text-foreground-subtle">
-          {network === undefined
-            ? t('brokers.matter.map.reading', 'Reading the network…')
-            : t(
-                'brokers.matter.map.empty',
-                'No node has said how it is connected yet. Its routes show here once it does.',
-              )}
-        </p>
-      ) : null}
-      <Legend />
-      <Segmented
-        label={t('brokers.matter.show', 'Show')}
-        value={filter}
-        onChange={setFilter}
-        options={[
-          { value: 'all', label: t('brokers.matter.map.all', 'All') },
-          { value: 'wifi', label: t('brokers.matter.map.wifi', 'Wi-Fi') },
-          { value: 'thread', label: t('brokers.matter.map.thread', 'Thread') },
-        ]}
-        className="absolute top-3.5 left-3.5 z-10 bg-surface/90 shadow-popover backdrop-blur-sm"
-      />
-      <div className="absolute right-3.5 bottom-3.5 flex flex-col gap-1 rounded-tile border border-border-strong bg-surface-raised p-1">
-        <IconButton
-          label={t('brokers.matter.map.zoomIn', 'Zoom in')}
-          title={t('brokers.matter.map.zoomIn', 'Zoom in')}
-          onClick={() => {
-            void zoomIn({ duration: 200 });
-          }}
-        >
-          <AppIcon id="plus" size={16} />
-        </IconButton>
-        <IconButton
-          label={t('brokers.matter.map.zoomOut', 'Zoom out')}
-          title={t('brokers.matter.map.zoomOut', 'Zoom out')}
-          onClick={() => {
-            void zoomOut({ duration: 200 });
-          }}
-        >
-          <AppIcon id="minus" size={16} />
-        </IconButton>
-        <IconButton
-          label={t('brokers.matter.map.arrange', 'Arrange')}
-          title={t('brokers.matter.map.arrange', 'Arrange')}
-          onClick={() => {
-            arrange();
-          }}
-        >
-          <AppIcon id="layout-grid" size={16} />
-        </IconButton>
-        <IconButton
-          label={t('brokers.matter.map.fit', 'Fit')}
-          title={t('brokers.matter.map.fit', 'Fit')}
-          onClick={() => {
-            void fitView({ padding: 0.2, maxZoom: 1, duration: 300 });
-          }}
-        >
-          <AppIcon id="maximize" size={16} />
-        </IconButton>
-      </div>
-    </div>
+    <MapCanvas
+      points={map.points}
+      links={links}
+      layoutKey={filter}
+      label={t('brokers.matter.map.label', 'The Matter network')}
+      emptyText={
+        network === undefined
+          ? t('brokers.matter.map.reading', 'Reading the network…')
+          : t(
+              'brokers.matter.map.empty',
+              'No node has said how it is connected yet. Its routes show here once it does.',
+            )
+      }
+      shapeOf={(point, isSelected) => (
+        <PointShape point={point} icons={icons} isSelected={isSelected} />
+      )}
+      labelOf={(point) => <PointLabelOf point={point} />}
+      cardOf={(point) =>
+        point.kind === 'controller' ? null : point.kind === 'device' ? (
+          <DeviceCard point={point} icons={icons} />
+        ) : (
+          <RouterCard point={point} />
+        )
+      }
+      legend={[
+        { label: t('brokers.matter.map.wifi', 'Wi-Fi'), style: LINK_STYLES.wifi },
+        { label: t('brokers.matter.map.thread', 'Thread'), style: LINK_STYLES.thread },
+        {
+          label: t('brokers.matter.map.behindBridge', 'Behind a bridge'),
+          style: LINK_STYLES.bridge,
+        },
+        {
+          label: t('brokers.matter.map.notAnswering', 'Not answering'),
+          style: LINK_STYLES.offline,
+        },
+      ]}
+      toolbar={
+        <Segmented
+          label={t('brokers.matter.show', 'Show')}
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: 'all', label: t('brokers.matter.map.all', 'All') },
+            { value: 'wifi', label: t('brokers.matter.map.wifi', 'Wi-Fi') },
+            { value: 'thread', label: t('brokers.matter.map.thread', 'Thread') },
+          ]}
+          className="bg-surface/90 shadow-popover backdrop-blur-sm"
+        />
+      }
+    />
   );
 }
 
 /**
- * What the links' colours and dashes mean.
+ * A point's label on the map.
  *
- * @returns The legend, at the map's foot.
+ * @param props - The point.
+ * @param props.point - It.
+ * @returns The label.
  */
-function Legend() {
-  const { t } = useTranslation();
-  const items: readonly { readonly look: LinkLook; readonly label: string }[] = [
-    { look: 'wifi', label: t('brokers.matter.map.wifi', 'Wi-Fi') },
-    { look: 'thread', label: t('brokers.matter.map.thread', 'Thread') },
-    { look: 'bridge', label: t('brokers.matter.map.behindBridge', 'Behind a bridge') },
-    { look: 'offline', label: t('brokers.matter.map.notAnswering', 'Not answering') },
-  ];
+function PointLabelOf(props: { readonly point: MapPoint }) {
+  const label = useLabel(props.point);
 
-  return (
-    <ul className="absolute bottom-3.5 left-4 hidden flex-wrap items-center gap-x-4.5 gap-y-1 rounded-field border border-border bg-surface px-3 py-2 sm:flex">
-      {items.map((item) => (
-        <li key={item.look} className="flex items-center gap-2 text-caption text-foreground-muted">
-          <svg aria-hidden="true" width="26" height="8" className="shrink-0">
-            <line
-              x1="1"
-              y1="4"
-              x2="25"
-              y2="4"
-              /* eslint-disable-next-line react/forbid-dom-props -- the link's own look. */
-              style={{ ...LINK_STYLES[item.look], opacity: 1 }}
-            />
-          </svg>
-          {item.label}
-        </li>
-      ))}
-    </ul>
-  );
+  return <MapLabel label={{ ...label, isStrong: props.point.kind !== 'device' }} />;
 }
 
 /**
@@ -518,66 +234,6 @@ function isThreadRouter(point: MapPoint): boolean {
 }
 
 /**
- * One point of the map, drawn by what it is, with its label under it and its card beside it.
- *
- * @param props - The point, and whether it is selected.
- * @returns The point.
- */
-function MapPointNode(props: NodeProps<PointNode>) {
-  const { data, selected, positionAbsoluteX } = props;
-  const { point, icons } = data;
-  const card = useContext(CardContext);
-  const label = useLabel(point);
-  const isOpen = point.kind !== 'controller' && (selected || card.hovered === point.id);
-
-  // The card opens on the side with room: the map's box cuts off what passes its edge.
-  const isOnRight = useStore(
-    (state) => positionAbsoluteX * state.transform[2] + state.transform[0] > state.width / 2,
-  );
-
-  return (
-    <div className="relative">
-      <Handle type="target" position={Position.Top} isConnectable={false} className={HANDLE} />
-      <Handle type="source" position={Position.Top} isConnectable={false} className={HANDLE} />
-      <PointShape point={point} icons={icons} isSelected={selected} />
-      <span className="pointer-events-none absolute top-full left-1/2 mt-2 flex -translate-x-1/2 flex-col items-center rounded-[7px] bg-canvas/88 px-1.75 py-0.5 whitespace-nowrap">
-        <span
-          className={cn(
-            'text-ui-sm text-foreground',
-            point.kind === 'device' ? 'font-normal' : 'font-medium',
-          )}
-        >
-          {label.name}
-        </span>
-        {label.line === '' ? null : (
-          <span className={cn('text-label tracking-normal', label.tone)}>{label.line}</span>
-        )}
-      </span>
-      <NodeToolbar
-        isVisible={isOpen}
-        position={isOnRight ? Position.Left : Position.Right}
-        offset={18}
-      >
-        <div
-          role="tooltip"
-          className="flex w-75 flex-col gap-2.5 rounded-inner border border-border-strong bg-surface-high px-4 py-3.5 shadow-[0_24px_50px_-16px_rgb(0_0_0/0.95)]"
-          onMouseEnter={() => {
-            card.show(point.id);
-          }}
-          onMouseLeave={card.hide}
-        >
-          {point.kind === 'device' ? (
-            <DeviceCard point={point} icons={icons} />
-          ) : (
-            <RouterCard point={point} name={label.name} />
-          )}
-        </div>
-      </NodeToolbar>
-    </div>
-  );
-}
-
-/**
  * A point's shape: the house's mark, a router's square, a device's circle.
  *
  * @param props - The point, the icons, and whether it is selected.
@@ -650,35 +306,6 @@ function PointShape(props: {
         </span>
       ) : null}
     </span>
-  );
-}
-
-/**
- * One line of a card.
- *
- * @param props - What it says.
- * @param props.label - The fact.
- * @param props.children - Its value.
- * @param props.isMuted - Whether the value is one the house does not have.
- * @returns The line.
- */
-function CardRow(props: {
-  readonly label: string;
-  readonly children: ReactNode;
-  readonly isMuted?: boolean;
-}) {
-  return (
-    <div className="flex justify-between gap-4 text-caption">
-      <span className="text-foreground-muted">{props.label}</span>
-      <span
-        className={cn(
-          'text-right font-mono',
-          props.isMuted === true ? 'text-foreground-muted' : 'text-foreground',
-        )}
-      >
-        {props.children}
-      </span>
-    </div>
   );
 }
 
@@ -840,14 +467,14 @@ function DeviceCard(props: { readonly point: MapPoint; readonly icons: DeviceIco
 /**
  * A router's card: the network it carries, and that the house knows no more of it.
  *
- * @param props - The router and what it is called on the map.
+ * @param props - The router.
  * @param props.point - It.
- * @param props.name - Its name.
  * @returns The card's content.
  */
-function RouterCard(props: { readonly point: MapPoint; readonly name: string }) {
+function RouterCard(props: { readonly point: MapPoint }) {
   const { t } = useTranslation();
-  const { point, name } = props;
+  const { point } = props;
+  const { name } = useLabel(point);
   const isWifi = point.kind === 'access-point';
   const notShared = t('brokers.matter.map.notShared', 'Not shared');
   const icon: UiIconId = isWifi ? 'wifi' : 'router';

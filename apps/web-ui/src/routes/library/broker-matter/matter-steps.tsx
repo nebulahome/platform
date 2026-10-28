@@ -186,6 +186,67 @@ const RING_LOOK: Record<
   },
 };
 
+/** Where a step of a job stands. */
+export type StepState = MatterCommissioningStep['state'];
+
+/** One step of a job, in words. */
+export type TickingStep = {
+  readonly id: string;
+  readonly state: StepState;
+  readonly title: string;
+  readonly detail: string;
+};
+
+/**
+ * A job's steps ticking as they happen: Matter's commissioning, a Bluetooth proxy's install, the
+ * Thread network's setup. A failed step carries its line as its detail.
+ *
+ * @param props - The steps.
+ * @param props.steps - Them, in order.
+ * @returns The list.
+ */
+export function TickingSteps(props: { readonly steps: readonly TickingStep[] }) {
+  return (
+    <ol className="flex flex-col gap-3.5">
+      {props.steps.map((step) => {
+        const isStrong =
+          step.state === 'running' || step.state === 'warning' || step.state === 'failed';
+
+        return (
+          <li
+            key={step.id}
+            className={cn('flex items-start gap-3.5', step.state === 'pending' && 'opacity-50')}
+          >
+            <span className="mt-px shrink-0">
+              <StepGlyph state={step.state} />
+            </span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span
+                className={cn(
+                  'text-ui',
+                  isStrong ? 'font-medium' : 'font-normal',
+                  step.state === 'warning'
+                    ? 'text-warning'
+                    : step.state === 'failed'
+                      ? 'text-danger'
+                      : 'text-foreground',
+                )}
+              >
+                {step.title}
+              </span>
+              {step.detail === '' ? null : (
+                <span className="text-caption break-words text-foreground-subtle">
+                  {step.detail}
+                </span>
+              )}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 /**
  * A step's glyph: a check when done, a turning ring while running, an empty ring to come.
  *
@@ -193,7 +254,7 @@ const RING_LOOK: Record<
  * @param props.state - It.
  * @returns The glyph.
  */
-function StepGlyph(props: { readonly state: MatterCommissioningStep['state'] }) {
+function StepGlyph(props: { readonly state: StepState }) {
   switch (props.state) {
     case 'done': {
       return <AppIcon id="circle-check" size={20} className="text-success" />;
@@ -355,42 +416,9 @@ export function StepList(props: StepListProps) {
   const shown = job.steps.filter((step) => !(isWaiting && step.id === 'reading'));
 
   return (
-    <ol className="flex flex-col gap-3.5">
-      {shown.map((step) => {
-        const words = wordsOf(step);
-        const isStrong =
-          step.state === 'running' || step.state === 'warning' || step.state === 'failed';
-
-        return (
-          <li
-            key={step.id}
-            className={cn('flex items-start gap-3.5', step.state === 'pending' && 'opacity-50')}
-          >
-            <span className="mt-px shrink-0">
-              <StepGlyph state={step.state} />
-            </span>
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <span
-                className={cn(
-                  'text-ui',
-                  isStrong ? 'font-medium' : 'font-normal',
-                  step.state === 'warning'
-                    ? 'text-warning'
-                    : step.state === 'failed'
-                      ? 'text-danger'
-                      : 'text-foreground',
-                )}
-              >
-                {words.title}
-              </span>
-              <span className="text-caption break-words text-foreground-subtle">
-                {words.detail}
-              </span>
-            </span>
-          </li>
-        );
-      })}
-    </ol>
+    <TickingSteps
+      steps={shown.map((step) => ({ id: step.id, state: step.state, ...wordsOf(step) }))}
+    />
   );
 }
 

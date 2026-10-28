@@ -1,6 +1,6 @@
 /**
  * The platform's brokers, as the Brokers pages read and drive them: the house's Matter fabric and
- * its MQTT broker (`/api/v1/brokers`).
+ * its MQTT broker (`/api/v1/brokers`). The newer brokers each have a file of their own.
  */
 import { z } from 'zod';
 
@@ -8,6 +8,7 @@ import {
   brokersReplySchema,
   matterCommissioningSchema,
   matterNetworkSchema,
+  matterNetworksSchema,
   matterNodesReplySchema,
   matterRestoreReplySchema,
   matterStatusSchema,
@@ -22,6 +23,9 @@ import {
   mqttTopicsReplySchema,
   type BrokerSummary,
   type MatterCommissioning,
+  type MatterCommissionMode,
+  type MatterNetworks,
+  type MatterNetworksSaveRequest,
   type MatterNetwork,
   type MatterNode,
   type MatterStatus,
@@ -41,6 +45,7 @@ export const BROKER_QUERY_KEYS = {
   matterStatus: ['brokers', 'matter', 'status'] as const,
   matterNodes: ['brokers', 'matter', 'nodes'] as const,
   matterNetwork: ['brokers', 'matter', 'network'] as const,
+  matterNetworks: ['brokers', 'matter', 'networks'] as const,
   mqttStatus: ['brokers', 'mqtt', 'status'] as const,
   mqttDevices: ['brokers', 'mqtt', 'devices'] as const,
   mqttClients: ['brokers', 'mqtt', 'clients'] as const,
@@ -114,29 +119,64 @@ export async function fetchMatterNetwork(signal?: AbortSignal): Promise<MatterNe
  * Starts commissioning a Matter device another app shared.
  *
  * @param code - Its pairing code, as written.
+ * @param mode - `shared` for one already in another app; `new` for one paired over Bluetooth.
  * @returns The job, running.
  */
-export async function commissionMatter(code: string): Promise<MatterCommissioning> {
+export async function commissionMatter(
+  code: string,
+  mode: MatterCommissionMode = 'shared',
+): Promise<MatterCommissioning> {
   return apiRequest('/brokers/matter/commission', matterCommissioningSchema, {
     method: 'POST',
-    body: { code },
+    body: { code, mode },
   });
 }
 
 /**
- * Answers the question a commissioning stopped on: add a device with a test certificate anyway.
+ * Answers the question a commissioning stopped on: add a device with a test certificate anyway,
+ * or give a new device the Wi-Fi it asked for.
  *
  * @param jobId - The job.
  * @param isAccepted - Whether to add it.
+ * @param wifi - The Wi-Fi a new device joins, and whether to keep it for the next ones.
+ * @param wifi.ssid - The network's name.
+ * @param wifi.password - Its password.
+ * @param wifi.isSaved - Whether the next new devices are given it too.
  * @returns The job, as it now stands.
  */
 export async function answerMatter(
   jobId: string,
   isAccepted: boolean,
+  wifi?: { readonly ssid: string; readonly password: string; readonly isSaved: boolean },
 ): Promise<MatterCommissioning> {
   return apiRequest(`/brokers/matter/commission/${jobId}/answer`, matterCommissioningSchema, {
     method: 'POST',
-    body: { isAccepted },
+    body: wifi === undefined ? { isAccepted } : { isAccepted, wifi },
+  });
+}
+
+/**
+ * Reads the networks a new device is given.
+ *
+ * @param signal - Cancels the request.
+ * @returns The Wi-Fi saved, never its password, and the Thread network.
+ */
+export async function fetchMatterNetworks(signal?: AbortSignal): Promise<MatterNetworks> {
+  return apiRequest('/brokers/matter/networks', matterNetworksSchema, readOptions(signal));
+}
+
+/**
+ * Saves the Wi-Fi a new device is given.
+ *
+ * @param request - The network; a password left out keeps the saved one, null forgets it.
+ * @returns The networks then.
+ */
+export async function saveMatterNetworks(
+  request: MatterNetworksSaveRequest,
+): Promise<MatterNetworks> {
+  return apiRequest('/brokers/matter/networks', matterNetworksSchema, {
+    method: 'PUT',
+    body: request,
   });
 }
 

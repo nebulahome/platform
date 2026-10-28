@@ -3,8 +3,8 @@
  *
  * The house's Matter fabric - the controller every Matter device is reached through, whoever makes
  * it - its MQTT broker, which every MQTT device and program meets on, and its Modbus client, which
- * every Modbus server is reached through; Thread, Bluetooth, Serial and Infrared beside them, with
- * a stand-in mark until theirs are drawn. A card per broker, as the
+ * every Modbus server is reached through; Thread, Bluetooth, Serial and Infrared beside them, in
+ * the order of kinship (`BROKER_IDS`). A card per broker, as the
  * integrations page draws a vendor's - how it stands, and how many devices the house has through
  * it - and the card is the way to its page.
  */
@@ -15,8 +15,15 @@ import { Link } from 'react-router';
 import type { BrokerId, BrokerState, BrokerSummary } from '@nebulahome/contracts';
 import { AppIcon, cn, Pill, Tile, TILE_FRAME, TILE_GRID, type PillTone } from '@nebulahome/ui';
 
-import { MatterLogo, ModbusLogo, MqttLogo } from '@/components/brand-logos';
-import { BluetoothIcon, InfraredIcon, SerialIcon, ThreadIcon } from '@/components/icons';
+import {
+  BluetoothLogo,
+  InfraredLogo,
+  MatterLogo,
+  ModbusLogo,
+  MqttLogo,
+  SerialLogo,
+  ThreadLogo,
+} from '@/components/brand-logos';
 import { translate } from '@/i18n/messages';
 import { BROKER_QUERY_KEYS, fetchBrokers } from '@/library/brokers-api';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -48,16 +55,27 @@ export function brokerStateOf(state: BrokerState): {
   }
 }
 
-/** The official mark each broker is drawn with. */
+/** The official mark each broker is drawn with, or its glyph when it has none. */
 export const BROKER_GLYPHS = {
   matter: MatterLogo,
-  thread: ThreadIcon,
-  bluetooth: BluetoothIcon,
+  thread: ThreadLogo,
+  bluetooth: BluetoothLogo,
   mqtt: MqttLogo,
   modbus: ModbusLogo,
-  serial: SerialIcon,
-  infrared: InfraredIcon,
+  serial: SerialLogo,
+  infrared: InfraredLogo,
 } as const;
+
+/** The light each broker's lit square takes, in its mark's colour. */
+const BROKER_GLOWS: Readonly<Record<BrokerId, string>> = {
+  matter: 'matter-glow',
+  thread: 'thread-glow',
+  bluetooth: 'bluetooth-glow',
+  mqtt: 'matter-glow',
+  modbus: 'modbus-glow',
+  serial: 'serial-glow',
+  infrared: 'infrared-glow',
+};
 
 /**
  * What a broker is called: a mark's name as it is, a plain word in the reader's language.
@@ -90,7 +108,7 @@ export function brokerNameOf(broker: BrokerId): string {
  * @param props - Which broker, its size, and whether it is lit.
  * @param props.broker - The broker; Matter when not said.
  * @param props.size - The side of the square, in pixels.
- * @param props.isLit - Lit violet from its corner: the broker's page and its dialogs. Otherwise a
+ * @param props.isLit - Lit in its colour from its corner: its page and its dialogs. Otherwise a
  *   plain square: the card. The mark keeps its own colours either way.
  * @returns The square.
  */
@@ -107,9 +125,7 @@ export function BrokerMark(props: {
       aria-hidden="true"
       className={cn(
         'flex shrink-0 items-center justify-center border border-border-strong bg-surface-raised',
-        isLit
-          ? cn('rounded-inner', broker === 'modbus' ? 'modbus-glow' : 'matter-glow')
-          : 'rounded-tile',
+        isLit ? cn('rounded-inner', BROKER_GLOWS[broker]) : 'rounded-tile',
         'text-foreground',
       )}
       /* eslint-disable-next-line react/forbid-dom-props -- the side is a value, per place. */

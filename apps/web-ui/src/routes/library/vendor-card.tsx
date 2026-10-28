@@ -23,15 +23,18 @@ import { Link } from 'react-router';
 import type { IntegrationVendorView } from '@nebulahome/contracts';
 import { AppIcon, Pill, Tile, TILE_FRAME, TileMark } from '@nebulahome/ui';
 
-import { MatterLogo, MqttLogo } from '@/components/brand-logos';
+import {
+  InfraredLogo,
+  MatterLogo,
+  MqttLogo,
+  SerialLogo,
+  ThreadLogo,
+} from '@/components/brand-logos';
 import {
   BluetoothIcon,
   GlobeIcon,
   HttpIcon,
-  InfraredIcon,
   ModbusIcon,
-  SerialIcon,
-  ThreadIcon,
   UdpIcon,
   ZigbeeIcon,
   type IconProps,
@@ -92,21 +95,21 @@ const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: Mess
     ),
   },
   thread: {
-    glyph: ThreadIcon,
+    glyph: ThreadLogo,
     title: defineMessage(
       'library.vendorCard.reachesItsDevicesOverThread',
       "Reaches its devices over the house's Thread network",
     ),
   },
   serial: {
-    glyph: SerialIcon,
+    glyph: SerialLogo,
     title: defineMessage(
       'library.vendorCard.reachesItsDevicesOverSerial',
       'Reaches its devices through a serial port',
     ),
   },
   ir: {
-    glyph: InfraredIcon,
+    glyph: InfraredLogo,
     title: defineMessage(
       'library.vendorCard.sendsCodesThroughABlaster',
       'Sends infrared and 433 MHz codes through a blaster',
