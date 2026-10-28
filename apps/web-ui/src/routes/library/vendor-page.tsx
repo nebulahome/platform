@@ -273,6 +273,13 @@ export function VendorPage() {
                           : wire.toUpperCase()}
                     </HeroFact>
                   ))}
+                  {(found.roles ?? []).map((role) => (
+                    <HeroFact key={role} icon={role === 'bluetooth-proxy' ? 'bluetooth' : 'radio'}>
+                      {role === 'bluetooth-proxy'
+                        ? t('library.vendor.bluetoothProxy', 'Bluetooth proxy')
+                        : t('library.vendor.irBlaster', 'IR blaster')}
+                    </HeroFact>
+                  ))}
                   {found.origin === 'development' ? (
                     <HeroFact icon="lock">
                       {t('library.vendor.inDevelopment', 'In development')}

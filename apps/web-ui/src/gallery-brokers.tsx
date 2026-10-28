@@ -10,6 +10,11 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { Button } from '@nebulahome/ui';
 
 import { INFRARED_QUERY_KEYS } from '@/library/infrared-api';
+import {
+  AddProxyDialog,
+  BluetoothSettingsDialog,
+} from '@/routes/library/broker-bluetooth/bluetooth-dialogs';
+import { BluetoothBrokerPage } from '@/routes/library/broker-bluetooth-page';
 import { AddRemoteDialog } from '@/routes/library/broker-infrared/add-remote-dialog';
 import { ImportDialog } from '@/routes/library/broker-infrared/import-dialog';
 import { LearnDialog } from '@/routes/library/broker-infrared/learn-dialog';
@@ -23,6 +28,7 @@ import {
 } from '@/routes/library/broker-serial/serial-dialogs';
 import { SerialBrokerPage } from '@/routes/library/broker-serial-page';
 import { DeviceDialog } from '@/routes/library/device-dialog';
+import { BLUETOOTH_SAMPLE_STATUS, bluetoothSampleCache } from '@/testing/bluetooth-samples';
 import { SAMPLE_AREAS } from '@/testing/broker-samples';
 import {
   INFRARED_SAMPLE_BLASTERS,
@@ -205,6 +211,28 @@ const SERIAL_FREE =
 /** What a VE.Direct cable says, a field a line, as the console shows it. */
 const VE_DIRECT_LINES = ['PID	0xA389', 'FW	0161', 'V	13284', 'I	-240', 'SOC	874', 'Alarm	OFF'];
 
+/** The Bluetooth broker's tabs. */
+const BLUETOOTH_TABS = ['overview', 'devices', 'map', 'nearby', 'scanners'] as const;
+
+/** The caches the Bluetooth samples read: a house with an adapter and proxies, and one with none. */
+const BLUETOOTH_CACHE = bluetoothSampleCache();
+const BLUETOOTH_EMPTY_CACHE = bluetoothSampleCache(true);
+
+BLUETOOTH_CACHE.setQueryData(['brokers', 'bluetooth', 'job', 'proxy-job'], {
+  id: 'proxy-job',
+  state: 'running',
+  startedAt: new Date('2026-10-27T10:00:00Z'),
+  finishedAt: null,
+  error: null,
+  deviceId: 'shelly-office-plug',
+  mode: 'passive',
+  steps: [
+    { id: 'installing', state: 'done', message: null },
+    { id: 'started', state: 'done', message: null },
+    { id: 'first-report', state: 'running', message: null },
+  ],
+});
+
 /**
  * The newer brokers' sections.
  *
@@ -350,6 +378,46 @@ export function BrokerGallery() {
                     .map((byte) => byte.toString(16).padStart(2, '0'))
                     .join(''),
                 }))}
+              />
+            )
+          }
+        />
+      </Section>
+      {BLUETOOTH_TABS.map((tab) => (
+        <Section
+          key={tab}
+          title={`Bluetooth · ${tab}`}
+          note="The house's Bluetooth: this server's Intel adapter, three Shelly proxies - one with an outdated script - six devices, two found and what is heard nearby."
+        >
+          <SamplePage cache={BLUETOOTH_CACHE} at={`/brokers/bluetooth?tab=${tab}`}>
+            <BluetoothBrokerPage holdsLease={false} openAddress="A4:C1:38:5E:91:0B" />
+          </SamplePage>
+        </Section>
+      ))}
+      <Section
+        title="Bluetooth · no adapter"
+        note="Docker Desktop: no adapter and no proxy yet, the way to a proxy and the D-Bus to mount on Linux."
+      >
+        <SamplePage cache={BLUETOOTH_EMPTY_CACHE} at="/brokers/bluetooth">
+          <BluetoothBrokerPage holdsLease={false} />
+        </SamplePage>
+      </Section>
+      <Section
+        title="Bluetooth · dialogs"
+        note="Add proxy's pick (with search, the ineligible greyed with why) and its progress; Settings."
+      >
+        <DialogSamples
+          cache={BLUETOOTH_CACHE}
+          names={['Add proxy', 'Add proxy · progress', 'Bluetooth settings']}
+          render={(name, close) =>
+            name === 'Bluetooth settings' ? (
+              <BluetoothSettingsDialog status={BLUETOOTH_SAMPLE_STATUS} onClose={close} />
+            ) : (
+              <AddProxyDialog
+                onClose={close}
+                defaultMode="passive"
+                roomOf={(areaId) => SAMPLE_AREAS.find((area) => area.id === areaId)?.name ?? null}
+                {...(name === 'Add proxy' ? {} : { jobId: 'proxy-job' })}
               />
             )
           }

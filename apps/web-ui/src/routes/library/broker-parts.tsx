@@ -26,16 +26,14 @@ export function rssiBars(rssi: number | null): number {
 }
 
 /**
- * The colour a signal is told in: good, fair or weak.
+ * The colour a signal is told in: the text's, or the warning's when it is weak.
  *
  * @param lit - The bars lit.
  * @param of - Out of how many.
  * @returns The text class.
  */
 export function signalTone(lit: number, of: number): string {
-  const share = lit / of;
-
-  return share >= 0.7 ? 'text-success' : share >= 0.45 ? 'text-foreground' : 'text-warning';
+  return lit / of > 0.3 ? 'text-foreground' : 'text-warning';
 }
 
 /**

@@ -49,6 +49,7 @@ import { AliasesPage } from '@/routes/library/aliases-page';
 import { AreasPage } from '@/routes/library/areas-page';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { AutomationsPage } from '@/routes/library/automations-page';
+import { BluetoothBrokerPage } from '@/routes/library/broker-bluetooth-page';
 import { InfraredRemotePage } from '@/routes/library/broker-infrared/remote-page';
 import { InfraredBrokerPage } from '@/routes/library/broker-infrared-page';
 import { MatterBrokerPage } from '@/routes/library/broker-matter-page';
@@ -411,6 +412,14 @@ export function SessionRoutes() {
           element={
             <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
               <SerialBrokerPage />
+            </RequiresPermission>
+          }
+        />
+        <Route
+          path="/brokers/bluetooth"
+          element={
+            <RequiresPermission permission="device:read" section={t('nav.brokers', 'Brokers')}>
+              <BluetoothBrokerPage />
             </RequiresPermission>
           }
         />

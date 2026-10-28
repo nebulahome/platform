@@ -64,6 +64,7 @@ import { deviceStatusOf } from '@/library/device-status';
 import { entityKindOf } from '@/library/entity-kind';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { ActivityPanel } from '@/routes/library/device/activity-panel';
+import { BluetoothProxyRow } from '@/routes/library/device/bluetooth-proxy-row';
 import { DeviceProblem } from '@/routes/library/device/device-problem';
 import { entityGroupsOf } from '@/routes/library/device/entity-groups';
 import { LinkDialog, type LinkRequest } from '@/routes/library/device/link-dialog';
@@ -765,6 +766,12 @@ export function DevicePage() {
                 onLink={view.canWrite ? setLinking : undefined}
               />
             )}
+
+            <BluetoothProxyRow
+              deviceId={view.device.id}
+              name={view.device.name}
+              canBeProxy={view.vendor?.roles?.includes('bluetooth-proxy') === true}
+            />
 
             <Section title={t('device.device.details', 'Details')}>
               <FactGrid facts={factsOf(view, webPage, wayNameOf)} />
