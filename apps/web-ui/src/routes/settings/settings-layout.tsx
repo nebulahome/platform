@@ -8,6 +8,9 @@
  * centred in the room beside it rather than stretched, so a row's control stays near its label.
  * On a narrow window the two columns wrap, the tree above the page.
  *
+ * The scrolling container keeps the scrollbar's gutter whether or not a page scrolls: the page is
+ * centred, and a scrollbar coming and going between a short page and a long one moved it sideways.
+ *
  * The scrolling container is `relative`, and that is load-bearing rather than decorative. A
  * visually hidden label - Tailwind's `sr-only` - is `position: absolute`, and an absolutely
  * positioned element is only clipped by an ancestor's `overflow` when that ancestor is also its
@@ -206,7 +209,7 @@ export function SettingsLayout() {
   };
 
   return (
-    <div className="relative min-w-0 grow overflow-y-auto px-8 pt-7 pb-12">
+    <div className="relative min-w-0 grow scrollbar-stable overflow-y-auto px-8 pt-7 pb-12">
       <div className="flex flex-wrap items-start gap-x-12 gap-y-8">
         <aside className="flex min-w-0 flex-[0_0_232px] flex-col gap-4 max-sm:flex-auto">
           <h1 className="px-2.5 text-display-sm font-medium">{t('settings.title', 'Settings')}</h1>
