@@ -7,6 +7,7 @@
  *
  * Every variable defined here has a matching entry in `.env.example`, per RULES.md 11.
  */
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { z } from 'zod';
@@ -55,19 +56,41 @@ export function portSchema(defaultPort: number): z.ZodType<number> {
   return z.coerce.number().int().min(1).max(65_535).default(defaultPort);
 }
 
+/** Where the image writes the release it is (Dockerfile). */
+export const VERSION_FILE = '/app/VERSION';
+
+/**
+ * The release written into the image. A file of the image, not a variable: a container keeps the
+ * variables it was made with, and one remade by an update carried the old version's over.
+ *
+ * @param file - Where it is.
+ * @returns It, or undefined outside the image (`pnpm dev`, the tests).
+ */
+export function imageVersion(file = VERSION_FILE): string | undefined {
+  try {
+    return readFileSync(file, 'utf8').trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Variables every service reads, whatever else it needs. */
 export const runtimeEnvSchema = z.object({
   NODE_ENV: z.enum(NODE_ENVIRONMENTS).default('development'),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
 
   /**
-   * The release this build is, CalVer `2026.11.0` or `2026.11.0-beta.1`: set by the image
-   * (`--build-arg NEBULA_VERSION`, docs/releases-and-updates.md), absent outside a release build.
+   * The release this build is, CalVer `2026.11.0` or `2026.11.0-beta.1`: the image's
+   * {@link VERSION_FILE} (`--build-arg NEBULA_VERSION`, docs/releases-and-updates.md), which wins
+   * over the variable. The variable is read only outside the image; absent, a build from source.
    */
-  NEBULA_VERSION: z
-    .string()
-    .regex(/^\d+\.\d+\.\d+(?:-[\da-z.-]+)?$/i)
-    .default('0.0.0-dev'),
+  NEBULA_VERSION: z.preprocess(
+    (value) => imageVersion() ?? value,
+    z
+      .string()
+      .regex(/^\d+\.\d+\.\d+(?:-[\da-z.-]+)?$/i)
+      .default('0.0.0-dev'),
+  ),
 });
 
 /** Variables read by the services that hold a database connection. */

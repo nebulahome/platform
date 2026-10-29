@@ -1,3 +1,5 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -9,6 +11,7 @@ import {
   busEnvSchema,
   databaseEnvSchema,
   dataEnvSchema,
+  imageVersion,
   requireDataDirInProduction,
   runtimeEnvSchema,
   secretsEnvSchema,
@@ -69,6 +72,25 @@ describe('loadConfig', () => {
 
   it('names the offending variables in the error message', () => {
     expect(() => loadConfig(serviceSchema, {})).toThrow(/DATABASE_URL/);
+  });
+});
+
+describe('the version', () => {
+  it("is the image's file, trimmed, and nothing outside the image", () => {
+    const file = path.join(mkdtempSync(path.join(tmpdir(), 'nebula-version-')), 'VERSION');
+
+    writeFileSync(file, '2026.11.0-alpha.3\n');
+
+    expect(imageVersion(file)).toBe('2026.11.0-alpha.3');
+    expect(imageVersion(path.join(path.dirname(file), 'missing'))).toBeUndefined();
+  });
+
+  it('falls back to the variable, then to a build from source, outside the image', () => {
+    expect(loadConfig(serviceSchema, validEnvironment).NEBULA_VERSION).toBe('0.0.0-dev');
+    expect(
+      loadConfig(serviceSchema, { ...validEnvironment, NEBULA_VERSION: '2026.11.0' })
+        .NEBULA_VERSION,
+    ).toBe('2026.11.0');
   });
 });
 

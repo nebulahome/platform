@@ -36,9 +36,13 @@ API level - is SemVer.**
   backups, and `NEBULA_PLATFORM_VERSION` stays the API level packages target.
 - **What the bump touches**: the root `package.json` and every workspace marked `"private": true`.
   The two published SDKs are never bumped by the release script.
-- **At runtime**: the image is built with `--build-arg NEBULA_VERSION=X`; the Dockerfile turns it
-  into `ENV NEBULA_VERSION` and the label `org.opencontainers.image.version`. Each service reads
-  it through its config schema (default `0.0.0-dev` outside a release build); `/healthz` reports it.
+- **At runtime**: the image is built with `--build-arg NEBULA_VERSION=X`; the Dockerfile writes it
+  to the file `/app/VERSION` and the label `org.opencontainers.image.version`. Each service reads
+  the file through its config schema (`imageVersion`, `packages/config`), which wins over any
+  `NEBULA_VERSION` variable: a container keeps the variables it was made with, and before
+  2026.10.0-alpha.16 the image set the version as one, so a container remade by an update carried
+  the old version over and said it ran it. The variable is read only outside the image (`pnpm
+dev`); with neither, `0.0.0-dev`. `/healthz` reports it.
 
 ## 2. Branches and tags
 
@@ -192,9 +196,10 @@ The supervisor runs inside the platform's container and cannot replace it, so:
    image with the reference the old container uses (so compose sees no change), stops the old
    container (45 s grace), copies the `/data` and PostgreSQL mounts (volume or host folder) into
    the volumes `nebulahome-pre-<old version>-data` and `-postgres`, and creates the new container
-   like the old one (`apps/supervisor/src/domain/recreate.ts`), without the old `NEBULA_VERSION`.
-   Before starting it, it checks that the new container says `NEBULA_VERSION=<new version>`; one
-   still of the old version is an update that did not happen, and is undone like a failure.
+   like the old one (`apps/supervisor/src/domain/recreate.ts`), without the `NEBULA_VERSION`
+   variable older images set. Before starting it, it checks that the new container's image says
+   the new version in its label; one still of the old version is an update that did not happen,
+   and is undone like a failure.
 4. It waits up to 5 minutes for Docker's health check to say healthy. On success it removes the
    old container and the copies. On failure it removes the new container, copies the volumes back,
    retags the old image and starts the old container again.

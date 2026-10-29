@@ -37,7 +37,7 @@ const OLD = {
  * A Docker that records what it is asked, whose new container ends up as said.
  *
  * @param health - The new container's health.
- * @param says - The version the new container is of, as its image sets it.
+ * @param says - The version the new container's image says it is.
  * @returns The engine and the calls.
  */
 function engineWith(
@@ -57,13 +57,20 @@ function engineWith(
           : {
               ...OLD,
               Id: id,
-              Config: { ...OLD.Config, Env: [`NEBULA_VERSION=${says}`] },
+              Image: 'sha256:new',
               State: { Status: 'running', Health: { Status: health } },
             },
       ),
     ),
-    inspectImage: vi.fn(async () =>
-      Promise.resolve({ Config: { Env: [], Labels: {}, Cmd: [], Entrypoint: [] } }),
+    inspectImage: vi.fn(async (reference: string) =>
+      Promise.resolve({
+        Config: {
+          Env: [],
+          Labels: reference === 'sha256:new' ? { 'org.opencontainers.image.version': says } : {},
+          Cmd: [],
+          Entrypoint: [],
+        },
+      }),
     ),
     tagImage: vi.fn(async (source: string, reference: string) => {
       calls.push(`tag ${source} ${reference}`);

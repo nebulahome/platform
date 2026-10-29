@@ -179,13 +179,15 @@ RUN chmod +x /etc/s6-overlay/scripts/* /usr/local/bin/nebula-* \
     node --version
 
 # The release, given by `pnpm release:*` (docs/releases-and-updates.md). Last, so a new version
-# rebuilds nothing above it. The label is how the supervisor reads a pulled image's version.
+# rebuilds nothing above it. The label is how the supervisor reads a pulled image's version, the
+# file how every service reads its own: a file of the image, never a variable, which a container
+# keeps from whoever made it (packages/config, imageVersion).
 ARG NEBULA_VERSION=0.0.0-dev
 LABEL org.opencontainers.image.version=$NEBULA_VERSION \
       org.opencontainers.image.source=https://github.com/nebulahome/platform
+RUN printf '%s\n' "$NEBULA_VERSION" > /app/VERSION
 
-ENV NEBULA_VERSION=$NEBULA_VERSION \
-    PATH=/command:$PATH \
+ENV PATH=/command:$PATH \
     NODE_ENV=production \
     LOG_LEVEL=info \
     NEBULA_DATA_DIR=/data \

@@ -4,8 +4,8 @@
  * replaced, so it cannot do this itself.
  *
  * The new image is tagged with the reference the old container runs, so compose sees no change.
- * The new container must say it is the version asked for before it is started: a container that
- * comes up healthy on the old version is an update that did not happen, and is undone.
+ * The new container's image must say it is the version asked for before the container is started:
+ * one that comes up healthy on the old version is an update that did not happen, and is undone.
  * The old container is stopped and its data and database volumes copied aside, because the new
  * version migrates the database and the old one refuses a database newer than itself. The new
  * container is made like the old (`domain/recreate.ts`) and must turn healthy; if it does not,
@@ -31,8 +31,11 @@ import { planRecreate } from '../domain/recreate.js';
 /** The folders whose volumes are copied aside: what a migration or the new version changes. */
 export const SNAPSHOT_FOLDERS = ['/data', '/var/lib/postgresql/data'] as const;
 
-/** The variable every service reads its version from, set by the image. */
+/** The variable older images gave the services their version in. */
 const VERSION_ENV = 'NEBULA_VERSION';
+
+/** The label an image says its version in, set with the file the services read (Dockerfile). */
+const VERSION_LABEL = 'org.opencontainers.image.version';
 
 /** Longer than the services' own shutdown, and PostgreSQL's after them (docker-compose.yml). */
 export const PLATFORM_STOP_GRACE_SECONDS = 45;
@@ -336,7 +339,8 @@ export async function updatePlatform(
     const plan = planRecreate(old, oldImage, reference);
     const env = Array.isArray(plan.body['Env']) ? (plan.body['Env'] as string[]) : [];
 
-    // The version is the image's to say: one carried over would name the old one.
+    // Images before 2026.10.0-alpha.16 set the version as a variable, which the services read:
+    // one carried over named the old version.
     plan.body['Env'] = env.filter((entry) => !entry.startsWith(`${VERSION_ENV}=`));
 
     aside = `${name}-nebula-old-${Date.now().toString(36)}`;
@@ -344,14 +348,11 @@ export async function updatePlatform(
     created = await engine.createContainer(name, plan.body);
 
     const id = created;
-    const says = (await engine.inspectContainer(id)).Config.Env.find((entry) =>
-      entry.startsWith(`${VERSION_ENV}=`),
-    );
+    const madeFrom = (await engine.inspectContainer(id)).Image;
+    const says = (await engine.inspectImage(madeFrom))?.Config?.Labels[VERSION_LABEL];
 
-    if (says !== `${VERSION_ENV}=${options.toVersion}`) {
-      throw new Error(
-        `The new container is ${says?.slice(VERSION_ENV.length + 1) ?? 'of no version'}, not ${options.toVersion}`,
-      );
+    if (says !== options.toVersion) {
+      throw new Error(`The new container is ${says ?? 'of no version'}, not ${options.toVersion}`);
     }
 
     await Promise.all(
