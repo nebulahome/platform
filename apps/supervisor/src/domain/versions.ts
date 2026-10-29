@@ -7,6 +7,11 @@
  * else - `latest`, `2`, `stable` - **follows** releases: a newer one is the same tag pointing at
  * another image, which only the registry's digest can tell.
  *
+ * A suffix `-r` and a number - `2.8.5-r1` - is not a shape but a **revision** of the release, the
+ * way Alpine numbers its rebuilds of one upstream version: images that package an Alpine package
+ * tag themselves so, and some keep the plain tag for something else entirely. A plain tag is
+ * revision 0 of its release, so `2.8.5-r1` is newer than `2.8.5` and older than `2.8.6`.
+ *
  * The version an image *is* comes from its `org.opencontainers.image.version` label when it has
  * one, and from a pinning tag otherwise; an image following `latest` with no label has no version
  * anybody can name, and is shown by its digest.
@@ -19,12 +24,28 @@ export const VERSION_LABEL = 'org.opencontainers.image.version';
 /** A pinning tag: an optional `v`, three numbers, an optional suffix after a dash. */
 const PINNED = /^(v?)(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?$/;
 
+/** The end of a tag that numbers a rebuild of the release rather than naming a variant of it. */
+const REVISION = /-r(\d+)$/;
+
 /** A pinning tag, taken apart. */
 type Pinned = {
   readonly prefix: string;
   readonly numbers: readonly [number, number, number];
+  /** The rebuild of the release: `-r1` is 1, a plain tag 0. */
+  readonly revision: number;
+  /** What is left after the numbers, `''` for a plain tag or a revision. */
   readonly suffix: string;
 };
+
+/**
+ * The revision a version or a tag names.
+ *
+ * @param text - `2.8.5-r1`, `2.8.5`.
+ * @returns Its revision, 0 when it names none.
+ */
+function revisionOf(text: string): number {
+  return Number(REVISION.exec(text)?.[1] ?? 0);
+}
 
 /**
  * Takes a pinning tag apart.
@@ -40,8 +61,15 @@ function pinnedOf(tag: string): Pinned | null {
   }
 
   const [, prefix = '', major = '0', minor = '0', patch = '0', suffix = ''] = match;
+  // `-r1` alone is a revision; `-alpine-r1` is a shape of its own, compared as a whole.
+  const isRevision = REVISION.exec(suffix)?.index === 0;
 
-  return { prefix, numbers: [Number(major), Number(minor), Number(patch)], suffix };
+  return {
+    prefix,
+    numbers: [Number(major), Number(minor), Number(patch)],
+    revision: isRevision ? revisionOf(suffix) : 0,
+    suffix: isRevision ? '' : suffix,
+  };
 }
 
 /**
@@ -55,7 +83,7 @@ export function isPinnedTag(tag: string): boolean {
 }
 
 /**
- * Compares two pinned tags' numbers.
+ * Compares two pinned tags' numbers, then their revisions.
  *
  * @param left - One.
  * @param right - The other.
@@ -70,7 +98,7 @@ function compareNumbers(left: Pinned, right: Pinned): number {
     }
   }
 
-  return 0;
+  return left.revision - right.revision;
 }
 
 /**
@@ -107,9 +135,9 @@ export function newestOfShape(current: string, tags: readonly string[]): string 
 }
 
 /**
- * The tag an integration's container is installed at: the newest plain release at or above the
- * minimum, in the minimum's major version - a new major is a new contract, and the integration
- * says when it speaks one by raising its minimum.
+ * The tag an integration's container is installed at: the newest plain release, or revision of
+ * one, at or above the minimum, in the minimum's major version - a new major is a new contract, and
+ * the integration says when it speaks one by raising its minimum.
  *
  * @param minVersion - The oldest release the integration works with.
  * @param tags - Every tag the registry has.
@@ -155,10 +183,15 @@ export function satisfiesMinimum(version: string | null, minVersion: string): bo
     return false;
   }
 
-  const installed = valid(version.replace(/^v/, ''));
-  const floor = valid(minVersion);
+  // semver would read `-r1` as a candidate before the release; it is a rebuild after it.
+  const installed = valid(version.replace(/^v/, '').replace(REVISION, ''));
+  const floor = valid(minVersion.replace(REVISION, ''));
 
-  return installed !== null && floor !== null && compare(installed, floor) >= 0;
+  return (
+    installed !== null &&
+    floor !== null &&
+    (compare(installed, floor) || revisionOf(version) - revisionOf(minVersion)) >= 0
+  );
 }
 
 /**

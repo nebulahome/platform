@@ -21,11 +21,23 @@ const TAGS = [
   'latest-dev',
 ];
 
+/** instantlinux/nut-upsd's tags: Alpine revisions, and a plain tag that is no image at all. */
+const REVISION_TAGS = [
+  'latest',
+  '2.8.5-r1',
+  '2.8.5',
+  '0.1.14',
+  '2.8.3-r4',
+  '2.8.3-r3',
+  '2.7.4-r10',
+];
+
 describe('isPinnedTag', () => {
   it('tells a tag that pins a release from one that follows them', () => {
     expect(isPinnedTag('2.14.1')).toBe(true);
     expect(isPinnedTag('v1.27.3')).toBe(true);
     expect(isPinnedTag('16.4.0-alpine')).toBe(true);
+    expect(isPinnedTag('2.8.5-r1')).toBe(true);
     expect(isPinnedTag('latest')).toBe(false);
     expect(isPinnedTag('2.14')).toBe(false);
   });
@@ -45,12 +57,25 @@ describe('newestOfShape', () => {
   it('says nothing for a tag that follows releases', () => {
     expect(newestOfShape('latest', TAGS)).toBe(null);
   });
+
+  it('offers a later revision, or a later release at any revision', () => {
+    expect(newestOfShape('2.8.3-r4', REVISION_TAGS)).toBe('2.8.5-r1');
+    expect(newestOfShape('2.8.5-r1', [...REVISION_TAGS, '2.8.5-r2'])).toBe('2.8.5-r2');
+    expect(newestOfShape('2.8.5-r1', REVISION_TAGS)).toBe('2.8.5-r1');
+    expect(newestOfShape('2.8.5-r1', ['2.8.6-rc1', '2.8.6-alpine-r1'])).toBe('2.8.5-r1');
+  });
 });
 
 describe('newestSatisfying', () => {
   it('installs the newest plain release of the minimum major, never a candidate', () => {
     expect(newestSatisfying('2.1.0', TAGS)).toBe('2.14.1');
     expect(newestSatisfying('1.0.0', TAGS)).toBe('1.42.0');
+  });
+
+  it('installs the newest revision, above the plain tag of the same release', () => {
+    expect(newestSatisfying('2.8.5', REVISION_TAGS)).toBe('2.8.5-r1');
+    expect(newestSatisfying('2.8.0', REVISION_TAGS)).toBe('2.8.5-r1');
+    expect(newestSatisfying('2.7.0', ['2.7.4-r10', '2.7.4-r8'])).toBe('2.7.4-r10');
   });
 
   it('finds none when the registry has nothing new enough', () => {
@@ -64,6 +89,13 @@ describe('satisfiesMinimum', () => {
     expect(satisfiesMinimum('v2.0.9', '2.1.0')).toBe(false);
     expect(satisfiesMinimum(null, '2.1.0')).toBe(false);
     expect(satisfiesMinimum('latest', '2.1.0')).toBe(false);
+  });
+
+  it('reads a revision as a rebuild after its release, not a candidate before it', () => {
+    expect(satisfiesMinimum('2.8.5-r1', '2.8.5')).toBe(true);
+    expect(satisfiesMinimum('2.8.3-r4', '2.8.5')).toBe(false);
+    expect(satisfiesMinimum('2.8.5-r1', '2.8.5-r2')).toBe(false);
+    expect(satisfiesMinimum('2.8.5-r2', '2.8.5-r2')).toBe(true);
   });
 });
 
