@@ -6153,7 +6153,7 @@
       "backingUp": "Backup in corso",
       "checked": "Ogni servizio controllato",
       "checking": "Controllo di ogni servizio",
-      "didNotStart": "Installazione · un servizio non è partito",
+      "didNotStart": "Installazione fallita: un servizio non è partito",
       "downloaded": "Scaricato",
       "downloading": "Download in corso",
       "installed": "Installato",
@@ -6175,12 +6175,12 @@
     },
     "welcome": {
       "restarted": "Nebula Home riavviato",
-      "running": "· ogni servizio è attivo",
+      "running": "Ogni servizio è attivo",
       "updated": "Aggiornato a <0>{{version}}</0>",
       "whatsNew": "Novità"
     },
     "restart": {
-      "note": "I servizi stanno ripartendo. Questa pagina si ricollega da sola — non serve ricaricarla.",
+      "note": "I servizi stanno ripartendo. Questa pagina si ricollega da sola appena tornano attivi.",
       "progress": "Riavvio",
       "title": "Riavvio di Nebula Home",
       "usually": "di solito circa 30 s"
@@ -6190,12 +6190,12 @@
       "downloadLog": "Scarica il log",
       "notRestored": "Nebula Home non è riuscito a tornare da solo a <0>{{version}}</0>. Le copie dei suoi dati sono conservate: il log dice dove.",
       "rolledBack": "Non si è perso nulla: Nebula Home è tornato a <0>{{version}}</0> dal backup di un minuto fa, e ogni servizio è attivo.",
-      "title": "L’aggiornamento non è terminato",
+      "title": "L'aggiornamento non è terminato",
       "tryAgain": "Riprova"
     },
     "update": {
       "keepOn": "Tieni acceso il server. Le automazioni si fermano per circa un minuto.",
-      "progress": "Avanzamento dell’aggiornamento",
+      "progress": "Avanzamento dell'aggiornamento",
       "releaseNotes": "Note di rilascio",
       "title": "Aggiornamento di Nebula Home"
     }

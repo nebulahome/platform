@@ -334,7 +334,7 @@ function stepWords(
   return (step) =>
     step.status === 'failed'
       ? step.id === 'installing'
-        ? t('platform.steps.didNotStart', 'Installing · a service did not start')
+        ? t('platform.steps.didNotStart', 'Installing failed: a service did not start')
         : t('platform.steps.notRestored', '{{version}} could not be put back', { version: from })
       : words[step.id][step.status === 'done' ? 0 : 1];
 }
@@ -394,7 +394,7 @@ function WelcomeNote() {
         )}
       </span>
       <span className="text-ui-sm text-foreground-muted">
-        {t('platform.welcome.running', '· every service is running')}
+        {t('platform.welcome.running', 'Every service is running')}
       </span>
       {welcome.kind === 'update' ? (
         <a
@@ -403,7 +403,7 @@ function WelcomeNote() {
           rel="noreferrer"
           className="ml-1.5 text-ui-sm text-primary-hover hover:text-foreground"
         >
-          {t('platform.welcome.whatsNew', 'What’s new')}
+          {t('platform.welcome.whatsNew', "What's new")}
         </a>
       ) : null}
     </div>
@@ -546,7 +546,7 @@ export function PlatformOverlay() {
               <p className="max-w-120 text-subhead leading-normal text-foreground-muted">
                 {t(
                   'platform.restart.note',
-                  'The services are starting again. This page reconnects by itself — no need to reload.',
+                  'The services are starting again. This page reconnects on its own once they are back.',
                 )}
               </p>
             </div>
@@ -561,7 +561,7 @@ export function PlatformOverlay() {
         ) : isFailed ? (
           <div className="flex flex-col items-center gap-2.5">
             <h1 id="platform-title" className="text-display-lg font-semibold">
-              {t('platform.failed.title', 'The update didn’t finish')}
+              {t('platform.failed.title', "The update didn't finish")}
             </h1>
             <p className="max-w-130 text-subhead leading-normal text-foreground-muted">
               {outcome?.status === 'rolled_back' ? (
