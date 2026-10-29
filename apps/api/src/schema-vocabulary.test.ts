@@ -11,7 +11,7 @@
  * own opinion about. The cases below read the migration and compare, so the next one fails here
  * instead of at three in the afternoon.
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -25,6 +25,7 @@ import {
   BACKUP_RUN_KINDS,
   BACKUP_RUN_STATUSES,
   BACKUP_RUN_TRIGGERS,
+  BACKUP_SECTIONS,
   INTEGRATION_STATES,
   SETTINGS,
   WEBHOOK_CALL_OUTCOMES,
@@ -55,7 +56,29 @@ function allowedValues(constraint: string): string[] {
   return [...(clause?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((match) => match[1] ?? '');
 }
 
+/** Every migration in order: a later one may redefine a constraint the first made. */
+const MIGRATIONS_DIR = new URL('../../../packages/db/migrations/', import.meta.url);
+const ALL_MIGRATIONS = readdirSync(MIGRATIONS_DIR)
+  .filter((name) => name.endsWith('.sql'))
+  .sort()
+  .map((name) => readFileSync(new URL(name, MIGRATIONS_DIR), 'utf8'))
+  .join('\n');
+
 describe('the vocabularies the database constrains', () => {
+  it('lets a backup run record every part a backup takes', () => {
+    // The last definition wins: 0004 widened the one 0001 made, after alpha.13 refused backups.
+    const arrays = [
+      ...ALL_MIGRATIONS.matchAll(
+        /CONSTRAINT backup_runs_sections\s+CHECK \(sections <@ ARRAY\[([^\]]*)\]/g,
+      ),
+    ];
+    const allowed = [...(arrays.at(-1)?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map(
+      (match) => match[1] ?? '',
+    );
+
+    expect(allowed.sort()).toEqual([...BACKUP_SECTIONS].sort());
+  });
+
   it.each([
     ['audit_log_actor_type', ACTOR_TYPES],
     ['audit_log_result', AUDIT_RESULTS],

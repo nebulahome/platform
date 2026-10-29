@@ -11,11 +11,12 @@
  */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
   ConflictError,
+  NotFoundError,
   platformUpdateMarkerSchema,
   platformUpdateOutcomeSchema,
   ValidationError,
@@ -292,6 +293,29 @@ export class PlatformUpdates {
 
       await engine.control(id, 'start');
       logger.info({ version }, 'The updater runs: Nebula Home stops for the update');
+      // An updater that ends while this process still runs gave up before stopping it: nothing
+      // was replaced, so the update is over and the pages stop waiting for it. A wait cut short
+      // is this process stopping for the update - unless the updater is already gone.
+      const begun = this.#operation?.startedAt ?? new Date();
+
+      void engine
+        .wait(id)
+        .catch(async () =>
+          engine.inspectContainer(id).then(
+            () => null,
+            (error: unknown) => (error instanceof NotFoundError ? -1 : null),
+          ),
+        )
+        .then(async (code) => {
+          if (code === null) {
+            return;
+          }
+
+          logger.error({ version, code }, 'The updater ended without replacing Nebula Home');
+          await this.#recordGivenUp(version, code, begun);
+          this.#isUpdating = false;
+          this.#announce(null);
+        });
     } catch (error: unknown) {
       this.#isUpdating = false;
       this.#announce(null);
@@ -387,6 +411,40 @@ export class PlatformUpdates {
   #announce(operation: PlatformOperation | null): void {
     this.#operation = operation;
     this.#options.publish({ operation });
+  }
+
+  /**
+   * Says why an update ended before it began, unless its updater already did: one that stopped
+   * at once - a new version wanting what this one does not give it - writes nothing.
+   *
+   * @param version - The release.
+   * @param code - How the updater exited; -1 when it was already gone.
+   * @param startedAt - When the update began.
+   */
+  async #recordGivenUp(version: string, code: number, startedAt: Date): Promise<void> {
+    const last = await this.#lastUpdate();
+
+    if (last !== null && last.toVersion === version && last.finishedAt >= startedAt) {
+      return;
+    }
+
+    const outcome: PlatformUpdateOutcome = {
+      fromVersion: this.#options.version,
+      toVersion: version,
+      status: 'failed',
+      finishedAt: new Date(),
+      error: `The updater stopped (exit code ${String(code)}) before replacing anything: ${this.#options.version} still runs, unchanged`,
+      log: [],
+      restoredInMs: null,
+    };
+    const folder = path.join(this.#options.dataRoot, 'updates');
+
+    try {
+      await mkdir(folder, { recursive: true });
+      await writeFile(path.join(folder, 'last.json'), `${JSON.stringify(outcome, null, 2)}\n`);
+    } catch (error: unknown) {
+      this.#options.logger.error({ err: error }, 'Could not write how the update ended');
+    }
   }
 
   /**

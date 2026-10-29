@@ -192,7 +192,9 @@ The supervisor runs inside the platform's container and cannot replace it, so:
    image with the reference the old container uses (so compose sees no change), stops the old
    container (45 s grace), copies the `/data` and PostgreSQL mounts (volume or host folder) into
    the volumes `nebulahome-pre-<old version>-data` and `-postgres`, and creates the new container
-   like the old one (`apps/supervisor/src/domain/recreate.ts`).
+   like the old one (`apps/supervisor/src/domain/recreate.ts`), without the old `NEBULA_VERSION`.
+   Before starting it, it checks that the new container says `NEBULA_VERSION=<new version>`; one
+   still of the old version is an update that did not happen, and is undone like a failure.
 4. It waits up to 5 minutes for Docker's health check to say healthy. On success it removes the
    old container and the copies. On failure it removes the new container, copies the volumes back,
    retags the old image and starts the old container again.
@@ -200,7 +202,18 @@ The supervisor runs inside the platform's container and cannot replace it, so:
    version did not start, its last 50 log lines (`log`), and how long putting the old one back took
    (`restoredInMs`); the page shows a failed one. While it works the updater keeps a marker,
    `/data/updates/current.json` (`{fromVersion, toVersion, startedAt}`), which the outcome removes:
-   the version that comes up reads it and says the update is being checked.
+   the version that comes up reads it and says the update is being checked. When the updater
+   cannot even read the platform's container, nothing is touched and it writes a `failed` outcome.
+6. An updater that exits while the supervisor still runs gave up before stopping it (one of a new
+   version that wants what this one does not pass it exits at once). The supervisor then writes a
+   `failed` outcome unless the updater wrote one, stops refusing updates, and tells the pages the
+   update is over, so the screen goes and Maintenance shows why. The round's row for Nebula Home
+   says "Update started", never "Updated": a row still there means it did not restart.
+
+Checked live on 2026-10-29 with a throwaway container: alpha.14 updated to alpha.15 by alpha.15's
+updater came up as alpha.15 (image, `NEBULA_VERSION`, every service's `/healthz`). A house built
+from source with `docker compose up --build` (`pnpm docker:up`) rebuilds `latest` and goes back
+to the version in the working tree, whatever it was updated to.
 
 Without the Docker socket, or outside the container (`pnpm dev`), Update is refused with the
 reason.

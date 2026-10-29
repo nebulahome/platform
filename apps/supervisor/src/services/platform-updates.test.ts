@@ -89,6 +89,65 @@ describe('PlatformUpdates', () => {
     expect(told).toHaveLength(3);
   });
 
+  it('stops waiting, and says why, when the updater ends without having replaced it', async () => {
+    const dataRoot = await mkdtemp(path.join(os.tmpdir(), 'nebula-'));
+    const told: PlatformEvent[] = [];
+    let exit: (code: number) => void = () => undefined;
+    const engine = {
+      pull: vi.fn(async () => Promise.resolve()),
+      inspectImage: vi.fn(async () =>
+        Promise.resolve({
+          Config: { Labels: { 'org.opencontainers.image.version': '2026.11.0' } },
+        }),
+      ),
+      createContainer: vi.fn(async () => Promise.resolve('updater-id')),
+      control: vi.fn(async () => Promise.resolve()),
+      wait: vi.fn(
+        async () =>
+          new Promise<number>((resolve) => {
+            exit = resolve;
+          }),
+      ),
+    } as unknown as DockerEngine;
+    const platform = new PlatformUpdates({
+      engine,
+      logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } as unknown as PlatformLogger,
+      version: '2026.10.1',
+      dataRoot,
+      socketPath: '/var/run/docker.sock',
+      isDockerAvailable: () => true,
+      self: () =>
+        ({
+          Id: 'self',
+          Config: { Image: 'nebulahome/platform:latest' },
+          Mounts: [
+            { Type: 'volume', Name: 'data', Destination: dataRoot },
+            { Type: 'bind', Source: '/var/run/docker.sock', Destination: '/var/run/docker.sock' },
+          ],
+        }) as unknown as InspectedContainer,
+      machine: () => null,
+      publish: (event) => {
+        told.push(event);
+      },
+      fetch: vi.fn(async () => Promise.reject(new Error('offline'))),
+    });
+
+    await platform.update('2026.11.0');
+
+    expect(told.at(-1)?.operation?.phase).toBe('installing');
+    await expect(platform.update('2026.11.0')).rejects.toThrow(/An update is running/u);
+
+    exit(1);
+
+    await vi.waitFor(() => {
+      expect(told.at(-1)).toEqual({ operation: null });
+    });
+    await expect(platform.releases(false)).resolves.toMatchObject({
+      refusal: null,
+      lastUpdate: { status: 'failed', toVersion: '2026.11.0' },
+    });
+  });
+
   it("says an update is being checked while the updater's marker is there", async () => {
     const dataRoot = await mkdtemp(path.join(os.tmpdir(), 'nebula-'));
     const { platform } = platformOver(dataRoot);

@@ -26,7 +26,7 @@ import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { LiveClient } from '@/live/live-client';
 import { useLive } from '@/live/live-store';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
-import { fetchPlatformState } from '@/settings/updates-api';
+import { fetchPlatformState, UPDATES_QUERY_KEY } from '@/settings/updates-api';
 import { usePlatform } from '@/system/platform-store';
 
 /**
@@ -123,6 +123,11 @@ export function useLiveChannel(): void {
         if (message.type === 'platform_event') {
           // Nebula Home restarts or updates: every page shows it, whoever started it.
           usePlatform.getState().follow(message.payload.operation);
+
+          if (message.payload.operation === null) {
+            // It ended or gave up without a restart: Maintenance says how at once.
+            void queryClient.invalidateQueries({ queryKey: UPDATES_QUERY_KEY });
+          }
         }
 
         if (message.type === 'backup_event') {

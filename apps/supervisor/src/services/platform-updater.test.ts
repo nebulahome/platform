@@ -37,9 +37,13 @@ const OLD = {
  * A Docker that records what it is asked, whose new container ends up as said.
  *
  * @param health - The new container's health.
+ * @param says - The version the new container is of, as its image sets it.
  * @returns The engine and the calls.
  */
-function engineWith(health: 'healthy' | 'unhealthy'): {
+function engineWith(
+  health: 'healthy' | 'unhealthy',
+  says = '2026.11.0',
+): {
   engine: PlatformUpdateOptions['engine'];
   calls: string[];
 } {
@@ -50,7 +54,12 @@ function engineWith(health: 'healthy' | 'unhealthy'): {
       Promise.resolve(
         id === 'old-id'
           ? OLD
-          : { ...OLD, Id: id, State: { Status: 'running', Health: { Status: health } } },
+          : {
+              ...OLD,
+              Id: id,
+              Config: { ...OLD.Config, Env: [`NEBULA_VERSION=${says}`] },
+              State: { Status: 'running', Health: { Status: health } },
+            },
       ),
     ),
     inspectImage: vi.fn(async () =>
@@ -115,11 +124,12 @@ function engineWith(health: 'healthy' | 'unhealthy'): {
  * Runs an update against a Docker whose new container ends up as said.
  *
  * @param health - The new container's health.
+ * @param says - The version the new container is of.
  * @returns How it ended, what Docker was asked, and the outcome written.
  */
-async function run(health: 'healthy' | 'unhealthy') {
+async function run(health: 'healthy' | 'unhealthy', says?: string) {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), 'nebula-update-'));
-  const { engine, calls } = engineWith(health);
+  const { engine, calls } = engineWith(health, says);
   const outcome = await updatePlatform({
     engine,
     logger,
@@ -190,5 +200,38 @@ describe('updatePlatform', () => {
       'drop nebulahome-pre-2026.10.1-data',
       'drop nebulahome-pre-2026.10.1-postgres',
     ]);
+  });
+
+  it('never starts a new container that is still the old version, and puts the old one back', async () => {
+    const { outcome, calls } = await run('healthy', '2026.10.1');
+
+    expect(outcome.status).toBe('rolled_back');
+    expect(outcome.error).toBe('The new container is 2026.10.1, not 2026.11.0');
+    expect(calls).not.toContain('start new-id');
+    expect(calls).toContain('start old-id');
+  });
+
+  it('changes nothing and says so when the platform cannot be read', async () => {
+    const dataDir = await mkdtemp(path.join(os.tmpdir(), 'nebula-update-'));
+    const { engine, calls } = engineWith('healthy');
+
+    vi.mocked(engine.inspectContainer).mockRejectedValueOnce(new Error('socket hung up'));
+
+    const outcome = await updatePlatform({
+      engine,
+      logger,
+      targetId: 'old-id',
+      image: 'nebulahome/platform:2026.11.0',
+      fromVersion: '2026.10.1',
+      toVersion: '2026.11.0',
+      dataDir,
+    });
+
+    expect(outcome).toMatchObject({ status: 'failed', toVersion: '2026.11.0' });
+    expect(outcome.error).toMatch(/socket hung up/u);
+    expect(calls).toEqual([]);
+    expect(
+      JSON.parse(await readFile(path.join(dataDir, 'updates', 'last.json'), 'utf8')),
+    ).toMatchObject({ status: 'failed' });
   });
 });

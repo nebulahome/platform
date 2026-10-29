@@ -451,7 +451,12 @@ export function MaintenanceSettings() {
                   {
                     pending: t('settingsMaintenance.status.pending', 'Waiting'),
                     running: t('settingsMaintenance.status.running', 'Updating…'),
-                    done: t('settingsMaintenance.status.done', 'Updated'),
+                    // Nebula Home's is done once the updater starts; a row still here after
+                    // that means it did not restart, and the card below says why.
+                    done:
+                      entry.item.kind === 'core'
+                        ? t('settingsMaintenance.status.coreStarted', 'Update started')
+                        : t('settingsMaintenance.status.done', 'Updated'),
                     failed: t('settingsMaintenance.status.failed', 'Failed'),
                     skipped: t('settingsMaintenance.status.skipped', 'Skipped'),
                   }[entry.status]

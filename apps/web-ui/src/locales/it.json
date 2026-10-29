@@ -6130,7 +6130,8 @@
       "failed": "Non riuscito",
       "pending": "In attesa",
       "running": "Aggiornamento…",
-      "skipped": "Saltato"
+      "skipped": "Saltato",
+      "coreStarted": "Aggiornamento avviato"
     },
     "system": "Sistema",
     "time": "Orario",

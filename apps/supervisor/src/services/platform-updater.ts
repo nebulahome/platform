@@ -4,6 +4,8 @@
  * replaced, so it cannot do this itself.
  *
  * The new image is tagged with the reference the old container runs, so compose sees no change.
+ * The new container must say it is the version asked for before it is started: a container that
+ * comes up healthy on the old version is an update that did not happen, and is undone.
  * The old container is stopped and its data and database volumes copied aside, because the new
  * version migrates the database and the old one refuses a database newer than itself. The new
  * container is made like the old (`domain/recreate.ts`) and must turn healthy; if it does not,
@@ -28,6 +30,9 @@ import { planRecreate } from '../domain/recreate.js';
 
 /** The folders whose volumes are copied aside: what a migration or the new version changes. */
 export const SNAPSHOT_FOLDERS = ['/data', '/var/lib/postgresql/data'] as const;
+
+/** The variable every service reads its version from, set by the image. */
+const VERSION_ENV = 'NEBULA_VERSION';
 
 /** Longer than the services' own shutdown, and PostgreSQL's after them (docker-compose.yml). */
 export const PLATFORM_STOP_GRACE_SECONDS = 45;
@@ -229,10 +234,6 @@ export async function updatePlatform(
 ): Promise<PlatformUpdateOutcome> {
   const { engine, logger } = options;
   const now = options.now ?? ((): Date => new Date());
-  const old = await engine.inspectContainer(options.targetId);
-  const oldImage = await engine.inspectImage(old.Image);
-  const reference = old.Config.Image;
-  const name = old.Name.replace(/^\//, '');
   const snapshots: Snapshot[] = [];
   const log: string[] = [];
   let created: string | null = null;
@@ -281,6 +282,27 @@ export async function updatePlatform(
     logger.warn({ err: error }, 'Could not leave the marker of the update');
   });
 
+  let old: InspectedContainer;
+  let oldImage: Awaited<ReturnType<typeof engine.inspectImage>>;
+
+  try {
+    old = await engine.inspectContainer(options.targetId);
+    oldImage = await engine.inspectImage(old.Image);
+  } catch (error: unknown) {
+    // Nothing was touched yet: the old version still runs, and the page is told why.
+    logger.error({ err: error }, "Could not read the platform's container");
+
+    return done(
+      'failed',
+      `Nothing was changed: the platform's container could not be read: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  const reference = old.Config.Image;
+  const name = old.Name.replace(/^\//, '');
+
   try {
     await engine.tagImage(options.image, reference);
     step(`Tagged ${options.image} as ${reference}`);
@@ -312,12 +334,25 @@ export async function updatePlatform(
     }
 
     const plan = planRecreate(old, oldImage, reference);
+    const env = Array.isArray(plan.body['Env']) ? (plan.body['Env'] as string[]) : [];
+
+    // The version is the image's to say: one carried over would name the old one.
+    plan.body['Env'] = env.filter((entry) => !entry.startsWith(`${VERSION_ENV}=`));
 
     aside = `${name}-nebula-old-${Date.now().toString(36)}`;
     await engine.renameContainer(old.Id, aside);
     created = await engine.createContainer(name, plan.body);
 
     const id = created;
+    const says = (await engine.inspectContainer(id)).Config.Env.find((entry) =>
+      entry.startsWith(`${VERSION_ENV}=`),
+    );
+
+    if (says !== `${VERSION_ENV}=${options.toVersion}`) {
+      throw new Error(
+        `The new container is ${says?.slice(VERSION_ENV.length + 1) ?? 'of no version'}, not ${options.toVersion}`,
+      );
+    }
 
     await Promise.all(
       plan.networks.map(async (network) =>
