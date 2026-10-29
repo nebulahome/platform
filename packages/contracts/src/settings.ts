@@ -225,7 +225,8 @@ export const SETTINGS = [
   {
     key: 'backup.sections',
     schema: backupSectionsSchema,
-    defaultValue: { history: true, packages: true, containers: true },
+    // As 0001 seeds it: the schema reads a missing `containers` as true.
+    defaultValue: { history: true, packages: true },
     description: 'Which of the optional parts a backup takes; the configuration is always taken',
   },
   {
