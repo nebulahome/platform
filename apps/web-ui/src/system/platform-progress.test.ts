@@ -123,6 +123,32 @@ describe('an update', () => {
     expect(stepsOf(watched())[1]?.bytes).toBe(84_000_000);
   });
 
+  it('shows the backup running before the download', () => {
+    const { follow } = usePlatform.getState();
+    const backingUp = operation({ phase: 'backingUp', percent: null, downloadBytes: null });
+
+    follow({ ...backingUp, backupBytes: null });
+
+    expect(percentOf(watched())).toBe(5);
+    expect(
+      stepsOf(watched())
+        .slice(0, 2)
+        .map((step) => [step.id, step.status]),
+    ).toEqual([
+      ['backedUp', 'running'],
+      ['downloaded', 'pending'],
+    ]);
+
+    follow(backingUp);
+
+    expect(stepsOf(watched())[0]?.status).toBe('done');
+
+    follow(operation({ percent: 0 }));
+
+    expect(watched().stage).toBe('downloading');
+    expect(percentOf(watched())).toBe(10);
+  });
+
   it('lists the old version restored when it did not finish', () => {
     const { follow, fail } = usePlatform.getState();
 

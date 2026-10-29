@@ -47,6 +47,9 @@ export const SUPERVISOR_METHODS = {
   /** Updates Nebula Home to a release, through a throwaway updater container. */
   updatePlatform: 'update_platform',
 
+  /** Shows every page an update of Nebula Home coming, while the backup before it runs. */
+  announcePlatformUpdate: 'announce_platform_update',
+
   /** Restarts the platform's own container. */
   restartPlatform: 'restart_platform',
 

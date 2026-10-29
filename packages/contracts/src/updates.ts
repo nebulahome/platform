@@ -146,10 +146,24 @@ export const updatePlatformRequestSchema = z.strictObject({
 });
 
 /**
- * Where a restart or an update of Nebula Home is: its services stopping, the new version
- * downloading, the updater replacing the container, the new version being checked.
+ * `svc.supervisor.announce_platform_update`: an update of Nebula Home coming, while the round's
+ * backup runs first, so every page shows it from the start. A null version takes it back: the
+ * round ended before it reached Nebula Home.
+ */
+export const announcePlatformUpdateRequestSchema = z.strictObject({
+  version: z.string().min(1).max(64).nullable(),
+
+  /** The backup's size once it was taken or reused; null while it runs. */
+  backupBytes: z.int().nonnegative().nullable().default(null),
+});
+
+/**
+ * Where a restart or an update of Nebula Home is: the backup before an update, its services
+ * stopping, the new version downloading, the updater replacing the container, the new version
+ * being checked.
  */
 export const PLATFORM_OPERATION_PHASES = [
+  'backingUp',
   'stopping',
   'downloading',
   'installing',

@@ -245,9 +245,13 @@ export class UpdateRunner {
    */
   async #work(round: UpdateRound, requestedBy: Requester): Promise<void> {
     const { logger } = this.#options;
+    const core = round.items.find((entry) => entry.item.kind === 'core');
 
     try {
-      round.backup = await this.#backupFirst(requestedBy);
+      round.backup = await this.#backupFirst(
+        requestedBy,
+        core?.item.kind === 'core' ? core.item.version : null,
+      );
 
       if (round.backup === 'failed') {
         for (const entry of round.items) {
@@ -272,6 +276,11 @@ export class UpdateRunner {
     } catch (error: unknown) {
       logger.error({ err: error }, 'A round of updates stopped');
     } finally {
+      // The pages were shown the update coming; it never started.
+      if (core !== undefined && core.status !== 'done') {
+        await this.#announceCore(null, null);
+      }
+
       round.status = round.items.every((entry) => entry.status === 'done') ? 'done' : 'failed';
       round.finishedAt = this.#now();
       logger.info(
@@ -323,14 +332,23 @@ export class UpdateRunner {
    * with every part a backup takes now.
    *
    * @param requestedBy - Who asked, for the backup's record.
+   * @param coreVersion - The release of Nebula Home the round updates to, whose screen every page
+   *   shows from the backup on; null when the round leaves it alone.
    * @returns What was done.
    */
-  async #backupFirst(requestedBy: Requester): Promise<NonNullable<UpdateRound['backup']>> {
+  async #backupFirst(
+    requestedBy: Requester,
+    coreVersion: string | null,
+  ): Promise<NonNullable<UpdateRound['backup']>> {
     const { client, logger } = this.#options;
     const settings = await this.#settings();
 
     if (!settings.backupFirst) {
       return 'off';
+    }
+
+    if (coreVersion !== null) {
+      await this.#announceCore(coreVersion, null);
     }
 
     try {
@@ -340,15 +358,40 @@ export class UpdateRunner {
         backupStatusSchema,
       );
 
-      if (isRecentBackupEnough(status.lastBackup, settings.backupSections, this.#now())) {
-        return 'recent';
+      const done = isRecentBackupEnough(status.lastBackup, settings.backupSections, this.#now())
+        ? 'recent'
+        : (await this.#backUp(requestedBy))
+          ? 'taken'
+          : 'failed';
+
+      if (coreVersion !== null && done !== 'failed') {
+        await this.#announceCore(coreVersion, await this.#lastBackupBytes());
       }
 
-      return (await this.#backUp(requestedBy)) ? 'taken' : 'failed';
+      return done;
     } catch (error: unknown) {
       logger.warn({ err: error }, 'The backup before the updates failed');
 
       return 'failed';
+    }
+  }
+
+  /**
+   * Tells the supervisor to show every page the update of Nebula Home coming, or to take it back.
+   * Never throws: the screen is only a view of the round.
+   *
+   * @param version - The release; null to take it back.
+   * @param backupBytes - The backup's size once taken or reused; null while it runs.
+   */
+  async #announceCore(version: string | null, backupBytes: number | null): Promise<void> {
+    try {
+      await this.#options.client.request(
+        busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.announcePlatformUpdate),
+        { version, backupBytes },
+        supervisorAcknowledgementSchema,
+      );
+    } catch (error: unknown) {
+      this.#options.logger.warn({ err: error }, 'Could not show the pages the update coming');
     }
   }
 

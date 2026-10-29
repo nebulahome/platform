@@ -69,6 +69,26 @@ describe('PlatformUpdates', () => {
     });
   });
 
+  it('shows an update coming while its backup runs, and takes it back', async () => {
+    const { platform, told } = platformOver(await mkdtemp(path.join(os.tmpdir(), 'nebula-')));
+
+    platform.announce('2026.11.0');
+    platform.announce('2026.11.0', 1200);
+    platform.announce(null);
+
+    expect(told).toMatchObject([
+      { operation: { kind: 'update', phase: 'backingUp', backupBytes: null } },
+      { operation: { phase: 'backingUp', backupBytes: 1200 } },
+      { operation: null },
+    ]);
+    expect(told[1]?.operation?.startedAt).toBe(told[0]?.operation?.startedAt);
+
+    // Nothing to take back: no event.
+    platform.announce(null);
+
+    expect(told).toHaveLength(3);
+  });
+
   it("says an update is being checked while the updater's marker is there", async () => {
     const dataRoot = await mkdtemp(path.join(os.tmpdir(), 'nebula-'));
     const { platform } = platformOver(dataRoot);

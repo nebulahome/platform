@@ -10,6 +10,7 @@ import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   ADAPTER_COMMAND_METHOD,
   adapterCommandSchema,
+  announcePlatformUpdateRequestSchema,
   busSubjects,
   composeControlRequestSchema,
   composeDefinitionSchema,
@@ -113,6 +114,15 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
       updatePlatformRequestSchema,
       async (request) => {
         await service.platform.update(request.version, request.backupBytes);
+
+        return ok;
+      },
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.announcePlatformUpdate),
+      announcePlatformUpdateRequestSchema,
+      (request) => {
+        service.platform.announce(request.version, request.backupBytes);
 
         return ok;
       },

@@ -147,6 +147,47 @@ export class PlatformUpdates {
   }
 
   /**
+   * Shows every page an update coming while the round's backup runs, or takes that back.
+   *
+   * @param version - The release; null once the round ended before it reached Nebula Home.
+   * @param backupBytes - The backup's size once taken or reused; null while it runs.
+   * @throws {ValidationError} For a version that is not a release's.
+   */
+  public announce(version: string | null, backupBytes: number | null = null): void {
+    const current = this.#operation;
+
+    if (this.#isUpdating) {
+      return;
+    }
+
+    if (version === null) {
+      if (current?.phase === 'backingUp') {
+        this.#announce(null);
+      }
+
+      return;
+    }
+
+    if (!RELEASE_VERSION.test(version)) {
+      throw new ValidationError(`${version} is not a release of Nebula Home`);
+    }
+
+    this.#announce({
+      kind: 'update',
+      phase: 'backingUp',
+      fromVersion: this.#options.version,
+      toVersion: version,
+      percent: null,
+      backupBytes,
+      downloadBytes: null,
+      startedAt:
+        current?.phase === 'backingUp' && current.toVersion === version
+          ? current.startedAt
+          : new Date(),
+    });
+  }
+
+  /**
    * Updates Nebula Home: pulls the release's image and starts the updater from it.
    *
    * @param version - The release.
@@ -173,6 +214,7 @@ export class PlatformUpdates {
     const image = `${repository}:${version}`;
 
     const tracker = new PullProgressTracker();
+    const announced = this.#operation;
     let toldAt = 0;
 
     this.#isUpdating = true;
@@ -184,7 +226,11 @@ export class PlatformUpdates {
       percent: null,
       backupBytes,
       downloadBytes: null,
-      startedAt: new Date(),
+      // Begun with the backup, when the round announced it.
+      startedAt:
+        announced?.phase === 'backingUp' && announced.toVersion === version
+          ? announced.startedAt
+          : new Date(),
     });
 
     try {

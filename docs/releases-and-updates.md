@@ -221,9 +221,12 @@ A restart or an update of Nebula Home takes over **every signed-in page**, whoev
 
 - **What the server says.** The supervisor keeps the operation under way and publishes it on
   `nebula.v1.event.platform` (`{operation}`, `platformOperationSchema`): a restart `stopping`
-  before `docker restart`; an update `downloading` with the pull's real percentage and size
+  before `docker restart`; an update `backingUp` while the round's backup runs (the packet-manager
+  asks for it, `announce_platform_update`, before the backup and again with its size, and takes it
+  back if the round never reaches Nebula Home), `downloading` with the pull's percentage and size
   (`PullProgressTracker`, at most once a second), then `installing` as the updater starts; null when
-  it gave up. `api` forwards it as `platform_event` on the WebSocket topic `system`, to every socket
+  it gave up. The percentage never goes back: Docker says a layer's size only once it starts
+  downloading it, so a layer still waiting counts as one of average size. `api` forwards it as `platform_event` on the WebSocket topic `system`, to every socket
   without a permission. `GET /api/v1/system/platform` (any signed-in user) answers
   `{version, machine, operation, lastUpdate}` from the supervisor's `platform_state`; the page reads it
   each time the live channel connects, so one opened mid-way still shows the screen. The packet-manager
@@ -233,10 +236,11 @@ A restart or an update of Nebula Home takes over **every signed-in page**, whoev
   for an update the outcome in `lastUpdate` (success, or rolled back / failed) and for a restart the
   live channel back. The steps and their durations are those moments: restart - automations paused,
   state saved (server gone), services starting (server back), devices reconnecting (live channel);
-  update - backed up (size), downloaded (size), installing, restarting the services, checking every
-  service. The update's bar is the download's real share (10-60 %), then a step at a time.
-- **The transition.** The page behind blurs, dims and shrinks (`.app-stage-back`), the sidebar's mark
-  flies to the middle, the mark turns slowly and its core breathes while the server is away. A
+  update - backing up / backed up (size), downloaded (size), installing, restarting the services,
+  checking every service. The update's bar is 5 % while the backup runs, the download's share
+  (10-60 %), then a step at a time.
+- **The transition.** The page behind blurs, dims and shrinks (`.app-stage-back`), the mark
+  appears in the middle out of a blur, turns slowly and its core breathes while the server is away. A
   restart's screen fades out and the page reads everything again; an update reloads the page (the
   interface is new) and says "Updated to X" for six seconds. Less motion (the preference or the
   system's) stops the animations.

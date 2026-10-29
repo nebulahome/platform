@@ -4,7 +4,7 @@
  * docs/releases-and-updates.md 4).
  *
  * Whoever started it, every open page is taken over: the page steps back - blurred, dimmed, a
- * little smaller - the sidebar's mark flies to the middle and keeps turning while the server is
+ * little smaller - the mark appears in the middle and keeps turning while the server is
  * away, and the steps tick off as the page sees them happen (`system/platform-progress.ts`). Once
  * Nebula Home answers again the screen goes and a note says so; after an update the page loads
  * again first, since the interface itself is new. An update that did not finish says so, with the
@@ -178,30 +178,20 @@ export function PlatformStage(props: { readonly children: ReactNode }) {
  * @returns The mark.
  */
 function Mark(props: { readonly isFailed: boolean }) {
-  const flying = useRef<HTMLSpanElement>(null);
+  const mark = useRef<HTMLSpanElement>(null);
   const isReduced = useReducedMotion();
 
-  // It comes from the sidebar's mark, growing as it flies to the middle.
+  // It appears where it stays, growing out of a blur.
   useEffect(() => {
-    const element = flying.current;
-    const from = document.querySelector('[data-nebula-mark] svg')?.getBoundingClientRect();
+    const element = mark.current;
 
-    if (element === null || from === undefined || props.isFailed || isReduced) {
+    if (element === null || props.isFailed || isReduced) {
       return;
     }
 
-    const to = element.getBoundingClientRect();
-    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
-    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
-
     element.animate(
-      [
-        {
-          transform: `translate(${String(dx)}px, ${String(dy)}px) scale(${String(from.width / to.width)})`,
-        },
-        { transform: 'none' },
-      ],
-      { duration: 500, delay: 200, easing: 'cubic-bezier(0.34, 1.4, 0.64, 1)', fill: 'backwards' },
+      [{ opacity: 0, transform: 'scale(0.6)', filter: 'blur(8px)' }, { transform: 'none' }],
+      { duration: 600, delay: 150, easing: 'cubic-bezier(0.34, 1.4, 0.64, 1)', fill: 'backwards' },
     );
   }, [props.isFailed, isReduced]);
 
@@ -220,7 +210,7 @@ function Mark(props: { readonly isFailed: boolean }) {
           />
         </>
       )}
-      <span ref={flying} className="relative">
+      <span ref={mark} className="relative">
         <Logo size={112} isWorking={!props.isFailed} tone={props.isFailed ? 'danger' : 'primary'} />
       </span>
     </div>

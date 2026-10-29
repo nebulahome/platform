@@ -16,6 +16,7 @@ import type { PlatformOperation, PlatformUpdateOutcome } from '@nebulahome/contr
 
 /** How far the page has seen an operation go, in order. */
 export const PLATFORM_STAGES = [
+  'backingUp',
   'stopping',
   'downloading',
   'installing',

@@ -121,10 +121,13 @@ function restartSteps(watch: PlatformWatch): PlatformStep[] {
  */
 function updateSteps(watch: PlatformWatch): PlatformStep[] {
   const { stage, operation, outcome } = watch;
+  // Shown while the backup runs; afterwards only when there was one.
   const backup: PlatformStep[] =
-    operation.backupBytes === null
-      ? []
-      : [{ id: 'backedUp', status: 'done', ms: null, bytes: operation.backupBytes }];
+    operation.backupBytes !== null
+      ? [{ id: 'backedUp', status: 'done', ms: null, bytes: operation.backupBytes }]
+      : stage === 'backingUp'
+        ? [{ id: 'backedUp', status: 'running', ms: null, bytes: null }]
+        : [];
   const downloaded: PlatformStep = {
     id: 'downloaded',
     status: statusAt(stage, 'downloading', 'installing'),
@@ -166,7 +169,8 @@ export function stepsOf(watch: PlatformWatch): PlatformStep[] {
 }
 
 /**
- * How full the update's bar is: the download's real share of it, then a step at a time.
+ * How full the update's bar is: the backup, the download's real share of it, then a step at a
+ * time.
  *
  * @param watch - What the page has seen.
  * @returns A whole percentage; null for a restart, whose bar only sweeps.
@@ -177,6 +181,9 @@ export function percentOf(watch: PlatformWatch): number | null {
   }
 
   switch (watch.stage) {
+    case 'backingUp': {
+      return watch.operation.backupBytes === null ? 5 : 10;
+    }
     case 'stopping':
     case 'downloading': {
       return 10 + Math.floor((watch.operation.percent ?? 0) / 2);

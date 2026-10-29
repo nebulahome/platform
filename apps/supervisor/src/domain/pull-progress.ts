@@ -3,9 +3,11 @@
  *
  * Each layer reports on its own - `Downloading` with the bytes so far and its size, then
  * `Extracting`, then `Pull complete` - so the whole is the bytes of every layer seen so far over
- * their sizes. A layer already on the machine never reports a size and is not counted. The
- * figure stays below a hundred until the pull has ended, since a layer not yet announced could
- * still be large.
+ * their sizes. A layer already on the machine never reports a size and is not counted. Docker
+ * names every layer at the start but says a layer's size only once it starts downloading it, so a
+ * layer still waiting counts as one of average size, and the figure never goes back: a large layer
+ * starting late would otherwise pull the bar down. It stays below a hundred until the pull has
+ * ended.
  */
 import type { PullProgress } from '../docker/engine-schemas.js';
 
@@ -15,6 +17,7 @@ type Layer = { current: number; total: number; isDone: boolean };
 /** Follows one pull. */
 export class PullProgressTracker {
   readonly #layers = new Map<string, Layer>();
+  #highest: number | null = null;
 
   /**
    * Takes in one line of progress.
@@ -22,7 +25,8 @@ export class PullProgressTracker {
    * @param progress - The line.
    */
   public add(progress: PullProgress): void {
-    if (progress.id === undefined) {
+    // `Pulling from <repository>` carries the tag as its id: it is no layer.
+    if (progress.id === undefined || progress.status?.startsWith('Pulling from') === true) {
       return;
     }
 
@@ -55,13 +59,28 @@ export class PullProgressTracker {
   public percent(): number | null {
     let current = 0;
     let total = 0;
+    let sized = 0;
+    let waiting = 0;
 
     for (const layer of this.#layers.values()) {
-      current += layer.current;
-      total += layer.total;
+      if (layer.total > 0) {
+        current += layer.current;
+        total += layer.total;
+        sized += 1;
+      } else if (!layer.isDone) {
+        waiting += 1;
+      }
     }
 
-    return total === 0 ? null : Math.min(99, Math.floor((current / total) * 100));
+    if (total === 0) {
+      return this.#highest;
+    }
+
+    const whole = total + (waiting * total) / sized;
+
+    this.#highest = Math.max(this.#highest ?? 0, Math.min(99, Math.floor((current / whole) * 100)));
+
+    return this.#highest;
   }
 
   /**
