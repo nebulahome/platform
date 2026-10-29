@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/contracts",
-  "version": "2026.10.0-alpha.17",
+  "version": "2026.10.0-alpha.18",
   "private": true,
   "type": "module",
   "sideEffects": false,
