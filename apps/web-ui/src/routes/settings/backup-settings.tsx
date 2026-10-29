@@ -116,6 +116,13 @@ const OPTIONAL_SECTIONS: readonly {
       'The installed feature packages and what they keep',
     ),
   },
+  {
+    key: 'containers',
+    note: defineMessage(
+      'backup.sectionNotes.containers',
+      'The folders and volumes of the containers Nebula runs',
+    ),
+  },
 ];
 
 /**
@@ -402,7 +409,7 @@ export function BackupSettings() {
   const sectionsParsed = backupSectionsSchema.safeParse(shown(KEYS.sections));
   const sections: BackupSections = sectionsParsed.success
     ? sectionsParsed.data
-    : { history: true, packages: true };
+    : { history: true, packages: true, containers: true };
   const scheduleParsed = backupScheduleSchema.safeParse(shown(KEYS.schedule));
   const schedule = scheduleParsed.success ? scheduleParsed.data : DEFAULT_SCHEDULE;
   const frequencyParsed = backupFrequencySchema.safeParse(shown(KEYS.frequency));
@@ -543,6 +550,7 @@ export function BackupSettings() {
           run={progress.shown}
           hasHistory={sections.history}
           hasPackages={sections.packages}
+          hasContainers={sections.containers}
           locationCount={(locations.data ?? []).filter((location) => location.isEnabled).length}
           onDismiss={progress.dismiss}
         />
@@ -802,17 +810,22 @@ export function BackupSettings() {
           {estimates?.basis === 'last-backup'
             ? t(
                 'backup.estimateLast',
-                'The sizes are an estimate, not what an archive will weigh: they are worked out from what is stored now and the last backup. Every backup is full, and encrypted with the backup key.',
+                'Sizes are estimated from what is stored now and from the last backup, so an archive may come out larger or smaller.',
               )
             : t(
                 'backup.estimate',
-                'The sizes are an estimate, not what an archive will weigh: they are worked out from what is stored now. Every backup is full, and encrypted with the backup key.',
+                'Sizes are estimated from what is stored now, so an archive may come out larger or smaller.',
               )}
           {archiveBytes === null
             ? ''
-            : ` ${t('backup.estimateEach', 'About {{size}} each, as chosen.', {
-                size: formatBytes(archiveBytes),
-              })}`}
+            : ` ${t(
+                'backup.estimateEach',
+                'With these choices, each backup comes to about {{size}}.',
+                {
+                  size: formatBytes(archiveBytes),
+                },
+              )}`}
+          {` ${t('backup.estimateFull', 'Every backup is a full copy, encrypted with the backup key.')}`}
         </SettingsNote>
       </SettingsSection>
 

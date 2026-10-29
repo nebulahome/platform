@@ -2,7 +2,7 @@
  * How large each part of a backup will be, before one is taken.
  *
  * What is on disk now is the start: the database's parts, table by table without indexes, and the
- * folders byte for byte. A database dump is compressed and carries no index, so it is a fraction
+ * folders byte for byte - not the containers' named volumes, which only a backup measures. A database dump is compressed and carries no index, so it is a fraction
  * of what the tables take; the folders go in as they are. Once a backup has been taken, its own
  * measured parts are the better guide, scaled by how much has grown since. Either way it is an
  * estimate, and the interface says so.
@@ -24,7 +24,11 @@ const CACHE_MS = 10 * 60 * 1000;
 /** What the parts take on disk now. */
 export type OnDisk = {
   readonly database: { readonly configuration: number; readonly history: number };
-  readonly files: { readonly configuration: number; readonly packages: number };
+  readonly files: {
+    readonly configuration: number;
+    readonly packages: number;
+    readonly containers: number;
+  };
 };
 
 /**
@@ -39,16 +43,16 @@ export async function measureOnDisk(adminUrl: string, dataDir: string): Promise<
 
   try {
     const database = await databasePartSizes(sql);
-    const files = { configuration: 0, packages: 0 };
+    const files = { configuration: 0, packages: 0, containers: 0 };
 
     for (const folder of FILE_SECTIONS) {
       // eslint-disable-next-line no-await-in-loop -- three folders, one walk at a time.
       const bytes = await directorySize(path.join(dataDir, folder.path));
 
-      if (folder.section === 'packages') {
-        files.packages += bytes;
-      } else {
+      if (folder.section === 'configuration') {
         files.configuration += bytes;
+      } else if (folder.section !== 'history') {
+        files[folder.section] += bytes;
       }
     }
 
@@ -75,6 +79,7 @@ export function estimateSections(
     configuration: onDisk.database.configuration * DUMP_RATIO + onDisk.files.configuration,
     history: onDisk.database.history * DUMP_RATIO,
     packages: onDisk.files.packages,
+    containers: onDisk.files.containers,
   };
 
   if (last === null) {
@@ -86,6 +91,7 @@ export function estimateSections(
       last.onDisk.database.configuration * DUMP_RATIO + last.onDisk.files.configuration,
     history: last.onDisk.database.history * DUMP_RATIO,
     packages: last.onDisk.files.packages,
+    containers: last.onDisk.files.containers,
   };
   /**
    * One part, scaled from what the last backup measured by how much it has grown.
@@ -93,7 +99,7 @@ export function estimateSections(
    * @param part - The part.
    * @returns The estimate.
    */
-  const scaled = (part: 'configuration' | 'history' | 'packages'): number => {
+  const scaled = (part: keyof typeof fresh): number => {
     const measured = last.sectionBytes[part];
 
     return measured === undefined || measured === 0 || then[part] === 0
@@ -106,6 +112,7 @@ export function estimateSections(
       configuration: scaled('configuration'),
       history: scaled('history'),
       packages: scaled('packages'),
+      containers: scaled('containers'),
     }),
     basis: 'last-backup',
     measuredAt: now,
@@ -119,17 +126,20 @@ export function estimateSections(
  * @param parts.configuration - The configuration's.
  * @param parts.history - The history's.
  * @param parts.packages - The packages'.
+ * @param parts.containers - The containers'.
  * @returns The same, rounded.
  */
 function roundAll(parts: {
   readonly configuration: number;
   readonly history: number;
   readonly packages: number;
-}): { configuration: number; history: number; packages: number } {
+  readonly containers: number;
+}): { configuration: number; history: number; packages: number; containers: number } {
   return {
     configuration: Math.round(parts.configuration),
     history: Math.round(parts.history),
     packages: Math.round(parts.packages),
+    containers: Math.round(parts.containers),
   };
 }
 

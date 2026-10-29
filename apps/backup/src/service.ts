@@ -410,6 +410,7 @@ export class BackupService {
                 files: {
                   configuration: measured['disk_files_configuration'] ?? 0,
                   packages: measured['disk_files_packages'] ?? 0,
+                  containers: measured['disk_files_containers'] ?? 0,
                 },
               },
             },

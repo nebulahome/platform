@@ -15,6 +15,7 @@ const SECTION_NAMES: Readonly<Record<BackupSection, Message>> = {
   configuration: defineMessage('backup.sections.configuration', 'Configuration'),
   history: defineMessage('backup.sections.history', 'History'),
   packages: defineMessage('backup.sections.packages', 'Packages'),
+  containers: defineMessage('backup.sections.containers', 'Containers'),
 };
 
 /**

@@ -141,9 +141,17 @@ export function RestoreDialog(props: RestoreDialogProps) {
               {archive.sections.includes('packages')
                 ? t(
                     'backup.restoreDialog.integrationsAndPackages',
-                    'the installed integrations and the packages.',
+                    'the installed integrations and the packages;',
                   )
-                : t('backup.restoreDialog.integrations', 'the installed integrations.')}
+                : t('backup.restoreDialog.integrations', 'the installed integrations;')}
+            </li>
+            <li>
+              {archive.sections.includes('containers')
+                ? t('backup.restoreDialog.containers', 'the folders and volumes of the containers.')
+                : t(
+                    'backup.restoreDialog.noContainers',
+                    'the containers keep what they have now: this backup was taken without them.',
+                  )}
             </li>
           </ul>
           <p>

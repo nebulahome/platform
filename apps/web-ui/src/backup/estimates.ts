@@ -83,7 +83,8 @@ export function expectedArchiveBytes(
   return (
     estimates.configuration +
     (sections.history ? estimates.history : 0) +
-    (sections.packages ? estimates.packages : 0)
+    (sections.packages ? estimates.packages : 0) +
+    (sections.containers ? estimates.containers : 0)
   );
 }
 

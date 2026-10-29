@@ -380,9 +380,9 @@
     "by": "da {{name}}",
     "cannotLearn": "{{reason}}: alle {{time}} invece.",
     "didNotStart": "Il backup non è partito",
-    "estimate": "Le dimensioni sono una stima, non quanto peserà un archivio: sono calcolate da ciò che è salvato ora. Ogni backup è completo e cifrato con la chiave dei backup.",
-    "estimateEach": "Circa {{size}} ciascuno, con queste scelte.",
-    "estimateLast": "Le dimensioni sono una stima, non quanto peserà un archivio: sono calcolate da ciò che è salvato ora e dall'ultimo backup. Ogni backup è completo e cifrato con la chiave dei backup.",
+    "estimate": "Le dimensioni sono stimate da ciò che è salvato ora, quindi un archivio può venire più grande o più piccolo.",
+    "estimateEach": "Con queste scelte, ogni backup pesa circa {{size}}.",
+    "estimateLast": "Le dimensioni sono stimate da ciò che è salvato ora e dall'ultimo backup, quindi un archivio può venire più grande o più piccolo.",
     "estimateOf": "{{summary}}, stima",
     "folders": {
       "empty": "Qui dentro non ci sono cartelle.",
@@ -548,8 +548,8 @@
       "configuration": "gli utenti e i loro ruoli, i dispositivi, le automazioni e le impostazioni;",
       "history": "la cronologia;",
       "holds": "Contiene: {{sections}}",
-      "integrations": "le integrazioni installate.",
-      "integrationsAndPackages": "le integrazioni installate e i pacchetti.",
+      "integrations": "le integrazioni installate;",
+      "integrationsAndPackages": "le integrazioni installate e i pacchetti;",
       "locationsStay": "Le destinazioni dei backup e le loro impostazioni restano come sono qui. Dopo, tutti devono accedere di nuovo.",
       "noArchive": "Nessun archivio scelto",
       "noHistory": "la cronologia viene svuotata: questo backup è stato fatto senza;",
@@ -557,7 +557,9 @@
       "replaced": "Quello che c'è ora viene sostituito da quello che contiene il backup:",
       "safety": "Prima fai un backup di quello che c'è",
       "safetyNote": "La strada per tornare indietro, se non è quello che volevi.",
-      "title": "Ripristina questo backup"
+      "title": "Ripristina questo backup",
+      "containers": "le cartelle e i volumi dei container.",
+      "noContainers": "i container tengono quello che hanno ora: questo backup è stato fatto senza."
     },
     "restoreEllipsis": "Ripristina…",
     "restoring": "Ripristino…",
@@ -566,12 +568,14 @@
     "sectionNotes": {
       "configuration": "Utenti, dispositivi, automazioni, impostazioni, le integrazioni installate e il certificato. Sempre incluso.",
       "history": "Letture, cambi di stato, tracce delle automazioni e log",
-      "packages": "I pacchetti installati e quello che conservano"
+      "packages": "I pacchetti installati e quello che conservano",
+      "containers": "Le cartelle e i volumi dei container che Nebula esegue"
     },
     "sections": {
       "configuration": "Configurazione",
       "history": "Cronologia",
-      "packages": "Pacchetti"
+      "packages": "Pacchetti",
+      "containers": "Container"
     },
     "started": "iniziato {{when}}",
     "status": {
@@ -598,7 +602,9 @@
       "prepare": "Preparazione",
       "prepareNote": "Spazio e destinazioni",
       "withHistory": "Configurazione e cronologia",
-      "withPackages": "Configurazione e pacchetti"
+      "withPackages": "Configurazione e pacchetti",
+      "withContainers": "Configurazione e container",
+      "withPackagesAndContainers": "Configurazione, pacchetti e container"
     },
     "stop": "Ferma",
     "systemTarget": "backups/ nella directory dei dati",
@@ -621,7 +627,8 @@
     "contents": "Contenuto",
     "alwaysIncluded": "Sempre incluso",
     "showBackups": "Mostra i backup",
-    "quietStretch": ", tranquilla dalle {{from}} alle {{to}}"
+    "quietStretch": ", tranquilla dalle {{from}} alle {{to}}",
+    "estimateFull": "Ogni backup è una copia completa, cifrata con la chiave dei backup."
   },
   "brokers": {
     "card": {

@@ -7,9 +7,11 @@
  * volume, so the largest copy is never made. A location that fails does not stop the others: the
  * run is then `partial`, and the location says why on the Backup page.
  *
- * The named volumes of the containers the platform makes are copied by the supervisor, which
+ * When the backup takes the containers, their named volumes are copied by the supervisor, which
  * alone reaches Docker, into `volumes/` of the same staging folder, and packed with the rest. A
  * copy that fails fails the backup: an archive without them would restore the containers empty.
+ * Left out, the archive has neither their folders nor their volumes, and a restore leaves both
+ * as they are.
  */
 import { createReadStream } from 'node:fs';
 import { mkdir, rename, rm, stat, statfs } from 'node:fs/promises';
@@ -234,7 +236,8 @@ export async function takeBackup(
     const expected =
       (onDisk.database.configuration + (hasHistory ? onDisk.database.history : 0)) * 0.5 +
       onDisk.files.configuration +
-      (run.sections.includes('packages') ? onDisk.files.packages : 0);
+      (run.sections.includes('packages') ? onDisk.files.packages : 0) +
+      (run.sections.includes('containers') ? onDisk.files.containers : 0);
     const room = await statfs(context.backupsDir).catch(() => null);
 
     if (room !== null && room.bavail * room.bsize < expected * 2) {
@@ -265,9 +268,11 @@ export async function takeBackup(
 
     await mkdir(volumesDir, { mode: 0o700 });
 
-    const { volumes } = await context.exportVolumes(
-      path.relative(context.dataDir, volumesDir).split(path.sep).join('/'),
-    );
+    const { volumes } = run.sections.includes('containers')
+      ? await context.exportVolumes(
+          path.relative(context.dataDir, volumesDir).split(path.sep).join('/'),
+        )
+      : { volumes: [] };
     const volumeBytes = volumes.reduce((sum, each) => sum + each.bytes, 0);
     const folders = FILE_SECTIONS.filter((each) => run.sections.includes(each.section));
     const files = await Promise.all(
@@ -290,19 +295,19 @@ export async function takeBackup(
 
     // The dump holds both database parts: each is given its share of it, by what it takes on disk.
     sectionBytes['configuration'] = Math.round(
-      (dumpBytes * onDisk.database.configuration) / databaseTotal +
-        filesOf('configuration') +
-        volumeBytes,
+      (dumpBytes * onDisk.database.configuration) / databaseTotal + filesOf('configuration'),
     );
     sectionBytes['history'] = hasHistory
       ? Math.round((dumpBytes * onDisk.database.history) / databaseTotal)
       : 0;
     sectionBytes['packages'] = filesOf('packages');
+    sectionBytes['containers'] = filesOf('containers') + volumeBytes;
     // What was on disk, which the next estimate scales from.
     sectionBytes['disk_database_configuration'] = onDisk.database.configuration;
     sectionBytes['disk_database_history'] = onDisk.database.history;
     sectionBytes['disk_files_configuration'] = onDisk.files.configuration;
     sectionBytes['disk_files_packages'] = onDisk.files.packages;
+    sectionBytes['disk_files_containers'] = onDisk.files.containers;
 
     const manifest: ArchiveManifest = {
       format: 'nebulahome-backup',
@@ -325,6 +330,7 @@ export async function takeBackup(
         configuration: sectionBytes['configuration'] ?? 0,
         history: sectionBytes['history'] ?? 0,
         packages: sectionBytes['packages'] ?? 0,
+        containers: sectionBytes['containers'] ?? 0,
       },
       instanceKeys: context.instanceKeys,
     };

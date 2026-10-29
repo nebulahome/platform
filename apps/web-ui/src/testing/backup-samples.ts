@@ -68,6 +68,7 @@ export const SAMPLE_STATUS: BackupStatusView = {
     configuration: 48_200_000,
     history: 1_310_000_000,
     packages: 0,
+    containers: 2_400_000,
     basis: 'last-backup',
     measuredAt: new Date(),
   },
@@ -208,7 +209,7 @@ export function backupSampleCache(): QueryClient {
   const settings: SettingsResponse = {
     items: [
       ['backup.enabled', true],
-      ['backup.sections', { history: true, packages: false }],
+      ['backup.sections', { history: true, packages: false, containers: true }],
       ['backup.schedule', { mode: 'quietest', time: '03:00', timezone: 'Europe/Rome' }],
       ['backup.frequency', { mode: 'custom', days: ['monday', 'wednesday', 'friday'] }],
     ].map(([key, value]) => ({

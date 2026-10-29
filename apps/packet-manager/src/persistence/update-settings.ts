@@ -60,7 +60,7 @@ export async function readUpdateSettings(db: Database): Promise<UpdateSettings> 
   const flag = (key: string, fallback: boolean): boolean =>
     z.boolean().catch(fallback).parse(value.get(key));
   const sections = backupSectionsSchema
-    .catch({ history: true, packages: true })
+    .catch({ history: true, packages: true, containers: true })
     .parse(value.get('backup.sections'));
 
   return {
@@ -74,6 +74,7 @@ export async function readUpdateSettings(db: Database): Promise<UpdateSettings> 
       'configuration',
       ...(sections.history ? (['history'] as const) : []),
       ...(sections.packages ? (['packages'] as const) : []),
+      ...(sections.containers ? (['containers'] as const) : []),
     ],
     timezone: z.string().min(1).catch('UTC').parse(value.get('house.timezone')),
   };

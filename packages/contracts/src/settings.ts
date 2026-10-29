@@ -225,7 +225,7 @@ export const SETTINGS = [
   {
     key: 'backup.sections',
     schema: backupSectionsSchema,
-    defaultValue: { history: true, packages: true },
+    defaultValue: { history: true, packages: true, containers: true },
     description: 'Which of the optional parts a backup takes; the configuration is always taken',
   },
   {

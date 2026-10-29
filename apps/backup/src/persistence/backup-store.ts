@@ -36,7 +36,7 @@ export type BackupSettings = {
 /** What the settings are when a row is missing or does not parse: backups off, the defaults. */
 const FALLBACK: BackupSettings = {
   isEnabled: false,
-  sections: { history: true, packages: true },
+  sections: { history: true, packages: true, containers: true },
   schedule: { mode: 'quietest', time: '03:00', timezone: 'UTC' },
   frequency: { mode: 'daily' },
 };
@@ -90,6 +90,7 @@ export function sectionsOf(sections: BackupSections): BackupSection[] {
     'configuration',
     ...(sections.history ? (['history'] as const) : []),
     ...(sections.packages ? (['packages'] as const) : []),
+    ...(sections.containers ? (['containers'] as const) : []),
   ];
 }
 

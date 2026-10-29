@@ -24,20 +24,24 @@ import { timestampSchema } from './timestamp.js';
  *
  * `configuration` - users, devices, automations, settings, the audit log, the installed
  * integrations and the certificate - is always taken: an archive without it restores nothing a
- * person could use. `history` and `packages` are the owner's choice, being the large parts.
+ * person could use. `history`, `packages` and `containers` (the folders and named volumes of the
+ * containers the platform runs) are the owner's choice, being the large parts.
  */
-export const BACKUP_SECTIONS = ['configuration', 'history', 'packages'] as const;
+export const BACKUP_SECTIONS = ['configuration', 'history', 'packages', 'containers'] as const;
 
 /** One part of a backup. */
 export type BackupSection = (typeof BACKUP_SECTIONS)[number];
 
 /** The parts the owner may leave out. */
-export const OPTIONAL_BACKUP_SECTIONS = ['history', 'packages'] as const;
+export const OPTIONAL_BACKUP_SECTIONS = ['history', 'packages', 'containers'] as const;
 
 /** The value of `backup.sections`: which of the optional parts are taken. */
 export const backupSectionsSchema = z.strictObject({
   history: z.boolean(),
   packages: z.boolean(),
+
+  /** Absent from what was saved before it could be chosen, when the containers were always taken. */
+  containers: z.boolean().default(true),
 });
 
 /** Which of the optional parts are taken. */
@@ -556,6 +560,7 @@ export const backupEstimatesSchema = z.object({
   configuration: z.number(),
   history: z.number(),
   packages: z.number(),
+  containers: z.number(),
 
   /**
    * What the figures come from: what is on disk now, or the last backup's measured sizes scaled

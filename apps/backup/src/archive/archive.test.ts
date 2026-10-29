@@ -76,7 +76,7 @@ const MANIFEST: ArchiveManifest = {
     bytes: 11,
   },
   files: [],
-  sectionBytes: { configuration: 1, history: 0, packages: 2 },
+  sectionBytes: { configuration: 1, history: 0, packages: 2, containers: 0 },
   instanceKeys: { secretsKey: '00'.repeat(32), totpKey: null },
 };
 

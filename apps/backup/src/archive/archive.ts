@@ -72,7 +72,7 @@ export const FILE_SECTIONS: readonly FileSection[] = [
   // The broker's usernames: without them every device and container signs in again.
   { section: 'configuration', path: 'hub/mqtt', keepsOwners: false },
   { section: 'configuration', path: 'proxy/tls', keepsOwners: false },
-  { section: 'configuration', path: 'containers', keepsOwners: true },
+  { section: 'containers', path: 'containers', keepsOwners: true },
   { section: 'packages', path: 'packages', keepsOwners: false },
 ];
 

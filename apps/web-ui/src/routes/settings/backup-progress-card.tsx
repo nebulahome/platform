@@ -27,6 +27,7 @@ export type BackupProgressCardProps = {
   /** Whether the backups take the history, and the packages: what the steps say they hold. */
   readonly hasHistory: boolean;
   readonly hasPackages: boolean;
+  readonly hasContainers: boolean;
 
   /** How many locations the archive is written to. */
   readonly locationCount: number;
@@ -44,7 +45,10 @@ export type BackupProgressCardProps = {
  */
 function wordsOf(
   step: BackupStep,
-  props: Pick<BackupProgressCardProps, 'hasHistory' | 'hasPackages' | 'locationCount'>,
+  props: Pick<
+    BackupProgressCardProps,
+    'hasHistory' | 'hasPackages' | 'hasContainers' | 'locationCount'
+  >,
 ): { readonly title: string; readonly note: string } {
   switch (step) {
     case 'prepare': {
@@ -66,9 +70,17 @@ function wordsOf(
     case 'files': {
       return {
         title: translate('backup.steps.files', 'Files'),
-        note: props.hasPackages
-          ? translate('backup.steps.withPackages', 'Configuration and packages')
-          : translate('backup.sections.configuration', 'Configuration'),
+        note:
+          props.hasPackages && props.hasContainers
+            ? translate(
+                'backup.steps.withPackagesAndContainers',
+                'Configuration, packages and containers',
+              )
+            : props.hasPackages
+              ? translate('backup.steps.withPackages', 'Configuration and packages')
+              : props.hasContainers
+                ? translate('backup.steps.withContainers', 'Configuration and containers')
+                : translate('backup.sections.configuration', 'Configuration'),
       };
     }
 
