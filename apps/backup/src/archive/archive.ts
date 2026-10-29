@@ -22,7 +22,7 @@
  * ever extracted from an archive: a path outside that list, absolute, or climbing out with `..`
  * is dropped, whatever the archive says.
  */
-import { createReadStream, createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream, Stats } from 'node:fs';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
@@ -211,6 +211,20 @@ export async function writeArchive(options: WriteArchiveOptions): Promise<{ byte
       cwd: root,
       // Not `portable`: the entries keep their owners, which the containers' folders need back
       // (FILE_SECTIONS). A restore, running as root, extracts them as they were.
+      /**
+       * Keeps files, folders and links only. tar drops a named pipe or a socket - a container's
+       * audio output, say - without a word, and then waits for it forever when more entries
+       * follow it; the program that made it makes it again.
+       *
+       * @param entryPath - The path.
+       * @param stats - What it is.
+       * @returns True to take it.
+       */
+      filter: (entryPath, stats) =>
+        !(stats instanceof Stats) ||
+        stats.isFile() ||
+        stats.isDirectory() ||
+        stats.isSymbolicLink(),
       /**
        * Moves an entry to where it belongs in the archive.
        *

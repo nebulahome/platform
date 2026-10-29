@@ -2,6 +2,7 @@
  * An archive written and opened again: the manifest, the dump and the folders come back where
  * they belong, and nothing an archive may not carry is ever written.
  */
+import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import {
   createReadStream,
@@ -131,6 +132,46 @@ describe('an archive', () => {
     expect(readFileSync(path.join(restored, 'volumes/web_data.tar'), 'utf8')).toBe('a tar');
     expect(() => readFileSync(path.join(restored, 'files/secrets/secrets-key'))).toThrow();
   });
+
+  // mkfifo is Linux's, where the platform runs.
+  it.skipIf(process.platform === 'win32')(
+    'leaves out a named pipe instead of waiting on it',
+    async () => {
+      const data = folder();
+      const staging = folder();
+      const restored = folder();
+
+      put(path.join(data, 'containers/music/state/settings.json'), '{}');
+      execFileSync('mkfifo', [path.join(data, 'containers/music/state/output.pcm')]);
+      // Entries after the pipe are what made tar wait.
+      put(path.join(data, 'packages/music/index.js'), 'code');
+
+      const output = path.join(staging, 'archive.nhbk');
+
+      await writeArchive({
+        output,
+        stagingDir: staging,
+        manifest: MANIFEST,
+        databaseDump: null,
+        dataDir: data,
+        folders: ['containers', 'packages'],
+        backupKey: KEY,
+        keyId: KEY_ID,
+      });
+      await extractArchive({
+        source: createReadStream(output),
+        keyFor: () => KEY,
+        destination: restored,
+      });
+
+      expect(readFileSync(path.join(restored, 'files/packages/music/index.js'), 'utf8')).toBe(
+        'code',
+      );
+      expect(() =>
+        readFileSync(path.join(restored, 'files/containers/music/state/output.pcm')),
+      ).toThrow();
+    },
+  );
 });
 
 describe('isRestorableEntry', () => {
