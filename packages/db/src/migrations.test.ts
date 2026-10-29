@@ -51,6 +51,7 @@ describe('the migration set', () => {
       '0001_initial_schema.sql',
       '0002_modbus_broker.sql',
       '0003_brokers_ir_serial_bt_thread.sql',
+      '0004_backup_containers_section.sql',
     ]);
   });
 
