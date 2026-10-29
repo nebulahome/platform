@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/logging",
-  "version": "2026.10.0-alpha.19",
+  "version": "2026.10.0-alpha.20",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
