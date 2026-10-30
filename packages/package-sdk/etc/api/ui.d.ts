@@ -164,6 +164,23 @@ type RpcOptions = {
   /** False holds the read back. */
   readonly isEnabled?: boolean;
 };
+/** How a live topic is followed. Since 1.5. */
+type LiveOptions = {
+  /** False stops following it. */
+  readonly isEnabled?: boolean;
+};
+/** A live topic of the package's server, as it stands. Since 1.5. */
+type LiveState<TData> = {
+  /** The last message on it: the retained one at first, if there is one; undefined until then. */
+  readonly data: TData | undefined;
+  /** Whether the interface's socket is open: messages sent while it is not are lost. */
+  readonly isConnected: boolean;
+};
+/**
+ * Sends the package's server a message on a topic (`ctx.live.onMessage`), over the interface's
+ * socket; nothing answers it. Since 1.5.
+ */
+type PackageSend = (topic: string, data: JsonValue) => void;
 /** A call of one of the package's methods, on demand. */
 type PackageCall = <TData = JsonValue>(method: string, input?: JsonValue) => Promise<TData>;
 /** How a mutation is made. */
@@ -298,6 +315,32 @@ type PlatformLinkProps = LinkAttributes & {
 type PageActionsProps = {
   readonly children?: ReactNode;
 };
+/** What a toast says. Since 1.4. */
+type ToastMessage = {
+  /** A few words, no full stop. */
+  readonly title: string;
+  /** One or two lines. */
+  readonly message?: string;
+  /** The one thing to do about it; doing it closes the toast. */
+  readonly action?: {
+    readonly label: string;
+    readonly onSelect: () => void;
+  };
+};
+/**
+ * Shows one of the interface's toasts, one function per kind: bottom right, three at a time, the
+ * rest waiting their turn; the same toast twice is shown once. Since 1.4.
+ */
+type Toasts = {
+  /** Confirms what was just done; stays 4 s. */
+  readonly success: (message: ToastMessage) => void;
+  /** Something that needs a look, not right now; stays 8 s. */
+  readonly warning: (message: ToastMessage) => void;
+  /** Something that failed; stays 10 s. */
+  readonly error: (message: ToastMessage) => void;
+  /** Something that started or changed; stays 6 s. */
+  readonly info: (message: ToastMessage) => void;
+};
 /** What the interface lends to implement `/ui`. */
 type UiHost = {
   readonly usePackage: () => PackageInfo;
@@ -332,6 +375,12 @@ type UiHost = {
   readonly PageActions: ComponentType<PageActionsProps>;
   /** Since 1.3. */
   readonly useAreaActions: () => AreaActions;
+  /** Since 1.4. */
+  readonly useToast: () => Toasts;
+  /** Since 1.5. */
+  readonly usePackageLive: <TData = JsonValue>(topic: string, options?: LiveOptions) => LiveState<TData>;
+  /** Since 1.5. */
+  readonly usePackageSend: () => PackageSend;
 };
 //#endregion
 //#region src/ui/index.d.ts
@@ -455,6 +504,30 @@ export declare function useAreas(): readonly AreaView[];
  */
 export declare function useAreaActions(): AreaActions;
 /**
+ * Shows the interface's toasts: the outcome of something the viewer just did - "Saved", "Couldn't
+ * reach the printer" - from a handler, a mutation's `onError`, wherever. Since 1.4.
+ *
+ * @returns One function per kind: `success`, `warning`, `error`, `info`.
+ */
+export declare function useToast(): Toasts;
+/**
+ * Follows a live topic of the package's server (`ctx.live.publish`), over the interface's own
+ * socket: the retained message at once, then every message as it is sent, with no polling and
+ * no HTTP rate limit. Every component following one topic shares one subscription. Since 1.5.
+ *
+ * @param topic - The topic.
+ * @param options - Whether to follow it.
+ * @returns The last message, and whether the socket is open.
+ */
+export declare function usePackageLive<TData = JsonValue>(topic: string, options?: LiveOptions): LiveState<TData>;
+/**
+ * Sends the package's server messages over the interface's socket (`ctx.live.onMessage`): for
+ * what goes often and wants no answer. A call that wants one stays `usePackageCall`. Since 1.5.
+ *
+ * @returns What sends one.
+ */
+export declare function usePackageSend(): PackageSend;
+/**
  * A camera's latest still, fetched again every so often, or an image entity's picture, fetched
  * again when it changes: an address an `<img>` shows, let go of when a newer one replaces it.
  *
@@ -516,4 +589,4 @@ export declare function PlatformLink(props: PlatformLinkProps): ReactElement;
  */
 export declare function PageActions(props: PageActionsProps): ReactElement;
 //#endregion
-export type { AreaActions, AreaDraft, AreaKind, AreaView, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, History, HistoryQuery, HistorySeries, HistoryWindow, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };
+export type { AreaActions, AreaDraft, AreaKind, AreaView, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, History, HistoryQuery, HistorySeries, HistoryWindow, LiveOptions, LiveState, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSend, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, ToastMessage, Toasts, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };

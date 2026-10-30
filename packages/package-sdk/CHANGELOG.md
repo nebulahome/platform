@@ -3,6 +3,20 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.5.0
+
+- **The live channel.** A package's server and its open interfaces talk over the interface's own
+  socket, both ways, with no polling and no HTTP rate limit. On the server
+  `ctx.live.publish(topic, data, { isRetained })` sends to every interface following the topic -
+  a retained message is handed at once to whoever follows it later - and
+  `ctx.live.onMessage(topic, { input }, handler)` hears what they send, with who sent it. In the
+  interface `usePackageLive(topic)` follows a topic (one subscription however many components
+  follow it) and `usePackageSend()` sends. Whoever may read packages may follow and send. Topics
+  are a letter, then letters, digits and `.`, `_`, `:`, `-`; a message is at most 1 MB from the
+  server, 64 KB from an interface, which sends at most 50 a second.
+- `createTestContext()` records what is published (`published`) and sends a message as the
+  interface would (`sendLive`).
+
 ## 1.4.0
 
 - **Toasts.** `useToast()` from `@nebulahome/package-sdk/ui` shows the interface's own toasts -

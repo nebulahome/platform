@@ -1,6 +1,6 @@
 import { V as CapabilityCommand, et as ReportedCapabilityState, i as SettingsDefinition, lt as EntityId, r as JsonValue, t as JsonObject } from "./chunks/json.js";
 import { i as TelemetryPoint, r as StateHistoryPoint } from "./chunks/history.js";
-import { T as StateChange, _ as RpcCaller, l as EntitySnapshot, m as ReportOptions, o as DeviceInput, t as Awaitable, y as ServerContext } from "./chunks/context.js";
+import { O as StateChange, S as ServerContext, _ as ReportOptions, b as RpcCaller, l as EntitySnapshot, o as DeviceInput, t as Awaitable } from "./chunks/context.js";
 //#region src/testing/index.d.ts
 /** What a test context starts with. */
 export type TestContextOptions<TSettings extends SettingsDefinition | undefined> = {
@@ -30,6 +30,12 @@ export type RecordedReport = {
   readonly state: ReportedCapabilityState;
   readonly options?: ReportOptions;
 };
+/** One live message the package sent its interfaces. */
+export type RecordedLiveMessage = {
+  readonly topic: string;
+  readonly data: JsonValue;
+  readonly isRetained: boolean;
+};
 /** One line the package logged. */
 export type RecordedLog = {
   readonly level: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
@@ -55,6 +61,17 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
   };
   /** Every line logged. */
   readonly logs: readonly RecordedLog[];
+  /** Every live message published and sent, in order. */
+  readonly published: readonly RecordedLiveMessage[];
+  /**
+   * Sends the package a live message as its interface would, through the topic's schema.
+   *
+   * @param topic - The topic.
+   * @param data - The message.
+   * @param caller - Who sends; a test user when not said.
+   * @returns Once handled; rejects when nothing hears the topic or its schema refuses it.
+   */
+  readonly sendLive: (topic: string, data: JsonValue, caller?: RpcCaller) => Promise<void>;
   /**
    * Routes a command as the platform would: to the entity type's handler for a custom one, to
    * `devices.onCommand` otherwise.

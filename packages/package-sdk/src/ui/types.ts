@@ -229,6 +229,27 @@ export type RpcOptions = {
   readonly isEnabled?: boolean;
 };
 
+/** How a live topic is followed. Since 1.5. */
+export type LiveOptions = {
+  /** False stops following it. */
+  readonly isEnabled?: boolean;
+};
+
+/** A live topic of the package's server, as it stands. Since 1.5. */
+export type LiveState<TData> = {
+  /** The last message on it: the retained one at first, if there is one; undefined until then. */
+  readonly data: TData | undefined;
+
+  /** Whether the interface's socket is open: messages sent while it is not are lost. */
+  readonly isConnected: boolean;
+};
+
+/**
+ * Sends the package's server a message on a topic (`ctx.live.onMessage`), over the interface's
+ * socket; nothing answers it. Since 1.5.
+ */
+export type PackageSend = (topic: string, data: JsonValue) => void;
+
 /** A call of one of the package's methods, on demand. */
 export type PackageCall = <TData = JsonValue>(method: string, input?: JsonValue) => Promise<TData>;
 
@@ -483,4 +504,13 @@ export type UiHost = {
 
   /** Since 1.4. */
   readonly useToast: () => Toasts;
+
+  /** Since 1.5. */
+  readonly usePackageLive: <TData = JsonValue>(
+    topic: string,
+    options?: LiveOptions,
+  ) => LiveState<TData>;
+
+  /** Since 1.5. */
+  readonly usePackageSend: () => PackageSend;
 };

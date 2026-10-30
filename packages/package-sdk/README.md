@@ -156,18 +156,44 @@ try {
 }
 ```
 
+## The live channel
+
+Messages between the server and its open interfaces over the interface's own socket, both ways,
+with no polling and no HTTP rate limit (since 1.5). Whoever may read packages follows and sends.
+
+```ts
+// on the server: what every page and card draws, kept for whoever opens one later
+ctx.live.publish('overview', overviewOf(), { isRetained: true });
+
+// and what the interface sends, with who sent it
+ctx.live.onMessage('player.report', { input: reportSchema }, (report, { caller }) => {
+  ctx.live.publish(`player.${report.playerId}`, orderFor(report));
+});
+```
+
+```tsx
+const { data, isConnected } = usePackageLive<Overview>('overview'); // one subscription per page
+const send = usePackageSend();
+
+send('player.report', { playerId, position });
+```
+
+A topic is a letter, then letters, digits and `.`, `_`, `:`, `-`; a message from the server is at
+most 1 MB as JSON, one from the interface 64 KB, and an interface sends at most 50 a second.
+Nothing answers a message: a call that wants an answer or an error stays `usePackageCall`.
+
 ## Entry points
 
-| Import                    | What                                                                                                                                                                                                                                            |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@nebulahome/package-sdk` | `definePackage`, `defineSettings`, `defineCard`, `defineEntityType`, `definePage`, `defineContainer`, `defineCompose`, `field`, entity id helpers, `SDK_VERSION`, the value types.                                                              |
-| `/server`                 | `defineServer`, and the context `start` is given: settings (live or restart), devices and entities, typed custom entities, the rest of the house and its past, methods for the interface, services between packages.                            |
-| `/ui`                     | The props of a page, a card and an entity view; hooks for the package, its methods, its settings, the house, its areas, its past and its pictures, the viewer, the theme, its strings; navigation inside the package's page and the platform's. |
-| `/sun`                    | Where the sun is at any moment, by the platform's own formulas.                                                                                                                                                                                 |
-| `/components`             | The part of the interface's design system a package may draw with.                                                                                                                                                                              |
-| `/vite`                   | `nebula()`, the Vite plugin that builds both halves: the interface in chunks with its CSS scoped to the package, the server bundled whole.                                                                                                      |
-| `/testing`                | `createTestContext()`: run `start` in a unit test, every effect recorded.                                                                                                                                                                       |
-| `/styles.css`             | The interface's Tailwind tokens, to `@reference`.                                                                                                                                                                                               |
+| Import                    | What                                                                                                                                                                                                                                                            |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@nebulahome/package-sdk` | `definePackage`, `defineSettings`, `defineCard`, `defineEntityType`, `definePage`, `defineContainer`, `defineCompose`, `field`, entity id helpers, `SDK_VERSION`, the value types.                                                                              |
+| `/server`                 | `defineServer`, and the context `start` is given: settings (live or restart), devices and entities, typed custom entities, the rest of the house and its past, methods and the live channel for the interface, services between packages.                       |
+| `/ui`                     | The props of a page, a card and an entity view; hooks for the package, its methods and live topics, its settings, the house, its areas, its past and its pictures, the viewer, the theme, its strings; navigation inside the package's page and the platform's. |
+| `/sun`                    | Where the sun is at any moment, by the platform's own formulas.                                                                                                                                                                                                 |
+| `/components`             | The part of the interface's design system a package may draw with.                                                                                                                                                                                              |
+| `/vite`                   | `nebula()`, the Vite plugin that builds both halves: the interface in chunks with its CSS scoped to the package, the server bundled whole.                                                                                                                      |
+| `/testing`                | `createTestContext()`: run `start` in a unit test, every effect recorded.                                                                                                                                                                                       |
+| `/styles.css`             | The interface's Tailwind tokens, to `@reference`.                                                                                                                                                                                                               |
 
 The `nebulahome-package` command checks, builds and packs a package:
 

@@ -255,6 +255,25 @@ type RpcMethod = {
     readonly input: Schema<TInput>;
   }, handler: (input: TInput, call: RpcCall) => Awaitable<JsonValue | undefined>): void;
 };
+/** How a live message is sent. Since 1.5. */
+type LivePublishOptions = {
+  /**
+   * Kept by the platform, and handed at once to an interface that follows the topic later, until
+   * the next retained message on it replaces it: for the state a page draws. Off by default.
+   */
+  readonly isRetained?: boolean;
+};
+/** What a live message's handler is told besides the message: who sent it. Since 1.5. */
+type LiveCall = {
+  readonly caller: RpcCaller;
+};
+/** Hearing one topic of the package's interfaces' live messages. Since 1.5. */
+type LiveOnMessage = {
+  (topic: string, handler: (data: JsonValue, call: LiveCall) => Awaitable<void>): Unsubscribe;
+  <TInput>(topic: string, options: {
+    readonly input: Schema<TInput>;
+  }, handler: (data: TInput, call: LiveCall) => Awaitable<void>): Unsubscribe;
+};
 /** Offering a service. */
 type ServiceProvide = {
   (name: string, handler: (input: unknown, call: ServiceCall) => Awaitable<JsonValue | undefined>): void;
@@ -403,6 +422,23 @@ type ServerContext<TSettings = undefined> = {
     /** Registers a method its interface calls; a name registered twice throws. */
     readonly method: RpcMethod;
   };
+  /**
+   * The live channel to its open interfaces, over the interface's own socket: no polling, no
+   * HTTP rate limit. Whoever may read packages hears it and may send to it. Since 1.5.
+   */
+  readonly live: {
+    /**
+     * Sends a message to every open interface following the topic. A topic is a letter, then
+     * letters, digits and `.`, `_`, `:`, `-` (128 at most); a message is at most 1 MB as JSON.
+     * One that is not is logged, not sent.
+     */
+    readonly publish: (topic: string, data: JsonValue, options?: LivePublishOptions) => void;
+    /**
+     * Hears what its interfaces send on a topic (`usePackageSend`); a topic heard twice throws.
+     * A message its schema refuses is logged and dropped: nobody waits for an answer.
+     */
+    readonly onMessage: LiveOnMessage;
+  };
   readonly services: {
     /** Answers a service other packages call; a name provided twice, or reserved, throws. */
     readonly provide: ServiceProvide;
@@ -411,4 +447,4 @@ type ServerContext<TSettings = undefined> = {
   };
 };
 //#endregion
-export { Schema as A, ServiceProvide as C, TelemetryRead as D, SyncResult as E, StandardResult as M, StandardSchemaV1 as N, Unsubscribe as O, ServiceCallFunction as S, StateChange as T, RpcCaller as _, CustomEntityInput as a, ServerSettings as b, EntityInput as c, HistoryRead as d, LogMethod as f, RpcCall as g, RpcAccess as h, CustomEntities as i, SchemaIssue as j, SafeParser as k, EntitySnapshot as l, ReportOptions as m, CapabilityEntityInput as n, DeviceInput as o, Logger as p, CustomCommand as r, EntityFilter as s, Awaitable as t, HistoryAnswer as u, RpcMethod as v, SettingsChange as w, ServiceCall as x, ServerContext as y };
+export { TelemetryRead as A, ServerSettings as C, SettingsChange as D, ServiceProvide as E, StandardResult as F, StandardSchemaV1 as I, SafeParser as M, Schema as N, StateChange as O, SchemaIssue as P, ServerContext as S, ServiceCallFunction as T, ReportOptions as _, CustomEntityInput as a, RpcCaller as b, EntityInput as c, HistoryRead as d, LiveCall as f, Logger as g, LogMethod as h, CustomEntities as i, Unsubscribe as j, SyncResult as k, EntitySnapshot as l, LivePublishOptions as m, CapabilityEntityInput as n, DeviceInput as o, LiveOnMessage as p, CustomCommand as r, EntityFilter as s, Awaitable as t, HistoryAnswer as u, RpcAccess as v, ServiceCall as w, RpcMethod as x, RpcCall as y };

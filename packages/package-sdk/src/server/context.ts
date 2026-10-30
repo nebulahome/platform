@@ -291,6 +291,30 @@ export type RpcMethod = {
   ): void;
 };
 
+/** How a live message is sent. Since 1.5. */
+export type LivePublishOptions = {
+  /**
+   * Kept by the platform, and handed at once to an interface that follows the topic later, until
+   * the next retained message on it replaces it: for the state a page draws. Off by default.
+   */
+  readonly isRetained?: boolean;
+};
+
+/** What a live message's handler is told besides the message: who sent it. Since 1.5. */
+export type LiveCall = {
+  readonly caller: RpcCaller;
+};
+
+/** Hearing one topic of the package's interfaces' live messages. Since 1.5. */
+export type LiveOnMessage = {
+  (topic: string, handler: (data: JsonValue, call: LiveCall) => Awaitable<void>): Unsubscribe;
+  <TInput>(
+    topic: string,
+    options: { readonly input: Schema<TInput> },
+    handler: (data: TInput, call: LiveCall) => Awaitable<void>,
+  ): Unsubscribe;
+};
+
 /** Offering a service. */
 export type ServiceProvide = {
   (
@@ -477,6 +501,25 @@ export type ServerContext<TSettings = undefined> = {
   readonly rpc: {
     /** Registers a method its interface calls; a name registered twice throws. */
     readonly method: RpcMethod;
+  };
+
+  /**
+   * The live channel to its open interfaces, over the interface's own socket: no polling, no
+   * HTTP rate limit. Whoever may read packages hears it and may send to it. Since 1.5.
+   */
+  readonly live: {
+    /**
+     * Sends a message to every open interface following the topic. A topic is a letter, then
+     * letters, digits and `.`, `_`, `:`, `-` (128 at most); a message is at most 1 MB as JSON.
+     * One that is not is logged, not sent.
+     */
+    readonly publish: (topic: string, data: JsonValue, options?: LivePublishOptions) => void;
+
+    /**
+     * Hears what its interfaces send on a topic (`usePackageSend`); a topic heard twice throws.
+     * A message its schema refuses is logged and dropped: nobody waits for an answer.
+     */
+    readonly onMessage: LiveOnMessage;
   };
 
   readonly services: {

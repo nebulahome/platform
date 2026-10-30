@@ -67,6 +67,36 @@ const server = defineServer({
   },
 });
 
+describe('the live channel of a test context', () => {
+  it('records what is published, and hands a sent message through its schema', async () => {
+    const test = createTestContext({ id: 'music' });
+    const heard: string[] = [];
+
+    test.ctx.live.onMessage(
+      'browser',
+      { input: z.object({ browserId: z.string() }) },
+      ({ browserId }, { caller }) => {
+        heard.push(`${caller.username}:${browserId}`);
+        test.ctx.live.publish(`browser.${browserId}`, { playback: 'paused' });
+      },
+    );
+    test.ctx.live.publish('overview', { playing: 1 }, { isRetained: true });
+    test.ctx.live.publish('Not a topic', 1);
+
+    await test.sendLive('browser', { browserId: 'ab12' });
+
+    expect(heard).toEqual(['test:ab12']);
+    expect(test.published).toEqual([
+      { topic: 'overview', data: { playing: 1 }, isRetained: true },
+      { topic: 'browser.ab12', data: { playback: 'paused' }, isRetained: false },
+    ]);
+    expect(test.logs.some((line) => line.level === 'error')).toBe(true);
+    await expect(test.sendLive('browser', { browserId: 3 })).rejects.toThrow(/refused/);
+    await expect(test.sendLive('queue', {})).rejects.toThrow(/Nothing hears/);
+    expect(() => test.ctx.live.onMessage('browser', () => undefined)).toThrow(/heard already/);
+  });
+});
+
 describe('a test context', () => {
   it('records what the server registers and reports, settings defaults applied', async () => {
     const test = createTestContext({ id: 'note-taker', definition: settings });

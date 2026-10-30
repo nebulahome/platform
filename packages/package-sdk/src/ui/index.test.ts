@@ -13,7 +13,9 @@ import {
   useAreas,
   useEntityPicture,
   usePackage,
+  usePackageLive,
   usePackageRpc,
+  usePackageSend,
   useStateHistory,
   useTelemetry,
   useToast,
@@ -95,6 +97,15 @@ describe('the forwarders', () => {
     expect(() => useToast()).toThrow(
       'useToast needs package SDK 1.4; this interface implements 1.3.0',
     );
+  });
+
+  it('name 1.5 for what 1.5 added', () => {
+    lend('1.4.0', { [UI_MODULE]: {} });
+
+    expect(() => usePackageLive('overview')).toThrow(
+      'usePackageLive needs package SDK 1.5; this interface implements 1.4.0',
+    );
+    expect(() => usePackageSend()).toThrow('usePackageSend needs package SDK 1.5');
   });
 
   it('say so outside the interface', () => {

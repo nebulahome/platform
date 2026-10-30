@@ -25,6 +25,8 @@ import type {
   EntityView,
   History,
   HistoryQuery,
+  LiveOptions,
+  LiveState,
   Locale,
   Mutation,
   MutationOptions,
@@ -33,6 +35,7 @@ import type {
   PackageLinkProps,
   PackageNavigate,
   PackageRoute,
+  PackageSend,
   PageActionsProps,
   PackageSettings,
   PictureOptions,
@@ -62,6 +65,8 @@ export type {
   History,
   HistoryQuery,
   HistoryWindow,
+  LiveOptions,
+  LiveState,
   Locale,
   Mutation,
   MutationOptions,
@@ -70,6 +75,7 @@ export type {
   PackageLinkProps,
   PackageNavigate,
   PackageRoute,
+  PackageSend,
   PackageSettings,
   PageActionsProps,
   PictureOptions,
@@ -302,6 +308,32 @@ export function useAreaActions(): AreaActions {
  */
 export function useToast(): Toasts {
   return ui('useToast', '1.4')();
+}
+
+/**
+ * Follows a live topic of the package's server (`ctx.live.publish`), over the interface's own
+ * socket: the retained message at once, then every message as it is sent, with no polling and
+ * no HTTP rate limit. Every component following one topic shares one subscription. Since 1.5.
+ *
+ * @param topic - The topic.
+ * @param options - Whether to follow it.
+ * @returns The last message, and whether the socket is open.
+ */
+export function usePackageLive<TData = JsonValue>(
+  topic: string,
+  options?: LiveOptions,
+): LiveState<TData> {
+  return ui('usePackageLive', '1.5')<TData>(topic, options);
+}
+
+/**
+ * Sends the package's server messages over the interface's socket (`ctx.live.onMessage`): for
+ * what goes often and wants no answer. A call that wants one stays `usePackageCall`. Since 1.5.
+ *
+ * @returns What sends one.
+ */
+export function usePackageSend(): PackageSend {
+  return ui('usePackageSend', '1.5')();
 }
 
 /**

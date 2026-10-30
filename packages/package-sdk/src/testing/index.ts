@@ -27,6 +27,8 @@ import type {
   EntitySnapshot,
   HistoryAnswer,
   HistoryRead,
+  LiveCall,
+  LivePublishOptions,
   Logger,
   ReportOptions,
   RpcAccess,
@@ -81,6 +83,13 @@ export type RecordedReport = {
   readonly options?: ReportOptions;
 };
 
+/** One live message the package sent its interfaces. */
+export type RecordedLiveMessage = {
+  readonly topic: string;
+  readonly data: JsonValue;
+  readonly isRetained: boolean;
+};
+
 /** One line the package logged. */
 export type RecordedLog = {
   readonly level: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
@@ -111,6 +120,19 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
 
   /** Every line logged. */
   readonly logs: readonly RecordedLog[];
+
+  /** Every live message published and sent, in order. */
+  readonly published: readonly RecordedLiveMessage[];
+
+  /**
+   * Sends the package a live message as its interface would, through the topic's schema.
+   *
+   * @param topic - The topic.
+   * @param data - The message.
+   * @param caller - Who sends; a test user when not said.
+   * @returns Once handled; rejects when nothing hears the topic or its schema refuses it.
+   */
+  readonly sendLive: (topic: string, data: JsonValue, caller?: RpcCaller) => Promise<void>;
 
   /**
    * Routes a command as the platform would: to the entity type's handler for a custom one, to
@@ -276,6 +298,10 @@ const RESERVED_SERVICES = new Set(['command', 'rpc', 'settings', 'health', 'even
 /** Who calls a method when a test does not say. */
 const TEST_CALLER: RpcCaller = { userId: 'test-user', username: 'test', role: 'owner' };
 
+/** A live topic, and the most a live message may carry as JSON, as the platform has them. */
+const LIVE_TOPIC_PATTERN = /^[a-z][a-zA-Z0-9._:-]{0,127}$/;
+const LIVE_MAX_BYTES = 1_000_000;
+
 /**
  * Says whether a value is a record.
  *
@@ -355,6 +381,14 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
     }
   >();
   const answers = new Map<string, (input: JsonValue | undefined) => Awaitable<unknown>>();
+  const published: RecordedLiveMessage[] = [];
+  const liveHandlers = new Map<
+    string,
+    {
+      readonly input: Schema<unknown> | undefined;
+      readonly handler: (data: unknown, call: LiveCall) => Awaitable<void>;
+    }
+  >();
   const customHandlers = new Map<
     string,
     (command: CustomCommand<Readonly<Record<string, CustomValue>>>) => Awaitable<void>
@@ -560,6 +594,90 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
       },
     });
   }
+
+  /**
+   * Hears a live topic.
+   *
+   * @param topic - The topic.
+   * @param optionsOrHandler - What a message takes, or what to do with one.
+   * @param handler - What to do with one, after its schema.
+   * @returns What stops it hearing.
+   * @throws {Error} When the topic is not one, is heard already, or there is no handler.
+   */
+  function onLiveMessage<TInput = JsonValue>(
+    topic: string,
+    optionsOrHandler:
+      { readonly input: Schema<TInput> } | ((data: TInput, call: LiveCall) => Awaitable<void>),
+    handler?: (data: TInput, call: LiveCall) => Awaitable<void>,
+  ): Unsubscribe {
+    /**
+     * Says whether a message is the topic's: its schema checked it, or it takes any.
+     *
+     * @param data - The message.
+     * @returns True.
+     */
+    const isInput = (data: unknown): data is TInput => data === data;
+    const hear = typeof optionsOrHandler === 'function' ? optionsOrHandler : handler;
+
+    if (!LIVE_TOPIC_PATTERN.test(topic)) {
+      throw new Error(`${topic} is not a live topic: a letter first, then letters, digits, .:_-`);
+    }
+
+    if (liveHandlers.has(topic)) {
+      throw new Error(`The live topic ${topic} is heard already`);
+    }
+
+    if (hear === undefined) {
+      throw new Error(`The live topic ${topic} has no handler`);
+    }
+
+    liveHandlers.set(topic, {
+      input: typeof optionsOrHandler === 'function' ? undefined : optionsOrHandler.input,
+
+      /**
+       * Hands the handler the message, once checked.
+       *
+       * @param data - The message.
+       * @param call - Who sent it.
+       * @returns Once handled.
+       * @throws {Error} Never: every message is the topic's.
+       */
+      handler: (data, call) => {
+        if (!isInput(data)) {
+          throw new Error(`${topic} was handed what it does not take`);
+        }
+
+        return hear(data, call);
+      },
+    });
+
+    return (): void => {
+      liveHandlers.delete(topic);
+    };
+  }
+
+  /**
+   * Publishes a live message, or logs why it cannot, as the platform does.
+   *
+   * @param topic - The topic.
+   * @param data - The message.
+   * @param options - Whether it is retained.
+   */
+  const publishLive = (topic: string, data: JsonValue, options: LivePublishOptions = {}): void => {
+    if (!LIVE_TOPIC_PATTERN.test(topic)) {
+      ctx.logger.error({ topic }, 'A live message was not sent: that is not a topic');
+
+      return;
+    }
+
+    if (new TextEncoder().encode(JSON.stringify(data)).length > LIVE_MAX_BYTES) {
+      ctx.logger.error({ topic }, 'A live message was not sent: it is larger than 1 MB');
+
+      return;
+    }
+
+    published.push({ topic, data, isRetained: options.isRetained === true });
+  };
 
   /**
    * Calls a service.
@@ -866,6 +984,7 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
       },
     },
     rpc: { method: rpcMethod },
+    live: { publish: publishLive, onMessage: onLiveMessage },
     services: { provide, call: callService },
   };
 
@@ -888,6 +1007,36 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
       last: (entityId) => reports.findLast((each) => each.entityId === entityId)?.state,
     },
     logs,
+    published,
+    /**
+     * Sends the package a live message.
+     *
+     * @param topic - The topic.
+     * @param data - The message.
+     * @param caller - Who sends.
+     * @throws {Error} When nothing hears the topic, or its schema refuses the message.
+     */
+    sendLive: async (topic, data, caller = TEST_CALLER) => {
+      const heard = liveHandlers.get(topic);
+
+      if (heard === undefined) {
+        throw new Error(`Nothing hears the live topic ${topic}`);
+      }
+
+      if (heard.input === undefined) {
+        await heard.handler(data, { caller });
+
+        return;
+      }
+
+      const checked = await check(heard.input, data);
+
+      if (!checked.isValid) {
+        throw new Error(`${topic} refused its message: ${checked.message}`);
+      }
+
+      await heard.handler(checked.value, { caller });
+    },
     /**
      * Routes a command.
      *
