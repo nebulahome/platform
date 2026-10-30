@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { wsClientMessageSchema } from './api-ws.js';
 import { isPackageServiceAllowed } from './package-id.js';
 import {
   packageAnnounceRequestSchema,
   packageHubLogoReplySchema,
   packageListingSchema,
+  packageLiveInboxSchema,
+  packageLiveMessageSchema,
   packageRemoveRequestSchema,
   packageRpcRequestSchema,
   packageSearchRequestSchema,
@@ -68,6 +71,27 @@ describe('the packet-manager’s requests', () => {
       packageSettingsChangeSchema.safeParse({ values: { interval: 5 }, changed: ['interval'] })
         .success,
     ).toBe(true);
+  });
+
+  it('names live topics plainly, and an inbox message always says who sent it', () => {
+    expect(packageLiveMessageSchema.parse({ topic: 'browser.ab-12', data: 1 }).isRetained).toBe(
+      false,
+    );
+    expect(packageLiveMessageSchema.safeParse({ topic: 'Overview', data: 1 }).success).toBe(false);
+    expect(packageLiveMessageSchema.safeParse({ topic: 'a b', data: 1 }).success).toBe(false);
+    expect(packageLiveInboxSchema.safeParse({ topic: 'browser', data: {} }).success).toBe(false);
+    expect(
+      wsClientMessageSchema.safeParse({
+        type: 'package_send',
+        packageId: 'music',
+        topic: 'browser',
+        data: { playback: 'paused' },
+      }).success,
+    ).toBe(true);
+    expect(
+      wsClientMessageSchema.safeParse({ type: 'package_subscribe', packageId: 'core', topic: 'x' })
+        .success,
+    ).toBe(false);
   });
 
   it('takes an announcement of the methods a package registered', () => {

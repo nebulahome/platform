@@ -185,6 +185,22 @@ export const busSubjects = {
   ): string => `${BUS_SUBJECT_PREFIX}.pkg.${event}`,
 
   /**
+   * A package's live messages to its open interfaces (`ctx.live.publish`), which `api` fans out.
+   *
+   * @param packageId - The package publishing.
+   * @returns The subject the package publishes on.
+   */
+  packageLive: (packageId: string): string => `${BUS_SUBJECT_PREFIX}.pkg.${packageId}.live`,
+
+  /**
+   * What a package's open interfaces send it on the live channel, passed on by `api`.
+   *
+   * @param packageId - The package addressed.
+   * @returns The subject the package listens on.
+   */
+  packageLiveInbox: (packageId: string): string => `${BUS_SUBJECT_PREFIX}.pkg.${packageId}.live_in`,
+
+  /**
    * A camera's frames, as bytes: the one subject that carries no envelope (camera.ts).
    *
    * @param entityId - The camera.
@@ -231,6 +247,9 @@ export const BUS_PATTERNS = {
 
   /** Every package lifecycle event, including routing table updates. */
   allPackageEvents: `${BUS_SUBJECT_PREFIX}.pkg.*`,
+
+  /** Every package's live messages to its interfaces. A package id is one token. */
+  allPackageLive: `${BUS_SUBJECT_PREFIX}.pkg.*.live`,
 
   /** Every telemetry reading. The JetStream stream is configured on this pattern. */
   allTelemetry: `${BUS_SUBJECT_PREFIX}.telemetry.>`,

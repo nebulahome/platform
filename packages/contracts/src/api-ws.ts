@@ -15,7 +15,9 @@ import { backupEventSchema } from './backup.js';
 import { DISCOVERY_EVENTS } from './discovery.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema } from './entity-state.js';
-import { jsonObjectSchema } from './json.js';
+import { jsonObjectSchema, jsonValueSchema } from './json.js';
+import { packageIdSchema } from './package-id.js';
+import { packageLiveTopicSchema } from './packet-manager.js';
 import { DEVICE_EVENTS, deviceEventSchema } from './registration.js';
 import { containerEventSchema } from './supervisor.js';
 import { timestampSchema } from './timestamp.js';
@@ -32,6 +34,19 @@ export const WS_CLOSE_UNAUTHENTICATED = 4001;
 
 /** The close code used when the access token behind a live socket expires. */
 export const WS_CLOSE_TOKEN_EXPIRED = 4002;
+
+/** The most bytes one message from a client may carry: larger ones are refused unread. */
+export const WS_MAX_CLIENT_MESSAGE_BYTES = 64 * 1024;
+
+/**
+ * How many messages a socket may send a second, on average: a token bucket this deep, filled at
+ * this rate. Messages on a socket pass no HTTP rate limit, so this is what stops one flooding a
+ * package.
+ */
+export const WS_CLIENT_MESSAGES_PER_SECOND = 50;
+
+/** How many package topics one socket may follow at once. */
+export const WS_MAX_PACKAGE_TOPICS = 64;
 
 /** What a client may subscribe to. */
 export const WS_TOPICS = [
@@ -78,6 +93,26 @@ export const wsClientMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('unsubscribe'),
     topic: z.enum(WS_TOPICS),
+  }),
+
+  /** Follows one of a package's live topics: its last retained message comes at once. */
+  z.object({
+    type: z.literal('package_subscribe'),
+    packageId: packageIdSchema,
+    topic: packageLiveTopicSchema,
+  }),
+  z.object({
+    type: z.literal('package_unsubscribe'),
+    packageId: packageIdSchema,
+    topic: packageLiveTopicSchema,
+  }),
+
+  /** A message for a package's server, which hears it with who sent it. */
+  z.object({
+    type: z.literal('package_send'),
+    packageId: packageIdSchema,
+    topic: packageLiveTopicSchema,
+    data: jsonValueSchema,
   }),
   z.object({ type: z.literal('ping') }),
 ]);
@@ -169,6 +204,14 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('package_event'),
     event: z.enum(['installed', 'removed', 'started', 'stopped', 'configured']),
     payload: jsonObjectSchema,
+  }),
+
+  /** A package's live message, on a topic the socket follows. */
+  z.object({
+    type: z.literal('package_message'),
+    packageId: packageIdSchema,
+    topic: packageLiveTopicSchema,
+    data: jsonValueSchema,
   }),
   z.object({
     type: z.literal('automation_event'),

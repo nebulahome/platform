@@ -43,6 +43,16 @@ describe('subscription patterns', () => {
     expect(BUS_PATTERNS.allPackageEvents.endsWith('.*')).toBe(true);
   });
 
+  it('keeps a package’s live subjects out of the package events, one token longer', () => {
+    const tokens = (subject: string): number => subject.split('.').length;
+
+    expect(busSubjects.packageLive('music')).toBe('nebula.v1.pkg.music.live');
+    expect(tokens(busSubjects.packageLive('music'))).toBe(tokens(BUS_PATTERNS.allPackageLive));
+    expect(tokens(busSubjects.packageLiveInbox('music'))).toBe(
+      tokens(BUS_PATTERNS.allPackageEvents) + 1,
+    );
+  });
+
   it('matches the subjects it is meant to cover', () => {
     // Mirrors how NATS resolves `>`: it stands for one or more remaining tokens.
     const prefix = BUS_PATTERNS.allStateReports.slice(0, -1);

@@ -520,6 +520,44 @@ export const packageRpcReplySchema = z.object({ output: jsonValueSchema });
 /** What a package's method answered. */
 export type PackageRpcReply = z.output<typeof packageRpcReplySchema>;
 
+/** What names a package's live topic: a letter, then letters, digits and `.`, `_`, `:`, `-`. */
+export const PACKAGE_LIVE_TOPIC_PATTERN = /^[a-z][a-zA-Z0-9._:-]{0,127}$/;
+
+/** A package's live topic. */
+export const packageLiveTopicSchema = z
+  .string()
+  .regex(PACKAGE_LIVE_TOPIC_PATTERN, 'Must be a live topic');
+
+/**
+ * The most bytes, as JSON, one live message of a package may carry: under the bus's 1 MB, with
+ * room for the envelope.
+ */
+export const PACKAGE_LIVE_MAX_BYTES = 1_000_000;
+
+/** A package's live message to its interfaces: `pkg.<id>.live`. */
+export const packageLiveMessageSchema = z.strictObject({
+  topic: packageLiveTopicSchema,
+  data: jsonValueSchema,
+
+  /** Kept by `api` and handed to whoever subscribes to the topic later, until the next. */
+  isRetained: z.boolean().default(false),
+});
+
+/** A package's live message to its interfaces. */
+export type PackageLiveMessage = z.output<typeof packageLiveMessageSchema>;
+
+/** What an interface sent a package on the live channel: `pkg.<id>.live_in`. */
+export const packageLiveInboxSchema = z.strictObject({
+  topic: packageLiveTopicSchema,
+  data: jsonValueSchema,
+
+  /** Who sent it, as `api` authenticated them: never what the interface says. */
+  caller: packageRpcCallerSchema,
+});
+
+/** What an interface sent a package on the live channel. */
+export type PackageLiveInbox = z.output<typeof packageLiveInboxSchema>;
+
 // --- what `api` answers the interface --------------------------------------------------------
 
 /** An installed package, as the interface lists it: with how much of the house it accounts for. */
