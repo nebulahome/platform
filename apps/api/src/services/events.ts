@@ -20,13 +20,18 @@ import {
   discoveryEventSchema,
   isDeviceEvent,
   jsonObjectSchema,
+  packageLiveMessageSchema,
   platformEventSchema,
   stateChangedEventSchema,
   type JsonObject,
+  type JsonValue,
   type WsServerMessage,
   integrationEventSchema,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
+
+/** How many retained live messages one package may have kept at once: the oldest goes first. */
+const MAX_RETAINED_TOPICS = 256;
 
 /** One open socket, as the fan-out sees it. */
 export type Subscriber = {
@@ -36,9 +41,23 @@ export type Subscriber = {
   /** Which topics it asked for. */
   readonly topics: Set<string>;
 
+  /** Which packages' live topics it follows, each as {@link liveKey} writes it. */
+  readonly packageTopics: Set<string>;
+
   /** Sends one message. */
   readonly send: (message: WsServerMessage) => void;
 };
+
+/**
+ * How a socket keeps one package's live topic: a package id and a topic cannot hold a space.
+ *
+ * @param packageId - The package.
+ * @param topic - Its topic.
+ * @returns The key.
+ */
+export function liveKey(packageId: string, topic: string): string {
+  return `${packageId} ${topic}`;
+}
 
 /** Fans bus events out to the sockets that are allowed to see them. */
 export class EventFanout {
@@ -47,6 +66,9 @@ export class EventFanout {
 
   /** The bus subscriptions, kept so they can be closed on shutdown. */
   readonly #subscriptions: BusSubscription[] = [];
+
+  /** Each package's last retained live message on each topic, until it stops. */
+  readonly #retained = new Map<string, Map<string, JsonValue>>();
 
   /** Where a failed dispatch is reported. */
   readonly #logger: PlatformLogger;
@@ -265,11 +287,76 @@ export class EventFanout {
             event === 'stopped' ||
             event === 'configured'
           ) {
+            if (
+              (event === 'stopped' || event === 'removed') &&
+              typeof payload['packageId'] === 'string'
+            ) {
+              // What a stopped package last said is no longer so: whoever opens it next waits for
+              // it to say something again.
+              this.#retained.delete(payload['packageId']);
+            }
+
             this.#dispatch('packages', null, { type: 'package_event', event, payload });
           }
         },
       ),
     );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        BUS_PATTERNS.allPackageLive,
+        packageLiveMessageSchema,
+
+        /**
+         * Hands a package's live message to the sockets following its topic, and keeps it when
+         * it asks to be kept. Only a package's own process speaks under its id.
+         *
+         * @param message - The topic, the message, whether to keep it.
+         * @param context - The subject, whose fourth token names the package.
+         */
+        (message, context): void => {
+          const packageId = context.subject.split('.')[3] ?? '';
+
+          if (context.header.source !== packageId) {
+            this.#logger.warn(
+              { packageId, source: context.header.source },
+              'A live message under another package’s id was dropped',
+            );
+
+            return;
+          }
+
+          if (message.isRetained) {
+            this.#retain(packageId, message.topic, message.data);
+          }
+
+          const key = liveKey(packageId, message.topic);
+          const forward: WsServerMessage = {
+            type: 'package_message',
+            packageId,
+            topic: message.topic,
+            data: message.data,
+          };
+
+          for (const subscriber of this.#subscribers) {
+            if (subscriber.packageTopics.has(key)) {
+              this.#deliver(subscriber, forward);
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  /**
+   * A package's last retained live message on a topic.
+   *
+   * @param packageId - The package.
+   * @param topic - The topic.
+   * @returns The message, or undefined when none is kept.
+   */
+  public retained(packageId: string, topic: string): JsonValue | undefined {
+    return this.#retained.get(packageId)?.get(topic);
   }
 
   /**
@@ -303,6 +390,44 @@ export class EventFanout {
 
     this.#subscriptions.length = 0;
     this.#subscribers.clear();
+    this.#retained.clear();
+  }
+
+  /**
+   * Keeps a package's live message for whoever follows its topic later.
+   *
+   * @param packageId - The package.
+   * @param topic - The topic.
+   * @param data - The message.
+   */
+  #retain(packageId: string, topic: string, data: JsonValue): void {
+    const kept = this.#retained.get(packageId) ?? new Map<string, JsonValue>();
+
+    // Deleted first so a topic said again moves to the end, and the oldest is the first key.
+    kept.delete(topic);
+
+    if (kept.size >= MAX_RETAINED_TOPICS) {
+      kept.delete(kept.keys().next().value ?? '');
+    }
+
+    kept.set(topic, data);
+    this.#retained.set(packageId, kept);
+  }
+
+  /**
+   * Sends one message to one socket.
+   *
+   * @param subscriber - The socket.
+   * @param message - What to send.
+   */
+  #deliver(subscriber: Subscriber, message: WsServerMessage): void {
+    try {
+      subscriber.send(message);
+    } catch (error: unknown) {
+      // One socket failing to accept a message must not stop the others receiving it. The
+      // socket itself is cleaned up by its own close handler.
+      this.#logger.debug({ err: error }, 'Could not deliver to a socket');
+    }
   }
 
   /**
@@ -322,13 +447,7 @@ export class EventFanout {
         continue;
       }
 
-      try {
-        subscriber.send(message);
-      } catch (error: unknown) {
-        // One socket failing to accept a message must not stop the others receiving it. The
-        // socket itself is cleaned up by its own close handler.
-        this.#logger.debug({ err: error }, 'Could not deliver to a socket');
-      }
+      this.#deliver(subscriber, message);
     }
   }
 }

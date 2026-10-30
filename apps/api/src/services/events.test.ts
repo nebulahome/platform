@@ -8,7 +8,7 @@ import { FakeTransport } from '@nebulahome/bus/testing';
 import { busSubjects, type WsServerMessage } from '@nebulahome/contracts';
 import { createLogger } from '@nebulahome/logging';
 
-import { EventFanout } from './events.js';
+import { EventFanout, liveKey } from './events.js';
 
 /**
  * Waits until a condition holds, polling.
@@ -40,6 +40,7 @@ describe('EventFanout', () => {
     fanout.add({
       canRead: () => false,
       topics: new Set(['discovery']),
+      packageTopics: new Set(),
       send: (message) => {
         watching.push(message);
       },
@@ -47,6 +48,7 @@ describe('EventFanout', () => {
     fanout.add({
       canRead: () => true,
       topics: new Set(['state', 'devices']),
+      packageTopics: new Set(),
       send: (message) => {
         elsewhere.push(message);
       },
@@ -81,6 +83,7 @@ describe('EventFanout', () => {
     fanout.add({
       canRead: () => false,
       topics: new Set(['system']),
+      packageTopics: new Set(),
       send: (message) => {
         told.push(message);
       },
@@ -93,5 +96,60 @@ describe('EventFanout', () => {
     expect(told).toMatchObject([
       { type: 'platform_event', payload: { operation: { kind: 'restart', phase: 'stopping' } } },
     ]);
+  });
+
+  it('hands a package’s live message only to the sockets following its topic, and keeps the retained one until it stops', async () => {
+    const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
+    const transport = new FakeTransport();
+    const music = new BusClient({ transport, source: 'music', logger });
+    const impostor = new BusClient({ transport, source: 'other', logger });
+    const manager = new BusClient({ transport, source: 'packet-manager', logger });
+    const fanout = new EventFanout(logger);
+    const following: WsServerMessage[] = [];
+    const elsewhere: WsServerMessage[] = [];
+
+    fanout.start(new BusClient({ transport, source: 'api', logger }));
+    fanout.add({
+      canRead: () => true,
+      topics: new Set(),
+      packageTopics: new Set([liveKey('music', 'overview')]),
+      send: (message) => {
+        following.push(message);
+      },
+    });
+    fanout.add({
+      canRead: () => true,
+      topics: new Set(['state', 'packages']),
+      packageTopics: new Set([liveKey('music', 'browser.ab12')]),
+      send: (message) => {
+        elsewhere.push(message);
+      },
+    });
+
+    impostor.publish(busSubjects.packageLive('music'), { topic: 'overview', data: 'forged' });
+    music.publish(busSubjects.packageLive('music'), {
+      topic: 'overview',
+      data: { playing: 1 },
+      isRetained: true,
+    });
+    music.publish(busSubjects.packageLive('music'), { topic: 'queue', data: [] });
+    await until(() => following.length > 0);
+
+    expect(following).toEqual([
+      { type: 'package_message', packageId: 'music', topic: 'overview', data: { playing: 1 } },
+    ]);
+    expect(elsewhere).toEqual([]);
+    expect(fanout.retained('music', 'overview')).toEqual({ playing: 1 });
+    expect(fanout.retained('music', 'queue')).toBeUndefined();
+
+    manager.publish(busSubjects.packageEvent('stopped'), {
+      packageId: 'music',
+      version: '0.2.0',
+      state: 'stopped',
+    });
+    await until(() => elsewhere.length > 0);
+    fanout.stop();
+
+    expect(fanout.retained('music', 'overview')).toBeUndefined();
   });
 });

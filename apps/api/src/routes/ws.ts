@@ -14,12 +14,18 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 
 import {
+  busSubjects,
   WS_AUTH_TIMEOUT_MS,
+  WS_CLIENT_MESSAGES_PER_SECOND,
   WS_CLOSE_TOKEN_EXPIRED,
   WS_CLOSE_UNAUTHENTICATED,
   WS_HEARTBEAT_INTERVAL_MS,
+  WS_MAX_CLIENT_MESSAGE_BYTES,
+  WS_MAX_PACKAGE_TOPICS,
   wsClientMessageSchema,
   type Identity,
+  type PackageLiveInbox,
+  type WsClientMessage,
   type WsServerMessage,
   type WsTopic,
 } from '@nebulahome/contracts';
@@ -28,6 +34,7 @@ import { isPermitted } from '../auth/permissions.js';
 import { verifyAccessToken } from '../auth/tokens.js';
 import type { ApiContext } from '../context.js';
 import { readableEntityIds } from '../services/entities.js';
+import { liveKey } from '../services/events.js';
 
 /** What one open socket is doing. */
 type SocketState = {
@@ -43,9 +50,135 @@ type SocketState = {
   /** Which topics it asked for. */
   readonly topics: Set<WsTopic>;
 
+  /** Which packages' live topics it follows. */
+  readonly packageTopics: Set<string>;
+
+  /** How many messages it may still send now, and when that was last worked out. */
+  readonly budget: { tokens: number; at: number };
+
   /** Removes it from the fan-out. */
   detach: (() => void) | undefined;
 };
+
+/** A message about a package's live channel. */
+export type PackageLiveRequest = Extract<
+  WsClientMessage,
+  { type: 'package_subscribe' | 'package_unsubscribe' | 'package_send' }
+>;
+
+/** The socket a package live request came on, as {@link handlePackageLive} needs it. */
+export type PackageLiveSocket = {
+  /** Who it belongs to. */
+  readonly identity: Identity;
+
+  /** Which packages' live topics it follows, changed in place. */
+  readonly packageTopics: Set<string>;
+
+  /** Sends it one message. */
+  readonly send: (message: WsServerMessage) => void;
+
+  /** The trace id of its upgrade. */
+  readonly traceId: string;
+};
+
+/**
+ * Follows, leaves or sends to one of a package's live topics, for whoever may read packages: the
+ * same permission its methods' reads take.
+ *
+ * @param context - The bus to send on, and the fan-out that keeps retained messages.
+ * @param socket - The socket that asked.
+ * @param message - What it asked.
+ */
+export function handlePackageLive(
+  context: Pick<ApiContext, 'bus' | 'events'>,
+  socket: PackageLiveSocket,
+  message: PackageLiveRequest,
+): void {
+  const { identity, packageTopics, send } = socket;
+  const key = liveKey(message.packageId, message.topic);
+
+  if (message.type === 'package_unsubscribe') {
+    packageTopics.delete(key);
+
+    return;
+  }
+
+  if (!isPermitted(identity.permissions, 'package:read')) {
+    send({ type: 'error', code: 'PERMISSION', message: 'Reading packages is not permitted' });
+
+    return;
+  }
+
+  if (message.type === 'package_send') {
+    if (context.bus === undefined) {
+      send({ type: 'error', code: 'INTERNAL', message: 'The bus is not connected' });
+
+      return;
+    }
+
+    // Who sent it is the socket's identity, never what the message says.
+    const inbox: PackageLiveInbox = {
+      topic: message.topic,
+      data: message.data,
+      caller: { userId: identity.userId, username: identity.username, role: identity.role },
+    };
+
+    context.bus.publish(busSubjects.packageLiveInbox(message.packageId), inbox, {
+      traceId: socket.traceId,
+    });
+
+    return;
+  }
+
+  if (!packageTopics.has(key) && packageTopics.size >= WS_MAX_PACKAGE_TOPICS) {
+    send({
+      type: 'error',
+      code: 'VALIDATION',
+      message: `A socket follows at most ${String(WS_MAX_PACKAGE_TOPICS)} package topics`,
+    });
+
+    return;
+  }
+
+  packageTopics.add(key);
+
+  const retained = context.events.retained(message.packageId, message.topic);
+
+  if (retained !== undefined) {
+    send({
+      type: 'package_message',
+      packageId: message.packageId,
+      topic: message.topic,
+      data: retained,
+    });
+  }
+}
+
+/**
+ * Takes one message from a socket's budget: a bucket {@link WS_CLIENT_MESSAGES_PER_SECOND} deep,
+ * filled at that rate.
+ *
+ * @param budget - The socket's budget, changed in place.
+ * @param budget.tokens - How many messages it may still send now.
+ * @param budget.at - When that was last worked out, in milliseconds.
+ * @param now - The moment, in milliseconds.
+ * @returns False when the bucket is empty: the message is refused.
+ */
+export function spend(budget: { tokens: number; at: number }, now: number): boolean {
+  budget.tokens = Math.min(
+    WS_CLIENT_MESSAGES_PER_SECOND,
+    budget.tokens + ((now - budget.at) / 1000) * WS_CLIENT_MESSAGES_PER_SECOND,
+  );
+  budget.at = now;
+
+  if (budget.tokens < 1) {
+    return false;
+  }
+
+  budget.tokens -= 1;
+
+  return true;
+}
 
 /**
  * Registers the WebSocket endpoint.
@@ -75,6 +208,8 @@ export function registerWebSocket(
         readable: new Set<string>(),
         requested: undefined,
         topics: new Set<WsTopic>(),
+        packageTopics: new Set<string>(),
+        budget: { tokens: WS_CLIENT_MESSAGES_PER_SECOND, at: context.now().getTime() },
         detach: undefined,
       };
 
@@ -141,10 +276,17 @@ export function registerWebSocket(
 
       socket.on('message', (raw: unknown) => {
         void (async (): Promise<void> => {
+          const text = String(raw);
           let parsed: unknown;
 
+          if (Buffer.byteLength(text) > WS_MAX_CLIENT_MESSAGE_BYTES) {
+            send({ type: 'error', code: 'VALIDATION', message: 'That message is too large' });
+
+            return;
+          }
+
           try {
-            parsed = JSON.parse(String(raw));
+            parsed = JSON.parse(text);
           } catch {
             send({ type: 'error', code: 'VALIDATION', message: 'That was not JSON' });
 
@@ -198,6 +340,7 @@ export function registerWebSocket(
                  */
                 canRead: (entityId: string): boolean => state.readable.has(entityId),
                 topics: state.topics,
+                packageTopics: state.packageTopics,
 
                 /**
                  * Sends one message, and takes a device event as the cue to look at the
@@ -234,6 +377,33 @@ export function registerWebSocket(
 
           if (state.identity === undefined) {
             send({ type: 'error', code: 'AUTHENTICATION', message: 'Authenticate first' });
+
+            return;
+          }
+
+          // Messages on a socket pass no HTTP rate limit: this is what stops one flooding a
+          // package's process through it.
+          if (!spend(state.budget, context.now().getTime())) {
+            send({ type: 'error', code: 'RATE_LIMITED', message: 'Too many messages' });
+
+            return;
+          }
+
+          if (
+            message.data.type === 'package_subscribe' ||
+            message.data.type === 'package_unsubscribe' ||
+            message.data.type === 'package_send'
+          ) {
+            handlePackageLive(
+              context,
+              {
+                identity: state.identity,
+                packageTopics: state.packageTopics,
+                send,
+                traceId: request.traceId,
+              },
+              message.data,
+            );
 
             return;
           }
