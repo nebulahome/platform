@@ -58,11 +58,13 @@ import type {
   RpcState,
   SendCommand,
   Theme,
+  Toasts,
   Translation,
   TranslationValues,
   UiHost,
   Viewer,
 } from '@nebulahome/package-sdk/ui';
+import { toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { commandEntity, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -733,6 +735,15 @@ function PageActions(props: PageActionsProps) {
   return <PackagePageActions packageId={scope.id}>{props.children}</PackagePageActions>;
 }
 
+/**
+ * The interface's own toasts, lent as they are.
+ *
+ * @returns One function per kind.
+ */
+function useToast(): Toasts {
+  return toast;
+}
+
 /** The interface's `@nebulahome/package-sdk/ui`, as a package's build reads it. */
 export const UI_HOST = {
   usePackage,
@@ -756,6 +767,7 @@ export const UI_HOST = {
   PlatformLink,
   PageActions,
   useAreaActions,
+  useToast,
   useStateHistory,
   useTelemetry,
   useAreas,
