@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/hub",
-  "version": "2026.10.0-alpha.26",
+  "version": "2026.10.0-alpha.27",
   "private": true,
   "type": "module",
   "scripts": {
