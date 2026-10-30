@@ -396,6 +396,36 @@ export type PageActionsProps = {
   readonly children?: ReactNode;
 };
 
+/** What a toast says. Since 1.4. */
+export type ToastMessage = {
+  /** A few words, no full stop. */
+  readonly title: string;
+
+  /** One or two lines. */
+  readonly message?: string;
+
+  /** The one thing to do about it; doing it closes the toast. */
+  readonly action?: { readonly label: string; readonly onSelect: () => void };
+};
+
+/**
+ * Shows one of the interface's toasts, one function per kind: bottom right, three at a time, the
+ * rest waiting their turn; the same toast twice is shown once. Since 1.4.
+ */
+export type Toasts = {
+  /** Confirms what was just done; stays 4 s. */
+  readonly success: (message: ToastMessage) => void;
+
+  /** Something that needs a look, not right now; stays 8 s. */
+  readonly warning: (message: ToastMessage) => void;
+
+  /** Something that failed; stays 10 s. */
+  readonly error: (message: ToastMessage) => void;
+
+  /** Something that started or changed; stays 6 s. */
+  readonly info: (message: ToastMessage) => void;
+};
+
 /** What the interface lends to implement `/ui`. */
 export type UiHost = {
   readonly usePackage: () => PackageInfo;
@@ -450,4 +480,7 @@ export type UiHost = {
 
   /** Since 1.3. */
   readonly useAreaActions: () => AreaActions;
+
+  /** Since 1.4. */
+  readonly useToast: () => Toasts;
 };

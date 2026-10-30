@@ -140,6 +140,22 @@ import { sunPosition } from '@nebulahome/package-sdk/sun';
 const { elevation, azimuth } = sunPosition(at, { latitude, longitude });
 ```
 
+## Toasts
+
+The interface's own toasts, for the outcome of something the viewer just did (since 1.4):
+
+```tsx
+const toast = useToast();
+const save = usePackageMutation('rules.save');
+
+try {
+  await save.mutate(rules);
+  toast.success({ title: t('save.done', 'Saved') });
+} catch (error) {
+  toast.error({ title: t('save.failed', "Couldn't save"), message: String(error) });
+}
+```
+
 ## Entry points
 
 | Import                    | What                                                                                                                                                                                                                                            |

@@ -3,6 +3,12 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.4.0
+
+- **Toasts.** `useToast()` from `@nebulahome/package-sdk/ui` shows the interface's own toasts -
+  `success`, `warning`, `error`, `info`, each with a title, a line or two and at most one action -
+  for the outcome of something the viewer just did.
+
 ## 1.3.0
 
 - **The page's actions in its header.** `<PageActions>` from `@nebulahome/package-sdk/ui` draws

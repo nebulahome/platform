@@ -51,7 +51,7 @@ describe('building a package', () => {
     expect(await json('nebula.package.json')).toMatchObject({
       id: 'weather',
       version: '0.2.0',
-      sdk: '^1.3.0',
+      sdk: '^1.4.0',
       runtime: 'node',
       repository: 'nebulahome/pkg-weather',
       logo: { path: './logo.svg' },
@@ -146,7 +146,7 @@ describe('building a package', () => {
     expect(JSON.parse(await readFile(packed.indexEntry, 'utf8'))).toEqual({
       version: '0.2.0',
       platform: '^1.0.0',
-      sdk: '^1.3.0',
+      sdk: '^1.4.0',
       requires: { packages: {}, services: [] },
       provides: [],
       artifact: {

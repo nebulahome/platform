@@ -16,6 +16,7 @@ import {
   usePackageRpc,
   useStateHistory,
   useTelemetry,
+  useToast,
   useTranslation,
 } from './index.js';
 
@@ -86,6 +87,14 @@ describe('the forwarders', () => {
       'PageActions needs package SDK 1.3; this interface implements 1.2.0',
     );
     expect(() => useAreaActions()).toThrow('useAreaActions needs package SDK 1.3');
+  });
+
+  it('name 1.4 for what 1.4 added', () => {
+    lend('1.3.0', { [UI_MODULE]: {} });
+
+    expect(() => useToast()).toThrow(
+      'useToast needs package SDK 1.4; this interface implements 1.3.0',
+    );
   });
 
   it('say so outside the interface', () => {

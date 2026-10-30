@@ -44,6 +44,7 @@ import type {
   Telemetry,
   TelemetryQuery,
   Theme,
+  Toasts,
   Translation,
   UiHost,
   Viewer,
@@ -83,6 +84,8 @@ export type {
   Telemetry,
   TelemetryQuery,
   Theme,
+  ToastMessage,
+  Toasts,
   Translate,
   Translation,
   TranslationValues,
@@ -289,6 +292,16 @@ export function useAreas(): readonly AreaView[] {
  */
 export function useAreaActions(): AreaActions {
   return ui('useAreaActions', '1.3')();
+}
+
+/**
+ * Shows the interface's toasts: the outcome of something the viewer just did - "Saved", "Couldn't
+ * reach the printer" - from a handler, a mutation's `onError`, wherever. Since 1.4.
+ *
+ * @returns One function per kind: `success`, `warning`, `error`, `info`.
+ */
+export function useToast(): Toasts {
+  return ui('useToast', '1.4')();
 }
 
 /**
