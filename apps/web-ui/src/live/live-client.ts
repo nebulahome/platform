@@ -131,6 +131,9 @@ export class LiveClient {
   /** The socket that is open or opening, if one is. */
   #socket: LiveSocket | undefined;
 
+  /** The socket the server welcomed, which is the one that may be sent to. */
+  #welcomed: LiveSocket | undefined;
+
   /** The reconnection that is waiting, if one is. */
   #timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -178,6 +181,17 @@ export class LiveClient {
     this.#clearTimer();
     this.#drop();
     this.#connect();
+  }
+
+  /**
+   * Sends one message on the socket the server welcomed; with none, it is dropped.
+   *
+   * @param message - What to send.
+   */
+  public send(message: WsClientMessage): void {
+    if (this.#welcomed !== undefined && this.#welcomed === this.#socket) {
+      this.#welcomed.send(JSON.stringify(message));
+    }
   }
 
   /** Forgets a reconnection that was waiting. */
@@ -240,6 +254,7 @@ export class LiveClient {
 
       if (parsed.data.type === 'welcome') {
         this.#failures = 0;
+        this.#welcomed = socket;
 
         for (const topic of this.#options.topics ?? DEFAULT_TOPICS) {
           send({ type: 'subscribe', topic });

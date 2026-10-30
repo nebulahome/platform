@@ -40,6 +40,8 @@ import type {
   EntitiesFilter,
   EntityPicture,
   EntityView,
+  LiveOptions,
+  LiveState,
   Locale,
   Mutation,
   MutationOptions,
@@ -48,6 +50,7 @@ import type {
   PackageLinkProps,
   PackageNavigate,
   PackageRoute,
+  PackageSend,
   PageActionsProps,
   PackageSettings,
   PictureOptions,
@@ -69,6 +72,7 @@ import { toast } from '@nebulahome/ui';
 import { useSession } from '@/auth/session-store';
 import { commandEntity, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive, type LiveReading } from '@/live/live-store';
+import { packageLive } from '@/live/package-live';
 import { callPackage, configurePackage, fetchPackage, PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { packageNamespace } from '@/packages/loader';
 import { packageAppPath, packagePathOf, platformPath } from '@/packages/package-paths';
@@ -744,6 +748,52 @@ function useToast(): Toasts {
   return toast;
 }
 
+/**
+ * Follows a live topic of the drawn package, on the tab's one socket.
+ *
+ * @param topic - The topic.
+ * @param options - Whether to follow it.
+ * @returns The last message, and whether the socket is open.
+ */
+function usePackageLive<TData = SdkJsonValue>(
+  topic: string,
+  options?: LiveOptions,
+): LiveState<TData> {
+  const scope = usePackage();
+  const isEnabled = options?.isEnabled ?? true;
+  const follow = useCallback(
+    (onChange: () => void): (() => void) =>
+      isEnabled
+        ? packageLive.follow(scope.id, topic, onChange)
+        : (): void => {
+            // Nothing followed, nothing to leave.
+          },
+    [scope.id, topic, isEnabled],
+  );
+  const data = useSyncExternalStore(follow, () =>
+    isEnabled ? packageLive.read(scope.id, topic) : undefined,
+  );
+  const isConnected = useLive((state) => state.status === 'live');
+
+  return { data: data as TData | undefined, isConnected };
+}
+
+/**
+ * Sends the drawn package's server messages, on the tab's one socket.
+ *
+ * @returns What sends one.
+ */
+function usePackageSend(): PackageSend {
+  const scope = usePackage();
+
+  return useCallback(
+    (topic: string, data: SdkJsonValue): void => {
+      packageLive.send(scope.id, topic, data as JsonValue);
+    },
+    [scope.id],
+  );
+}
+
 /** The interface's `@nebulahome/package-sdk/ui`, as a package's build reads it. */
 export const UI_HOST = {
   usePackage,
@@ -768,6 +818,8 @@ export const UI_HOST = {
   PageActions,
   useAreaActions,
   useToast,
+  usePackageLive,
+  usePackageSend,
   useStateHistory,
   useTelemetry,
   useAreas,

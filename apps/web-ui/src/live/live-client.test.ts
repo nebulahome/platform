@@ -171,6 +171,24 @@ describe('LiveClient', () => {
     expect(messages).toEqual([WELCOME, CHANGE]);
   });
 
+  it('sends only on the socket the server welcomed', () => {
+    const { client, sockets } = harness(['token-1']);
+    const unsubscribe = { type: 'package_unsubscribe', packageId: 'music', topic: 'q' } as const;
+
+    client.start();
+    sockets[0]?.open();
+    client.send(unsubscribe);
+    expect(sockets[0]?.sent).toHaveLength(1);
+
+    sockets[0]?.deliver(WELCOME);
+    client.send(unsubscribe);
+    expect(sockets[0]?.sent.at(-1)).toBe(JSON.stringify(unsubscribe));
+
+    client.reconnect();
+    client.send(unsubscribe);
+    expect(sockets[1]?.sent).toEqual([]);
+  });
+
   it('refreshes the token and comes straight back when the server closes for expiry', async () => {
     const { client, sockets, refresh, statuses } = harness(['token-1', 'token-2']);
 

@@ -25,6 +25,7 @@ import { refreshAccessToken } from '@/lib/api-client';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { LiveClient } from '@/live/live-client';
 import { useLive } from '@/live/live-store';
+import { packageLive } from '@/live/package-live';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { fetchPlatformState, UPDATES_QUERY_KEY } from '@/settings/updates-api';
 import { usePlatform } from '@/system/platform-store';
@@ -71,6 +72,7 @@ export function useLiveChannel(): void {
        */
       onMessage: (message): void => {
         useLive.getState().apply(message);
+        packageLive.apply(message);
 
         if (message.type === 'device_event' && message.event === 'updated') {
           // The device changed on its own - found, a new firmware - and nothing about which
@@ -154,6 +156,11 @@ export function useLiveChannel(): void {
         if (next === 'live') {
           hasBeenLive = true;
 
+          // A new socket follows nothing: the packages' topics are followed again on it.
+          packageLive.attach((message) => {
+            client.send(message);
+          });
+
           // A restart or an update under way since before this page opened, or since the channel
           // dropped, is read once: its events are only told as they happen.
           void fetchPlatformState()
@@ -165,6 +172,8 @@ export function useLiveChannel(): void {
               }
             })
             .catch(() => undefined);
+        } else {
+          packageLive.detach();
         }
 
         useLive.getState().setStatus(next);
@@ -176,6 +185,7 @@ export function useLiveChannel(): void {
     return (): void => {
       client.stop();
       useLive.getState().reset();
+      packageLive.reset();
     };
   }, [status, queryClient]);
 }
