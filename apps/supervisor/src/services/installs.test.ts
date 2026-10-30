@@ -114,8 +114,9 @@ describe('the installs around a restore', () => {
     await installs.resume(new Set(), CONTEXT);
 
     await vi.waitFor(() => {
-      expect(engine.control).toHaveBeenCalledWith('new-id', 'start');
+      expect(installs.list()).toEqual([]);
     });
+    expect(engine.control).toHaveBeenCalledWith('new-id', 'start');
     expect(engine.pull).toHaveBeenCalledWith('traefik/whoami', 'v1.10', expect.any(Function));
     expect(engine.createContainer).toHaveBeenCalledWith('whoami', expect.any(Object));
   });
@@ -168,8 +169,10 @@ describe('the installs around a restore', () => {
     const restored = installsOver(engine);
 
     await restored.resume(new Set(), CONTEXT);
+    // Until the install is done, so its folders and record are written before afterEach removes them.
     await vi.waitFor(() => {
-      expect(engine.pull).toHaveBeenCalledWith('traefik/whoami', 'v1.11', expect.any(Function));
+      expect(restored.list()).toEqual([]);
     });
+    expect(engine.pull).toHaveBeenCalledWith('traefik/whoami', 'v1.11', expect.any(Function));
   });
 });
