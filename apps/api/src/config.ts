@@ -68,8 +68,12 @@ export const apiEnvSchema = runtimeEnvSchema
           .filter(Boolean),
       ),
 
-    /** How many requests one client may make in {@link API_RATE_LIMIT_WINDOW_MS}. */
-    API_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(100_000).default(300),
+    /**
+     * How many requests one client may make in {@link API_RATE_LIMIT_WINDOW_MS}: 20 a second, as
+     * a package's page drawing a list of pictures or uploading an album asks in a moment (300 was
+     * reached by browsing alone).
+     */
+    API_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(100_000).default(1200),
 
     /** The window the rate limit counts over, in milliseconds. */
     API_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).max(3_600_000).default(60_000),
