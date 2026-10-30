@@ -32,8 +32,11 @@ import {
   isPackageServiceAllowed,
   jsonValueSchema,
   NotFoundError,
+  PACKAGE_LIVE_MAX_BYTES,
+  PACKAGE_LIVE_TOPIC_PATTERN,
   PACKAGE_RPC_METHOD,
   PACKAGE_SETTINGS_METHOD,
+  packageLiveInboxSchema,
   packageObjectPrefix,
   packageRpcRequestSchema,
   packageSettingsChangeSchema,
@@ -70,6 +73,8 @@ import type {
   EntityFilter,
   EntitySnapshot,
   HistoryRead,
+  LiveCall,
+  LivePublishOptions,
   RpcAccess,
   RpcCall,
   Schema,
@@ -79,6 +84,7 @@ import type {
   StateChange,
   StateHistoryPoint,
   TelemetryPoint,
+  Unsubscribe,
 } from '@nebulahome/package-sdk/server';
 
 import { convertedState, measuredOf, type Measured } from './measurements.js';
@@ -118,6 +124,12 @@ type Method = {
   readonly access: RpcAccess;
   readonly input: Schema<unknown> | undefined;
   readonly handler: (input: unknown, call: RpcCall) => Awaitable<JsonValue | undefined>;
+};
+
+/** One live topic the package hears, as the context keeps it. */
+type LiveTopic = {
+  readonly input: Schema<unknown> | undefined;
+  readonly handler: (data: unknown, call: LiveCall) => Awaitable<void>;
 };
 
 /** One service, as the context keeps it. */
@@ -331,6 +343,7 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
   const { client, id, logger } = options;
   const prefix = packageObjectPrefix(id);
   const methods = new Map<string, Method>();
+  const liveTopics = new Map<string, LiveTopic>();
   const services = new Map<string, Service>();
   const subscriptions: BusSubscription[] = [];
   const customTypes = new Map<string, string>();
@@ -455,6 +468,50 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
       },
       { concurrency: 8 },
     ),
+    client.subscribe(
+      busSubjects.packageLiveInbox(id),
+      packageLiveInboxSchema,
+
+      /**
+       * Hands what an interface sent to the topic's handler. Nobody waits for an answer, so what
+       * goes wrong is logged here and goes no further.
+       *
+       * @param message - The topic, the message, and who sent it as `api` authenticated them.
+       */
+      async (message): Promise<void> => {
+        const topic = liveTopics.get(message.topic);
+
+        if (topic === undefined) {
+          logger.debug({ topic: message.topic }, 'A live message on a topic nothing hears');
+
+          return;
+        }
+
+        let data: unknown = message.data;
+
+        if (topic.input !== undefined) {
+          const checked = await check(topic.input, message.data);
+
+          if (!checked.isValid) {
+            logger.warn(
+              { topic: message.topic, problem: checked.message },
+              'A live message was refused by its topic',
+            );
+
+            return;
+          }
+
+          data = checked.value;
+        }
+
+        try {
+          await topic.handler(data, { caller: message.caller });
+        } catch (error: unknown) {
+          logger.error({ err: error, topic: message.topic }, 'A live message failed');
+        }
+      },
+      { concurrency: 8 },
+    ),
     client.serve(
       busSubjects.service(id, PACKAGE_SETTINGS_METHOD),
       packageSettingsChangeSchema,
@@ -533,6 +590,103 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
 
         return handler(input, call);
       },
+    });
+  }
+
+  /**
+   * Hears what the package's interfaces send on a live topic.
+   *
+   * @param topic - The topic.
+   * @param optionsOrHandler - What a message takes, or what to do with one.
+   * @param handler - What to do with one, after its schema.
+   * @returns What stops it hearing.
+   * @throws {Error} When the topic is not one, is heard already, or there is no handler.
+   */
+  function onLiveMessage<TInput = JsonValue>(
+    topic: string,
+    optionsOrHandler:
+      { readonly input: Schema<TInput> } | ((data: TInput, call: LiveCall) => Awaitable<void>),
+    handler?: (data: TInput, call: LiveCall) => Awaitable<void>,
+  ): Unsubscribe {
+    /**
+     * Says whether a message is the topic's: its schema checked it, or it takes any JSON.
+     *
+     * @param data - The message.
+     * @returns True.
+     */
+    const isInput = (data: unknown): data is TInput => data !== Symbol.iterator;
+    const hear = typeof optionsOrHandler === 'function' ? optionsOrHandler : handler;
+
+    if (!PACKAGE_LIVE_TOPIC_PATTERN.test(topic)) {
+      throw new Error(`${topic} is not a live topic: a letter first, then letters, digits, .:_-`);
+    }
+
+    if (liveTopics.has(topic)) {
+      throw new Error(`The live topic ${topic} is heard already`);
+    }
+
+    if (hear === undefined) {
+      throw new Error(`The live topic ${topic} has no handler`);
+    }
+
+    const heard: LiveTopic = {
+      input: typeof optionsOrHandler === 'function' ? undefined : optionsOrHandler.input,
+
+      /**
+       * Hands the handler the message, once checked.
+       *
+       * @param data - The message.
+       * @param call - Who sent it.
+       * @returns Once handled.
+       * @throws {Error} Never: every message is the topic's.
+       */
+      handler: (data, call) => {
+        if (!isInput(data)) {
+          throw new Error(`${topic} was handed what it does not take`);
+        }
+
+        return hear(data, call);
+      },
+    };
+
+    liveTopics.set(topic, heard);
+
+    return (): void => {
+      if (liveTopics.get(topic) === heard) {
+        liveTopics.delete(topic);
+      }
+    };
+  }
+
+  /**
+   * Sends the package's open interfaces a message, through `api`; one that is not a topic's, or
+   * is too large for the bus, is logged rather than thrown, as it is usually sent from a timer.
+   *
+   * @param topic - The topic.
+   * @param data - The message.
+   * @param publishOptions - Whether `api` keeps it for whoever follows the topic later.
+   */
+  function publishLive(
+    topic: string,
+    data: JsonValue,
+    publishOptions: LivePublishOptions = {},
+  ): void {
+    if (!PACKAGE_LIVE_TOPIC_PATTERN.test(topic)) {
+      logger.error({ topic }, 'A live message was not sent: that is not a topic');
+
+      return;
+    }
+
+    if (Buffer.byteLength(JSON.stringify(data)) > PACKAGE_LIVE_MAX_BYTES) {
+      logger.error({ topic }, 'A live message was not sent: it is larger than 1 MB');
+
+      return;
+    }
+
+    client.publish(busSubjects.packageLive(id), {
+      topic,
+      data,
+      isRetained: publishOptions.isRetained === true,
     });
   }
 
@@ -1065,6 +1219,7 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
     },
 
     rpc: { method: rpcMethod },
+    live: { publish: publishLive, onMessage: onLiveMessage },
     services: { provide, call: callService },
   };
 

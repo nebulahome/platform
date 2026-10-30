@@ -18,6 +18,7 @@ import {
   historyTelemetryRequestSchema,
   PACKAGE_RPC_METHOD,
   PACKAGE_SETTINGS_METHOD,
+  packageLiveMessageSchema,
   packageRpcReplySchema,
   parseEntityId,
   stateReportSchema,
@@ -92,6 +93,45 @@ describe("a package's context", () => {
       platform.request(subject, { method: 'erase' }, packageRpcReplySchema),
     ).rejects.toThrow(/has no method erase/u);
     expect(made.rpcMethods()).toEqual([{ name: 'clips', access: 'read' }]);
+  });
+
+  it('publishes live messages under its id, and hears its interfaces through the topic schema', async () => {
+    const { handle: made, platform } = setUp();
+    const published: unknown[] = [];
+    const heard: string[] = [];
+    const caller = { userId: 'u-1', username: 'ada', role: 'owner' };
+
+    platform.subscribe(busSubjects.packageLive('nvr'), packageLiveMessageSchema, (message) => {
+      published.push(message);
+    });
+    made.context.live.onMessage(
+      'clip.watch',
+      { input: z.object({ camera: z.string() }) },
+      ({ camera }, call) => {
+        heard.push(`${call.caller.username}:${camera}`);
+      },
+    );
+
+    made.context.live.publish('clips', ['door-1.mp4'], { isRetained: true });
+    made.context.live.publish('Not a topic', 1);
+    platform.publish(busSubjects.packageLiveInbox('nvr'), {
+      topic: 'clip.watch',
+      data: { camera: 3 },
+      caller,
+    });
+    platform.publish(busSubjects.packageLiveInbox('nvr'), {
+      topic: 'clip.watch',
+      data: { camera: 'door' },
+      caller,
+    });
+
+    await vi.waitFor(() => {
+      expect(heard).toEqual(['ada:door']);
+      expect(published).toEqual([{ topic: 'clips', data: ['door-1.mp4'], isRetained: true }]);
+    });
+    expect(() => made.context.live.onMessage('clip.watch', () => undefined)).toThrow(
+      /heard already/u,
+    );
   });
 
   it('hands core the devices with their entities named after the package', async () => {
