@@ -163,6 +163,7 @@ export {
   toast,
   Toaster,
   TOAST_DURATIONS,
+  useToastsShown,
   type ToastKind,
   type ToastMessage,
 } from './components/toast.js';

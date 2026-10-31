@@ -214,6 +214,25 @@ export function clearToasts(): void {
 }
 
 /**
+ * Reads whether any toast is on the screen.
+ *
+ * @returns True while one is, one leaving included.
+ */
+function isAnyShown(): boolean {
+  return state.shown.length > 0;
+}
+
+/**
+ * Whether any toast is on the screen, one leaving included: for what sits in the stack's corner
+ * and makes room for it, as a floating window does.
+ *
+ * @returns True while one is.
+ */
+export function useToastsShown(): boolean {
+  return useSyncExternalStore(subscribe, isAnyShown, () => false);
+}
+
+/**
  * Subscribes to the state.
  *
  * @param listener - Called on every change.

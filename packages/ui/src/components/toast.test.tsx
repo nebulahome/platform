@@ -1,7 +1,7 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { clearToasts, dismissToast, readToasts, toast, Toaster } from './toast.js';
+import { clearToasts, dismissToast, readToasts, toast, Toaster, useToastsShown } from './toast.js';
 
 describe('toast', () => {
   beforeEach(() => {
@@ -51,5 +51,29 @@ describe('toast', () => {
 
     expect(screen.getAllByText('Couldn’t adopt it').length).toBeGreaterThan(0);
     expect(screen.getAllByText('It asks for a password.').length).toBeGreaterThan(0);
+  });
+
+  it('says a toast is on the screen until the last one has left', () => {
+    const { result } = renderHook(() => useToastsShown());
+
+    expect(result.current).toBe(false);
+
+    let id = 0;
+
+    act(() => {
+      id = toast.info({ title: 'Playing on Downstairs' });
+    });
+    expect(result.current).toBe(true);
+
+    act(() => {
+      dismissToast(id);
+    });
+    // Still leaving.
+    expect(result.current).toBe(true);
+
+    act(() => {
+      vi.runAllTimers();
+    });
+    expect(result.current).toBe(false);
   });
 });
