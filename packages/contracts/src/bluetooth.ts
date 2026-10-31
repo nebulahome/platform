@@ -81,9 +81,6 @@ export const HUB_BLUETOOTH_PROXY_ADD_METHOD = 'bluetooth_proxy_add';
 /** Reads a proxy job until it ends. */
 export const HUB_BLUETOOTH_PROXY_JOB_METHOD = 'bluetooth_proxy_job';
 
-/** Changes how a proxy scans. */
-export const HUB_BLUETOOTH_PROXY_MODE_METHOD = 'bluetooth_proxy_mode';
-
 /** Installs the script the integration ships now over an outdated one, as a job. */
 export const HUB_BLUETOOTH_PROXY_UPDATE_METHOD = 'bluetooth_proxy_update';
 
@@ -121,12 +118,16 @@ export const BLUETOOTH_ADAPTER_PROBLEMS = [
 /** Why the local adapter cannot be used. */
 export type BluetoothAdapterProblem = (typeof BLUETOOTH_ADAPTER_PROBLEMS)[number];
 
-/** Why a device cannot be a proxy: Gen1, battery powered, firmware too old, no Bluetooth. */
+/**
+ * Why a device cannot be a proxy: Gen1, battery powered, firmware too old, no Bluetooth, or a
+ * model that cannot run the script (no scripts, or its radio busy with something else).
+ */
 export const BLUETOOTH_PROXY_INELIGIBLE_REASONS = [
   'gen1',
   'battery',
   'firmware',
   'no-bluetooth',
+  'unsupported',
 ] as const;
 
 /** What a proxy forwards: the house's devices and what a rule recognises, or everything. */
@@ -188,7 +189,7 @@ export type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
 export const bluetoothAdvertBatchSchema = z.array(bluetoothAdvertSchema).max(1024);
 
 /**
- * What a device that can be a proxy declares in its profile: the scan modes it can run.
+ * What a device that can be a proxy declares in its profile: the scan modes its radio can run.
  */
 export const bluetoothProxyProfileSchema = z.strictObject({
   modes: z
@@ -210,15 +211,21 @@ export const bluetoothProxyEmptyArgsSchema = z.object({});
 /** Arguments of `bluetooth-proxy.install`. */
 export const bluetoothProxyInstallArgsSchema = z.object({ mode: z.enum(BLUETOOTH_SCAN_MODES) });
 
-/** Arguments of `bluetooth-proxy.install`: the mode to scan in. */
+/** Arguments of `bluetooth-proxy.install`: the mode to rest in, which the hub picks. */
 export type BluetoothProxyInstallArgs = z.output<typeof bluetoothProxyInstallArgsSchema>;
 
 /** Arguments of `bluetooth-proxy.filter`. */
 export const bluetoothProxyFilterArgsSchema = z.object({
   addresses: z.union([z.literal('all'), z.array(bluetoothAddressSchema).max(4096)]),
+
+  /** Whether to scan actively until the next filter; absent or false rests in the install's mode. */
+  active: z.boolean().optional(),
 });
 
-/** Arguments of `bluetooth-proxy.filter`: the addresses to forward, upper case, or `all`. */
+/**
+ * Arguments of `bluetooth-proxy.filter`: the addresses to forward, upper case, or `all`, and
+ * whether the hub wants it scanning actively now.
+ */
 export type BluetoothProxyFilterArgs = z.output<typeof bluetoothProxyFilterArgsSchema>;
 
 /** What `bluetooth-proxy.state` answers: a device that can be a proxy, and whether it is one. */
@@ -277,9 +284,6 @@ export const bluetoothSettingsSchema = z.object({
     .nullable()
     .default(null),
   localScanMode: z.enum(BLUETOOTH_SCAN_MODES).default('active'),
-
-  /** How a new proxy scans. */
-  proxyScanMode: z.enum(BLUETOOTH_SCAN_MODES).default('passive'),
 
   /** Addresses not heard for this long are dropped. */
   forgetAfterDays: z.int().min(1).max(365).default(7),
@@ -535,6 +539,8 @@ export const bluetoothScannerSchema = z.object({
   chip: z.string().max(128).nullable(),
   isOnline: z.boolean(),
   isEnabled: z.boolean(),
+
+  /** The adapter's setting; for a proxy, how it scans right now, as the hub asks. */
   scanMode: z.enum(BLUETOOTH_SCAN_MODES),
   canPassive: z.boolean(),
   advertsPerMinute: z.int().min(0),
@@ -605,17 +611,11 @@ export const bluetoothProxyCandidatesReplySchema = z.object({
   items: z.array(bluetoothProxyCandidateSchema),
 });
 
-/** Makes a device a proxy that scans so. */
-export const bluetoothProxyAddRequestSchema = z.object({
-  deviceId: integrationIdSchema,
-  mode: z.enum(BLUETOOTH_SCAN_MODES),
-});
-
-/** Changes how a proxy scans. */
-export const bluetoothProxyModeRequestSchema = bluetoothProxyAddRequestSchema;
-
-/** Names a proxy. */
+/** Names a proxy, or the device to make one: the hub picks how it scans. */
 export const bluetoothProxyDeviceRequestSchema = z.object({ deviceId: integrationIdSchema });
+
+/** Makes a device a proxy. */
+export const bluetoothProxyAddRequestSchema = bluetoothProxyDeviceRequestSchema;
 
 /** The steps of making a device a proxy, in order. */
 export const BLUETOOTH_PROXY_STEPS = ['installing', 'started', 'first-report'] as const;
@@ -623,7 +623,6 @@ export const BLUETOOTH_PROXY_STEPS = ['installing', 'started', 'first-report'] a
 /** Making a device a proxy, or updating its script. */
 export const bluetoothProxyJobSchema = brokerJobSchemaOf(BLUETOOTH_PROXY_STEPS).extend({
   deviceId: integrationIdSchema,
-  mode: z.enum(BLUETOOTH_SCAN_MODES),
 });
 
 /** Making a device a proxy. */

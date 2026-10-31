@@ -95,15 +95,21 @@ describe('bluetoothProxyFilterArgsSchema', () => {
       bluetoothProxyFilterArgsSchema.parse({ addresses: ['a4:c1:38:0b:5e:7f'] }).addresses,
     ).toEqual(['A4:C1:38:0B:5E:7F']);
   });
+
+  it('carries whether the hub wants an active scan', () => {
+    expect(bluetoothProxyFilterArgsSchema.parse({ addresses: 'all', active: true }).active).toBe(
+      true,
+    );
+    expect(bluetoothProxyFilterArgsSchema.parse({ addresses: [] }).active).toBeUndefined();
+  });
 });
 
 describe('bluetoothSettingsSchema', () => {
-  it('starts with the adapter on, proxies passive, a week to forget', () => {
+  it('starts with the adapter on and active, a week to forget', () => {
     expect(bluetoothSettingsSchema.parse({})).toEqual({
       localEnabled: true,
       adapterId: null,
       localScanMode: 'active',
-      proxyScanMode: 'passive',
       forgetAfterDays: 7,
       showPrivate: false,
     });
@@ -119,7 +125,6 @@ describe('bluetoothProxyJobSchema', () => {
       finishedAt: null,
       error: null,
       deviceId: 'shelly-plug-1',
-      mode: 'passive',
       steps: [{ id: 'installing', state: 'running', message: null }],
     };
 
