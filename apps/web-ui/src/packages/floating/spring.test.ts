@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AT_REST,
+  capSpeed,
   clampPosition,
   CORNER_INSET_PX,
   cornerPosition,
   cornerToward,
+  holdInside,
   isSettled,
+  MAX_THROW_SPEED,
   PEEK_PX,
   pickCorner,
+  readPlacements,
+  restingPosition,
   stepSpring,
   throwVelocity,
   tuckedPosition,
@@ -52,11 +57,30 @@ describe('stepSpring', () => {
   });
 
   it('goes a little past the target, once', () => {
-    const { overshoot } = run({ x: 0, y: 0 }, { x: 100, y: 0 });
+    const { overshoot } = run({ x: 0, y: 0 }, { x: 400, y: 0 });
 
-    // A damping ratio of about 0.67: some 6% over, from rest.
+    // A damping ratio of about 0.8: some 1.5% over, from rest.
     expect(overshoot).toBeGreaterThan(1);
     expect(overshoot).toBeLessThan(10);
+  });
+
+  it('takes about a quarter of a second to cross a wide page', () => {
+    let state: SpringState = { position: { x: 0, y: 0 }, velocity: AT_REST };
+    let frames = 0;
+
+    while (state.position.x < 0.95 * 800) {
+      state = stepSpring(state, { x: 800, y: 0 }, 1 / 60);
+      frames += 1;
+    }
+
+    expect(frames).toBeGreaterThanOrEqual(12);
+    expect(frames).toBeLessThanOrEqual(18);
+  });
+
+  it('keeps even the hardest throw across a wide page inside the margin', () => {
+    const { overshoot } = run({ x: 0, y: 0 }, { x: 1200, y: 0 }, capSpeed({ x: 20_000, y: 0 }));
+
+    expect(overshoot).toBeLessThan(CORNER_INSET_PX);
   });
 
   it('treats a late frame as a short one', () => {
@@ -157,6 +181,69 @@ describe('cornerPosition and clampPosition', () => {
       expect(drawn.x + SIZE.width).toBeLessThanOrEqual(BOUNDS.width);
       expect(drawn.y + SIZE.height).toBeLessThanOrEqual(BOUNDS.height);
     }
+  });
+});
+
+describe('capSpeed and holdInside', () => {
+  it('caps a throw at the most a window sets off with, keeping its direction', () => {
+    const capped = capSpeed({ x: 6000, y: 8000 });
+
+    expect(Math.hypot(capped.x, capped.y)).toBeCloseTo(MAX_THROW_SPEED);
+    expect(capped.x / capped.y).toBeCloseTo(0.75);
+    expect(capSpeed({ x: 300, y: -200 })).toEqual({ x: 300, y: -200 });
+  });
+
+  it('stops a window at the edge rather than holding it pressed there', () => {
+    const state = { position: { x: 760, y: 300 }, velocity: { x: 900, y: -40 } };
+
+    expect(holdInside(state, BOUNDS, SIZE)).toEqual({
+      position: { x: BOUNDS.width - SIZE.width, y: 300 },
+      velocity: { x: 0, y: -40 },
+    });
+    expect(holdInside(state, BOUNDS, SIZE, true)).toEqual(state);
+  });
+});
+
+describe('readPlacements', () => {
+  it('reads the corner and the tuck kept for each window', () => {
+    expect(
+      readPlacements({
+        'demo.player': { corner: 'bottom-right', isTucked: true },
+        'demo.timer': { corner: 'top-left', isTucked: false },
+      }),
+    ).toEqual({
+      'demo.player': { corner: 'bottom-right', isTucked: true },
+      'demo.timer': { corner: 'top-left', isTucked: false },
+    });
+  });
+
+  it('reads a bare corner, as kept before the tuck was', () => {
+    expect(readPlacements({ 'demo.player': 'top-right' })).toEqual({
+      'demo.player': { corner: 'top-right', isTucked: false },
+    });
+  });
+
+  it('leaves out what is not ours, and a tuck in a left corner', () => {
+    expect(
+      readPlacements({
+        a: 'middle',
+        b: { corner: 'top-left', isTucked: true },
+        c: 7,
+        d: null,
+        e: { isTucked: true },
+      }),
+    ).toEqual({ b: { corner: 'top-left', isTucked: false } });
+    expect(readPlacements('bottom-right')).toEqual({});
+    expect(readPlacements(null)).toEqual({});
+  });
+
+  it('rests a tucked place in its strip, and another in its corner', () => {
+    expect(restingPosition({ corner: 'top-right', isTucked: true }, BOUNDS, SIZE)).toEqual(
+      tuckedPosition('top-right', BOUNDS, SIZE),
+    );
+    expect(restingPosition({ corner: 'top-right', isTucked: false }, BOUNDS, SIZE)).toEqual(
+      cornerPosition('top-right', BOUNDS, SIZE),
+    );
   });
 });
 

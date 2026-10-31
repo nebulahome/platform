@@ -235,9 +235,8 @@
  * `rotate` - and casts a deeper shadow edged in the brand; put down, it settles back with a small
  * bounce. Its script writes its place to `translate`, so none of this moves it.
  *
- * While it is dragged the corners' slots are drawn: dashed, the one it would land in lit and full
- * size, the others a little smaller. Where less motion was asked for the window still lifts and
- * the slots still light, at once; its script leaves out the tilt, the coming and the going.
+ * Where less motion was asked for the window still lifts, at once; its script leaves out the tilt,
+ * the coming and the going.
  */
 @layer components {
   .floating-frame {
@@ -272,31 +271,12 @@
     animation: floating-out 240ms ease forwards;
   }
 
-  .floating-zone {
-    border: 1.5px dashed rgb(128 132 166 / 0.4);
-    border-radius: 18px;
-    background-color: color-mix(in srgb, var(--color-primary) 2%, transparent);
-    scale: 0.96;
-    transition:
-      background-color 160ms ease,
-      border-color 160ms ease,
-      scale 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .floating-zone[data-near] {
-    border-color: var(--color-primary);
-    background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
-    scale: 1;
-  }
-
-  [data-motion='reduced'] .floating-frame,
-  [data-motion='reduced'] .floating-zone {
+  [data-motion='reduced'] .floating-frame {
     transition: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    :root:not([data-motion='full']) .floating-frame,
-    :root:not([data-motion='full']) .floating-zone {
+    :root:not([data-motion='full']) .floating-frame {
       transition: none;
     }
   }

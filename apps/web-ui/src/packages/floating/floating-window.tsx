@@ -11,9 +11,13 @@
  * The frame has no filter and no transform at rest - its glass is a layer of its own under the
  * content - so a popover the package draws `fixed` in its portal is placed against the page.
  *
+ * Where it is - its corner, tucked or not - is the layer's, which remembers it: a reload, or the
+ * window shown again, puts it back there. While toasts are shown over the bottom-right corner, a
+ * window resting there tucks away for them and comes back out when they have gone - unless the
+ * viewer brought it out meanwhile; that tuck is not remembered.
+ *
  * It is hidden while it is not open, on the package's own page - which shows the same thing in
- * full - and on a screen narrower than 640px; a hidden window gives its corner back, and is no
- * longer tucked.
+ * full - and on a screen narrower than 640px; a hidden window gives its corner back.
  */
 import {
   useEffect,
@@ -31,22 +35,24 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
-import { AppIcon, cn, IconButton } from '@nebulahome/ui';
+import { AppIcon, cn, IconButton, useToastsShown } from '@nebulahome/ui';
 
 import { useReducedMotion } from '@/lib/use-reduced-motion';
-import { CORNER_CLASSES, useFloatingLayer } from '@/packages/floating/floating-layer';
+import { useFloatingLayer } from '@/packages/floating/floating-layer';
 import {
   AT_REST,
+  capSpeed,
   clampPosition,
-  cornerPosition,
   cornerToward,
+  holdInside,
   isSettled,
   pickCorner,
+  restingPosition,
   stepSpring,
   throwVelocity,
   THROW_WINDOW_MS,
-  tuckedPosition,
   type Corner,
+  type Placement,
   type PointerSample,
   type Size,
   type SpringState,
@@ -80,6 +86,17 @@ const WIDE_QUERY = '(min-width: 640px)';
 
 /** What a press starts a gesture of its own on, rather than the window's: a slider, a field. */
 const OWN_GESTURES = 'input, textarea, select, [contenteditable="true"], [role="slider"]';
+
+/** How each corner pins the window, 24px in: what `cornerPosition` works out. */
+const CORNER_CLASSES: Readonly<Record<Corner, string>> = {
+  'top-left': 'top-6 left-6',
+  'top-right': 'top-6 right-6',
+  'bottom-left': 'bottom-6 left-6',
+  'bottom-right': 'right-6 bottom-6',
+};
+
+/** The corner the toasts are shown over, on a screen wider than a phone's. */
+const TOASTS_CORNER: Corner = 'bottom-right';
 
 /**
  * How a window tucked in a right corner is pinned: `PEEK_PX` in from the right edge, as wide as
@@ -157,15 +174,13 @@ export function FloatingWindow(props: FloatingWindowProps) {
   const { pathname } = useLocation();
   const isWideEnough = useSyncExternalStore(subscribeWide, isWide, () => true);
   const isReduced = useReducedMotion();
+  const areToastsShown = useToastsShown();
   const [portal, setPortal] = useState<HTMLElement | null>(null);
-  // The right corner the window is tucked away in.
-  const [tuckedIn, setTuckedIn] = useState<Corner | null>(null);
+  // Brought out, or picked up, by the viewer while toasts are shown: it stays out until they go.
+  const [isOutForToasts, setOutForToasts] = useState(false);
   const frameRef = useRef<HTMLDivElement>(null);
-  // Whether it was tucked when the page was last laid out: a corner change is handled after the
-  // render that has already brought it out.
-  const wasTuckedRef = useRef(false);
-  // The corner the spring pulls towards: ahead of the layer's for the moment after a drop.
-  const cornerRef = useRef<Corner | undefined>(undefined);
+  // Where the spring pulls the window: ahead of the layer's for the moment after a drop.
+  const aimRef = useRef<Placement | undefined>(undefined);
   const springRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const isClickSwallowedRef = useRef(false);
@@ -176,30 +191,38 @@ export function FloatingWindow(props: FloatingWindowProps) {
   const layerElement = layer?.element ?? null;
   const claim = layer?.claim;
   const release = layer?.release;
-  const corner = isShown ? layer.corners[packageId] : undefined;
+  const placement = isShown ? layer.placements[packageId] : undefined;
+  const corner = placement?.corner;
 
-  // The corner the window is drawn in: the layer's while it is shown, its last while it goes.
-  const [drawnCorner, setDrawnCorner] = useState(corner);
+  if (!areToastsShown && isOutForToasts) {
+    setOutForToasts(false);
+  }
+
+  // Tucked where the layer has it tucked, and while toasts are shown over its corner.
+  const isTuckedThere =
+    placement !== undefined &&
+    (placement.isTucked ||
+      (areToastsShown && placement.corner === TOASTS_CORNER && !isOutForToasts));
+
+  // Where the window is drawn: where it is while it is shown, where it was while it goes.
+  const [drawn, setDrawn] = useState<Placement | undefined>(undefined);
   const [isLeaving, setLeaving] = useState(false);
 
-  if (corner !== undefined && (corner !== drawnCorner || isLeaving)) {
-    setDrawnCorner(corner);
+  if (
+    corner !== undefined &&
+    (corner !== drawn?.corner || isTuckedThere !== drawn.isTucked || isLeaving)
+  ) {
+    setDrawn({ corner, isTucked: isTuckedThere });
     setLeaving(false);
-  } else if (corner === undefined && drawnCorner !== undefined && !isLeaving) {
+  } else if (corner === undefined && drawn !== undefined && !isLeaving) {
     if (isReduced) {
-      setDrawnCorner(undefined);
-      setTuckedIn(null);
+      setDrawn(undefined);
     } else {
       setLeaving(true);
     }
   }
 
-  // Tucked in one corner and put in another - swapped there by another window - it is out again.
-  if (tuckedIn !== null && corner !== undefined && tuckedIn !== corner) {
-    setTuckedIn(null);
-  }
-
-  const isTucked = tuckedIn !== null;
+  const isTucked = drawn?.isTucked ?? false;
 
   useEffect(() => {
     if (!isLeaving) {
@@ -207,9 +230,8 @@ export function FloatingWindow(props: FloatingWindowProps) {
     }
 
     const timer = setTimeout(() => {
-      setDrawnCorner(undefined);
+      setDrawn(undefined);
       setLeaving(false);
-      setTuckedIn(null);
     }, LEAVE_MS);
 
     return (): void => {
@@ -261,10 +283,10 @@ export function FloatingWindow(props: FloatingWindowProps) {
       return;
     }
 
-    const drawn = clampPosition(position, measured.bounds, measured.size, canTuck);
+    const at = clampPosition(position, measured.bounds, measured.size, canTuck);
 
     frame.style.inset = '0 auto auto 0';
-    frame.style.translate = `${String(drawn.x)}px ${String(drawn.y)}px`;
+    frame.style.translate = `${String(at.x)}px ${String(at.y)}px`;
   };
 
   /** Stops the spring where the window is. */
@@ -286,14 +308,14 @@ export function FloatingWindow(props: FloatingWindowProps) {
   };
 
   /**
-   * Carries the window to its corner - or tucked past the right edge in it - on the spring, or at
-   * once for somebody who asked for less motion.
+   * Carries the window to where it is aimed - its corner, or tucked past the right edge there -
+   * on the spring, or at once for somebody who asked for less motion. The aim is read each frame,
+   * so a window aimed elsewhere on the way turns towards it.
    *
    * @param from - Where it starts.
-   * @param velocity - How fast it is going, in pixels a second.
-   * @param isTuck - Whether it goes to its tucked place rather than its corner.
+   * @param velocity - How fast it is going, in pixels a second; capped.
    */
-  const fly = (from: Vector, velocity: Vector, isTuck = false): void => {
+  const fly = (from: Vector, velocity: Vector): void => {
     hold();
 
     if (isReduced) {
@@ -303,9 +325,9 @@ export function FloatingWindow(props: FloatingWindowProps) {
     }
 
     const start = measure();
-    // Into its tucked place, or out of it, the window is drawn past the right edge on the way.
-    const canTuck = isTuck || (start !== null && from.x > start.bounds.width - start.size.width);
-    let state: SpringState = { position: from, velocity };
+    // Coming out of its tucked place, the window is drawn past the right edge on the way.
+    const isFromPastEdge = start !== null && from.x > start.bounds.width - start.size.width;
+    let state: SpringState = { position: from, velocity: capSpeed(velocity) };
     let last = performance.now();
 
     /**
@@ -315,20 +337,24 @@ export function FloatingWindow(props: FloatingWindowProps) {
      */
     const tick = (now: number): void => {
       const measured = measure();
-      const at = cornerRef.current;
+      const aim = aimRef.current;
 
-      if (measured === null || at === undefined) {
+      if (measured === null || aim === undefined) {
         rest();
 
         return;
       }
 
-      // The corner is worked out again each frame: the rail may be opening while the window flies.
-      const target = isTuck
-        ? tuckedPosition(at, measured.bounds, measured.size)
-        : cornerPosition(at, measured.bounds, measured.size);
+      const canTuck = aim.isTucked || isFromPastEdge;
+      // Worked out again each frame: the rail may be opening while the window flies.
+      const target = restingPosition(aim, measured.bounds, measured.size);
 
-      state = stepSpring(state, target, (now - last) / 1000);
+      state = holdInside(
+        stepSpring(state, target, (now - last) / 1000),
+        measured.bounds,
+        measured.size,
+        canTuck,
+      );
       last = now;
 
       if (isSettled(state, target)) {
@@ -341,39 +367,40 @@ export function FloatingWindow(props: FloatingWindowProps) {
       springRef.current = requestAnimationFrame(tick);
     };
 
-    place(from, canTuck);
+    place(from, (aimRef.current?.isTucked ?? false) || isFromPastEdge);
     springRef.current = requestAnimationFrame(tick);
   };
 
   /**
-   * Tucks the window past the right edge, or brings it back out to its corner, from where it is.
+   * Tucks the window past the right edge, or brings it back out to its corner.
    *
    * @param isTuck - Which.
    */
   const tuck = (isTuck: boolean): void => {
-    const frame = frameRef.current;
-
-    if (frame === null || layerElement === null) {
+    if (corner === undefined || layer === null) {
       return;
     }
 
-    setTuckedIn(isTuck ? (cornerRef.current ?? null) : null);
-    fly(offsetOf(frame, layerElement), AT_REST, isTuck);
+    if (!isTuck && areToastsShown) {
+      setOutForToasts(true);
+    }
+
+    layer.moveTo(packageId, corner, isTuck);
   };
 
-  // A corner that changed while the window sat in the old one - swapped by another window, or
-  // stepped with the keys - is flown to from the old one, out of it if it was tucked there. The
-  // new classes are already on the element, and this runs before the page is painted, so it never
-  // shows there first.
-  const onCornerChange = useEffectEvent((next: Corner | undefined): void => {
-    const previous = cornerRef.current;
+  // A place that changed while the window sat in the old one - swapped by another window, stepped
+  // with the keys, tucked or brought out, making room for toasts - is flown to from the old one.
+  // The new classes are already on the element, and this runs before the page is painted, so it
+  // never shows there first. A window already flying turns towards it on its own.
+  const onPlaceChange = useEffectEvent((next: Placement | undefined): void => {
+    const previous = aimRef.current;
 
-    cornerRef.current = next;
+    aimRef.current = next;
 
     if (
       previous === undefined ||
       next === undefined ||
-      previous === next ||
+      (previous.corner === next.corner && previous.isTucked === next.isTucked) ||
       springRef.current !== null ||
       isDraggingRef.current
     ) {
@@ -383,23 +410,13 @@ export function FloatingWindow(props: FloatingWindowProps) {
     const measured = measure();
 
     if (measured !== null) {
-      fly(
-        wasTuckedRef.current
-          ? tuckedPosition(previous, measured.bounds, measured.size)
-          : cornerPosition(previous, measured.bounds, measured.size),
-        AT_REST,
-      );
+      fly(restingPosition(previous, measured.bounds, measured.size), AT_REST);
     }
   });
 
   useLayoutEffect(() => {
-    onCornerChange(corner);
-  }, [corner]);
-
-  // After the corner change above, which reads what it was before this render.
-  useLayoutEffect(() => {
-    wasTuckedRef.current = isTucked;
-  });
+    onPlaceChange(corner === undefined ? undefined : { corner, isTucked: isTuckedThere });
+  }, [corner, isTuckedThere]);
 
   /**
    * Starts watching a press: past a few pixels it is a drag, and letting go throws the window.
@@ -427,12 +444,10 @@ export function FloatingWindow(props: FloatingWindowProps) {
     let position = AT_REST;
     let samples: PointerSample[] = [{ time: event.timeStamp, x: startX, y: startY }];
     let lastX = startX;
-    let near: Corner | undefined;
     let tiltTimer: ReturnType<typeof setTimeout> | undefined;
 
     /**
-     * Follows the pointer, tilting the window the way it is pulled and lighting the slot it would
-     * land in.
+     * Follows the pointer, tilting the window the way it is pulled.
      *
      * @param moved - The pointer event.
      */
@@ -454,7 +469,8 @@ export function FloatingWindow(props: FloatingWindowProps) {
         // Measured before it is lifted, which grows it.
         origin = offsetOf(frame, layerElement);
         frame.dataset['lifted'] = '';
-        setTuckedIn(null);
+        // Picked up, it is out of any tuck.
+        tuck(false);
       }
 
       samples = [
@@ -475,18 +491,6 @@ export function FloatingWindow(props: FloatingWindowProps) {
       }
 
       lastX = moved.clientX;
-
-      const measured = measure();
-
-      if (measured !== null) {
-        const drawn = clampPosition(position, measured.bounds, measured.size, true);
-        const nearest = pickCorner(drawn, AT_REST, measured.bounds, measured.size).corner;
-
-        if (nearest !== near) {
-          near = nearest;
-          layer.showZones({ size: measured.size, near });
-        }
-      }
     };
 
     /**
@@ -514,7 +518,6 @@ export function FloatingWindow(props: FloatingWindowProps) {
       clearTimeout(tiltTimer);
       frame.style.rotate = '';
       delete frame.dataset['lifted'];
-      layer.showZones(null);
 
       const measured = measure();
 
@@ -532,10 +535,9 @@ export function FloatingWindow(props: FloatingWindowProps) {
           : AT_REST;
       const landing = pickCorner(from, velocity, measured.bounds, measured.size);
 
-      cornerRef.current = landing.corner;
-      setTuckedIn(landing.isTucked ? landing.corner : null);
-      layer.moveTo(packageId, landing.corner);
-      fly(from, velocity, landing.isTucked);
+      aimRef.current = landing;
+      layer.moveTo(packageId, landing.corner, landing.isTucked);
+      fly(from, velocity);
     };
 
     window.addEventListener('pointermove', onMove);
@@ -593,7 +595,7 @@ export function FloatingWindow(props: FloatingWindowProps) {
     layer.moveTo(packageId, next);
   };
 
-  if (drawnCorner === undefined || layerElement === null) {
+  if (drawn === undefined || layerElement === null) {
     return null;
   }
 
@@ -614,7 +616,7 @@ export function FloatingWindow(props: FloatingWindowProps) {
       className={cn(
         'floating-frame pointer-events-auto absolute isolate max-w-100 touch-none rounded-[18px] border border-border',
         'focus-visible:outline-3 focus-visible:outline-primary/25',
-        (isTucked ? TUCKED_CLASSES[drawnCorner] : undefined) ?? CORNER_CLASSES[drawnCorner],
+        (isTucked ? TUCKED_CLASSES[drawn.corner] : undefined) ?? CORNER_CLASSES[drawn.corner],
         !isReduced && (isLeaving ? 'floating-leave' : 'floating-enter'),
       )}
       onPointerDown={onPointerDown}

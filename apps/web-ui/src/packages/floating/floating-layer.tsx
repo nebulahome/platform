@@ -1,14 +1,12 @@
 /**
  * The layer the packages' floating windows are drawn in, over the page beside the rail, and the
- * corners it hands out to them (PACKAGES_DOCS.md 6.7).
+ * places it hands out to them (PACKAGES_DOCS.md 6.7).
  *
- * One window a package, one corner a window. The layer remembers the corner each package's window
- * was last put in, in this browser, and gives it back the next time; when it is taken the window
- * gets the first free one of bottom-right, bottom-left, top-right, top-left. A window put in a
- * corner another holds swaps with it. A fifth window shares the bottom-right.
- *
- * While a window is dragged the layer draws the four corners' slots under it, at its size, the
- * one it would land in lit.
+ * One window a package, one corner a window. The layer remembers where each package's window was
+ * last put, in this browser - its corner, and whether it was tucked away there - and gives it back
+ * the next time, after a reload too; when the corner is taken the window gets the first free one
+ * of bottom-right, bottom-left, top-right, top-left. A window put in a corner another holds swaps
+ * with it, which comes out of its tuck. A fifth window shares the bottom-right.
  */
 import {
   createContext,
@@ -20,82 +18,61 @@ import {
   type ReactNode,
 } from 'react';
 
-import { cn } from '@nebulahome/ui';
+import {
+  CORNER_ORDER,
+  readPlacements,
+  type Corner,
+  type Placement,
+} from '@/packages/floating/spring';
 
-import { CORNER_ORDER, type Corner, type Size } from '@/packages/floating/spring';
-
-/** Where the preferred corners are kept: `{ [packageId]: corner }`. */
+/** Where the places are kept: `{ [packageId]: { corner, isTucked } }`. */
 const STORAGE_KEY = 'nebula.floating';
-
-/** How each corner pins a window or its slot, 24px in: what `cornerPosition` works out. */
-export const CORNER_CLASSES: Readonly<Record<Corner, string>> = {
-  'top-left': 'top-6 left-6',
-  'top-right': 'top-6 right-6',
-  'bottom-left': 'bottom-6 left-6',
-  'bottom-right': 'right-6 bottom-6',
-};
-
-/** The slots drawn while a window is dragged. */
-export type FloatingZones = {
-  /** The window's size, which each slot takes. */
-  readonly size: Size;
-
-  /** The corner it would land in. */
-  readonly near: Corner;
-};
 
 /** What the layer shares with the windows drawn in it. */
 export type FloatingLayerValue = {
   /** The layer's element: the windows are drawn into it, and measured against it. */
   readonly element: HTMLElement | null;
 
-  /** The corner each window shown is in, by package. */
-  readonly corners: Readonly<Record<string, Corner>>;
+  /** Where each window shown is, by package. */
+  readonly placements: Readonly<Record<string, Placement>>;
 
-  /** Gives a window shown its corner: the one it prefers when free, else the first free one. */
+  /** Gives a window shown its place: the one it was last in when free, else the first free corner. */
   readonly claim: (packageId: string) => void;
 
   /** Gives back the corner of a window that is no longer shown. */
   readonly release: (packageId: string) => void;
 
-  /** Puts a window in a corner, swapping with the one there, and remembers it. */
-  readonly moveTo: (packageId: string, corner: Corner) => void;
-
-  /** Draws the slots of a window being dragged; null takes them away. */
-  readonly showZones: (zones: FloatingZones | null) => void;
+  /**
+   * Puts a window in a corner, tucked or not, swapping with the one there, and remembers it.
+   *
+   * @param packageId - Whose window.
+   * @param corner - Where.
+   * @param isTucked - Whether it is tucked away past the right edge there; only a right corner's is.
+   */
+  readonly moveTo: (packageId: string, corner: Corner, isTucked?: boolean) => void;
 };
 
 const FloatingLayerContext = createContext<FloatingLayerValue | null>(null);
 
 /**
- * Reads the corners remembered.
+ * Reads the places remembered.
  *
  * @returns Them; none when the browser keeps nothing or what it kept is not ours.
  */
-function readPreferred(): Record<string, Corner> {
+function readPreferred(): Record<string, Placement> {
   try {
-    const parsed: unknown = JSON.parse(globalThis.localStorage.getItem(STORAGE_KEY) ?? '{}');
-
-    if (typeof parsed !== 'object' || parsed === null) {
-      return {};
-    }
-
-    return Object.fromEntries(
-      Object.entries(parsed).filter((entry): entry is [string, Corner] =>
-        CORNER_ORDER.includes(entry[1] as Corner),
-      ),
-    );
+    return readPlacements(JSON.parse(globalThis.localStorage.getItem(STORAGE_KEY) ?? '{}'));
   } catch {
     return {};
   }
 }
 
 /**
- * Remembers corners.
+ * Remembers places.
  *
- * @param chosen - The corners of the windows just moved, by package.
+ * @param chosen - The places of the windows just moved, by package.
  */
-function writePreferred(chosen: Readonly<Record<string, Corner>>): void {
+function writePreferred(chosen: Readonly<Record<string, Placement>>): void {
   try {
     globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...readPreferred(), ...chosen }));
   } catch {
@@ -126,13 +103,13 @@ export function useFloatingLayer(): FloatingLayerValue | null {
 export function FloatingLayer(props: { readonly children?: ReactNode }) {
   const { children } = props;
   const [element, setElement] = useState<HTMLElement | null>(null);
-  const [corners, setCorners] = useState<Readonly<Record<string, Corner>>>({});
-  // The corners as they are this moment: two windows claiming in one render see each other.
-  const latest = useRef(corners);
+  const [placements, setPlacements] = useState<Readonly<Record<string, Placement>>>({});
+  // The places as they are this moment: two windows claiming in one render see each other.
+  const latest = useRef(placements);
 
-  const commit = useCallback((next: Readonly<Record<string, Corner>>): void => {
+  const commit = useCallback((next: Readonly<Record<string, Placement>>): void => {
     latest.current = next;
-    setCorners(next);
+    setPlacements(next);
   }, []);
 
   const claim = useCallback(
@@ -143,14 +120,17 @@ export function FloatingLayer(props: { readonly children?: ReactNode }) {
         return;
       }
 
-      const taken = new Set(Object.values(current));
+      const taken = new Set(Object.values(current).map((placement) => placement.corner));
       const preferred = readPreferred()[packageId];
-      const corner =
-        preferred !== undefined && !taken.has(preferred)
+      const placement =
+        preferred !== undefined && !taken.has(preferred.corner)
           ? preferred
-          : (CORNER_ORDER.find((each) => !taken.has(each)) ?? 'bottom-right');
+          : {
+              corner: CORNER_ORDER.find((each) => !taken.has(each)) ?? 'bottom-right',
+              isTucked: false,
+            };
 
-      commit({ ...current, [packageId]: corner });
+      commit({ ...current, [packageId]: placement });
     },
     [commit],
   );
@@ -167,19 +147,21 @@ export function FloatingLayer(props: { readonly children?: ReactNode }) {
   );
 
   const moveTo = useCallback(
-    (packageId: string, corner: Corner): void => {
+    (packageId: string, corner: Corner, isTucked = false): void => {
       const current = latest.current;
       const from = current[packageId];
 
-      if (from === undefined || from === corner) {
+      if (from === undefined || (from.corner === corner && from.isTucked === isTucked)) {
         return;
       }
 
-      const moved: Record<string, Corner> = { [packageId]: corner };
+      const moved: Record<string, Placement> = {
+        [packageId]: { corner, isTucked: isTucked && corner.endsWith('right') },
+      };
 
       for (const [other, at] of Object.entries(current)) {
-        if (other !== packageId && at === corner) {
-          moved[other] = from;
+        if (other !== packageId && at.corner === corner && from.corner !== corner) {
+          moved[other] = { corner: from.corner, isTucked: false };
         }
       }
 
@@ -189,32 +171,14 @@ export function FloatingLayer(props: { readonly children?: ReactNode }) {
     [commit],
   );
 
-  // Kept out of the context's value: a slot lighting up draws the layer again, not the windows.
-  const [zones, showZones] = useState<FloatingZones | null>(null);
-
   const value = useMemo(
-    () => ({ element, corners, claim, release, moveTo, showZones }),
-    [element, corners, claim, release, moveTo],
+    () => ({ element, placements, claim, release, moveTo }),
+    [element, placements, claim, release, moveTo],
   );
 
   return (
     <FloatingLayerContext.Provider value={value}>
       {children}
-      {zones === null ? null : (
-        // Before the windows' layer, so the slots are drawn under the window dragged over them.
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10">
-          {CORNER_ORDER.map((corner) => (
-            <div
-              key={corner}
-              data-near={corner === zones.near ? '' : undefined}
-              className={cn('floating-zone absolute', CORNER_CLASSES[corner])}
-              /* eslint-disable-next-line react/forbid-dom-props -- a slot is the size of the
-                 window dragged, which only a measure knows. */
-              style={{ width: zones.size.width, height: zones.size.height }}
-            />
-          ))}
-        </div>
-      )}
       <div ref={setElement} className="pointer-events-none absolute inset-0 z-10" />
     </FloatingLayerContext.Provider>
   );

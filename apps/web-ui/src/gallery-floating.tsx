@@ -1,12 +1,12 @@
 /**
  * The gallery's floating windows: a page beside a rail, with two packages' windows in its corners
- * to drag over the corners' slots, throw, tuck past the right edge, close and step with the arrow
- * keys without signing in. Development only.
+ * to drag, throw, tuck past the right edge, close and step with the arrow keys without signing in,
+ * and a toast to make room for. Development only.
  */
 import { useState } from 'react';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
 
-import { Button, cn } from '@nebulahome/ui';
+import { Button, cn, toast } from '@nebulahome/ui';
 
 import { FloatingLayer } from '@/packages/floating/floating-layer';
 import { FloatingWindow } from '@/packages/floating/floating-window';
@@ -92,6 +92,15 @@ function FloatingPage() {
           }}
         >
           Reopen the player
+        </Button>
+        <Button
+          size="compact"
+          variant="ghost"
+          onClick={() => {
+            toast.info({ title: 'Playing on Downstairs', message: 'Midnight City, by M83.' });
+          }}
+        >
+          Show a toast
         </Button>
       </div>
 

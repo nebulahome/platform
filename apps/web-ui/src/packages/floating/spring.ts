@@ -3,9 +3,10 @@
  * to, the strip it tucks into past the right edge, and the spring that carries it there.
  *
  * Plain numbers, no DOM: positions are in pixels from the top-left of the layer, velocities in
- * pixels a second, times in seconds. The spring is a little under-damped - it goes slightly past
- * its corner and comes back once, the "almost bounce" - and the window is held inside the layer
- * while it does, so the overshoot eats into the margin and never off the page.
+ * pixels a second, times in seconds. The spring is a little under-damped - it goes a few pixels
+ * past its corner and comes back once, the "almost bounce" - and gentle enough, with the throw's
+ * speed capped, that the overshoot stays inside the margin. Should it reach an edge anyway, the
+ * edge stops it there, rather than holding it pressed while the spring comes back.
  *
  * Thrown past the right edge, a window tucks away there as a picture-in-picture does: it stays in
  * its right corner's height with a strip of it showing, and comes back out when it is clicked.
@@ -37,11 +38,14 @@ export const CORNER_INSET_PX = 24;
 /** How much of a window tucked past the right edge still shows. */
 export const PEEK_PX = 32;
 
-/** How hard the spring pulls. */
-export const SPRING_STIFFNESS = 380;
+/** How hard the spring pulls: across a wide page in about a quarter of a second. */
+export const SPRING_STIFFNESS = 220;
 
-/** How much it holds back: with the stiffness, a damping ratio of about 0.67. */
-export const SPRING_DAMPING = 26;
+/** How much it holds back: with the stiffness, a damping ratio of about 0.8. */
+export const SPRING_DAMPING = 24;
+
+/** The fastest a thrown window sets off, in pixels a second: a hard flick lands as calmly. */
+export const MAX_THROW_SPEED = 1800;
 
 /** What it moves. */
 export const SPRING_MASS = 1;
@@ -75,6 +79,43 @@ const SUBSTEP_SECONDS = 1 / 240;
 /** Still. */
 export const AT_REST: Vector = { x: 0, y: 0 };
 
+/** Where a window rests: its corner, and whether it is tucked away past the right edge there. */
+export type Placement = { readonly corner: Corner; readonly isTucked: boolean };
+
+/**
+ * Reads the places remembered for the windows, as the layer keeps them in the browser.
+ *
+ * @param stored - What was kept: `{ [packageId]: { corner, isTucked } }`, or a bare corner as
+ *   before the tuck was kept with it.
+ * @returns The places; anything not ours is left out, and a tuck counts only in a right corner.
+ */
+export function readPlacements(stored: unknown): Record<string, Placement> {
+  if (typeof stored !== 'object' || stored === null) {
+    return {};
+  }
+
+  const placements: Record<string, Placement> = {};
+
+  for (const [packageId, value] of Object.entries(stored)) {
+    const kept: unknown = typeof value === 'string' ? { corner: value } : value;
+
+    if (typeof kept !== 'object' || kept === null || !('corner' in kept)) {
+      continue;
+    }
+
+    const corner = CORNER_ORDER.find((each) => each === kept.corner);
+
+    if (corner !== undefined) {
+      placements[packageId] = {
+        corner,
+        isTucked: 'isTucked' in kept && kept.isTucked === true && corner.endsWith('right'),
+      };
+    }
+  }
+
+  return placements;
+}
+
 /**
  * Where a window rests in a corner.
  *
@@ -107,6 +148,20 @@ export function tuckedPosition(corner: Corner, bounds: Size, size: Size): Vector
 }
 
 /**
+ * Where a window rests in a place: in its corner, or tucked away past the right edge there.
+ *
+ * @param placement - The place.
+ * @param bounds - The layer.
+ * @param size - The window.
+ * @returns Its top-left.
+ */
+export function restingPosition(placement: Placement, bounds: Size, size: Size): Vector {
+  return placement.isTucked
+    ? tuckedPosition(placement.corner, bounds, size)
+    : cornerPosition(placement.corner, bounds, size);
+}
+
+/**
  * Holds a window inside the layer: the overshoot may use the margin, never more.
  *
  * @param position - Where it would be.
@@ -123,6 +178,50 @@ export function clampPosition(position: Vector, bounds: Size, size: Size, canTuc
     x: Math.min(Math.max(position.x, 0), Math.max(0, right)),
     y: Math.min(Math.max(position.y, 0), Math.max(0, bounds.height - size.height)),
   };
+}
+
+/**
+ * Stops a flying window at the layer's edges: the place is held inside, and the speed that would
+ * carry it further across is dropped, so it does not stay pressed there while the spring turns.
+ *
+ * @param state - Where the spring has it and how fast it is going.
+ * @param bounds - The layer.
+ * @param size - The window.
+ * @param canTuck - Whether its right edge is its tucked place rather than the layer's.
+ * @returns The state, inside.
+ */
+export function holdInside(
+  state: SpringState,
+  bounds: Size,
+  size: Size,
+  canTuck = false,
+): SpringState {
+  const position = clampPosition(state.position, bounds, size, canTuck);
+
+  return {
+    position,
+    velocity: {
+      x: position.x === state.position.x ? state.velocity.x : 0,
+      y: position.y === state.position.y ? state.velocity.y : 0,
+    },
+  };
+}
+
+/**
+ * Caps how fast a thrown window sets off, keeping its direction.
+ *
+ * @param velocity - How fast the pointer let go of it.
+ * @returns The velocity, no faster than {@link MAX_THROW_SPEED}.
+ */
+export function capSpeed(velocity: Vector): Vector {
+  const speed = Math.hypot(velocity.x, velocity.y);
+
+  return speed <= MAX_THROW_SPEED
+    ? velocity
+    : {
+        x: (velocity.x / speed) * MAX_THROW_SPEED,
+        y: (velocity.y / speed) * MAX_THROW_SPEED,
+      };
 }
 
 /** Where a window let go of goes. */
