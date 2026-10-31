@@ -32,8 +32,21 @@ describe('a package manifest', () => {
       requires: { packages: {}, services: [] },
       containers: [],
       entityTypes: [],
-      ui: { cards: [{ id: 'broker', options: [] }], entityViews: [] },
+      ui: { cards: [{ id: 'broker', options: [] }], entityViews: [], background: null },
     });
+  });
+
+  it('reads a background, and refuses one that says nothing of what it does', () => {
+    const withBackground = (description: string): unknown => ({
+      ...MQTT,
+      ui: { ...MQTT.ui, background: { description } },
+    });
+
+    expect(packageManifestSchema.parse(withBackground('Keeps the music playing')).ui).toMatchObject(
+      { background: { description: 'Keeps the music playing' } },
+    );
+    expect(packageManifestSchema.safeParse(withBackground('')).success).toBe(false);
+    expect(packageManifestSchema.safeParse(withBackground('x'.repeat(257))).success).toBe(false);
   });
 
   it('reads an entity type, and a view of it', () => {

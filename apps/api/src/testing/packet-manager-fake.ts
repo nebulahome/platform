@@ -81,7 +81,7 @@ export const MQTT_PACKAGE: InstalledPackage = {
   url: null,
   color: null,
   hasLogo: true,
-  ui: { entry: './ui/index.js', page: true, cards: [], entityViews: [] },
+  ui: { entry: './ui/index.js', page: true, cards: [], entityViews: [], background: null },
   entityTypes: [],
   requires: { packages: {}, services: [] },
   provides: [],

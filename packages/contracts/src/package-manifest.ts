@@ -226,6 +226,15 @@ export const packageUiSchema = z.strictObject({
 
   /** Which of its entity types it draws itself, on an entity's page. */
   entityViews: z.array(localIdSchema).max(16).default([]),
+
+  /**
+   * A component it draws on every page, for as long as somebody is signed in, and what it does in
+   * a sentence its page shows. Since package SDK 1.6.
+   */
+  background: z
+    .strictObject({ description: z.string().min(1).max(256) })
+    .nullable()
+    .default(null),
 });
 
 /** What a package adds to the interface. */
