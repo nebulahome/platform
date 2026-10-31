@@ -317,14 +317,13 @@ export const bluetoothSettings = registrySchema.table('bluetooth_settings', {
   /** `hci0`; null for the first BlueZ has. */
   adapterId: text('adapter_id'),
   localScanMode: text('local_scan_mode').notNull().default('active'),
-  proxyScanMode: text('proxy_scan_mode').notNull().default('passive'),
   forgetAfterDays: integer('forget_after_days').notNull().default(7),
   showPrivate: boolean('show_private').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** The devices made Bluetooth proxies, by their instance: how each scans, and its script. */
+/** The devices made Bluetooth proxies, by their instance: the mode each rests in, and its script. */
 export const bluetoothProxies = registrySchema.table('bluetooth_proxies', {
   integrationId: text('integration_id')
     .primaryKey()

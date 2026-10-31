@@ -51,13 +51,20 @@ function migrationColumns(qualified: string): [string, string][] {
       ...(clauses ?? '').matchAll(/^ {2}ADD COLUMN ([a-z_][a-z0-9_]*)\s+(\S.*?),?$/gm),
     ])
     .map(([, name, definition]): [string, string] => [name ?? '', definition ?? '']);
+  // Columns a later migration drops: `ALTER TABLE x DROP COLUMN name`.
+  const dropped = new Set(
+    [...sql.matchAll(new RegExp(`ALTER TABLE ${qualified}\\s([^;]*);`, 'g'))].flatMap(
+      ([, clauses]) =>
+        [...(clauses ?? '').matchAll(/DROP COLUMN ([a-z_][a-z0-9_]*)/g)].map(([, name]) => name),
+    ),
+  );
 
   return [
     ...[...body.matchAll(/^ {2}([a-z_][a-z0-9_]*)\s+(\S.*)$/gm)]
       .map(([, name, definition]): [string, string] => [name ?? '', definition ?? ''])
       .filter(([name]) => !CLAUSE_KEYWORDS.has(name)),
     ...added,
-  ];
+  ].filter(([name]) => !dropped.has(name));
 }
 
 /**
