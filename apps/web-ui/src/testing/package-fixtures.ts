@@ -39,6 +39,7 @@ export function aPackage(overrides: Partial<ApiPackage> = {}): ApiPackage {
         },
       ],
       entityViews: [],
+      background: null,
     },
     entityTypes: [],
     requires: { packages: {}, services: [] },

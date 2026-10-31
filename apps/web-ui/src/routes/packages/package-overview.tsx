@@ -139,7 +139,9 @@ export function PackageOverview(props: PackageOverviewProps) {
       container.managedBy?.ownerKind === 'package' && container.managedBy.vendorId === found.id,
   );
   const cards = found.ui?.cards ?? [];
-  const hasProvides = ownDevices.length + ownContainers.length + cards.length > 0;
+  const background = found.ui?.background ?? null;
+  const hasProvides =
+    ownDevices.length + ownContainers.length + cards.length > 0 || background !== null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -268,6 +270,13 @@ export function PackageOverview(props: PackageOverviewProps) {
                 }
               />
             ))}
+            {background === null ? null : (
+              <ListRow
+                icon={<AppIcon id="activity" size={18} />}
+                title={t('packages.packageOverview.runsInTheBackground', 'Runs in the background')}
+                subtitle={background.description}
+              />
+            )}
           </RowList>
         </Section>
       ) : null}

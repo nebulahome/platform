@@ -73,6 +73,7 @@ import { PasswordField } from '@/components/password-field';
 import { Sidebar } from '@/components/sidebar';
 import { CONTAINER_QUERY_KEYS } from '@/containers/api';
 import { BrokerGallery } from '@/gallery-brokers';
+import { FloatingSample } from '@/gallery-floating';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
 import { readingOf } from '@/library/entity-reading';
@@ -1672,6 +1673,13 @@ function Gallery() {
               />
             </div>
           </div>
+        </Section>
+
+        <Section
+          title="Floating windows"
+          note="Two packages' windows beside a rail: drag or throw one to a corner, drop it on the other to swap, arrows move it."
+        >
+          <FloatingSample />
         </Section>
 
         <Section title="Modal" note="Clicking away closes it, unless what it holds is shown once.">

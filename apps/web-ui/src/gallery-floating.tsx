@@ -1,0 +1,140 @@
+/**
+ * The gallery's floating windows: a page beside a rail, with two packages' windows in its corners
+ * to drag, throw and step with the arrow keys without signing in. Development only.
+ */
+import { useState } from 'react';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router';
+
+import { Button, cn } from '@nebulahome/ui';
+
+import { FloatingLayer } from '@/packages/floating/floating-layer';
+import { FloatingWindow } from '@/packages/floating/floating-window';
+import { packageAppPath } from '@/packages/package-paths';
+
+/** The sample player's package. */
+const PLAYER_ID = 'demo.player';
+
+/**
+ * What a sample package draws in its window: a title, and a button that counts its presses, so a
+ * drag that ends over it can be seen not to press it.
+ *
+ * @param props - What it says.
+ * @param props.title - Its title.
+ * @param props.action - Its button's label.
+ * @returns The content.
+ */
+function SampleContent(props: { readonly title: string; readonly action: string }) {
+  const { title, action } = props;
+  const [presses, setPresses] = useState(0);
+
+  return (
+    <div className="flex w-56 flex-col gap-3">
+      <div className="flex flex-col gap-0.5 pr-6">
+        <p className="text-ui font-medium">{title}</p>
+        <p className="text-caption text-foreground-subtle">Pressed {presses} times</p>
+      </div>
+      <Button
+        size="compact"
+        variant="ghost"
+        onClick={() => {
+          setPresses((count) => count + 1);
+        }}
+      >
+        {action}
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * The page and its rail, inside the router the windows read their address from.
+ *
+ * @returns The sample.
+ */
+function FloatingPage() {
+  const [isRailWide, setRailWide] = useState(true);
+  const [isPlayerOpen, setPlayerOpen] = useState(true);
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isOnPlayerPage = pathname === packageAppPath(PLAYER_ID);
+
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="compact"
+          variant="ghost"
+          onClick={() => {
+            setRailWide((isWide) => !isWide);
+          }}
+        >
+          {isRailWide ? 'Narrow the rail' : 'Widen the rail'}
+        </Button>
+        <Button
+          size="compact"
+          variant="ghost"
+          onClick={() => {
+            void navigate(isOnPlayerPage ? '/' : packageAppPath(PLAYER_ID));
+          }}
+        >
+          {isOnPlayerPage ? 'Leave the player’s page' : 'Open the player’s page'}
+        </Button>
+        <Button
+          size="compact"
+          variant="ghost"
+          disabled={isPlayerOpen}
+          onClick={() => {
+            setPlayerOpen(true);
+          }}
+        >
+          Reopen the player
+        </Button>
+      </div>
+
+      <div
+        data-floating-demo=""
+        className="flex h-120 w-full overflow-hidden rounded-panel border border-border bg-canvas"
+      >
+        <div
+          className={cn(
+            'shrink-0 border-r border-border bg-rail transition-[width] duration-300',
+            isRailWide ? 'w-60' : 'w-18',
+          )}
+        />
+        <div className="relative flex min-w-0 grow">
+          <FloatingLayer>
+            <div className="grow p-6 font-mono text-caption text-foreground-subtle">{pathname}</div>
+            <FloatingWindow
+              packageId={PLAYER_ID}
+              open={isPlayerOpen}
+              label="Now playing"
+              onClose={() => {
+                setPlayerOpen(false);
+              }}
+              renderContent={() => <SampleContent title="Now playing" action="Pause" />}
+            />
+            <FloatingWindow
+              packageId="demo.timer"
+              open
+              label="Kitchen timer"
+              renderContent={() => <SampleContent title="Kitchen timer" action="Add a minute" />}
+            />
+          </FloatingLayer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Renders the floating windows' sample.
+ *
+ * @returns The sample.
+ */
+export function FloatingSample() {
+  return (
+    <MemoryRouter initialEntries={['/']}>
+      <FloatingPage />
+    </MemoryRouter>
+  );
+}

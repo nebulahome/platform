@@ -7,6 +7,8 @@ import { Outlet } from 'react-router';
 
 import { Sidebar } from '@/components/sidebar';
 import { useLiveChannel } from '@/live/use-live-channel';
+import { FloatingLayer } from '@/packages/floating/floating-layer';
+import { PackageBackgrounds } from '@/packages/package-backgrounds';
 
 /**
  * Renders the page for an address no page answers.
@@ -49,6 +51,10 @@ export function PagePlaceholder() {
  * design, and the shell is the one component that is mounted for exactly as long as somebody is
  * signed in.
  *
+ * The page sits in a box of its own beside the rail, and the packages' floating windows in a layer
+ * over that box: a window is held to the page and never covers the rail, however wide the rail is
+ * or is becoming.
+ *
  * @returns The shell.
  */
 export function Shell() {
@@ -57,7 +63,12 @@ export function Shell() {
   return (
     <div className="relative flex h-screen overflow-hidden bg-canvas text-foreground">
       <Sidebar />
-      <Outlet />
+      <div className="relative flex min-w-0 grow">
+        <FloatingLayer>
+          <Outlet />
+          <PackageBackgrounds />
+        </FloatingLayer>
+      </div>
     </div>
   );
 }

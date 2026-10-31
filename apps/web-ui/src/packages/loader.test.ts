@@ -126,9 +126,23 @@ describe('loadPackageComponent', () => {
       BrokerCard,
     );
     await expect(loadPackageComponent(found, { kind: 'page' })).resolves.toBeNull();
+    await expect(loadPackageComponent(found, { kind: 'background' })).resolves.toBeNull();
     await expect(
       loadPackageComponent(found, { kind: 'entityView', type: 'recording' }),
     ).resolves.toBeNull();
+  });
+
+  it('loads a background from a build of SDK 1.6', async () => {
+    vi.mocked(importModule).mockResolvedValue({
+      default: entry({
+        sdk: '1.6.0',
+        background: async () => Promise.resolve({ default: BrokerCard }),
+      }),
+    });
+
+    await expect(
+      loadPackageComponent(aPackage({ id: 'broker-h' }), { kind: 'background' }),
+    ).resolves.toBe(BrokerCard);
   });
 
   it('refuses a loader whose module holds no component', async () => {

@@ -31,6 +31,10 @@ export type PackageUiEntry = {
   readonly sdk: string;
 
   readonly page: ComponentLoader | undefined;
+
+  /** What it draws on every page: none from a build before SDK 1.6. */
+  readonly background: ComponentLoader | undefined;
+
   readonly cards: Readonly<Record<string, ComponentLoader>>;
   readonly entityViews: Readonly<Record<string, ComponentLoader>>;
 
@@ -54,6 +58,7 @@ export function packageNamespace(packageId: string): string {
 /** Which of a package's components. */
 export type PackageComponentTarget =
   | { readonly kind: 'page' }
+  | { readonly kind: 'background' }
   | { readonly kind: 'card'; readonly cardId: string }
   | { readonly kind: 'entityView'; readonly type: string };
 
@@ -135,6 +140,7 @@ function entryOf(packageId: string, value: unknown): PackageUiEntry {
     value['kind'] !== 'nebula.ui' ||
     typeof value['sdk'] !== 'string' ||
     (value['page'] !== undefined && typeof value['page'] !== 'function') ||
+    (value['background'] !== undefined && typeof value['background'] !== 'function') ||
     !isLoaders(value['cards']) ||
     !isLoaders(value['entityViews']) ||
     (value['locales'] !== undefined && !isLoaders(value['locales']))
@@ -169,6 +175,10 @@ function entryOf(packageId: string, value: unknown): PackageUiEntry {
   return {
     sdk: value['sdk'],
     page: typeof value['page'] === 'function' ? (value['page'] as ComponentLoader) : undefined,
+    background:
+      typeof value['background'] === 'function'
+        ? (value['background'] as ComponentLoader)
+        : undefined,
     cards: value['cards'],
     entityViews: value['entityViews'],
     locales: isLoaders(value['locales']) ? value['locales'] : {},
@@ -274,6 +284,9 @@ export async function loadPackageComponent(
   switch (target.kind) {
     case 'page':
       loader = entry.page;
+      break;
+    case 'background':
+      loader = entry.background;
       break;
     case 'card':
       loader = entry.cards[target.cardId];

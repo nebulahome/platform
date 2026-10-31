@@ -40,6 +40,7 @@ import type {
   EntitiesFilter,
   EntityPicture,
   EntityView,
+  FloatingProps,
   LiveOptions,
   LiveState,
   Locale,
@@ -74,6 +75,7 @@ import { commandEntity, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api'
 import { useLive, type LiveReading } from '@/live/live-store';
 import { packageLive } from '@/live/package-live';
 import { callPackage, configurePackage, fetchPackage, PACKAGE_QUERY_KEYS } from '@/packages/api';
+import { FloatingWindow } from '@/packages/floating/floating-window';
 import { packageNamespace } from '@/packages/loader';
 import { packageAppPath, packagePathOf, platformPath } from '@/packages/package-paths';
 import { PackagePageActions } from '@/packages/page-actions';
@@ -740,6 +742,31 @@ function PageActions(props: PageActionsProps) {
 }
 
 /**
+ * A window of the drawn package floating over the pages, its content still inside the package's
+ * scope - with a portal node of its own, so what it opens is drawn inside the window.
+ *
+ * @param props - Whether it is shown, what it is called, what closing it does, and what it holds.
+ * @returns The window.
+ */
+function Floating(props: FloatingProps) {
+  const scope = usePackage();
+
+  return (
+    <FloatingWindow
+      packageId={scope.id}
+      open={props.open}
+      label={props.label}
+      onClose={props.onClose}
+      renderContent={(portal) => (
+        <PackageScope value={scope} portal={portal}>
+          {props.children}
+        </PackageScope>
+      )}
+    />
+  );
+}
+
+/**
  * The interface's own toasts, lent as they are.
  *
  * @returns One function per kind.
@@ -820,6 +847,7 @@ export const UI_HOST = {
   useToast,
   usePackageLive,
   usePackageSend,
+  Floating,
   useStateHistory,
   useTelemetry,
   useAreas,

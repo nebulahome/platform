@@ -1,6 +1,6 @@
 /**
- * Draws one thing a package adds - its page, one of its cards, one of its entity views - inside
- * the interface (PACKAGES_DOCS.md 6.2).
+ * Draws one thing a package adds - its page, its background, one of its cards, one of its entity
+ * views - inside the interface (PACKAGES_DOCS.md 6.2).
  *
  * The interface gives only the frame; what is inside is the package's own, any React and any CSS.
  * The component is loaded from its own chunk the first time, and kept; it is drawn inside an
@@ -16,7 +16,12 @@ import { Component, Suspense, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { InstalledPackage } from '@nebulahome/contracts';
-import type { CardProps, EntityViewProps, PageProps } from '@nebulahome/package-sdk/ui';
+import type {
+  BackgroundProps,
+  CardProps,
+  EntityViewProps,
+  PageProps,
+} from '@nebulahome/package-sdk/ui';
 import { cn } from '@nebulahome/ui';
 
 import { translate } from '@/i18n/messages';
@@ -28,6 +33,7 @@ import { PackageScope } from '@/packages/sdk-ui';
 /** Which of the package's components, with what it is given. */
 export type PackageSlotTarget =
   | { readonly kind: 'page'; readonly props: PageProps }
+  | { readonly kind: 'background'; readonly props: BackgroundProps }
   | { readonly kind: 'card'; readonly props: CardProps }
   | { readonly kind: 'entityView'; readonly props: EntityViewProps };
 
@@ -115,6 +121,8 @@ function componentTargetOf(target: PackageSlotTarget): PackageComponentTarget {
   switch (target.kind) {
     case 'page':
       return { kind: 'page' };
+    case 'background':
+      return { kind: 'background' };
     case 'card':
       return { kind: 'card', cardId: target.props.cardId };
     case 'entityView':
@@ -132,6 +140,8 @@ function nameOf(target: PackageComponentTarget): string {
   switch (target.kind) {
     case 'page':
       return translate('packages.packageSlot.page', 'a page');
+    case 'background':
+      return translate('packages.packageSlot.background', 'a background');
     case 'card':
       return translate('packages.packageSlot.cardidCard', 'a {{cardId}} card', {
         cardId: target.cardId,
