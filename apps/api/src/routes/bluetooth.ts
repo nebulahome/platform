@@ -4,9 +4,9 @@
  * Reading it is reading devices (`device:read`), Nearby included, and so is holding the Nearby
  * lease that makes proxies forward everything while the page is open. Adding a device heard and
  * ignoring an address are `device:write`; removing a device removes it from the house
- * (`device:delete`). The settings, and making a device a proxy - installing, updating, changing
- * the mode of or removing the script it runs - change hardware and are configuring an integration
- * (`integration:configure`), each audited. A proxy job is answered at once, `202`, and the page
+ * (`device:delete`). The settings, and making a device a proxy - installing, updating or removing
+ * the script it runs - change hardware and are configuring an integration
+ * (`integration:configure`), each audited. How a proxy scans is the hub's to decide. A proxy job is answered at once, `202`, and the page
  * reads it until it ends.
  */
 import { z } from 'zod';
@@ -26,11 +26,9 @@ import {
   bluetoothProxyCandidatesReplySchema,
   bluetoothProxyCandidatesRequestSchema,
   bluetoothProxyJobSchema,
-  bluetoothScannerSchema,
   bluetoothScannersReplySchema,
   bluetoothSettingsSchema,
   bluetoothStatusSchema,
-  BLUETOOTH_SCAN_MODES,
   integrationIdSchema,
 } from '@nebulahome/contracts';
 
@@ -53,7 +51,6 @@ import {
   removeBluetoothDevice,
   removeBluetoothProxy,
   saveBluetoothSettings,
-  setBluetoothProxyMode,
   updateBluetoothProxy,
 } from '../services/bluetooth.js';
 
@@ -394,7 +391,7 @@ function registerProxyRoutes(environment: RouteEnvironment, context: ApiContext)
     /**
      * Starts the job.
      *
-     * @param route - The device and its scan mode, and who is asking.
+     * @param route - The device, and who is asking.
      * @returns The job, running.
      */
     async (route) => {
@@ -410,52 +407,10 @@ function registerProxyRoutes(environment: RouteEnvironment, context: ApiContext)
         identity: route.identity,
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
-        details: { jobId: job.id, mode: route.body.mode },
+        details: { jobId: job.id },
       });
 
       return job;
-    },
-  );
-
-  defineRoute(
-    environment,
-    {
-      method: 'PUT',
-      url: '/brokers/bluetooth/proxies/:deviceId/mode',
-      summary: 'Change how a Bluetooth proxy scans',
-      tag: 'Brokers',
-      permission: 'integration:configure',
-      params: deviceParamsSchema,
-      body: z.object({ mode: z.enum(BLUETOOTH_SCAN_MODES) }),
-      response: bluetoothScannerSchema,
-    },
-
-    /**
-     * Changes the mode: the proxy's script is installed again in it.
-     *
-     * @param route - The proxy, its mode, and who is asking.
-     * @returns The proxy, as the Scanners tab lists it.
-     */
-    async (route) => {
-      requirePermission(route.identity, 'integration:configure');
-
-      const scanner = await setBluetoothProxyMode(forRequest(context, route.request.traceId), {
-        deviceId: route.params.deviceId,
-        mode: route.body.mode,
-      });
-
-      await context.audit.record({
-        action: 'bluetooth.proxy.mode',
-        resourceType: 'bluetooth',
-        resourceId: route.params.deviceId,
-        result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
-        details: { mode: route.body.mode },
-      });
-
-      return scanner;
     },
   );
 
@@ -494,7 +449,7 @@ function registerProxyRoutes(environment: RouteEnvironment, context: ApiContext)
         identity: route.identity,
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
-        details: { jobId: job.id, mode: job.mode, isUpdate: true },
+        details: { jobId: job.id, isUpdate: true },
       });
 
       return job;

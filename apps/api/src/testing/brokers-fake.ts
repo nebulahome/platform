@@ -16,7 +16,6 @@ import {
   bluetoothProxyAddRequestSchema,
   bluetoothProxyDeviceRequestSchema,
   bluetoothProxyJobRequestSchema,
-  bluetoothProxyModeRequestSchema,
   bluetoothSettingsSchema,
   busSubjects,
   ConflictError,
@@ -25,7 +24,6 @@ import {
   HUB_BLUETOOTH_NEARBY_LEASE_METHOD,
   HUB_BLUETOOTH_PROXY_ADD_METHOD,
   HUB_BLUETOOTH_PROXY_JOB_METHOD,
-  HUB_BLUETOOTH_PROXY_MODE_METHOD,
   HUB_BLUETOOTH_PROXY_REMOVE_METHOD,
   HUB_BLUETOOTH_STATUS_METHOD,
   HUB_INFRARED_BUTTON_PRESS_METHOD,
@@ -163,7 +161,6 @@ const PROXY_JOB: BluetoothProxyJob = {
   error: null,
   steps: [{ id: 'installing', state: 'running', message: null }],
   deviceId: 'shelly-plug-1',
-  mode: 'passive',
 };
 
 /** The house's one remote: a TV, its device not added yet. */
@@ -323,29 +320,8 @@ export function serveBrokersFake(hub: BusClient): BusSubscription[] {
     serve(HUB_BLUETOOTH_PROXY_ADD_METHOD, bluetoothProxyAddRequestSchema, (request) => ({
       ...PROXY_JOB,
       deviceId: request.deviceId,
-      mode: request.mode,
     })),
     serve(HUB_BLUETOOTH_PROXY_JOB_METHOD, bluetoothProxyJobRequestSchema, () => PROXY_JOB),
-    serve(HUB_BLUETOOTH_PROXY_MODE_METHOD, bluetoothProxyModeRequestSchema, (request) => ({
-      id: request.deviceId,
-      kind: 'proxy',
-      name: 'Kitchen plug',
-      deviceId: request.deviceId,
-      vendorId: 'shelly',
-      areaId: null,
-      address: null,
-      chip: null,
-      isOnline: true,
-      isEnabled: true,
-      scanMode: request.mode,
-      canPassive: true,
-      advertsPerMinute: 12,
-      connections: null,
-      forwarding: 'house',
-      lastReportAt: AT,
-      script: { version: '1.0.0', shipped: '1.0.0', isOutdated: false },
-      hearsBest: [],
-    })),
     serve(HUB_BLUETOOTH_PROXY_REMOVE_METHOD, bluetoothProxyDeviceRequestSchema, (request) => ({
       isRemoved: request.deviceId === PROXY_JOB.deviceId,
     })),

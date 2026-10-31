@@ -89,13 +89,13 @@ describe('the Bluetooth routes', () => {
       method: 'POST',
       url: '/api/v1/brokers/bluetooth/proxies',
       headers: { authorization: await bearer('device:write') },
-      payload: { deviceId: 'shelly-plug-1', mode: 'passive' },
+      payload: { deviceId: 'shelly-plug-1' },
     });
     const started = await server.inject({
       method: 'POST',
       url: '/api/v1/brokers/bluetooth/proxies',
       headers: { authorization: await bearer('integration:configure') },
-      payload: { deviceId: 'shelly-plug-1', mode: 'active' },
+      payload: { deviceId: 'shelly-plug-1' },
     });
     const job = await server.inject({
       method: 'GET',
@@ -105,18 +105,18 @@ describe('the Bluetooth routes', () => {
 
     expect(writer.statusCode).toBe(403);
     expect(started.statusCode).toBe(202);
-    expect(started.json()).toMatchObject({ id: 'proxy-1', mode: 'active', state: 'running' });
+    expect(started.json()).toMatchObject({ id: 'proxy-1', state: 'running' });
     expect(job.json()).toMatchObject({ id: 'proxy-1' });
     expect(audited).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'bluetooth.proxy.install',
         resourceId: 'shelly-plug-1',
-        details: { jobId: 'proxy-1', mode: 'active' },
+        details: { jobId: 'proxy-1' },
       }),
     );
   });
 
-  it('changes a proxy’s mode and removes it, auditing both', async () => {
+  it('removes a proxy, auditing it, and has no mode to change', async () => {
     const authorization = await bearer('integration:configure');
     const mode = await server.inject({
       method: 'PUT',
@@ -135,13 +135,10 @@ describe('the Bluetooth routes', () => {
       headers: { authorization },
     });
 
-    expect(mode.json()).toMatchObject({ id: 'shelly-plug-1', scanMode: 'active' });
+    expect(mode.statusCode).toBe(404);
     expect(removed.statusCode).toBe(204);
     expect(none.statusCode).toBe(404);
-    expect(audited.mock.calls.map(([entry]) => entry.action)).toEqual([
-      'bluetooth.proxy.mode',
-      'bluetooth.proxy.remove',
-    ]);
+    expect(audited.mock.calls.map(([entry]) => entry.action)).toEqual(['bluetooth.proxy.remove']);
   });
 
   it('refuses to remove a device that is not one of Bluetooth’s, or without device:delete', async () => {

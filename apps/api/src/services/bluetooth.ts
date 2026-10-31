@@ -18,7 +18,6 @@ import {
   bluetoothProxyCandidatesReplySchema,
   bluetoothProxyJobSchema,
   bluetoothProxyRemoveReplySchema,
-  bluetoothScannerSchema,
   bluetoothScannersReplySchema,
   bluetoothStatusSchema,
   busSubjects,
@@ -32,7 +31,6 @@ import {
   HUB_BLUETOOTH_PROXY_ADD_METHOD,
   HUB_BLUETOOTH_PROXY_CANDIDATES_METHOD,
   HUB_BLUETOOTH_PROXY_JOB_METHOD,
-  HUB_BLUETOOTH_PROXY_MODE_METHOD,
   HUB_BLUETOOTH_PROXY_REMOVE_METHOD,
   HUB_BLUETOOTH_PROXY_UPDATE_METHOD,
   HUB_BLUETOOTH_SCANNERS_METHOD,
@@ -58,9 +56,6 @@ const ADD_TIMEOUT_MS = 20_000;
  * (`apps/hub/src/bluetooth/broker.ts`), the candidates asking every one at once.
  */
 const PROXY_OP_TIMEOUT_MS = 15_000;
-
-/** How long changing a proxy's mode may take: its integration installs the script again, 60 s. */
-const PROXY_INSTALL_TIMEOUT_MS = 65_000;
 
 /**
  * Asks the hub one of the broker's methods.
@@ -265,24 +260,6 @@ export async function addBluetoothProxy(context: IntegrationsContext, request: o
  */
 export async function bluetoothProxyJob(context: IntegrationsContext, jobId: string) {
   return askBluetooth(context, HUB_BLUETOOTH_PROXY_JOB_METHOD, { jobId }, bluetoothProxyJobSchema);
-}
-
-/**
- * Changes how a proxy scans: its integration installs the script again.
- *
- * @param context - The request's collaborators.
- * @param request - The proxy, and how it scans now.
- * @returns The proxy, as the Scanners tab lists it.
- * @throws {ConflictError} When its integration refused.
- */
-export async function setBluetoothProxyMode(context: IntegrationsContext, request: object) {
-  return askBluetooth(
-    context,
-    HUB_BLUETOOTH_PROXY_MODE_METHOD,
-    request,
-    bluetoothScannerSchema,
-    PROXY_INSTALL_TIMEOUT_MS,
-  );
 }
 
 /**
