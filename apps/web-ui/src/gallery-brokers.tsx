@@ -241,7 +241,6 @@ BLUETOOTH_CACHE.setQueryData(['brokers', 'bluetooth', 'job', 'proxy-job'], {
   finishedAt: null,
   error: null,
   deviceId: 'shelly-office-plug',
-  mode: 'passive',
   steps: [
     { id: 'installing', state: 'done', message: null },
     { id: 'started', state: 'done', message: null },
@@ -466,7 +465,6 @@ export function BrokerGallery() {
             ) : (
               <AddProxyDialog
                 onClose={close}
-                defaultMode="passive"
                 roomOf={(areaId) => SAMPLE_AREAS.find((area) => area.id === areaId)?.name ?? null}
                 {...(name === 'Add proxy' ? {} : { jobId: 'proxy-job' })}
               />

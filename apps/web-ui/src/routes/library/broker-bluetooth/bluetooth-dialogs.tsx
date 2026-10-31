@@ -5,7 +5,7 @@
  *
  * **Add proxy** is three steps across the dialog: pick a device - a search above the list, those
  * that can be proxies to pick, the others greyed with why (battery, Gen1, firmware too old, with
- * the way to its update) - then what happens on it and its scan mode, then the job's steps ticking
+ * the way to its update) - then what happens on it, then the job's steps ticking
  * as the script is installed, started and first heard from; a failure stops on its step with the
  * integration's line and Try again.
  */
@@ -17,7 +17,6 @@ import { Link } from 'react-router';
 import type {
   BluetoothProxyCandidate,
   BluetoothProxyJob,
-  BluetoothScanMode,
   BluetoothSettings,
   BluetoothStatus,
 } from '@nebulahome/contracts';
@@ -78,6 +77,11 @@ function reasonOf(candidate: BluetoothProxyCandidate): string | null {
       return translate('brokers.bluetooth.proxy.firmware', 'Firmware too old: update it first');
     case 'no-bluetooth':
       return translate('brokers.bluetooth.proxy.noBluetooth', 'No Bluetooth');
+    case 'unsupported':
+      return translate(
+        'brokers.bluetooth.proxy.unsupported',
+        'This model can’t run the proxy script',
+      );
   }
 }
 
@@ -85,7 +89,6 @@ function reasonOf(candidate: BluetoothProxyCandidate): string | null {
 export type AddProxyDialogProps = {
   readonly onClose: () => void;
   readonly roomOf: (areaId: string | null) => string | null;
-  readonly defaultMode: BluetoothScanMode;
 
   /** A device to start at: its page's Bluetooth proxy row. */
   readonly deviceId?: string | undefined;
@@ -107,7 +110,6 @@ export function AddProxyDialog(props: AddProxyDialogProps) {
   const [step, setStep] = useState(props.jobId === undefined ? 0 : 2);
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<string | null>(props.deviceId ?? null);
-  const [mode, setMode] = useState<BluetoothScanMode>(props.defaultMode);
   const [jobId, setJobId] = useState<string | null>(props.jobId ?? null);
 
   const candidates = useQuery({
@@ -149,7 +151,7 @@ export function AddProxyDialog(props: AddProxyDialogProps) {
      *
      * @returns The job.
      */
-    mutationFn: async () => addBluetoothProxy(picked ?? '', mode),
+    mutationFn: async () => addBluetoothProxy(picked ?? ''),
 
     /**
      * Follows it.
@@ -363,43 +365,21 @@ export function AddProxyDialog(props: AddProxyDialogProps) {
               <span className="flex size-9 shrink-0 items-center justify-center rounded-field bg-surface-raised font-mono text-mono-ui text-[#5b9dff]">
                 {device.name.slice(0, 1).toUpperCase()}
               </span>
-              <span className="text-ui leading-normal font-medium text-foreground">
-                {t(
-                  'brokers.bluetooth.proxy.script',
-                  'A small script is installed on {{name}}. It sends what it hears to the house and does not change what the device does.',
-                  { name: device.name },
-                )}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="flex flex-col gap-0.5">
-                <span className="text-ui-sm font-medium text-foreground">
-                  {t('brokers.bluetooth.scanMode', 'Scan mode')}
-                </span>
-                <span className="text-caption text-foreground-muted">
+              <span className="flex flex-col gap-1">
+                <span className="text-ui leading-normal font-medium text-foreground">
                   {t(
-                    'brokers.bluetooth.activeHint',
-                    'Active asks devices for more and uses more of their battery.',
+                    'brokers.bluetooth.proxy.script',
+                    'A small script is installed on {{name}}. It sends what it hears to the house and does not change what the device does.',
+                    { name: device.name },
+                  )}
+                </span>
+                <span className="text-ui-sm leading-normal text-foreground-muted">
+                  {t(
+                    'brokers.bluetooth.proxy.listensQuietly',
+                    'It listens quietly and asks devices for more only when the house needs it.',
                   )}
                 </span>
               </span>
-              <Segmented
-                label={t('brokers.bluetooth.scanMode', 'Scan mode')}
-                value={mode}
-                onChange={setMode}
-                options={[
-                  {
-                    value: 'passive',
-                    label: t('brokers.bluetooth.passive', 'Passive'),
-                    disabled: !device.modes.includes('passive'),
-                  },
-                  {
-                    value: 'active',
-                    label: t('brokers.bluetooth.active', 'Active'),
-                    disabled: !device.modes.includes('active'),
-                  },
-                ]}
-              />
             </div>
             <p className="flex gap-3 rounded-inner border border-border bg-rail px-4 py-3 text-ui-sm leading-normal text-foreground-muted">
               <AppIcon id="info" size={16} className="mt-0.5 shrink-0 text-foreground-subtle" />
@@ -431,12 +411,7 @@ export function AddProxyDialog(props: AddProxyDialogProps) {
                         'Through the device’s integration',
                       )
                     : each.id === 'started'
-                      ? t('brokers.bluetooth.proxy.startedLine', 'Scanning, {{mode}}', {
-                          mode:
-                            current.mode === 'active'
-                              ? t('brokers.bluetooth.active', 'Active')
-                              : t('brokers.bluetooth.passive', 'Passive'),
-                        })
+                      ? t('brokers.bluetooth.proxy.startedLine', 'Listening')
                       : t('brokers.bluetooth.proxy.firstReportLine', 'Within a minute')),
               }))}
             />
@@ -457,7 +432,7 @@ export type BluetoothSettingsDialogProps = {
 };
 
 /**
- * Renders Settings: the local adapter, the proxies' scan mode, and what Nearby keeps.
+ * Renders Settings: the local adapter, and what Nearby keeps. How proxies scan is the hub's to decide.
  *
  * @param props - See {@link BluetoothSettingsDialogProps}.
  * @returns The dialog.
@@ -575,33 +550,6 @@ export function BluetoothSettingsDialog(props: BluetoothSettingsDialogProps) {
                   label: t('brokers.bluetooth.passive', 'Passive'),
                   disabled: status.adapter?.canPassive === false,
                 },
-                { value: 'active', label: t('brokers.bluetooth.active', 'Active') },
-              ]}
-            />
-          </div>
-          <span className={`${group} mt-4`}>
-            {t('brokers.bluetooth.settings.proxies', 'Proxies')}
-          </span>
-          <div className={row}>
-            <span className="flex flex-col gap-0.5">
-              <span className="text-ui font-medium text-foreground">
-                {t('brokers.bluetooth.settings.proxyMode', 'Scan mode for new proxies')}
-              </span>
-              <span className="text-ui-sm text-foreground-muted">
-                {t(
-                  'brokers.bluetooth.settings.proxyModeLine',
-                  'Each proxy can change it on Scanners.',
-                )}
-              </span>
-            </span>
-            <Segmented
-              label={t('brokers.bluetooth.settings.proxyMode', 'Scan mode for new proxies')}
-              value={settings.proxyScanMode}
-              onChange={(proxyScanMode) => {
-                setSettings({ ...settings, proxyScanMode });
-              }}
-              options={[
-                { value: 'passive', label: t('brokers.bluetooth.passive', 'Passive') },
                 { value: 'active', label: t('brokers.bluetooth.active', 'Active') },
               ]}
             />

@@ -602,8 +602,8 @@ export type BluetoothScannersProps = {
   readonly vendorNames: ReadonlyMap<string, string>;
   readonly roomOf: (areaId: string | null) => string | null;
 
-  /** Changes a scanner's scan mode; absent when the person may not. */
-  readonly onMode?: ((scanner: BluetoothScanner, mode: BluetoothScanMode) => void) | undefined;
+  /** Changes the local adapter's scan mode; absent when the person may not. */
+  readonly onMode?: ((mode: BluetoothScanMode) => void) | undefined;
 
   /** Turns the local adapter on or off; absent when the person may not. */
   readonly onAdapter?: ((isOn: boolean) => void) | undefined;
@@ -800,33 +800,46 @@ function ScannerRow(
                 {t('brokers.bluetooth.scanMode', 'Scan mode')}
               </span>
               <span className="text-ui-sm text-foreground-muted">
-                {scanner.canPassive
+                {!isAdapter
                   ? t(
-                      'brokers.bluetooth.activeHint',
-                      'Active asks devices for more and uses more of their battery.',
+                      'brokers.bluetooth.proxy.listensQuietly',
+                      'It listens quietly and asks devices for more only when the house needs it.',
                     )
-                  : t(
-                      'brokers.bluetooth.noPassive',
-                      'Passive needs a newer BlueZ on the host: this one scans actively.',
-                    )}
+                  : scanner.canPassive
+                    ? t(
+                        'brokers.bluetooth.activeHint',
+                        'Active asks devices for more and uses more of their battery.',
+                      )
+                    : t(
+                        'brokers.bluetooth.noPassive',
+                        'Passive needs a newer BlueZ on the host: this one scans actively.',
+                      )}
               </span>
             </span>
-            <Segmented
-              label={t('brokers.bluetooth.scanMode', 'Scan mode')}
-              value={scanner.scanMode}
-              disabled={onMode === undefined}
-              onChange={(mode) => {
-                onMode?.(scanner, mode);
-              }}
-              options={[
-                {
-                  value: 'passive',
-                  label: t('brokers.bluetooth.passive', 'Passive'),
-                  disabled: !scanner.canPassive,
-                },
-                { value: 'active', label: t('brokers.bluetooth.active', 'Active') },
-              ]}
-            />
+            {isAdapter ? (
+              <Segmented
+                label={t('brokers.bluetooth.scanMode', 'Scan mode')}
+                value={scanner.scanMode}
+                disabled={onMode === undefined}
+                onChange={(mode) => {
+                  onMode?.(mode);
+                }}
+                options={[
+                  {
+                    value: 'passive',
+                    label: t('brokers.bluetooth.passive', 'Passive'),
+                    disabled: !scanner.canPassive,
+                  },
+                  { value: 'active', label: t('brokers.bluetooth.active', 'Active') },
+                ]}
+              />
+            ) : (
+              <span className="text-ui text-foreground">
+                {scanner.scanMode === 'active'
+                  ? t('brokers.bluetooth.askingForMore', 'Asking for more')
+                  : t('brokers.bluetooth.listening', 'Listening')}
+              </span>
+            )}
           </div>
           {isAdapter ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-3.5">

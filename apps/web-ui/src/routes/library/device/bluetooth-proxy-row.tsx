@@ -1,6 +1,6 @@
 /**
  * The Bluetooth proxy row of a device page: for a device whose integration can make it a proxy
- * (its profile declares `bluetoothProxy`), whether it is one, and how it scans.
+ * (its profile declares `bluetoothProxy`), whether it is one. How it scans is the hub's to decide.
  *
  * Turning it on runs the same flow as the broker's Add proxy, starting at this device; turning
  * it off asks first, since its script is removed. The broker's Scanners tab is still the one
@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
-import { Segmented, Switch, toast } from '@nebulahome/ui';
+import { Switch, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
@@ -21,7 +21,6 @@ import {
   fetchBluetoothProxyCandidates,
   fetchBluetoothScanners,
   removeBluetoothProxy,
-  setBluetoothProxyMode,
 } from '@/library/bluetooth-api';
 import {
   AddProxyDialog,
@@ -89,28 +88,6 @@ export function BluetoothProxyRow(props: BluetoothProxyRowProps) {
     void queryClient.invalidateQueries({ queryKey: ['brokers', 'bluetooth'] });
   };
 
-  const mode = useMutation({
-    /**
-     * Changes how it scans.
-     *
-     * @param next - The mode.
-     * @returns Its scanner.
-     */
-    mutationFn: async (next: 'passive' | 'active') => setBluetoothProxyMode(deviceId, next),
-    onSettled: refresh,
-
-    /**
-     * Says why not.
-     *
-     * @param error - What failed.
-     */
-    onError: (error) => {
-      toast.error({
-        title: t('brokers.bluetooth.modeFailed', 'Couldn’t change the scan mode'),
-        message: toMessage(error),
-      });
-    },
-  });
   const stop = useMutation({
     /**
      * Removes its script.
@@ -179,27 +156,6 @@ export function BluetoothProxyRow(props: BluetoothProxyRowProps) {
           )}
         </span>
       </span>
-      {isProxy && scanner !== undefined ? (
-        <Segmented
-          label={t('brokers.bluetooth.scanMode', 'Scan mode')}
-          value={scanner.scanMode}
-          onChange={(next) => {
-            mode.mutate(next);
-          }}
-          options={[
-            {
-              value: 'passive',
-              label: t('brokers.bluetooth.passive', 'Passive'),
-              disabled: !found.modes.includes('passive'),
-            },
-            {
-              value: 'active',
-              label: t('brokers.bluetooth.active', 'Active'),
-              disabled: !found.modes.includes('active'),
-            },
-          ]}
-        />
-      ) : null}
       <Switch
         label={t('device.bluetoothProxy.title', 'Bluetooth proxy')}
         isOn={isProxy}
@@ -216,7 +172,6 @@ export function BluetoothProxyRow(props: BluetoothProxyRowProps) {
         <AddProxyDialog
           deviceId={deviceId}
           roomOf={() => null}
-          defaultMode={found.modes[0] ?? 'passive'}
           onClose={() => {
             setAdding(false);
             refresh();

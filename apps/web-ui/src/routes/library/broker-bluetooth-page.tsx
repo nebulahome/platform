@@ -41,7 +41,6 @@ import {
   ignoreBluetooth,
   removeBluetoothProxy,
   saveBluetoothSettings,
-  setBluetoothProxyMode,
   updateBluetoothProxy,
 } from '@/library/bluetooth-api';
 import {
@@ -196,23 +195,13 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
   });
   const mode = useMutation({
     /**
-     * Changes a scanner's scan mode: a proxy's own, or the adapter's in Settings.
+     * Changes the local adapter's scan mode, in Settings; proxies scan as the hub decides.
      *
-     * @param request - The scanner and the mode.
-     * @param request.scanner - The scanner.
-     * @param request.mode - The mode.
-     * @returns Once changed.
+     * @param next - The mode.
+     * @returns Where the broker stands.
      */
-    mutationFn: async (request: {
-      readonly scanner: BluetoothScanner;
-      readonly mode: BluetoothScanMode;
-    }) =>
-      request.scanner.kind === 'proxy'
-        ? setBluetoothProxyMode(request.scanner.deviceId ?? '', request.mode)
-        : saveBluetoothSettings({
-            ...(status.data?.settings ?? DEFAULTS),
-            localScanMode: request.mode,
-          }),
+    mutationFn: async (next: BluetoothScanMode) =>
+      saveBluetoothSettings({ ...(status.data?.settings ?? DEFAULTS), localScanMode: next }),
     onSettled: refresh,
     onError: failed(t('brokers.bluetooth.modeFailed', 'Couldn’t change the scan mode')),
   });
@@ -466,8 +455,8 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
                 roomOf={roomOf}
                 onMode={
                   canConfigure
-                    ? (scanner, next) => {
-                        mode.mutate({ scanner, mode: next });
+                    ? (next) => {
+                        mode.mutate(next);
                       }
                     : undefined
                 }
@@ -497,7 +486,6 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
           {isAddingProxy ? (
             <AddProxyDialog
               roomOf={roomOf}
-              defaultMode={current.settings.proxyScanMode}
               onClose={() => {
                 setAddingProxy(false);
               }}
@@ -544,7 +532,6 @@ const DEFAULTS = {
   localEnabled: true,
   adapterId: null,
   localScanMode: 'active',
-  proxyScanMode: 'passive',
   forgetAfterDays: 7,
   showPrivate: false,
 } as const;

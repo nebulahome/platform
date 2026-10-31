@@ -68,7 +68,6 @@ export const BLUETOOTH_SAMPLE_STATUS: BluetoothStatus = {
     localEnabled: true,
     adapterId: 'hci0',
     localScanMode: 'active',
-    proxyScanMode: 'passive',
     forgetAfterDays: 7,
     showPrivate: false,
   },
@@ -457,6 +456,16 @@ export const BLUETOOTH_SAMPLE_CANDIDATES: BluetoothProxyCandidate[] = [
     wifiRssi: null,
     proxy: { eligible: false, reason: 'firmware', update: true },
     modes: [],
+  },
+  {
+    deviceId: 'shelly-porch-az',
+    name: 'Porch AZ Plug',
+    vendorId: 'shelly',
+    areaId: SAMPLE_ROOMS.garage,
+    isOnline: true,
+    wifiRssi: null,
+    proxy: { eligible: false, reason: 'unsupported' },
+    modes: ['passive', 'active'],
   },
 ];
 

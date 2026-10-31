@@ -15,7 +15,6 @@ import {
   bluetoothNearbyReplySchema,
   bluetoothProxyCandidatesReplySchema,
   bluetoothProxyJobSchema,
-  bluetoothScannerSchema,
   bluetoothScannersReplySchema,
   bluetoothStatusSchema,
   type BluetoothDevice,
@@ -23,7 +22,6 @@ import {
   type BluetoothNearby,
   type BluetoothProxyCandidate,
   type BluetoothProxyJob,
-  type BluetoothScanMode,
   type BluetoothScanner,
   type BluetoothSettings,
   type BluetoothStatus,
@@ -205,19 +203,15 @@ export async function fetchBluetoothProxyCandidates(
 }
 
 /**
- * Makes a device a proxy.
+ * Makes a device a proxy: the hub picks how it scans.
  *
  * @param deviceId - The device.
- * @param mode - How it scans.
  * @returns The job.
  */
-export async function addBluetoothProxy(
-  deviceId: string,
-  mode: BluetoothScanMode,
-): Promise<BluetoothProxyJob> {
+export async function addBluetoothProxy(deviceId: string): Promise<BluetoothProxyJob> {
   return apiRequest('/brokers/bluetooth/proxies', bluetoothProxyJobSchema, {
     method: 'POST',
-    body: { deviceId, mode },
+    body: { deviceId },
   });
 }
 
@@ -236,24 +230,6 @@ export async function fetchBluetoothProxyJob(
     `/brokers/bluetooth/proxies/jobs/${encodeURIComponent(jobId)}`,
     bluetoothProxyJobSchema,
     readOptions(signal),
-  );
-}
-
-/**
- * Changes how a proxy scans.
- *
- * @param deviceId - The proxy.
- * @param mode - Passive or active.
- * @returns Its scanner.
- */
-export async function setBluetoothProxyMode(
-  deviceId: string,
-  mode: BluetoothScanMode,
-): Promise<BluetoothScanner> {
-  return apiRequest(
-    `/brokers/bluetooth/proxies/${encodeURIComponent(deviceId)}/mode`,
-    bluetoothScannerSchema,
-    { method: 'PUT', body: { mode } },
   );
 }
 
