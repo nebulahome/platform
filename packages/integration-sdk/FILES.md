@@ -246,7 +246,10 @@ address: the owner adds one from the Bluetooth broker's Found or Nearby, and its
 address, upper case. Its claim reads `{ deviceKey, kind, name, advert }`, the advertisement it was
 recognised from; it follows its address with the subscription `{ "op": "follow", "args": {
 "address": "…" } }` and is delivered each advertisement heard from it, by the server's adapter or
-any proxy - one carrying the same name, maker's and service data at most once a minute. Its
+any proxy - one carrying the same name, maker's and service data at most once a minute. A device
+that says some of what it knows only when asked - in a scan response - adds `"activeEveryMinutes":
+N` (1 to 1440): proxies rest passive, and every N minutes the hub asks the proxy hearing it best to
+scan actively until it hears the device again, 30 s at most. Its
 requests are GATT on the server's own adapter: `gatt.read { service, characteristic }` answers `{
 data }`, `gatt.write { service, characteristic, data, withResponse }`, `gatt.notify { service,
 characteristic, isOn }`, whose values are delivered as `{ service, characteristic, data }` - hex
@@ -933,29 +936,36 @@ what the sweep found. A learn that rejects with an error named `TimeoutError` or
 at or after `timeoutMs`, reads "Nothing reached the blaster in 30 s." on the page; any other shows
 its message.
 
-**A Bluetooth proxy** declares `bluetoothProxy: { modes }`, the scan modes it can run, `passive`
-and `active`, each once.
+**A Bluetooth proxy** declares `bluetoothProxy: { modes }`, the scan modes its radio can run,
+`passive` and `active`, each once. The owner does not choose one: the hub does. A proxy rests
+passive when it can, and the hub asks it to scan actively only while the house needs more than
+adverts - while somebody has Nearby open (every proxy), while a device is being added (the proxies
+hearing it), and when a followed device's `activeEveryMinutes` falls due (the proxy hearing it
+best).
 
-| Op                        | Arguments       | The hub waits | Answer                                                    |
-| ------------------------- | --------------- | ------------- | --------------------------------------------------------- |
-| `bluetooth-proxy.state`   | `{}`            | 10 s          | `BluetoothProxyState`; anything else counts as no answer  |
-| `bluetooth-proxy.install` | `{ mode }`      | 60 s          | install the script, or update it, and run it in that mode |
-| `bluetooth-proxy.remove`  | `{}`            | 10 s          | stop the script and remove it; throw to refuse            |
-| `bluetooth-proxy.filter`  | `{ addresses }` | 10 s          | forward those addresses from now on                       |
+| Op                        | Arguments                | The hub waits | Answer                                                    |
+| ------------------------- | ------------------------ | ------------- | --------------------------------------------------------- |
+| `bluetooth-proxy.state`   | `{}`                     | 10 s          | `BluetoothProxyState`; anything else counts as no answer  |
+| `bluetooth-proxy.install` | `{ mode }`               | 60 s          | install the script, or update it, resting in that mode    |
+| `bluetooth-proxy.remove`  | `{}`                     | 10 s          | stop the script and remove it; throw to refuse            |
+| `bluetooth-proxy.filter`  | `{ addresses, active? }` | 10 s          | forward those addresses, scanning actively while `active` |
 
 - `state` answers `{ eligible: true, installed, version?, shipped, running }` - the script on the
   device, the one the vendor ships now, whether it runs - or `{ eligible: false, reason, update? }`,
-  the reason `gen1`, `battery`, `firmware` or `no-bluetooth`, and `update` whether a firmware update
-  the device offers would make it eligible. The hub asks it for the list of devices that could be
+  the reason `gen1`, `battery`, `firmware`, `no-bluetooth` or `unsupported` - a model that cannot
+  run the script, or whose radio is busy with something else - and `update` whether a firmware
+  update the device offers would make it eligible. The hub asks it for the list of devices that could be
   proxies, when the device's scanner opens, and after an install, a second apart until it says
   `running`. The script is outdated when `version` and `shipped` are both strict semver and
   `version` is the lower, otherwise whenever they differ.
-- `install` is also how the owner changes the mode and updates the script; a throw fails the job
-  with its message.
+- `install` is also how the script is updated. `mode` is the one it rests in, which the hub picks:
+  `passive` when the profile lists it, else `active`. A throw fails the job with its message.
 - `filter` is `"all"` while somebody has Nearby open, otherwise the house's devices, those being
-  added and those a rule recognises - upper case, sorted, 4096 at most. It comes at the hub's
-  start, when the scanner opens, on every change and again every five minutes. Keep only the last
-  one; a script that restarted forwards nothing until it is told again.
+  added and those a rule recognises - upper case, sorted, 4096 at most. `active: true` asks it to
+  scan actively until a filter says otherwise; absent or false, it goes back to the mode it rests
+  in. A proxy whose profile does not list `active` is never asked. It comes at the hub's start,
+  when the scanner opens, on every change and again every five minutes. Keep only the last one; a
+  script that restarted forwards nothing, and rests, until it is told again.
 
 What the proxy hears reaches the house through `sdk.bluetooth.scanner({ key, deviceKey })`: `key`
 is the instance connection's key and `deviceKey` the device's on it, or the hub cannot tell which

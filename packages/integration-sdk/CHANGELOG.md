@@ -3,6 +3,21 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.7.0
+
+Bluetooth proxies scan as the hub decides.
+
+- The owner no longer picks a proxy's scan mode. `bluetooth-proxy.install`'s `mode` is the one the
+  proxy rests in, which the hub picks: `passive` when the profile lists it, else `active`.
+- `bluetooth-proxy.filter` carries `active`: the hub asks a proxy to scan actively while somebody
+  has Nearby open, while a device it hears is being added, and when a followed device's refresh
+  falls due; absent or false, the proxy goes back to rest.
+- A Bluetooth driver's `follow` subscription may say `activeEveryMinutes` (1 to 1440): every so
+  often the proxy hearing the device best scans actively until it hears it again, 30 s at most, for
+  what the device says only in a scan response.
+- `bluetooth-proxy.state` may answer the reason `unsupported`: a model that cannot run the script,
+  or whose radio is busy with something else.
+
 ## 1.6.1
 
 - `sdk.codecs.infrared`: a Broadlink tick is 8192/269 µs, about 30.45 µs, as measured against real

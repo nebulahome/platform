@@ -190,7 +190,7 @@ type BluetoothAdvertInput = z.input<typeof bluetoothAdvertSchema>;
 /** One advertisement heard. */
 type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
 /**
- * What a device that can be a proxy declares in its profile: the scan modes it can run.
+ * What a device that can be a proxy declares in its profile: the scan modes its radio can run.
  */
 declare const bluetoothProxyProfileSchema: z.ZodObject<{
   modes: z.ZodArray<z.ZodEnum<{
@@ -207,13 +207,17 @@ declare const bluetoothProxyInstallArgsSchema: z.ZodObject<{
     active: "active";
   }>;
 }, z.core.$strip>;
-/** Arguments of `bluetooth-proxy.install`: the mode to scan in. */
+/** Arguments of `bluetooth-proxy.install`: the mode to rest in, which the hub picks. */
 type BluetoothProxyInstallArgs = z.output<typeof bluetoothProxyInstallArgsSchema>;
 /** Arguments of `bluetooth-proxy.filter`. */
 declare const bluetoothProxyFilterArgsSchema: z.ZodObject<{
   addresses: z.ZodUnion<readonly [z.ZodLiteral<"all">, z.ZodArray<z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>]>;
+  active: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strip>;
-/** Arguments of `bluetooth-proxy.filter`: the addresses to forward, upper case, or `all`. */
+/**
+ * Arguments of `bluetooth-proxy.filter`: the addresses to forward, upper case, or `all`, and
+ * whether the hub wants it scanning actively now.
+ */
 type BluetoothProxyFilterArgs = z.output<typeof bluetoothProxyFilterArgsSchema>;
 /** What `bluetooth-proxy.state` answers: a device that can be a proxy, and whether it is one. */
 declare const bluetoothProxyStateSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
@@ -229,6 +233,7 @@ declare const bluetoothProxyStateSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     battery: "battery";
     firmware: "firmware";
     "no-bluetooth": "no-bluetooth";
+    unsupported: "unsupported";
   }>;
   update: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strip>], "eligible">;

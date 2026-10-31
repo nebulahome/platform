@@ -185,7 +185,7 @@ type BluetoothAdvertInput = z.input<typeof bluetoothAdvertSchema>;
 /** One advertisement heard. */
 type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
 /**
- * What a device that can be a proxy declares in its profile: the scan modes it can run.
+ * What a device that can be a proxy declares in its profile: the scan modes its radio can run.
  */
 declare const bluetoothProxyProfileSchema: z.ZodObject<{
   modes: z.ZodArray<z.ZodEnum<{
