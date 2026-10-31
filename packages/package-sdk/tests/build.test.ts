@@ -51,7 +51,7 @@ describe('building a package', () => {
     expect(await json('nebula.package.json')).toMatchObject({
       id: 'weather',
       version: '0.2.0',
-      sdk: '^1.5.0',
+      sdk: '^1.6.0',
       runtime: 'node',
       repository: 'nebulahome/pkg-weather',
       logo: { path: './logo.svg' },
@@ -62,6 +62,7 @@ describe('building a package', () => {
         page: true,
         cards: [{ id: 'forecast', sizes: ['wide'] }],
         entityViews: ['alert'],
+        background: { description: 'Keeps the forecast fresh.' },
       },
       setup: './setup.json',
     });
@@ -91,8 +92,11 @@ describe('building a package', () => {
 
     const locales = definition['locales'] as Record<string, () => Promise<{ default: unknown }>>;
 
+    const background = await (definition['background'] as () => Promise<{ default: unknown }>)();
+
     expect(definition).toMatchObject({ kind: 'nebula.ui' });
     expect(typeof forecastCard).toBe('function');
+    expect(typeof background.default).toBe('function');
     expect(Object.keys(locales)).toEqual(['it']);
     expect((await locales['it']?.())?.default).toEqual({
       page: { title: 'Il meteo di {{name}}' },
@@ -146,7 +150,7 @@ describe('building a package', () => {
     expect(JSON.parse(await readFile(packed.indexEntry, 'utf8'))).toEqual({
       version: '0.2.0',
       platform: '^1.0.0',
-      sdk: '^1.5.0',
+      sdk: '^1.6.0',
       requires: { packages: {}, services: [] },
       provides: [],
       artifact: {

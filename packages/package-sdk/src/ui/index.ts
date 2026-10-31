@@ -23,6 +23,7 @@ import type {
   EntitiesFilter,
   EntityPicture,
   EntityView,
+  FloatingProps,
   History,
   HistoryQuery,
   LiveOptions,
@@ -62,6 +63,7 @@ export type {
   EntitiesFilter,
   EntityPicture,
   EntityView,
+  FloatingProps,
   History,
   HistoryQuery,
   HistoryWindow,
@@ -99,7 +101,7 @@ export type {
   Viewer,
   VisibleSettings,
 } from './types.js';
-export type { CardProps, EntityViewProps, PageProps } from '../props.js';
+export type { BackgroundProps, CardProps, EntityViewProps, PageProps } from '../props.js';
 export type {
   ChangeCause,
   HistorySeries,
@@ -422,4 +424,17 @@ export function PlatformLink(props: PlatformLinkProps): ReactElement {
  */
 export function PageActions(props: PageActionsProps): ReactElement {
   return createElement(ui('PageActions', '1.3'), props);
+}
+
+/**
+ * A window floating over the interface's pages, from the package's background, page or card -
+ * drawn while the component that draws it is, so a background's outlives every page. The
+ * interface gives the frame, the throwing from corner to corner and the close button; what is
+ * inside is the package's own. Since 1.6.
+ *
+ * @param props - Whether it is shown, what it is called, what closing it does, and what it holds.
+ * @returns The window.
+ */
+export function Floating(props: FloatingProps): ReactElement {
+  return createElement(ui('Floating', '1.6'), props);
 }

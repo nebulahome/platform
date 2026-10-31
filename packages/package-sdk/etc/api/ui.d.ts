@@ -1,5 +1,5 @@
 import { G as CapabilityState, H as CapabilityCommands, S as FormValues, Y as DeclaredCapabilities, ct as EntityDomain, d as EntityTypeDefinition, f as ValuesOf, i as SettingsDefinition, lt as EntityId, q as CommandableCapability, r as JsonValue, s as ArgsOf, t as JsonObject, u as CommandsOf, z as ValueOfField } from "./chunks/json.js";
-import { a as PageProps, n as EntityViewProps, t as CardProps } from "./chunks/props.js";
+import { n as CardProps, o as PageProps, r as EntityViewProps, t as BackgroundProps } from "./chunks/props.js";
 import { a as TelemetryResolution, i as TelemetryPoint, n as HistorySeries, r as StateHistoryPoint, t as ChangeCause } from "./chunks/history.js";
 import { AnchorHTMLAttributes, ComponentType, ReactElement, ReactNode } from "react";
 //#region src/ui/types.d.ts
@@ -315,6 +315,20 @@ type PlatformLinkProps = LinkAttributes & {
 type PageActionsProps = {
   readonly children?: ReactNode;
 };
+/**
+ * A window of the package floating over the interface's pages, in a corner of the page beside the
+ * rail: one a package, thrown from corner to corner, hidden on the package's own page and on a
+ * phone. Since 1.6.
+ */
+type FloatingProps = {
+  /** Whether it is shown. */
+  readonly open: boolean;
+  /** What a screen reader calls it, in the viewer's language. */
+  readonly label: string;
+  /** What closing it does; without it the window has no close button. */
+  readonly onClose?: () => void;
+  readonly children?: ReactNode;
+};
 /** What a toast says. Since 1.4. */
 type ToastMessage = {
   /** A few words, no full stop. */
@@ -381,6 +395,8 @@ type UiHost = {
   readonly usePackageLive: <TData = JsonValue>(topic: string, options?: LiveOptions) => LiveState<TData>;
   /** Since 1.5. */
   readonly usePackageSend: () => PackageSend;
+  /** Since 1.6. */
+  readonly Floating: ComponentType<FloatingProps>;
 };
 //#endregion
 //#region src/ui/index.d.ts
@@ -588,5 +604,15 @@ export declare function PlatformLink(props: PlatformLinkProps): ReactElement;
  * @returns The actions.
  */
 export declare function PageActions(props: PageActionsProps): ReactElement;
+/**
+ * A window floating over the interface's pages, from the package's background, page or card -
+ * drawn while the component that draws it is, so a background's outlives every page. The
+ * interface gives the frame, the throwing from corner to corner and the close button; what is
+ * inside is the package's own. Since 1.6.
+ *
+ * @param props - Whether it is shown, what it is called, what closing it does, and what it holds.
+ * @returns The window.
+ */
+export declare function Floating(props: FloatingProps): ReactElement;
 //#endregion
-export type { AreaActions, AreaDraft, AreaKind, AreaView, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, History, HistoryQuery, HistorySeries, HistoryWindow, LiveOptions, LiveState, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSend, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, ToastMessage, Toasts, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };
+export type { AreaActions, AreaDraft, AreaKind, AreaView, BackgroundProps, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, FloatingProps, History, HistoryQuery, HistorySeries, HistoryWindow, LiveOptions, LiveState, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSend, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, ToastMessage, Toasts, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };

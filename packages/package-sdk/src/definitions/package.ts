@@ -4,6 +4,7 @@
  */
 import type { Loader } from '../props.js';
 
+import type { BackgroundDefinition } from './background.js';
 import type { CardPropsFor, EntityViewPropsFor } from './bound-props.js';
 import type { CardDefinition } from './card.js';
 import type { ComposeDefinition, ContainerDefinition } from './containers.js';
@@ -41,6 +42,9 @@ export type PackageUi<
 > = {
   /** Its own page. */
   readonly page?: PageDefinition;
+
+  /** What it draws on every page, for as long as somebody is signed in. Since 1.6. */
+  readonly background?: BackgroundDefinition;
 
   /** A component for every declared card, by its id. */
   readonly cards?: {

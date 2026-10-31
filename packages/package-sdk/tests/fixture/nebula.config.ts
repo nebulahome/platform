@@ -1,6 +1,7 @@
-// A package built by the SDK's own tests: a setting, a card, an entity type with a view, a page
-// and a server, as an author would declare them.
+// A package built by the SDK's own tests: a setting, a card, an entity type with a view, a page,
+// a background and a server, as an author would declare them.
 import {
+  defineBackground,
   defineCard,
   defineEntityType,
   definePackage,
@@ -41,6 +42,10 @@ export default definePackage({
   entityTypes: [alert],
   ui: {
     page: definePage({ component: () => import('./src/ui/page.js') }),
+    background: defineBackground({
+      component: () => import('./src/ui/background.js'),
+      description: 'Keeps the forecast fresh.',
+    }),
     cards: { forecast: () => import('./src/ui/forecast-card.js').then((m) => m.ForecastCard) },
     entityViews: { alert: () => import('./src/ui/alert-view.js') },
   },

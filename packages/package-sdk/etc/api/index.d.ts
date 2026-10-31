@@ -1,5 +1,22 @@
 import { $ as PlaybackState, A as SecretOptions, B as field, C as ListField, D as NumberOptions, E as NumberField, F as TextOptions, G as CapabilityState, H as CapabilityCommands, I as TimestampField, J as CustomValue, K as CapabilityStates, L as TimestampOptions, M as ShownWhen, N as Simplify, O as OptionField, P as TextField, Q as LawnMowerActivity, R as ValueField, S as FormValues, T as NoFields, U as CapabilityName, V as CapabilityCommand, W as CapabilityParams, X as EntityStateClass, Y as DeclaredCapabilities, Z as ImageContentType, _ as ChoiceOption, a as SettingsOf, at as VacuumActivity, b as Field, c as CommandDeclaration, ct as EntityDomain, d as EntityTypeDefinition, dt as isEntityId, et as ReportedCapabilityState, f as ValuesOf, ft as parseEntityId, g as ChoiceField, h as BooleanOptions, i as SettingsDefinition, it as ThermostatMode, j as SettingField, k as SecretField, l as CommandDeclarations, lt as EntityId, m as BooleanField, n as JsonPrimitive, nt as SelectOption, o as defineSettings, ot as VacuumRoom, p as defineEntityType, q as CommandableCapability, r as JsonValue, rt as ThermostatAction, s as ArgsOf, st as ENTITY_DOMAINS, t as JsonObject, tt as ReportedStates, u as CommandsOf, ut as ParsedEntityId, v as ChoiceOptions, w as ListOptions, x as Fields, y as EntityValues, z as ValueOfField } from "./chunks/json.js";
-import { a as PageProps, c as CardSize, d as defineCard, i as PackageComponent, l as OptionsOf, n as EntityViewProps, o as CardDefinition, r as Loader, s as CardPadding, t as CardProps, u as SizeOf } from "./chunks/props.js";
+import { a as PackageComponent, c as CardPadding, d as SizeOf, f as defineCard, i as Loader, l as CardSize, n as CardProps, o as PageProps, r as EntityViewProps, s as CardDefinition, t as BackgroundProps, u as OptionsOf } from "./chunks/props.js";
+//#region src/definitions/background.d.ts
+/** The package's background, as declared. */
+type BackgroundDefinition = {
+  readonly kind: 'background';
+  readonly component: Loader<BackgroundProps>;
+  /** What it does, in a sentence the package's page shows. At most 256 characters. */
+  readonly description: string;
+};
+/**
+ * Declares the package's background. A package has at most one: `ui.background` is a single
+ * field.
+ *
+ * @param background - Its component's loader, and what it does.
+ * @returns The background, for `definePackage`'s `ui.background`.
+ */
+export declare function defineBackground(background: Omit<BackgroundDefinition, 'kind'>): BackgroundDefinition;
+//#endregion
 //#region src/definitions/containers.d.ts
 /**
  * `defineContainer` and `defineCompose`: what a package runs beside or instead of its process
@@ -145,6 +162,8 @@ type PackageRequires = {
 type PackageUi<TCards extends readonly CardDefinition[], TTypes extends readonly EntityTypeDefinition[]> = {
   /** Its own page. */
   readonly page?: PageDefinition;
+  /** What it draws on every page, for as long as somebody is signed in. Since 1.6. */
+  readonly background?: BackgroundDefinition;
   /** A component for every declared card, by its id. */
   readonly cards?: { readonly [TId in TCards[number]['id']]: Loader<CardPropsFor<TCards, TId>>; };
   /** Views of the entity types it draws itself, by their ids. */
@@ -202,4 +221,4 @@ export declare function definePackage<const TCards extends readonly CardDefiniti
 /** The SDK's own version, `1.0.0`. */
 export declare const SDK_VERSION: string;
 //#endregion
-export { type ArgsOf, type BooleanField, type BooleanOptions, type CapabilityCommand, type CapabilityCommands, type CapabilityName, type CapabilityParams, type CapabilityState, type CapabilityStates, type CardDefinition, type CardPadding, type CardProps, type CardSize, type ChoiceField, type ChoiceOption, type ChoiceOptions, type CommandDeclaration, type CommandDeclarations, type CommandableCapability, type CommandsOf, type ComposeDefinition, type ContainerCondition, type ContainerDefinition, type ContainerPort, type CustomValue, type DeclaredCapabilities, ENTITY_DOMAINS, type EntityDomain, type EntityId, type EntityStateClass, type EntityTypeDefinition, type EntityValues, type EntityViewProps, type Field, type Fields, type FormValues, type ImageContentType, type JsonObject, type JsonPrimitive, type JsonValue, type LawnMowerActivity, type ListField, type ListOptions, type Loader, type NoFields, type NumberField, type NumberOptions, type OptionField, type OptionsOf, type PackageCategory, type PackageComponent, type PackageConfig, type PackageDefinition, type PackageRequires, type PackageUi, type PageDefinition, type PageProps, type ParsedEntityId, type PlaybackState, type ReportedCapabilityState, type ReportedStates, type SecretField, type SecretOptions, type SelectOption, type SettingField, type SettingPlaceholder, type SettingsDefinition, type SettingsOf, type ShownWhen, type SidebarEntry, type Simplify, type SizeOf, type TextField, type TextOptions, type ThermostatAction, type ThermostatMode, type TimestampField, type TimestampOptions, type VacuumActivity, type VacuumRoom, type ValueField, type ValueOfField, type ValuesOf, type When, defineCard, defineEntityType, defineSettings, field, isEntityId, parseEntityId };
+export { type ArgsOf, type BackgroundDefinition, type BackgroundProps, type BooleanField, type BooleanOptions, type CapabilityCommand, type CapabilityCommands, type CapabilityName, type CapabilityParams, type CapabilityState, type CapabilityStates, type CardDefinition, type CardPadding, type CardProps, type CardSize, type ChoiceField, type ChoiceOption, type ChoiceOptions, type CommandDeclaration, type CommandDeclarations, type CommandableCapability, type CommandsOf, type ComposeDefinition, type ContainerCondition, type ContainerDefinition, type ContainerPort, type CustomValue, type DeclaredCapabilities, ENTITY_DOMAINS, type EntityDomain, type EntityId, type EntityStateClass, type EntityTypeDefinition, type EntityValues, type EntityViewProps, type Field, type Fields, type FormValues, type ImageContentType, type JsonObject, type JsonPrimitive, type JsonValue, type LawnMowerActivity, type ListField, type ListOptions, type Loader, type NoFields, type NumberField, type NumberOptions, type OptionField, type OptionsOf, type PackageCategory, type PackageComponent, type PackageConfig, type PackageDefinition, type PackageRequires, type PackageUi, type PageDefinition, type PageProps, type ParsedEntityId, type PlaybackState, type ReportedCapabilityState, type ReportedStates, type SecretField, type SecretOptions, type SelectOption, type SettingField, type SettingPlaceholder, type SettingsDefinition, type SettingsOf, type ShownWhen, type SidebarEntry, type Simplify, type SizeOf, type TextField, type TextOptions, type ThermostatAction, type ThermostatMode, type TimestampField, type TimestampOptions, type VacuumActivity, type VacuumRoom, type ValueField, type ValueOfField, type ValuesOf, type When, defineCard, defineEntityType, defineSettings, field, isEntityId, parseEntityId };

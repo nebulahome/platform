@@ -22,6 +22,11 @@ export type PageProps = {
   readonly packageId: string;
 };
 
+/** What the package's background is given. Since 1.6. */
+export type BackgroundProps = {
+  readonly packageId: string;
+};
+
 /** What a card is given. */
 export type CardProps<TCard extends CardDefinition = CardDefinition> = {
   readonly packageId: string;

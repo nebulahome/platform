@@ -417,6 +417,24 @@ export type PageActionsProps = {
   readonly children?: ReactNode;
 };
 
+/**
+ * A window of the package floating over the interface's pages, in a corner of the page beside the
+ * rail: one a package, thrown from corner to corner, hidden on the package's own page and on a
+ * phone. Since 1.6.
+ */
+export type FloatingProps = {
+  /** Whether it is shown. */
+  readonly open: boolean;
+
+  /** What a screen reader calls it, in the viewer's language. */
+  readonly label: string;
+
+  /** What closing it does; without it the window has no close button. */
+  readonly onClose?: () => void;
+
+  readonly children?: ReactNode;
+};
+
 /** What a toast says. Since 1.4. */
 export type ToastMessage = {
   /** A few words, no full stop. */
@@ -513,4 +531,7 @@ export type UiHost = {
 
   /** Since 1.5. */
   readonly usePackageSend: () => PackageSend;
+
+  /** Since 1.6. */
+  readonly Floating: ComponentType<FloatingProps>;
 };

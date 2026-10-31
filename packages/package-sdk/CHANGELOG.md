@@ -3,6 +3,19 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.6.0
+
+- **The background.** `ui.background: defineBackground({ component, description })` is a
+  component the interface draws on every page, out of sight, for as long as somebody is signed in
+  and the package runs - for what must outlive a page, sound playing in the browser above all. It
+  is unmounted when the package stops, is turned off or removed, and mounted afresh by an update,
+  so what it starts belongs in effects. Its `description` (1-256 characters) is shown on the
+  package's page; the manifest records it as `ui.background`.
+- **`<Floating open label onClose?>`** draws a window of the package over the interface's pages,
+  from its background, page or card: in a corner of the page beside the rail, thrown from corner to
+  corner with a small bounce, one a package, hidden on the package's own page and on a phone.
+  `onClose` gives it a close button and says what closing does.
+
 ## 1.5.0
 
 - **The live channel.** A package's server and its open interfaces talk over the interface's own

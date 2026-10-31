@@ -88,6 +88,7 @@ function uiEntryCode(configPath: string, catalogues: readonly Catalogue[]): stri
     "  kind: 'nebula.ui',",
     `  sdk: ${JSON.stringify(SDK_VERSION)},`,
     '  page: ui.page?.component,',
+    '  background: ui.background?.component,',
     '  cards: ui.cards ?? {},',
     '  entityViews: ui.entityViews ?? {},',
     '  locales: {',

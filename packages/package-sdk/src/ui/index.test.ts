@@ -8,6 +8,7 @@ import { cn } from '../components/index.js';
 import { COMPONENTS_MODULE, UI_MODULE } from '../host.js';
 
 import {
+  Floating,
   PageActions,
   useAreaActions,
   useAreas,
@@ -106,6 +107,14 @@ describe('the forwarders', () => {
       'usePackageLive needs package SDK 1.5; this interface implements 1.4.0',
     );
     expect(() => usePackageSend()).toThrow('usePackageSend needs package SDK 1.5');
+  });
+
+  it('name 1.6 for what 1.6 added', () => {
+    lend('1.5.0', { [UI_MODULE]: {} });
+
+    expect(() => Floating({ open: true, label: 'Now playing' })).toThrow(
+      'Floating needs package SDK 1.6; this interface implements 1.5.0',
+    );
   });
 
   it('say so outside the interface', () => {

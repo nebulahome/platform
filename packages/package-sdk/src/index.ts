@@ -27,6 +27,7 @@ export type {
   VacuumActivity,
   VacuumRoom,
 } from './capabilities.js';
+export { defineBackground, type BackgroundDefinition } from './definitions/background.js';
 export {
   defineCard,
   type CardDefinition,
@@ -106,5 +107,12 @@ export {
   type ValueOfField,
 } from './fields.js';
 export type { JsonObject, JsonPrimitive, JsonValue } from './json.js';
-export type { CardProps, EntityViewProps, Loader, PackageComponent, PageProps } from './props.js';
+export type {
+  BackgroundProps,
+  CardProps,
+  EntityViewProps,
+  Loader,
+  PackageComponent,
+  PageProps,
+} from './props.js';
 export { SDK_VERSION } from './version.js';

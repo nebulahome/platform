@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { integrationSetupSchema, packageManifestSchema } from '@nebulahome/contracts';
 
 import {
+  defineBackground,
   defineCard,
   defineCompose,
   defineContainer,
@@ -253,6 +254,36 @@ describe('the manifest generator', () => {
         ],
       }),
     );
+  });
+
+  it('records a background and what it does, and refuses one not declared as such', () => {
+    const { manifest } = generatePackage(
+      {
+        ...template,
+        ui: {
+          ...template.ui,
+          background: defineBackground({
+            component: async () => Promise.resolve(Component),
+            description: 'Keeps the counter ticking in the browser.',
+          }),
+        },
+      },
+      OPTIONS,
+    );
+
+    expect(manifest).toMatchObject({
+      ui: { background: { description: 'Keeps the counter ticking in the browser.' } },
+    });
+    expect(generatePackage(template, OPTIONS).manifest).toMatchObject({
+      ui: { background: null },
+    });
+    expect(
+      problemsOf({ ...template, ui: { ...template.ui, background: { component: 'nope' } } }),
+    ).toEqual([
+      'ui.background: must be a background, declared with defineBackground',
+      "ui.background.component: must load the background's component: () => import('./background.js')",
+      'ui.background.description: Invalid input: expected string, received undefined',
+    ]);
   });
 
   it('names every problem, in the declaration’s terms', () => {

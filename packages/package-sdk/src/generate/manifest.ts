@@ -243,16 +243,23 @@ function containersOf(containers: unknown, found: Problems): Record<string, unkn
  * @param cardIds - The ids of the declared cards.
  * @param typeIds - The ids of the declared entity types.
  * @param found - Where problems go.
- * @returns Whether it has a page, its sidebar entry, and the types it draws.
+ * @returns Whether it has a page, its sidebar entry, its background, and the types it draws.
  */
 function boundUi(
   ui: unknown,
   cardIds: readonly string[],
   typeIds: readonly string[],
   found: Problems,
-): { page: boolean; sidebar: unknown; entityViews: string[]; hasUi: boolean } {
+): {
+  page: boolean;
+  sidebar: unknown;
+  background: { description: unknown } | null;
+  entityViews: string[];
+  hasUi: boolean;
+} {
   const bound = isRecord(ui) ? ui : {};
   const page = bound['page'];
+  const background = bound['background'];
   const cards = isRecord(bound['cards']) ? bound['cards'] : {};
   const views = isRecord(bound['entityViews']) ? bound['entityViews'] : {};
 
@@ -262,6 +269,17 @@ function boundUi(
 
   if (isRecord(page) && typeof page['component'] !== 'function') {
     found.add('ui.page.component', "must load the page's component: () => import('./page.js')");
+  }
+
+  if (background !== undefined && (!isRecord(background) || background['kind'] !== 'background')) {
+    found.add('ui.background', 'must be a background, declared with defineBackground');
+  }
+
+  if (isRecord(background) && typeof background['component'] !== 'function') {
+    found.add(
+      'ui.background.component',
+      "must load the background's component: () => import('./background.js')",
+    );
   }
 
   for (const id of cardIds) {
@@ -287,8 +305,9 @@ function boundUi(
   return {
     page: isRecord(page),
     sidebar: isRecord(page) ? page['sidebar'] : undefined,
+    background: isRecord(background) ? { description: background['description'] } : null,
     entityViews,
-    hasUi: isRecord(page) || cardIds.length > 0 || entityViews.length > 0,
+    hasUi: isRecord(page) || isRecord(background) || cardIds.length > 0 || entityViews.length > 0,
   };
 }
 
@@ -392,6 +411,7 @@ export function generatePackage(definition: unknown, options: GenerateOptions): 
             ...(ui.sidebar === undefined ? {} : { sidebar: ui.sidebar }),
             cards,
             entityViews: ui.entityViews,
+            ...(ui.background === null ? {} : { background: ui.background }),
           },
         }
       : {}),

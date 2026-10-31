@@ -43,6 +43,10 @@ type Loader<TProps> = () => Promise<PackageComponent<TProps> | {
 type PageProps = {
   readonly packageId: string;
 };
+/** What the package's background is given. Since 1.6. */
+type BackgroundProps = {
+  readonly packageId: string;
+};
 /** What a card is given. */
 type CardProps<TCard extends CardDefinition = CardDefinition> = {
   readonly packageId: string;
@@ -65,4 +69,4 @@ type EntityViewProps<TType extends EntityTypeDefinition = EntityTypeDefinition> 
   readonly type: TType['id'];
 };
 //#endregion
-export { PageProps as a, CardSize as c, defineCard as d, PackageComponent as i, OptionsOf as l, EntityViewProps as n, CardDefinition as o, Loader as r, CardPadding as s, CardProps as t, SizeOf as u };
+export { PackageComponent as a, CardPadding as c, SizeOf as d, defineCard as f, Loader as i, CardSize as l, CardProps as n, PageProps as o, EntityViewProps as r, CardDefinition as s, BackgroundProps as t, OptionsOf as u };

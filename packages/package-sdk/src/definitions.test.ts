@@ -6,6 +6,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
+  defineBackground,
   defineCard,
   defineCompose,
   defineContainer,
@@ -108,6 +109,12 @@ describe('the definitions', () => {
     expect(
       defineContainer({ id: 'db', name: 'DB', image: 'postgres', minVersion: '16.0.0' }).kind,
     ).toBe('container');
+    expect(
+      defineBackground({
+        component: async () => Promise.resolve(() => null),
+        description: 'Keeps the forecast fresh.',
+      }),
+    ).toMatchObject({ kind: 'background', description: 'Keeps the forecast fresh.' });
   });
 
   it('bind components to the cards and types they draw', async () => {
