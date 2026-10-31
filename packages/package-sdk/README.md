@@ -210,8 +210,11 @@ export default function Background() {
 }
 ```
 
-The window rests in a corner of the page beside the rail and is thrown from corner to corner; it is
-hidden on the package's own page and on a phone. `onClose` gives it a close button.
+The window rests in a corner of the page beside the rail and is thrown from corner to corner, or
+flung right past the edge to tuck it away with a strip showing, until a click brings it back; it
+is hidden on the package's own page and on a phone. `onClose` gives it a close button. Its frame is
+glass with a border and no padding, at most 400 px wide: the content pads itself and leaves room
+for the close button in the top-right corner.
 
 ## Entry points
 
