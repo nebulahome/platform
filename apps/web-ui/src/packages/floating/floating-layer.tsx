@@ -6,6 +6,9 @@
  * was last put in, in this browser, and gives it back the next time; when it is taken the window
  * gets the first free one of bottom-right, bottom-left, top-right, top-left. A window put in a
  * corner another holds swaps with it. A fifth window shares the bottom-right.
+ *
+ * While a window is dragged the layer draws the four corners' slots under it, at its size, the
+ * one it would land in lit.
  */
 import {
   createContext,
@@ -17,10 +20,29 @@ import {
   type ReactNode,
 } from 'react';
 
-import { CORNER_ORDER, type Corner } from '@/packages/floating/spring';
+import { cn } from '@nebulahome/ui';
+
+import { CORNER_ORDER, type Corner, type Size } from '@/packages/floating/spring';
 
 /** Where the preferred corners are kept: `{ [packageId]: corner }`. */
 const STORAGE_KEY = 'nebula.floating';
+
+/** How each corner pins a window or its slot, 24px in: what `cornerPosition` works out. */
+export const CORNER_CLASSES: Readonly<Record<Corner, string>> = {
+  'top-left': 'top-6 left-6',
+  'top-right': 'top-6 right-6',
+  'bottom-left': 'bottom-6 left-6',
+  'bottom-right': 'right-6 bottom-6',
+};
+
+/** The slots drawn while a window is dragged. */
+export type FloatingZones = {
+  /** The window's size, which each slot takes. */
+  readonly size: Size;
+
+  /** The corner it would land in. */
+  readonly near: Corner;
+};
 
 /** What the layer shares with the windows drawn in it. */
 export type FloatingLayerValue = {
@@ -38,6 +60,9 @@ export type FloatingLayerValue = {
 
   /** Puts a window in a corner, swapping with the one there, and remembers it. */
   readonly moveTo: (packageId: string, corner: Corner) => void;
+
+  /** Draws the slots of a window being dragged; null takes them away. */
+  readonly showZones: (zones: FloatingZones | null) => void;
 };
 
 const FloatingLayerContext = createContext<FloatingLayerValue | null>(null);
@@ -164,14 +189,32 @@ export function FloatingLayer(props: { readonly children?: ReactNode }) {
     [commit],
   );
 
+  // Kept out of the context's value: a slot lighting up draws the layer again, not the windows.
+  const [zones, showZones] = useState<FloatingZones | null>(null);
+
   const value = useMemo(
-    () => ({ element, corners, claim, release, moveTo }),
+    () => ({ element, corners, claim, release, moveTo, showZones }),
     [element, corners, claim, release, moveTo],
   );
 
   return (
     <FloatingLayerContext.Provider value={value}>
       {children}
+      {zones === null ? null : (
+        // Before the windows' layer, so the slots are drawn under the window dragged over them.
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10">
+          {CORNER_ORDER.map((corner) => (
+            <div
+              key={corner}
+              data-near={corner === zones.near ? '' : undefined}
+              className={cn('floating-zone absolute', CORNER_CLASSES[corner])}
+              /* eslint-disable-next-line react/forbid-dom-props -- a slot is the size of the
+                 window dragged, which only a measure knows. */
+              style={{ width: zones.size.width, height: zones.size.height }}
+            />
+          ))}
+        </div>
+      )}
       <div ref={setElement} className="pointer-events-none absolute inset-0 z-10" />
     </FloatingLayerContext.Provider>
   );

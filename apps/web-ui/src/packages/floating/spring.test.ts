@@ -7,9 +7,11 @@ import {
   cornerPosition,
   cornerToward,
   isSettled,
+  PEEK_PX,
   pickCorner,
   stepSpring,
   throwVelocity,
+  tuckedPosition,
   type SpringState,
   type Vector,
 } from '@/packages/floating/spring';
@@ -68,13 +70,64 @@ describe('stepSpring', () => {
 
 describe('pickCorner', () => {
   it('picks the nearest corner of a window put down', () => {
-    expect(pickCorner({ x: 100, y: 80 }, AT_REST, BOUNDS, SIZE)).toBe('top-left');
-    expect(pickCorner({ x: 600, y: 500 }, AT_REST, BOUNDS, SIZE)).toBe('bottom-right');
+    expect(pickCorner({ x: 100, y: 80 }, AT_REST, BOUNDS, SIZE)).toEqual({
+      corner: 'top-left',
+      isTucked: false,
+    });
+    expect(pickCorner({ x: 600, y: 500 }, AT_REST, BOUNDS, SIZE)).toEqual({
+      corner: 'bottom-right',
+      isTucked: false,
+    });
   });
 
   it('picks the corner a window is thrown at', () => {
-    expect(pickCorner({ x: 100, y: 80 }, { x: 3000, y: 0 }, BOUNDS, SIZE)).toBe('top-right');
-    expect(pickCorner({ x: 600, y: 500 }, { x: -2500, y: -2500 }, BOUNDS, SIZE)).toBe('top-left');
+    expect(pickCorner({ x: 100, y: 80 }, { x: 3000, y: 0 }, BOUNDS, SIZE)).toEqual({
+      corner: 'top-right',
+      isTucked: false,
+    });
+    expect(pickCorner({ x: 600, y: 500 }, { x: -2500, y: -2500 }, BOUNDS, SIZE).corner).toBe(
+      'top-left',
+    );
+  });
+
+  it('tucks a window thrown hard to the right, in the right corner nearest', () => {
+    expect(pickCorner({ x: 600, y: 500 }, { x: 3000, y: 0 }, BOUNDS, SIZE)).toEqual({
+      corner: 'bottom-right',
+      isTucked: true,
+    });
+    expect(pickCorner({ x: 400, y: 60 }, { x: 4000, y: 200 }, BOUNDS, SIZE)).toEqual({
+      corner: 'top-right',
+      isTucked: true,
+    });
+  });
+
+  it('does not tuck a window put down slowly near the right edge', () => {
+    expect(pickCorner({ x: 690, y: 500 }, { x: 200, y: 0 }, BOUNDS, SIZE)).toEqual({
+      corner: 'bottom-right',
+      isTucked: false,
+    });
+  });
+
+  it('tucks a window let go of with its middle past the right edge', () => {
+    expect(pickCorner({ x: 900, y: 500 }, AT_REST, BOUNDS, SIZE)).toEqual({
+      corner: 'bottom-right',
+      isTucked: true,
+    });
+  });
+});
+
+describe('tuckedPosition', () => {
+  it('leaves exactly the strip showing, at the corner’s height', () => {
+    const tucked = tuckedPosition('bottom-right', BOUNDS, SIZE);
+
+    expect(BOUNDS.width - tucked.x).toBe(PEEK_PX);
+    expect(tucked.y).toBe(cornerPosition('bottom-right', BOUNDS, SIZE).y);
+  });
+
+  it('is as far as a drag may take a window to the right', () => {
+    const tucked = tuckedPosition('top-right', BOUNDS, SIZE);
+
+    expect(clampPosition({ x: 5000, y: tucked.y }, BOUNDS, SIZE, true)).toEqual(tucked);
   });
 });
 

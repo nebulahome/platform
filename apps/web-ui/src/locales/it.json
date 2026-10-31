@@ -3396,7 +3396,8 @@
     }
   },
   "floating": {
-    "close": "Chiudi"
+    "close": "Chiudi",
+    "show": "Mostra {{label}}"
   },
   "history": {
     "between": "Tra",

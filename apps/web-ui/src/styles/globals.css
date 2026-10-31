@@ -227,3 +227,91 @@
     }
   }
 }
+
+/*
+ * The packages' floating windows (`packages/floating/`, PACKAGES_DOCS.md 6.7), as the Music
+ * floating-player design draws them. A window comes in rising and growing a little past its size,
+ * and goes sinking and shrinking. Picked up it grows, tilts the way it is pulled - its script sets
+ * `rotate` - and casts a deeper shadow edged in the brand; put down, it settles back with a small
+ * bounce. Its script writes its place to `translate`, so none of this moves it.
+ *
+ * While it is dragged the corners' slots are drawn: dashed, the one it would land in lit and full
+ * size, the others a little smaller. Where less motion was asked for the window still lifts and
+ * the slots still light, at once; its script leaves out the tilt, the coming and the going.
+ */
+@layer components {
+  .floating-frame {
+    cursor: grab;
+    box-shadow:
+      0 24px 64px rgb(0 0 0 / 0.6),
+      0 2px 8px rgb(0 0 0 / 0.4);
+    transition:
+      rotate 280ms cubic-bezier(0.34, 1.36, 0.64, 1),
+      scale 280ms cubic-bezier(0.34, 1.36, 0.64, 1),
+      box-shadow 320ms ease;
+  }
+
+  .floating-frame[data-lifted] {
+    cursor: grabbing;
+    scale: 1.035;
+    box-shadow:
+      0 44px 96px rgb(0 0 0 / 0.72),
+      0 0 0 1px color-mix(in srgb, var(--color-primary) 35%, transparent),
+      0 0 48px color-mix(in srgb, var(--color-primary) 18%, transparent);
+    transition:
+      rotate 140ms ease-out,
+      scale 140ms ease-out,
+      box-shadow 220ms ease;
+  }
+
+  .floating-enter {
+    animation: floating-in 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .floating-leave {
+    animation: floating-out 240ms ease forwards;
+  }
+
+  .floating-zone {
+    border: 1.5px dashed rgb(128 132 166 / 0.4);
+    border-radius: 18px;
+    background-color: color-mix(in srgb, var(--color-primary) 2%, transparent);
+    scale: 0.96;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      scale 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .floating-zone[data-near] {
+    border-color: var(--color-primary);
+    background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    scale: 1;
+  }
+
+  [data-motion='reduced'] .floating-frame,
+  [data-motion='reduced'] .floating-zone {
+    transition: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion='full']) .floating-frame,
+    :root:not([data-motion='full']) .floating-zone {
+      transition: none;
+    }
+  }
+}
+
+@keyframes floating-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.92);
+  }
+}
+
+@keyframes floating-out {
+  to {
+    opacity: 0;
+    transform: translateY(14px) scale(0.9);
+  }
+}

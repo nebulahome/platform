@@ -1,11 +1,14 @@
 /**
  * How a package's floating window moves: the four corners it rests in, the corner a throw sends it
- * to, and the spring that carries it there.
+ * to, the strip it tucks into past the right edge, and the spring that carries it there.
  *
  * Plain numbers, no DOM: positions are in pixels from the top-left of the layer, velocities in
  * pixels a second, times in seconds. The spring is a little under-damped - it goes slightly past
  * its corner and comes back once, the "almost bounce" - and the window is held inside the layer
  * while it does, so the overshoot eats into the margin and never off the page.
+ *
+ * Thrown past the right edge, a window tucks away there as a picture-in-picture does: it stays in
+ * its right corner's height with a strip of it showing, and comes back out when it is clicked.
  */
 
 /** A corner of the layer a window rests in. */
@@ -30,6 +33,9 @@ export type PointerSample = {
 
 /** How far a window at rest sits from the edges of the layer. */
 export const CORNER_INSET_PX = 24;
+
+/** How much of a window tucked past the right edge still shows. */
+export const PEEK_PX = 32;
 
 /** How hard the spring pulls. */
 export const SPRING_STIFFNESS = 380;
@@ -88,38 +94,67 @@ export function cornerPosition(corner: Corner, bounds: Size, size: Size): Vector
 }
 
 /**
+ * Where a window tucked away in a right corner rests: past the right edge, {@link PEEK_PX} of it
+ * showing.
+ *
+ * @param corner - Its corner, a right one.
+ * @param bounds - The layer.
+ * @param size - The window.
+ * @returns Its top-left.
+ */
+export function tuckedPosition(corner: Corner, bounds: Size, size: Size): Vector {
+  return { x: bounds.width - PEEK_PX, y: cornerPosition(corner, bounds, size).y };
+}
+
+/**
  * Holds a window inside the layer: the overshoot may use the margin, never more.
  *
  * @param position - Where it would be.
  * @param bounds - The layer.
  * @param size - The window.
+ * @param canTuck - Whether it may go past the right edge as far as its tucked place: while it is
+ *   dragged, and while it flies into or out of it.
  * @returns Where it is drawn.
  */
-export function clampPosition(position: Vector, bounds: Size, size: Size): Vector {
+export function clampPosition(position: Vector, bounds: Size, size: Size, canTuck = false): Vector {
+  const right = canTuck ? bounds.width - PEEK_PX : bounds.width - size.width;
+
   return {
-    x: Math.min(Math.max(position.x, 0), Math.max(0, bounds.width - size.width)),
+    x: Math.min(Math.max(position.x, 0), Math.max(0, right)),
     y: Math.min(Math.max(position.y, 0), Math.max(0, bounds.height - size.height)),
   };
 }
 
+/** Where a window let go of goes. */
+export type Landing = {
+  /** The corner it rests in. */
+  readonly corner: Corner;
+
+  /** Whether it tucks away past the right edge, in that corner's height. */
+  readonly isTucked: boolean;
+};
+
 /**
- * The corner a window let go of goes to: the one nearest where it would be a moment later at the
- * speed it was thrown, so a flick crosses the page and a window put down stays near.
+ * Where a window let go of goes: the corner nearest where it would be a moment later at the speed
+ * it was thrown, so a flick crosses the page and a window put down stays near. When its middle
+ * would be past the right edge by then, it tucks away there in the right corner nearest.
  *
  * @param position - Where it was let go.
  * @param velocity - How fast it was going.
  * @param bounds - The layer.
  * @param size - The window.
- * @returns The corner.
+ * @returns The corner, and whether it tucks.
  */
-export function pickCorner(position: Vector, velocity: Vector, bounds: Size, size: Size): Corner {
+export function pickCorner(position: Vector, velocity: Vector, bounds: Size, size: Size): Landing {
   const aim = {
     x: position.x + velocity.x * THROW_SECONDS,
     y: position.y + velocity.y * THROW_SECONDS,
   };
+  const isTucked = aim.x + size.width / 2 > bounds.width;
   let best: Corner = CORNER_ORDER[0] ?? 'bottom-right';
   let bestDistance = Infinity;
 
+  // Past the right edge both right corners are the same way across, so the nearest is a right one.
   for (const corner of CORNER_ORDER) {
     const at = cornerPosition(corner, bounds, size);
     const distance = Math.hypot(at.x - aim.x, at.y - aim.y);
@@ -130,7 +165,7 @@ export function pickCorner(position: Vector, velocity: Vector, bounds: Size, siz
     }
   }
 
-  return best;
+  return { corner: best, isTucked };
 }
 
 /**

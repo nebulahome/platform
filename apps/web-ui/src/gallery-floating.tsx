@@ -1,6 +1,7 @@
 /**
  * The gallery's floating windows: a page beside a rail, with two packages' windows in its corners
- * to drag, throw and step with the arrow keys without signing in. Development only.
+ * to drag over the corners' slots, throw, tuck past the right edge, close and step with the arrow
+ * keys without signing in. Development only.
  */
 import { useState } from 'react';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router';
@@ -14,9 +15,12 @@ import { packageAppPath } from '@/packages/package-paths';
 /** The sample player's package. */
 const PLAYER_ID = 'demo.player';
 
+/** Cards on the sample page, for the windows' glass to blur. */
+const PAGE_CARDS = ['bg-surface-raised', 'bg-primary/40', 'bg-surface-high', 'bg-tag-pink/40'];
+
 /**
  * What a sample package draws in its window: a title, and a button that counts its presses, so a
- * drag that ends over it can be seen not to press it.
+ * drag that ends over it can be seen not to press it. Padded by itself, as the frame draws none.
  *
  * @param props - What it says.
  * @param props.title - Its title.
@@ -28,7 +32,7 @@ function SampleContent(props: { readonly title: string; readonly action: string 
   const [presses, setPresses] = useState(0);
 
   return (
-    <div className="flex w-56 flex-col gap-3">
+    <div className="flex w-56 flex-col gap-3 p-4">
       <div className="flex flex-col gap-0.5 pr-6">
         <p className="text-ui font-medium">{title}</p>
         <p className="text-caption text-foreground-subtle">Pressed {presses} times</p>
@@ -103,7 +107,14 @@ function FloatingPage() {
         />
         <div className="relative flex min-w-0 grow">
           <FloatingLayer>
-            <div className="grow p-6 font-mono text-caption text-foreground-subtle">{pathname}</div>
+            <div className="flex grow flex-col gap-4 p-6">
+              <p className="font-mono text-caption text-foreground-subtle">{pathname}</p>
+              <div className="grid grid-cols-4 gap-3">
+                {PAGE_CARDS.map((color) => (
+                  <div key={color} className={cn('h-28 rounded-card', color)} />
+                ))}
+              </div>
+            </div>
             <FloatingWindow
               packageId={PLAYER_ID}
               open={isPlayerOpen}

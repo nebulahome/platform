@@ -1677,7 +1677,7 @@ function Gallery() {
 
         <Section
           title="Floating windows"
-          note="Two packages' windows beside a rail: drag or throw one to a corner, drop it on the other to swap, arrows move it."
+          note="Two packages' windows beside a rail: drag one over the corners' slots or throw it, drop it on the other to swap, throw it right to tuck it and click the strip to bring it back, arrows move it, × closes it."
         >
           <FloatingSample />
         </Section>
