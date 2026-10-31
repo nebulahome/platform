@@ -139,7 +139,6 @@ class DatabaseBluetoothStore implements BluetoothStore {
       localEnabled: next.localEnabled,
       adapterId: next.adapterId,
       localScanMode: next.localScanMode,
-      proxyScanMode: next.proxyScanMode,
       forgetAfterDays: next.forgetAfterDays,
       showPrivate: next.showPrivate,
     };

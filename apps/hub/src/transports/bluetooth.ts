@@ -6,8 +6,10 @@
  * One connection for every device, keyed `bluetooth`. A device is told apart by its address,
  * which is its device key and its external id, so an instance is bound to its device by the id it
  * was proposed with, its configuration empty. An instance follows its address
- * (`{ op: 'follow', args: { address } }`) and is delivered each advertisement heard from it, by any
- * scanner, as `{ deviceKey: address, payload: advert }`. A request is GATT on the local adapter -
+ * (`{ op: 'follow', args: { address, activeEveryMinutes? } }`) and is delivered each advertisement
+ * heard from it, by any scanner, as `{ deviceKey: address, payload: advert }`; with
+ * `activeEveryMinutes`, the proxy hearing it best scans actively once that often, for what the
+ * device answers only when asked. A request is GATT on the local adapter -
  * `gatt.read`, `gatt.write`, `gatt.notify` - refused when only proxies hear the device; a followed
  * characteristic's values are delivered as `{ service, characteristic, data }`.
  */
@@ -27,8 +29,11 @@ import type { BluetoothBroker } from '../bluetooth/broker.js';
 /** A device's configuration: nothing, as it is bound by its address. */
 const bluetoothConfigSchema = z.object({});
 
-/** What a `follow` subscription holds. */
-const followArgsSchema = z.object({ address: bluetoothAddressSchema });
+/** What a `follow` subscription holds: the address, and how often it wants an active scan. */
+const followArgsSchema = z.object({
+  address: bluetoothAddressSchema,
+  activeEveryMinutes: z.int().min(1).max(1440).optional(),
+});
 
 /**
  * Builds the transport over the house's Bluetooth broker.
@@ -56,7 +61,7 @@ export function createBluetoothTransport(broker: BluetoothBroker) {
      * @returns The connection.
      */
     connect: (config, context: TransportContext): Promise<TransportConnection> => {
-      let followed: ReadonlySet<string> = new Set();
+      let followed: ReadonlyMap<string, number | null> = new Map();
       const stop = broker.onAdvert((advert) => {
         if (followed.has(advert.address)) {
           context.deliver({
@@ -94,11 +99,13 @@ export function createBluetoothTransport(broker: BluetoothBroker) {
          * @returns Once applied.
          */
         apply: (subscriptions: readonly TransportSubscription[]): Promise<void> => {
-          followed = new Set(
-            subscriptions.flatMap((subscription) => {
+          followed = new Map(
+            subscriptions.flatMap((subscription): [string, number | null][] => {
               const parsed = followArgsSchema.safeParse(subscription.args);
 
-              return subscription.op === 'follow' && parsed.success ? [parsed.data.address] : [];
+              return subscription.op === 'follow' && parsed.success
+                ? [[parsed.data.address, parsed.data.activeEveryMinutes ?? null]]
+                : [];
             }),
           );
           broker.follow(followed);
@@ -113,7 +120,7 @@ export function createBluetoothTransport(broker: BluetoothBroker) {
          */
         close: (): Promise<void> => {
           stop();
-          broker.follow(new Set());
+          broker.follow(new Map());
           context.report('down');
 
           return Promise.resolve();

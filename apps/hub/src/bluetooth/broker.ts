@@ -15,9 +15,12 @@
  *
  * A proxy is a device whose profile declares `bluetoothProxy`. The hub drives it through the
  * reserved `bluetooth-proxy.*` ops on its own instance's connection - installing the script as a
- * job, changing its mode, removing it - and tells it what to forward: the house's devices and what
- * a rule recognises, or everything while a Nearby page holds a lease. What it hears comes back
- * through the SDK's scanner, as heard by it.
+ * job, removing it - and tells it what to forward: the house's devices and what a rule recognises,
+ * or everything while a Nearby page holds a lease. A proxy rests passive when its radio can, and
+ * the hub asks it to scan actively only while the house needs more than adverts: a Nearby lease
+ * (every proxy), a device being added (the proxies hearing it), or a followed device's refresh
+ * falling due (the proxy hearing it best, until it hears it again or 30 s). What it hears comes
+ * back through the SDK's scanner, as heard by it.
  *
  * Only the local adapter connects to a device (GATT); proxies only listen. Matter pairs over the
  * same adapter, through BlueZ too, and says so here while it does.
@@ -112,6 +115,9 @@ const REPORTING_MS = 2 * 60_000;
 
 /** How often a proxy is sent its filter even when it did not change: it may have restarted. */
 const FILTER_AGAIN_MS = 5 * 60_000;
+
+/** How long a proxy scans actively for a device's refresh, unless it hears the device sooner. */
+const ACTIVE_REFRESH_MS = 30_000;
 
 /** How often a device's advertisement is delivered when it carries nothing new. */
 const DELIVER_AGAIN_MS = 60_000;
@@ -224,6 +230,9 @@ type ProxyNote = {
   /** The filter it was last sent, and when; null to send it again. */
   filter: string | null;
   filterAt: number;
+
+  /** Whether the filter it took last asked it to scan actively. */
+  isActive: boolean;
 };
 
 /** A job, as the broker changes it. */
@@ -306,7 +315,6 @@ export class BluetoothBroker {
     localEnabled: true,
     adapterId: null,
     localScanMode: 'active',
-    proxyScanMode: 'passive',
     forgetAfterDays: 7,
     showPrivate: false,
   };
@@ -328,8 +336,17 @@ export class BluetoothBroker {
   /** The addresses being added, as the driver each is added as. */
   readonly #adding = new Map<string, BluetoothDeviceSnapshot>();
 
-  /** The addresses the transport follows: the house's devices that run. */
-  #followed: ReadonlySet<string> = new Set();
+  /**
+   * The addresses the transport follows - the house's devices that run - and how often each wants
+   * an active scan, in minutes; null for never.
+   */
+  #followed: ReadonlyMap<string, number | null> = new Map();
+
+  /** The refreshes under way, by address: the proxy asked to scan actively, and until when. */
+  readonly #refreshes = new Map<string, { readonly scannerId: string; readonly until: number }>();
+
+  /** When each followed address's last refresh ended. */
+  readonly #refreshedAt = new Map<string, number>();
   readonly #leases = new Map<string, number>();
   readonly #jobs = new Map<string, Job>();
   readonly #reportWaiters = new Map<string, Set<() => void>>();
@@ -873,6 +890,7 @@ export class BluetoothBroker {
     } finally {
       this.#adding.delete(address);
       this.#changed();
+      void this.#pushFilters();
     }
   }
 
@@ -937,12 +955,15 @@ export class BluetoothBroker {
   /**
    * Notes the addresses the transport follows: the house's devices whose instances run.
    *
-   * @param addresses - Them.
+   * @param addresses - Them, each with how often it wants an active scan, in minutes, or null.
    */
-  follow(addresses: ReadonlySet<string>): void {
+  follow(addresses: ReadonlyMap<string, number | null>): void {
     const isChanged =
       addresses.size !== this.#followed.size ||
-      [...addresses].some((address) => !this.#followed.has(address));
+      [...addresses].some(
+        ([address, minutes]) =>
+          !this.#followed.has(address) || this.#followed.get(address) !== minutes,
+      );
 
     this.#followed = addresses;
 
@@ -1095,7 +1116,10 @@ export class BluetoothBroker {
           chip: null,
           isOnline: this.#isReporting(proxy.integrationId, now),
           isEnabled: true,
-          scanMode: proxy.scanMode,
+          scanMode:
+            this.#proxyNotes.get(proxy.integrationId)?.isActive === true
+              ? 'active'
+              : proxy.scanMode,
           canPassive: this.#modesOf(instance?.kind ?? '').includes('passive'),
           advertsPerMinute: this.#perMinute(proxy.integrationId, now),
           connections: null,
@@ -1155,18 +1179,17 @@ export class BluetoothBroker {
   }
 
   /**
-   * Starts making a device a proxy: the script installed, started, its first report.
+   * Starts making a device a proxy: the script installed, started, its first report. It rests
+   * passive when its radio can, and active otherwise.
    *
    * @param deviceId - The device.
-   * @param mode - How it scans.
    * @returns The job, running; the one running already for the device.
    * @throws {NotFoundError} When the device's integration cannot make it a proxy.
-   * @throws {ValidationError} When it cannot scan so.
    */
-  async addProxy(deviceId: string, mode: BluetoothScanMode): Promise<BluetoothProxyJob> {
-    await this.#requireModes(deviceId, mode);
+  async addProxy(deviceId: string): Promise<BluetoothProxyJob> {
+    const modes = await this.#requireModes(deviceId);
 
-    return this.#startJob(deviceId, mode);
+    return this.#startJob(deviceId, modes.includes('passive') ? 'passive' : 'active');
   }
 
   /**
@@ -1195,43 +1218,6 @@ export class BluetoothBroker {
     }
 
     return { ...job, steps: job.steps.map((step) => ({ ...step })) };
-  }
-
-  /**
-   * Changes how a proxy scans: its integration installs the script again in the new mode.
-   *
-   * @param deviceId - The proxy.
-   * @param mode - How it scans now.
-   * @returns The proxy, as the Scanners tab lists it.
-   * @throws {NotFoundError} When the device is not a proxy.
-   * @throws {ValidationError} When it cannot scan so.
-   * @throws {ConflictError} When its integration refused.
-   */
-  async setProxyMode(deviceId: string, mode: BluetoothScanMode): Promise<BluetoothScanner> {
-    const proxy = this.#requireProxy(deviceId);
-
-    await this.#requireModes(deviceId, mode);
-
-    try {
-      await this.#options.roles.send(
-        deviceId,
-        BLUETOOTH_PROXY_OPS.install,
-        { mode },
-        INSTALL_TIMEOUT_MS,
-      );
-    } catch (error: unknown) {
-      throw new ConflictError(messageOf(error), { details: { deviceId } });
-    }
-
-    await this.#saveProxy({ ...proxy, scanMode: mode });
-
-    const view = (await this.scanners()).find((scanner) => scanner.id === deviceId);
-
-    if (view === undefined) {
-      throw new NotFoundError(`${deviceId} is not a Bluetooth proxy`, { details: { deviceId } });
-    }
-
-    return view;
   }
 
   /**
@@ -1631,6 +1617,16 @@ export class BluetoothBroker {
     this.#heard.set(advert.address, entry);
     this.#noteScanner(scannerId, true);
 
+    // The proxy asked to refresh this device heard it while scanning actively: back to rest.
+    if (
+      this.#refreshes.get(advert.address)?.scannerId === scannerId &&
+      this.#proxyNotes.get(scannerId)?.isActive === true
+    ) {
+      this.#refreshes.delete(advert.address);
+      this.#refreshedAt.set(advert.address, now);
+      void this.#pushFilters();
+    }
+
     const signature = JSON.stringify([advert.name, advert.manufacturerData, advert.serviceData]);
 
     if (entry.delivered?.signature !== signature || now - entry.delivered.at >= DELIVER_AGAIN_MS) {
@@ -1902,15 +1898,13 @@ export class BluetoothBroker {
   }
 
   /**
-   * Checks that a device can proxy in a mode.
+   * The scan modes a device can proxy in.
    *
    * @param deviceId - The device.
-   * @param mode - The mode.
-   * @returns Once checked.
+   * @returns Them, one at least.
    * @throws {NotFoundError} When its integration cannot make it a proxy.
-   * @throws {ValidationError} When it cannot scan so.
    */
-  async #requireModes(deviceId: string, mode: BluetoothScanMode): Promise<void> {
+  async #requireModes(deviceId: string): Promise<BluetoothScanMode[]> {
     const instance = (await this.#options.instances()).find((each) => each.id === deviceId);
     const modes = this.#modesOf(instance?.kind ?? '');
 
@@ -1918,9 +1912,7 @@ export class BluetoothBroker {
       throw new NotFoundError(`${deviceId} cannot be a Bluetooth proxy`, { details: { deviceId } });
     }
 
-    if (!modes.includes(mode)) {
-      throw new ValidationError(`${deviceId} cannot scan ${mode}`, { details: { deviceId, mode } });
-    }
+    return modes;
   }
 
   /**
@@ -1997,7 +1989,12 @@ export class BluetoothBroker {
    * @returns Its note, made when missing.
    */
   #noteOf(deviceId: string): ProxyNote {
-    const note = this.#proxyNotes.get(deviceId) ?? { state: null, filter: null, filterAt: 0 };
+    const note = this.#proxyNotes.get(deviceId) ?? {
+      state: null,
+      filter: null,
+      filterAt: 0,
+      isActive: false,
+    };
 
     this.#proxyNotes.set(deviceId, note);
 
@@ -2021,7 +2018,7 @@ export class BluetoothBroker {
    * Starts a proxy job, unless one runs for the device already.
    *
    * @param deviceId - The device.
-   * @param mode - How it scans.
+   * @param mode - The mode it rests in.
    * @returns The job.
    */
   #startJob(deviceId: string, mode: BluetoothScanMode): BluetoothProxyJob {
@@ -2040,12 +2037,11 @@ export class BluetoothBroker {
       finishedAt: null,
       error: null,
       deviceId,
-      mode,
       steps: BLUETOOTH_PROXY_STEPS.map((id) => ({ id, state: 'pending', message: null })),
     };
 
     this.#jobs.set(job.id, job);
-    void this.#runJob(job);
+    void this.#runJob(job, mode);
 
     return this.job(job.id);
   }
@@ -2055,9 +2051,10 @@ export class BluetoothBroker {
    * failure stops on its step with what the integration said.
    *
    * @param job - The job.
+   * @param mode - The mode it rests in.
    * @returns Once it ended.
    */
-  async #runJob(job: Job): Promise<void> {
+  async #runJob(job: Job, mode: BluetoothScanMode): Promise<void> {
     const { roles } = this.#options;
     let current: StepId = 'installing';
 
@@ -2078,12 +2075,7 @@ export class BluetoothBroker {
 
     try {
       step('installing', 'running');
-      await roles.send(
-        job.deviceId,
-        BLUETOOTH_PROXY_OPS.install,
-        { mode: job.mode },
-        INSTALL_TIMEOUT_MS,
-      );
+      await roles.send(job.deviceId, BLUETOOTH_PROXY_OPS.install, { mode }, INSTALL_TIMEOUT_MS);
 
       let state = await this.#askState(job.deviceId);
 
@@ -2103,7 +2095,7 @@ export class BluetoothBroker {
 
       await this.#saveProxy({
         integrationId: job.deviceId,
-        scanMode: job.mode,
+        scanMode: mode,
         scriptVersion: version,
         installedAt: new Date(this.#now()),
       });
@@ -2216,7 +2208,7 @@ export class BluetoothBroker {
   /**
    * Tells each proxy what to forward, when it changed or was not said for a while: everything
    * while a Nearby lease is held, else the house's devices, those being added, and what a rule
-   * recognises. One push after another.
+   * recognises; and whether to scan actively now. One push after another.
    *
    * @returns Once each proxy was told, or failed to be.
    */
@@ -2235,13 +2227,30 @@ export class BluetoothBroker {
       return;
     }
 
-    const addresses = this.#isForwardingAll() ? 'all' : await this.#forwarded();
-    const signature = JSON.stringify(addresses);
+    const instances = await this.#options.instances().catch((): BluetoothInstance[] => []);
+    const isAll = this.#isForwardingAll();
+    const addresses = isAll ? 'all' : this.#forwarded(instances);
     const now = this.#now();
+    const canActive = new Set(
+      instances
+        .filter((instance) => this.#modesOf(instance.kind).includes('active'))
+        .map((instance) => instance.id),
+    );
+    const refreshing = this.#activeRefreshes(canActive, now);
 
     await Promise.all(
       [...this.#proxies.keys()].map(async (deviceId) => {
         const note = this.#noteOf(deviceId);
+        const active =
+          canActive.has(deviceId) &&
+          (isAll ||
+            refreshing.has(deviceId) ||
+            [...this.#adding.keys()].some((address) => {
+              const hearing = this.#heard.get(address)?.hearings.get(deviceId);
+
+              return hearing !== undefined && this.#isFresh(hearing.at, now);
+            }));
+        const signature = JSON.stringify([addresses, active]);
 
         if (note.filter === signature && now - note.filterAt < FILTER_AGAIN_MS) {
           return;
@@ -2251,11 +2260,12 @@ export class BluetoothBroker {
           await this.#options.roles.send(
             deviceId,
             BLUETOOTH_PROXY_OPS.filter,
-            { addresses },
+            { addresses, active },
             OP_TIMEOUT_MS,
           );
           note.filter = signature;
           note.filterAt = now;
+          note.isActive = active;
         } catch (error: unknown) {
           // Not running now: told when its scanner opens again, or at the next look.
           note.filter = null;
@@ -2269,12 +2279,59 @@ export class BluetoothBroker {
   }
 
   /**
+   * Closes the refreshes run out and opens the ones due: a followed device that asks for an active
+   * scan every so many minutes, on the proxy hearing it best of those that can scan actively.
+   *
+   * @param canActive - The proxies whose radio can scan actively.
+   * @param now - The time now.
+   * @returns The proxies asked to scan actively for a refresh.
+   */
+  #activeRefreshes(canActive: ReadonlySet<string>, now: number): Set<string> {
+    for (const address of [...this.#refreshes.keys(), ...this.#refreshedAt.keys()]) {
+      if ((this.#followed.get(address) ?? null) === null) {
+        this.#refreshes.delete(address);
+        this.#refreshedAt.delete(address);
+      }
+    }
+
+    for (const [address, minutes] of this.#followed) {
+      const open = this.#refreshes.get(address);
+
+      if (open !== undefined && open.until <= now) {
+        this.#refreshes.delete(address);
+        this.#refreshedAt.set(address, now);
+      }
+
+      const entry = this.#heard.get(address);
+
+      if (
+        minutes === null ||
+        entry === undefined ||
+        this.#refreshes.has(address) ||
+        now - (this.#refreshedAt.get(address) ?? -Infinity) < minutes * 60_000
+      ) {
+        continue;
+      }
+
+      const best = this.#hearingsOf(entry, new Map(), now, false).find((hearing) =>
+        canActive.has(hearing.scannerId),
+      );
+
+      if (best !== undefined) {
+        this.#refreshes.set(address, { scannerId: best.scannerId, until: now + ACTIVE_REFRESH_MS });
+      }
+    }
+
+    return new Set([...this.#refreshes.values()].map((open) => open.scannerId));
+  }
+
+  /**
    * The addresses proxies forward outside Nearby.
    *
+   * @param instances - The house.
    * @returns Them, sorted.
    */
-  async #forwarded(): Promise<string[]> {
-    const instances = await this.#options.instances().catch((): BluetoothInstance[] => []);
+  #forwarded(instances: readonly BluetoothInstance[]): string[] {
     const recognised = [...this.#heard.values()]
       .filter(
         (entry) => !this.#ignored.has(entry.address) && this.#claimsOf(entry.identity).length > 0,
@@ -2284,7 +2341,7 @@ export class BluetoothBroker {
     return [
       ...new Set([
         ...this.#house(instances).map((instance) => instance.externalId?.toUpperCase() ?? ''),
-        ...this.#followed,
+        ...this.#followed.keys(),
         ...this.#adding.keys(),
         ...recognised,
       ]),

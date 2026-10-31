@@ -59,7 +59,6 @@ describe('the Bluetooth store', () => {
       localEnabled: false,
       adapterId: 'hci1',
       localScanMode: 'passive',
-      proxyScanMode: 'active',
       forgetAfterDays: 3,
       showPrivate: true,
     });

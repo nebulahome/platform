@@ -95,6 +95,24 @@ function plug(state = 'running'): BluetoothInstance {
   };
 }
 
+/**
+ * The thermometer, as a device of the house.
+ *
+ * @returns It.
+ */
+function thermometer(): BluetoothInstance {
+  return {
+    id: 'thermometer',
+    kind: 'bluetooth/bthome',
+    transport: BLUETOOTH_TRANSPORT,
+    externalId: SENSOR,
+    name: 'Bedroom thermometer',
+    areaId: null,
+    state: 'running',
+    createdAt: new Date(),
+  };
+}
+
 /** A broker under test, and what it was given. */
 type Rig = {
   readonly broker: BluetoothBroker;
@@ -107,6 +125,9 @@ type Rig = {
   /** What each op answers; a function may throw. */
   readonly answers: Map<string, () => unknown>;
   readonly clock: { now: number };
+
+  /** The filters sent to proxies, in order. */
+  readonly filters: () => unknown[];
 };
 
 const brokers: BluetoothBroker[] = [];
@@ -121,10 +142,15 @@ afterEach(async () => {
  * @param options - What differs.
  * @param options.isProxy - Whether the plug is a proxy already.
  * @param options.host - The host; one adapter when absent.
+ * @param options.refreshMs - How often the broker looks again; never when absent.
  * @returns The rig, started.
  */
 async function rig(
-  options: { readonly isProxy?: boolean; readonly host?: FakeBluetoothHost } = {},
+  options: {
+    readonly isProxy?: boolean;
+    readonly host?: FakeBluetoothHost;
+    readonly refreshMs?: number;
+  } = {},
 ): Promise<Rig> {
   const store = memoryBluetoothStore();
   const host = options.host ?? createFakeBluetoothHost();
@@ -172,7 +198,7 @@ async function rig(
     vendors: () => [shellyVendor(), platformBluetoothVendor('2026.10.0', '1.6.0')],
     instances: async () => Promise.resolve([...instances]),
     roles,
-    refreshMs: 0,
+    refreshMs: options.refreshMs ?? 0,
     addWaitMs: 2000,
     firstReportMs: 200,
     now: () => clock.now,
@@ -181,7 +207,16 @@ async function rig(
   brokers.push(broker);
   await broker.start();
 
-  return { broker, host, instances, sent, answers, clock };
+  return {
+    broker,
+    host,
+    instances,
+    sent,
+    answers,
+    clock,
+    filters: () =>
+      sent.filter((each) => each.op === BLUETOOTH_PROXY_OPS.filter).map((each) => each.args),
+  };
 }
 
 describe('the Bluetooth broker', () => {
@@ -343,36 +378,100 @@ describe('the Bluetooth broker', () => {
     await expect(broker.add(SENSOR, undefined)).rejects.toThrow(/in the house already/u);
   });
 
-  it('forwards everything while a Nearby lease is held, and the house’s devices after', async () => {
-    const { broker, host, sent, clock } = await rig({ isProxy: true });
-    const filters = (): unknown[] =>
-      sent.filter((each) => each.op === BLUETOOTH_PROXY_OPS.filter).map((each) => each.args);
+  it('forwards everything, scanning actively, while a Nearby lease is held, and the house’s devices at rest after', async () => {
+    const { broker, host, clock, filters } = await rig({ isProxy: true });
 
     host.hear(bthome(-70));
     // The sensor is recognised: forwarded outside Nearby too.
     await vi.waitFor(() => {
-      expect(filters()).toEqual([{ addresses: [SENSOR] }]);
+      expect(filters()).toEqual([{ addresses: [SENSOR], active: false }]);
     });
 
     const leaseId = '0b9d8a52-8e0a-4c0f-9b52-6a3c1d9e2f10';
 
     expect(broker.nearbyLease(leaseId, true).isForwardingAll).toBe(true);
     await vi.waitFor(() => {
-      expect(filters().at(-1)).toEqual({ addresses: 'all' });
+      expect(filters().at(-1)).toEqual({ addresses: 'all', active: true });
     });
+    expect((await broker.scanners())[1]?.scanMode).toBe('active');
 
     expect(broker.nearbyLease(leaseId, false)).toEqual({ isForwardingAll: false, expiresAt: null });
     await vi.waitFor(() => {
-      expect(filters().at(-1)).toEqual({ addresses: [SENSOR] });
+      expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: false });
     });
+    expect((await broker.scanners())[1]?.scanMode).toBe('passive');
 
     broker.nearbyLease(leaseId, true);
     clock.now += 31_000;
     expect((await broker.status()).isForwardingAll).toBe(false);
   });
 
-  it('makes a device a proxy: installs the script, sees it start, hears its first report', async () => {
-    const { broker } = await rig();
+  it('asks the proxies hearing a device being added to scan actively until it is in the house', async () => {
+    const { broker, instances, filters } = await rig({ isProxy: true });
+
+    broker.scanner('shelly', PROXY_KEY).report([bthome(-60)]);
+
+    const adding = broker.add(SENSOR, undefined);
+
+    await vi.waitFor(() => {
+      expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: true });
+    });
+
+    instances.push(thermometer());
+    await expect(adding).resolves.toEqual({ deviceId: 'thermometer' });
+    await vi.waitFor(() => {
+      expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: false });
+    });
+  });
+
+  it('asks the proxy hearing a followed device best to scan actively when its refresh falls due', async () => {
+    const { broker, clock, filters } = await rig({ isProxy: true, refreshMs: 20 });
+    const proxy = broker.scanner('shelly', PROXY_KEY);
+    const connection = await createBluetoothTransport(broker).connect(
+      {},
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: () => undefined,
+        report: () => undefined,
+      },
+    );
+    const scanMode = async (): Promise<string | undefined> =>
+      (await broker.scanners())[1]?.scanMode;
+
+    proxy.report([bthome(-60)]);
+    await connection.apply([{ op: 'follow', args: { address: SENSOR, activeEveryMinutes: 10 } }]);
+    // Never refreshed: due at once.
+    await vi.waitFor(() => {
+      expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: true });
+    });
+    expect(await scanMode()).toBe('active');
+
+    // Heard again while scanning actively: back to rest.
+    proxy.report([bthome(-59)]);
+    await vi.waitFor(() => {
+      expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: false });
+    });
+    expect(await scanMode()).toBe('passive');
+
+    // Not due for ten minutes.
+    clock.now += 9 * 60_000;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: false });
+
+    // Due again; not heard, so back to rest after 30 s.
+    clock.now += 60_000;
+    await vi.waitFor(() => {
+      expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: true });
+    });
+    clock.now += 30_000;
+    await vi.waitFor(() => {
+      expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: false });
+    });
+    await connection.close();
+  });
+
+  it('makes a device a proxy resting passive: installs the script, sees it start, hears its first report', async () => {
+    const { broker, sent } = await rig();
 
     expect(await broker.proxyCandidates()).toMatchObject([
       {
@@ -383,9 +482,10 @@ describe('the Bluetooth broker', () => {
       },
     ]);
 
-    const job = await broker.addProxy(PROXY, 'active');
+    const job = await broker.addProxy(PROXY);
 
-    expect(job).toMatchObject({ deviceId: PROXY, mode: 'active', state: 'running' });
+    expect(job).toMatchObject({ deviceId: PROXY, state: 'running' });
+    expect(job).not.toHaveProperty('mode');
     await vi.waitFor(() => {
       expect(broker.job(job.id).steps[2]?.state).toBe('running');
     });
@@ -402,9 +502,12 @@ describe('the Bluetooth broker', () => {
         ],
       });
     });
+    expect(sent.find((each) => each.op === BLUETOOTH_PROXY_OPS.install)?.args).toEqual({
+      mode: 'passive',
+    });
     expect((await broker.scanners())[1]).toMatchObject({
       id: PROXY,
-      scanMode: 'active',
+      scanMode: 'passive',
       script: { version: '1.0.0', shipped: '1.1.0', isOutdated: true },
     });
     expect(broker.canConnect()).toEqual({ isAvailable: true, reason: null });
@@ -417,7 +520,7 @@ describe('the Bluetooth broker', () => {
       throw new Error('Script slots are all in use');
     });
 
-    const job = await broker.addProxy(PROXY, 'passive');
+    const job = await broker.addProxy(PROXY);
 
     await vi.waitFor(() => {
       expect(broker.job(job.id)).toMatchObject({
@@ -431,9 +534,7 @@ describe('the Bluetooth broker', () => {
       });
     });
     expect((await broker.scanners()).map((each) => each.kind)).toEqual(['adapter']);
-    await expect(broker.addProxy('nobody', 'passive')).rejects.toThrow(
-      /cannot be a Bluetooth proxy/u,
-    );
+    await expect(broker.addProxy('nobody')).rejects.toThrow(/cannot be a Bluetooth proxy/u);
   });
 
   it('drops a proxy’s report until it is one, and refuses GATT to what only proxies hear', async () => {

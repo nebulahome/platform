@@ -6,8 +6,8 @@
  * `bluetooth_nearby_lease` holds the lease under which proxies forward everything;
  * `bluetooth_ignore` ignores an address or stops; `bluetooth_add` adds a device heard and answers
  * once it is in the house. The `bluetooth_proxy_*` methods list the devices that could be proxies,
- * make one a proxy or update its script as a job read with `bluetooth_proxy_job`, change how it
- * scans, and stop it being one. Removing a Bluetooth device from the house is `api`'s ordinary
+ * make one a proxy or update its script as a job read with `bluetooth_proxy_job`, and stop it
+ * being one. Removing a Bluetooth device from the house is `api`'s ordinary
  * device removal.
  */
 import { z } from 'zod';
@@ -21,7 +21,6 @@ import {
   bluetoothProxyCandidatesRequestSchema,
   bluetoothProxyDeviceRequestSchema,
   bluetoothProxyJobRequestSchema,
-  bluetoothProxyModeRequestSchema,
   bluetoothSettingsSchema,
   busSubjects,
   HUB_BLUETOOTH_ADD_METHOD,
@@ -34,7 +33,6 @@ import {
   HUB_BLUETOOTH_PROXY_ADD_METHOD,
   HUB_BLUETOOTH_PROXY_CANDIDATES_METHOD,
   HUB_BLUETOOTH_PROXY_JOB_METHOD,
-  HUB_BLUETOOTH_PROXY_MODE_METHOD,
   HUB_BLUETOOTH_PROXY_REMOVE_METHOD,
   HUB_BLUETOOTH_PROXY_UPDATE_METHOD,
   HUB_BLUETOOTH_SCANNERS_METHOD,
@@ -206,10 +204,10 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
       /**
        * Starts making a device a proxy.
        *
-       * @param request - The device, and how it scans.
+       * @param request - The device: the hub picks how it scans.
        * @returns The job, running.
        */
-      async (request) => broker.addProxy(request.deviceId, request.mode),
+      async (request) => broker.addProxy(request.deviceId),
     ),
 
     client.serve(
@@ -223,19 +221,6 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
        * @returns It.
        */
       (request) => broker.job(request.jobId),
-    ),
-
-    client.serve(
-      subject(HUB_BLUETOOTH_PROXY_MODE_METHOD),
-      bluetoothProxyModeRequestSchema,
-
-      /**
-       * Changes how a proxy scans.
-       *
-       * @param request - The proxy, and the mode.
-       * @returns The proxy, as the Scanners tab lists it.
-       */
-      async (request) => broker.setProxyMode(request.deviceId, request.mode),
     ),
 
     client.serve(
