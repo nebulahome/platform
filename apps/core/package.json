@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/core",
-  "version": "2026.10.0-alpha.33",
+  "version": "2026.10.0-alpha.34",
   "private": true,
   "type": "module",
   "scripts": {
