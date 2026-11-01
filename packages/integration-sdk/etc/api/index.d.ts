@@ -787,6 +787,8 @@ export declare const BLUETOOTH_GATT_OPS: {
   readonly read: "gatt.read";
   readonly write: "gatt.write";
   readonly notify: "gatt.notify";
+  /** Writes a request and answers what the device notifies back. */
+  readonly exchange: "gatt.exchange";
 };
 declare namespace infrared_codes_d_exports {
   export { BROADLINK_TICK_US, DEFAULT_IR_CARRIER_HZ, FlipperIrCode, FlipperIrFile, InfraredImportProblem, decodeBroadlink, decodeInfraredProtocol, decodePronto, decodeRawTimings, encodeBroadlink, encodeInfraredProtocol, encodePronto, encodeRawTimings, parseFlipperIr, withInfraredProtocol };
@@ -1154,6 +1156,13 @@ type MappingContext = {
    */
   lastState: (entityId: EntityId) => CapabilityState | undefined;
 };
+/** One request of a command already sent, and what the transport answered. */
+type CommandStep = {
+  readonly request: TransportRequest;
+  readonly answer: unknown;
+  /** Its place in the command: 0 for the request `toCommand` built. */
+  readonly index: number;
+};
 /** A command, resolved to the device and entity it is for. */
 type CommandTarget = {
   readonly entityId: EntityId;
@@ -1236,6 +1245,21 @@ type Integration<TOptions = JsonObject> = {
    * @returns The request. Performing it is the transport's job.
    */
   toCommand: (target: CommandTarget, context: MappingContext) => TransportRequest;
+  /**
+   * Carries a command on once the transport answered its last request - for a device spoken to in
+   * a conversation: a Bluetooth lock asked for a session first, then sent the command sealed with
+   * it. Each step is a pure function of what came back; the hub sends what it returns, at most
+   * {@link MAX_COMMAND_STEPS} requests in all, and stops at null. A throw fails the command with
+   * its message.
+   *
+   * Optional: without it a command is the one request `toCommand` builds.
+   *
+   * @param target - The entity, the capability and the command.
+   * @param step - The request just sent, what the transport answered, and its place (0 first).
+   * @param context - The claim, the settings and the last known state.
+   * @returns The next request, or null when the command is done.
+   */
+  continueCommand?: (target: CommandTarget, step: CommandStep, context: MappingContext) => TransportRequest | null;
   /**
    * Reads what a message says about the device itself, beyond its entities: the firmware it runs
    * now, which changes when it is updated and is otherwise only known from when it was found.
@@ -2003,4 +2027,4 @@ export declare function defineAccountModule(factory: AccountFactory): AccountFac
  */
 export declare function defineStreamModule(factory: StreamFactory): StreamFactory;
 //#endregion
-export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothProxyFilterArgs, BluetoothProxyInstallArgs, BluetoothProxyProfile, BluetoothProxyState, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };
+export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothProxyFilterArgs, BluetoothProxyInstallArgs, BluetoothProxyProfile, BluetoothProxyState, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandStep, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };

@@ -24,13 +24,14 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       serial: "serial";
       mac: "mac";
     }>>>;
+    twinsPrefer: z.ZodOptional<z.ZodArray<z.ZodString>>;
     setup: z.ZodOptional<z.ZodString>;
     account: z.ZodOptional<z.ZodString>;
     transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
       module: z.ZodString;
       wires: z.ZodArray<z.ZodEnum<{
-        udp: "udp";
         matter: "matter";
+        udp: "udp";
         mqtt: "mqtt";
         modbus: "modbus";
         serial: "serial";
@@ -116,9 +117,9 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     modelCodes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
     modelSeries: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
     kind: z.ZodEnum<{
+      matter: "matter";
       declarative: "declarative";
       code: "code";
-      matter: "matter";
       mqtt: "mqtt";
       modbus: "modbus";
       infrared: "infrared";
@@ -408,8 +409,6 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     entities: z.ZodArray<z.ZodObject<{
       domain: z.ZodEnum<{
         number: "number";
-        image: "image";
-        custom: "custom";
         light: "light";
         switch: "switch";
         sensor: "sensor";
@@ -424,6 +423,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         lawn_mower: "lawn_mower";
         select: "select";
         vacuum: "vacuum";
+        image: "image";
+        custom: "custom";
         alias: "alias";
       }>;
       objectId: z.ZodOptional<z.ZodString>;
@@ -762,7 +763,7 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       }, z.core.$strict>]>>;
       model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
     }, z.core.$strict>>;
-    bluetooth: z.ZodOptional<z.ZodObject<{
+    bluetooth: z.ZodOptional<z.ZodPipe<z.ZodUnion<readonly [z.ZodObject<{
       match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
         path: z.ZodString;
         equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
@@ -786,8 +787,148 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         min: z.ZodOptional<z.ZodNumber>;
         max: z.ZodOptional<z.ZodNumber>;
       }, z.core.$strict>]>>;
-      model: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>;
-    }, z.core.$strict>>;
+      model: z.ZodDefault<z.ZodUnion<readonly [z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
+        path: z.ZodString;
+        bytes: z.ZodTuple<[z.ZodInt, z.ZodInt], null>;
+        mask: z.ZodOptional<z.ZodInt>;
+      }, z.core.$strict>]>, z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
+        path: z.ZodString;
+        bytes: z.ZodTuple<[z.ZodInt, z.ZodInt], null>;
+        mask: z.ZodOptional<z.ZodInt>;
+      }, z.core.$strict>]>>]>>;
+    }, z.core.$strict>, z.ZodArray<z.ZodObject<{
+      match: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+        path: z.ZodString;
+        equals: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        exists: z.ZodLiteral<true>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        oneOf: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        startsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        endsWith: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        contains: z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>;
+      }, z.core.$strict>, z.ZodObject<{
+        path: z.ZodString;
+        min: z.ZodOptional<z.ZodNumber>;
+        max: z.ZodOptional<z.ZodNumber>;
+      }, z.core.$strict>]>>;
+      model: z.ZodDefault<z.ZodUnion<readonly [z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
+        path: z.ZodString;
+        bytes: z.ZodTuple<[z.ZodInt, z.ZodInt], null>;
+        mask: z.ZodOptional<z.ZodInt>;
+      }, z.core.$strict>]>, z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
+        path: z.ZodString;
+        bytes: z.ZodTuple<[z.ZodInt, z.ZodInt], null>;
+        mask: z.ZodOptional<z.ZodInt>;
+      }, z.core.$strict>]>>]>>;
+    }, z.core.$strict>>]>, z.ZodTransform<{
+      match: ({
+        path: string;
+        min?: number | undefined;
+        max?: number | undefined;
+      } | {
+        path: string;
+        equals: string | number | boolean;
+      } | {
+        path: string;
+        exists: true;
+      } | {
+        path: string;
+        oneOf: (string | number | boolean)[];
+      } | {
+        path: string;
+        startsWith: string;
+      } | {
+        path: string;
+        endsWith: string;
+      } | {
+        path: string;
+        contains: string | number | boolean;
+      })[];
+      model: string | {
+        path: string;
+        bytes: [number, number];
+        mask?: number | undefined;
+      } | (string | {
+        path: string;
+        bytes: [number, number];
+        mask?: number | undefined;
+      })[];
+    }[], {
+      match: ({
+        path: string;
+        min?: number | undefined;
+        max?: number | undefined;
+      } | {
+        path: string;
+        equals: string | number | boolean;
+      } | {
+        path: string;
+        exists: true;
+      } | {
+        path: string;
+        oneOf: (string | number | boolean)[];
+      } | {
+        path: string;
+        startsWith: string;
+      } | {
+        path: string;
+        endsWith: string;
+      } | {
+        path: string;
+        contains: string | number | boolean;
+      })[];
+      model: string | {
+        path: string;
+        bytes: [number, number];
+        mask?: number | undefined;
+      } | (string | {
+        path: string;
+        bytes: [number, number];
+        mask?: number | undefined;
+      })[];
+    } | {
+      match: ({
+        path: string;
+        min?: number | undefined;
+        max?: number | undefined;
+      } | {
+        path: string;
+        equals: string | number | boolean;
+      } | {
+        path: string;
+        exists: true;
+      } | {
+        path: string;
+        oneOf: (string | number | boolean)[];
+      } | {
+        path: string;
+        startsWith: string;
+      } | {
+        path: string;
+        endsWith: string;
+      } | {
+        path: string;
+        contains: string | number | boolean;
+      })[];
+      model: string | {
+        path: string;
+        bytes: [number, number];
+        mask?: number | undefined;
+      } | (string | {
+        path: string;
+        bytes: [number, number];
+        mask?: number | undefined;
+      })[];
+    }[]>>>;
     adopt: z.ZodDefault<z.ZodEnum<{
       owner: "owner";
       automatic: "automatic";

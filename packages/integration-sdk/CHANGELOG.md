@@ -3,6 +3,28 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.8.0
+
+One device reached more than one way.
+
+- The twins of a vendor - its devices on different transports with the same `mac` or serial - link
+  their entities of the same `link.key` and domain when the owner links them, whichever ways they
+  are; until now an entity was linked by key only to a Matter one.
+- `manifest.json` may say `twinsPrefer`: transports in order, the first the linked device is read
+  and commanded through while it answers - `["matter", "bluetooth", "acme/cloud"]`.
+- A command on a linked entity that cannot reach the device one way - its transport down, the
+  device out of reach - goes the next way. One that timed out is not sent again: it may have been
+  done.
+- The `bluetooth` transport answers `gatt.exchange`: a write, then the first notification on
+  another characteristic, for devices that answer each command.
+- A code driver's `continueCommand(target, step, context)` carries a command through a
+  conversation with the device: handed each answer (`CommandStep`), it returns the next request, or
+  null when done; at most 8 steps in the command's one deadline. `driverHarness(...).converse()`
+  plays one against answers a test gives.
+- `discovery.json` `bluetooth` may list up to four rule sets, the first that holds read; a model may
+  be some bytes of the advertisement's data - `{ "path", "bytes": [start, length], "mask" }` - and
+  of several places for it the first that reads a code the drivers map is the model.
+
 ## 1.7.0
 
 Bluetooth proxies scan as the hub decides.

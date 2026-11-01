@@ -208,6 +208,18 @@ type DriverHarness = {
    */
   command: (entityId: string, capability: CapabilityName, command?: JsonObject) => TransportRequest;
   /**
+   * Carries a command through a conversation, as the hub does for a driver with
+   * `continueCommand`: each request is answered with the next of `answers`, and the driver says
+   * what to send next.
+   *
+   * @param entityId - The entity.
+   * @param capability - The capability.
+   * @param command - The command, as `core` validated it.
+   * @param answers - What the transport answers each request, in turn.
+   * @returns Every request the command made; the last one unanswered when `answers` ran out.
+   */
+  converse: (entityId: string, capability: CapabilityName, command: JsonObject, answers: readonly unknown[]) => TransportRequest[];
+  /**
    * The last state an entity reported.
    *
    * @param entityId - The entity.
