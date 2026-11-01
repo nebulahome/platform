@@ -1,22 +1,26 @@
 /**
- * How a way into a device is drawn and named: the vendor's mark and name for its own transport,
- * the Matter mark and "Matter" for the Matter broker. The linked tag of a device or an entity
- * reached two ways is drawn from these.
+ * How a way into a device is drawn and named: the broker's mark and name for a transport the
+ * platform runs (Matter, Bluetooth…), the vendor's mark and name for its own - "SwitchBot Cloud"
+ * for its cloud - so the two ways of one vendor's device never read alike. The linked tag of a
+ * device or an entity reached two ways is drawn from these.
  */
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
-  MATTER_TRANSPORT,
+  BROKER_IDS,
+  MQTT_HOUSE_TRANSPORT,
+  type BrokerId,
   type DeviceView,
   type EntityView,
   type IntegrationVendorView,
 } from '@nebulahome/contracts';
-import { LinkedTag } from '@nebulahome/ui';
+import { cn, LinkedTag } from '@nebulahome/ui';
 
 import { MatterLogo } from '@/components/brand-logos';
 import { fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { BROKER_GLYPHS, brokerNameOf } from '@/routes/library/brokers-page';
 import { FALLBACK_COLOR } from '@/routes/library/vendor-card';
 
 /** One way in, as a mark and a name draw it. */
@@ -45,7 +49,20 @@ export function useVendorsById(): ReadonlyMap<string, IntegrationVendorView> {
 }
 
 /**
- * What a way in is called: "Matter" through the broker, else its integration's name.
+ * The broker a transport is, when the platform runs it.
+ *
+ * @param transport - The transport, as a driver names it: `bluetooth`, `switchbot/cloud`.
+ * @returns The broker; undefined for a vendor's own transport.
+ */
+function brokerOf(transport: string): BrokerId | undefined {
+  const id = transport === MQTT_HOUSE_TRANSPORT ? 'mqtt' : transport;
+
+  return BROKER_IDS.find((broker) => broker === id);
+}
+
+/**
+ * What a way in is called: the broker's name through one ("Matter", "Bluetooth"), else its
+ * integration's - with "Cloud" after it for the vendor's cloud.
  *
  * @param way - The way.
  * @param vendors - The integrations.
@@ -57,9 +74,15 @@ export function wayName(
   vendors: ReadonlyMap<string, IntegrationVendorView>,
   matter: string,
 ): string {
-  return way.transport === MATTER_TRANSPORT
-    ? matter
-    : (vendors.get(way.vendorId)?.name ?? way.vendorId);
+  const broker = brokerOf(way.transport);
+
+  if (broker !== undefined) {
+    return broker === 'matter' ? matter : brokerNameOf(broker);
+  }
+
+  const name = vendors.get(way.vendorId)?.name ?? way.vendorId;
+
+  return way.transport.endsWith('/cloud') ? `${name} Cloud` : name;
 }
 
 /** What a transport's mark needs. */
@@ -72,7 +95,8 @@ export type TransportMarkProps = {
 };
 
 /**
- * One way in's mark: the vendor's logo or initial on a wash of its colour, or the Matter mark.
+ * One way in's mark: the broker's mark through one, else the vendor's logo or initial on a wash
+ * of its colour.
  *
  * @param props - See {@link TransportMarkProps}.
  * @returns The mark.
@@ -80,16 +104,22 @@ export type TransportMarkProps = {
 export function TransportMark(props: TransportMarkProps) {
   const { way, vendors, size = 16 } = props;
   const vendor = vendors.get(way.vendorId);
+  const broker = brokerOf(way.transport);
 
-  if (way.transport === MATTER_TRANSPORT || vendor === undefined) {
+  if (broker !== undefined || vendor === undefined) {
+    const Glyph = broker === undefined || broker === 'matter' ? MatterLogo : BROKER_GLYPHS[broker];
+
     return (
       <span
         aria-hidden="true"
-        className="flex shrink-0 items-center justify-center rounded-check bg-violet/18 text-violet"
+        className={cn(
+          'flex shrink-0 items-center justify-center rounded-check',
+          Glyph === MatterLogo ? 'bg-violet/18 text-violet' : 'bg-surface-raised text-foreground',
+        )}
         /* eslint-disable-next-line react/forbid-dom-props -- the side is a value, per place. */
         style={{ width: size, height: size }}
       >
-        <MatterLogo
+        <Glyph
           width={Math.max(10, Math.round(size * 0.625))}
           height={Math.max(10, Math.round(size * 0.625))}
         />
