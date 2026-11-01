@@ -612,6 +612,19 @@ describe('the bluetooth transport', () => {
       { connectionKey: BLUETOOTH_TRANSPORT, deviceKey: SENSOR, payload: { rssi: -70 } },
     ]);
 
+    // Handed over as JSON, scanned or delivered: a driver's claim keeps the advertisement, and the
+    // device's row stores the claim.
+    const scanned: unknown[] = [];
+
+    for await (const found of transport.scan({}, {}, AbortSignal.timeout(1000))) {
+      scanned.push(found.payload);
+    }
+
+    expect(scanned).toMatchObject([
+      { deviceKey: SENSOR, advert: { at: expect.any(String) as string } },
+    ]);
+    expect(delivered[0]?.payload).toMatchObject({ at: expect.any(String) as string });
+
     host.values.set(`${SENSOR} 181a 2a6e`, '0a09');
     expect(
       await connection.send(

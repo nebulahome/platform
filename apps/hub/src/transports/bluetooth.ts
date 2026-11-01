@@ -16,7 +16,12 @@
  */
 import { z } from 'zod';
 
-import { bluetoothAddressSchema, BLUETOOTH_TRANSPORT } from '@nebulahome/contracts';
+import {
+  bluetoothAddressSchema,
+  BLUETOOTH_TRANSPORT,
+  type BluetoothAdvert,
+  type JsonObject,
+} from '@nebulahome/contracts';
 import {
   defineTransport,
   type TransportConnection,
@@ -35,6 +40,17 @@ const followArgsSchema = z.object({
   address: bluetoothAddressSchema,
   activeEveryMinutes: z.int().min(1).max(1440).optional(),
 });
+
+/**
+ * An advertisement as drivers are handed it: JSON, its time as an ISO string, since a driver's
+ * claim keeps what it was recognised from and the device's row stores the claim.
+ *
+ * @param advert - As the broker keeps it.
+ * @returns As JSON.
+ */
+function jsonOf(advert: BluetoothAdvert): JsonObject {
+  return JSON.parse(JSON.stringify(advert)) as JsonObject;
+}
 
 /**
  * Builds the transport over the house's Bluetooth broker.
@@ -68,7 +84,7 @@ export function createBluetoothTransport(broker: BluetoothBroker) {
           context.deliver({
             connectionKey: BLUETOOTH_TRANSPORT,
             deviceKey: advert.address,
-            payload: advert,
+            payload: jsonOf(advert),
           });
         }
       });
@@ -138,7 +154,10 @@ export function createBluetoothTransport(broker: BluetoothBroker) {
     scan: async function* () {
       // The broker answers from memory; awaited only to be the generator the contract asks for.
       for (const device of await Promise.resolve(broker.snapshots())) {
-        yield { deviceKey: device.deviceKey, payload: device };
+        yield {
+          deviceKey: device.deviceKey,
+          payload: { ...device, advert: jsonOf(device.advert) },
+        };
       }
     },
 
