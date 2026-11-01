@@ -108,6 +108,23 @@ describe('activityLinesOf', () => {
 
     expect(line?.title).toBe('switch.gone');
   });
+
+  it('says a device set up differently under its own name, with what went and what came', () => {
+    const [changed, added] = activityLinesOf(
+      [
+        entry({ kind: 'described', from: { entities: ['Press'] }, to: { entities: ['Switch'] } }),
+        entry({ kind: 'described', from: { entities: [] }, to: { entities: ['Battery'] } }),
+      ],
+      ENTITIES,
+      'Ghiaccio',
+    );
+
+    expect([changed?.title, changed?.summary]).toEqual([
+      'Ghiaccio',
+      'Set up differently: Press → Switch',
+    ]);
+    expect(added?.summary).toBe('Set up differently: Battery added');
+  });
 });
 
 describe('changesOf', () => {

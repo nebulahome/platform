@@ -16,7 +16,7 @@ import {
   type JsonObject,
 } from '@nebulahome/contracts';
 
-import { dateTimeFormat } from '@/i18n/formatters';
+import { dateTimeFormat, listFormat } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
 import { capabilityLabel } from '@/library/entity-kind';
 import { describeState } from '@/library/entity-reading';
@@ -147,6 +147,49 @@ function summaryOfChanges(changes: readonly ActivityChange[]): {
 }
 
 /**
+ * Says a device set up differently in a few words: which readings went, which came.
+ *
+ * @param entry - The entry: `from.entities` removed, `to.entities` added.
+ * @returns "Set up differently: Press → Switch".
+ */
+function describedSummary(entry: Pick<ActivityEntry, 'from' | 'to'>): string {
+  /**
+   * The names one side lists, as a sentence lists them.
+   *
+   * @param side - `from` or `to`.
+   * @returns The names joined; empty for none.
+   */
+  const names = (side: JsonObject | null): string => {
+    const listed = side?.['entities'];
+
+    return Array.isArray(listed)
+      ? listFormat({ style: 'long', type: 'conjunction' }).format(listed.map(String))
+      : '';
+  };
+  const removed = names(entry.from);
+  const added = names(entry.to);
+
+  if (removed === '') {
+    return translate('library.deviceActivity.setUpAdded', 'Set up differently: {{added}} added', {
+      added,
+    });
+  }
+
+  return added === ''
+    ? translate('library.deviceActivity.setUpRemoved', 'Set up differently: {{removed}} removed', {
+        removed,
+      })
+    : translate(
+        'library.deviceActivity.setUpChanged',
+        'Set up differently: {{removed}} → {{added}}',
+        {
+          removed,
+          added,
+        },
+      );
+}
+
+/**
  * Turns a page of entries into the lines a person reads.
  *
  * @param entries - The entries, newest first.
@@ -204,6 +247,20 @@ export function activityLinesOf(
           ? translate('library.deviceActivity.cameBackOnline', 'Came back online')
           : translate('library.deviceActivity.wentOffline', 'Went offline'),
         tone: entry.isAvailable ? 'online' : 'offline',
+        changes: [],
+        entries: [entry],
+      });
+      continue;
+    }
+
+    if (entry.kind === 'described') {
+      lines.push({
+        key: `${entry.time.toISOString()}:described`,
+        time: entry.time,
+        kind: 'described',
+        title: deviceName,
+        summary: describedSummary(entry),
+        tone: 'change',
         changes: [],
         entries: [entry],
       });
