@@ -219,6 +219,13 @@ export const registerDeviceRequestSchema = z.strictObject({
 
   /** At least one: a device row nothing points at is a device the interface cannot explain. */
   entities: z.array(entityRegistrationSchema).min(1),
+
+  /**
+   * Whether these are all the entities the device has now - it was described again, set up
+   * differently - so any other it had is removed, with its history. Left out, an entity is only
+   * ever added or updated: a device heard again after a restart keeps what it had.
+   */
+  replacesEntities: z.boolean().optional(),
 });
 
 /** Asks `core` to complete the device an instance has identified. */
@@ -469,7 +476,8 @@ export type RemoveAliasReply = z.output<typeof removeAliasReplySchema>;
  *
  * `updated` is everything else a list shows that changed on its own, without anyone editing the
  * device: its instance found it and is running, its firmware version changed. It carries no
- * entities - they did not change - and a reader reads the device again.
+ * entities - they did not change - and a reader reads the device again; or the device was set up
+ * differently and described again, when it carries the entities it has now and `described`.
  */
 export const DEVICE_EVENTS = ['added', 'removed', 'offline', 'updated'] as const;
 
@@ -493,6 +501,17 @@ export const deviceEventSchema = z.object({
 
   name: z.string().min(1).max(128),
   entityIds: z.array(entityIdSchema),
+
+  /**
+   * On `updated`, for a device described again because it was set up differently: the entities
+   * removed and added, each by its address and its name then.
+   */
+  described: z
+    .object({
+      added: z.array(z.object({ entityId: entityIdSchema, name: z.string().max(128) })),
+      removed: z.array(z.object({ entityId: entityIdSchema, name: z.string().max(128) })),
+    })
+    .optional(),
 });
 
 /** What a device lifecycle event carries. */

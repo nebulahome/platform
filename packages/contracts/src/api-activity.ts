@@ -18,9 +18,11 @@ import { timestampSchema } from './timestamp.js';
  * What kind of thing happened.
  *
  * `state` when what the entity reports changed; `availability` when only its reachability did,
- * which is the device going offline or coming back.
+ * which is the device going offline or coming back; `described` when the device was set up
+ * differently and its entities changed - `from.entities` names those removed, `to.entities` those
+ * added, and `entityId` is the first of them.
  */
-export const ACTIVITY_KINDS = ['state', 'availability'] as const;
+export const ACTIVITY_KINDS = ['state', 'availability', 'described'] as const;
 
 /** What kind of thing happened. */
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
