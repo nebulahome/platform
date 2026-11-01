@@ -13,9 +13,11 @@
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   ADAPTER_COMMAND_METHOD,
+  AdapterError,
   adapterCommandSchema,
   busSubjects,
   ConflictError,
+  DeviceUnavailableError,
   NotFoundError,
   resyncRequestSchema,
   type AdapterAck,
@@ -24,7 +26,12 @@ import {
   type ResyncReply,
   type StateReport,
 } from '@nebulahome/contracts';
-import type { Integration, TransportConnection } from '@nebulahome/package-runtime';
+import {
+  MAX_COMMAND_STEPS,
+  type Integration,
+  type TransportConnection,
+  type TransportRequest,
+} from '@nebulahome/package-runtime';
 
 import type { DeviceBook } from '../domain/devices.js';
 
@@ -54,6 +61,39 @@ export type InstanceServicesOptions = {
 export function publishReports(client: BusClient, reports: readonly StateReport[]): void {
   for (const report of reports) {
     client.publish(busSubjects.stateReport(report.entityId), report);
+  }
+}
+
+/**
+ * Sends one request of a command, a deadline it misses said as one: the device may still carry it
+ * out, so `core` does not send it another way.
+ *
+ * @param connection - The transport's connection.
+ * @param request - The request.
+ * @param deadline - The command's deadline, and how long it was.
+ * @param deadline.signal - Aborts at the deadline.
+ * @param deadline.timeoutMs - How long it was.
+ * @param entityId - The entity it is for.
+ * @returns What the transport answered.
+ * @throws {DeviceUnavailableError} When the deadline passed.
+ */
+async function sendWithin(
+  connection: TransportConnection,
+  request: TransportRequest,
+  { signal, timeoutMs }: { readonly signal: AbortSignal; readonly timeoutMs: number },
+  entityId: string,
+): Promise<unknown> {
+  try {
+    return await connection.send(request, signal);
+  } catch (error: unknown) {
+    if (signal.aborted) {
+      throw new DeviceUnavailableError(`${entityId} did not answer in time`, {
+        cause: error,
+        details: { entityId, timeoutMs },
+      });
+    }
+
+    throw error;
   }
 }
 
@@ -100,16 +140,34 @@ export function startInstanceServices(options: InstanceServicesOptions): BusSubs
           });
         }
 
-        const request = options.integration.toCommand(
-          {
-            entityId: command.entityId,
-            capability: command.capability,
-            command: command.command,
-          },
-          options.book.contextFor(binding, options.options),
-        );
+        const target = {
+          entityId: command.entityId,
+          capability: command.capability,
+          command: command.command,
+        };
+        const context = options.book.contextFor(binding, options.options);
+        const deadline = {
+          signal: AbortSignal.timeout(options.commandTimeoutMs),
+          timeoutMs: options.commandTimeoutMs,
+        };
+        let request: TransportRequest | null = options.integration.toCommand(target, context);
 
-        await options.connection.send(request, AbortSignal.timeout(options.commandTimeoutMs));
+        // A device spoken to in a conversation: each answer may call for another request.
+        for (let index = 0; request !== null; index += 1) {
+          if (index === MAX_COMMAND_STEPS) {
+            throw new AdapterError(
+              `${options.instanceId} asked for more than ${String(MAX_COMMAND_STEPS)} requests`,
+              { details: { entityId: command.entityId } },
+            );
+          }
+
+          // eslint-disable-next-line no-await-in-loop -- each request waits for the one before
+          const answer = await sendWithin(options.connection, request, deadline, command.entityId);
+
+          request =
+            options.integration.continueCommand?.(target, { request, answer, index }, context) ??
+            null;
+        }
 
         return { acceptedAt: new Date() };
       },

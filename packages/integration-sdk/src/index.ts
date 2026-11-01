@@ -109,6 +109,7 @@ export type {
 // An integration: what a device means, pure throughout.
 export type {
   Claim,
+  CommandStep,
   CommandTarget,
   DeviceDescriptor,
   DeviceInfo,

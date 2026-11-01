@@ -31,6 +31,9 @@ import type {
   TransportSubscription,
 } from '@nebulahome/package-runtime';
 
+/** The most requests one command may take, as the hub allows. */
+const MAX_STEPS = 8;
+
 /** What the harness is set up with. */
 export type DriverHarnessOptions = {
   /** The instance's options, as the owner set them; checked against the driver's schema. */
@@ -108,6 +111,24 @@ export type DriverHarness = {
   command: (entityId: string, capability: CapabilityName, command?: JsonObject) => TransportRequest;
 
   /**
+   * Carries a command through a conversation, as the hub does for a driver with
+   * `continueCommand`: each request is answered with the next of `answers`, and the driver says
+   * what to send next.
+   *
+   * @param entityId - The entity.
+   * @param capability - The capability.
+   * @param command - The command, as `core` validated it.
+   * @param answers - What the transport answers each request, in turn.
+   * @returns Every request the command made; the last one unanswered when `answers` ran out.
+   */
+  converse: (
+    entityId: string,
+    capability: CapabilityName,
+    command: JsonObject,
+    answers: readonly unknown[],
+  ) => TransportRequest[];
+
+  /**
    * The last state an entity reported.
    *
    * @param entityId - The entity.
@@ -154,6 +175,25 @@ export function driverHarness(
      */
     lastState: (entityId) => lastStates.get(entityId),
   });
+
+  /**
+   * The device added that has an entity.
+   *
+   * @param entityId - The entity.
+   * @returns The device.
+   * @throws {Error} When none has it.
+   */
+  const deviceWith = (entityId: string): HarnessDevice => {
+    const device = [...devices.values()].find((candidate) =>
+      candidate.entityIds.includes(entityId as EntityId),
+    );
+
+    if (device === undefined) {
+      throw new Error(`No device added has the entity ${entityId}`);
+    }
+
+    return device;
+  };
 
   /**
    * The device added with a key.
@@ -262,18 +302,50 @@ export function driverHarness(
      * @throws {Error} When no device added has the entity.
      */
     command: (entityId, capability, command = {}) => {
-      const device = [...devices.values()].find((candidate) =>
-        candidate.entityIds.includes(entityId as EntityId),
-      );
-
-      if (device === undefined) {
-        throw new Error(`No device added has the entity ${entityId}`);
-      }
+      const device = deviceWith(entityId);
 
       return integration.toCommand(
         { entityId: entityId as EntityId, capability, command },
         contextFor(device),
       );
+    },
+
+    /**
+     * Carries a command through its conversation.
+     *
+     * @param entityId - The entity.
+     * @param capability - The capability.
+     * @param command - The command.
+     * @param answers - The transport's answers, in turn.
+     * @returns The requests.
+     * @throws {Error} When no device added has the entity, or past eight requests.
+     */
+    converse: (entityId, capability, command, answers) => {
+      const context = contextFor(deviceWith(entityId));
+      const target = { entityId: entityId as EntityId, capability, command };
+      const requests = [integration.toCommand(target, context)];
+
+      for (const [index, answer] of answers.entries()) {
+        const request = requests[index];
+
+        if (request === undefined) {
+          break;
+        }
+
+        const next = integration.continueCommand?.(target, { request, answer, index }, context);
+
+        if (next === null || next === undefined) {
+          break;
+        }
+
+        if (requests.length === MAX_STEPS) {
+          throw new Error(`The command asked for more than ${String(MAX_STEPS)} requests`);
+        }
+
+        requests.push(next);
+      }
+
+      return requests;
     },
 
     /**

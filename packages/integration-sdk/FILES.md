@@ -260,10 +260,24 @@ that says some of what it knows only when asked - in a scan response - adds `"ac
 N` (1 to 1440): proxies rest passive, and every N minutes the hub asks the proxy hearing it best to
 scan actively until it hears the device again, 30 s at most. Its
 requests are GATT on the server's own adapter: `gatt.read { service, characteristic }` answers `{
-data }`, `gatt.write { service, characteristic, data, withResponse }`, `gatt.notify { service,
-characteristic, isOn }`, whose values are delivered as `{ service, characteristic, data }` - hex
-throughout. They are refused when the server has no usable adapter, or only proxies hear the
-device: proxies listen and never connect. `BLUETOOTH_GATT_OPS` names them.
+data }`, `gatt.write { service, characteristic, data, withResponse }`, `gatt.exchange { service,
+characteristic, notify, data, withResponse, timeoutMs }` - a request written to `characteristic`,
+answered `{ data }` with the first value `notify` notifies after it (`withResponse` false and 5 s
+unless said, 10 s at most) - and `gatt.notify { service, characteristic, isOn }`, whose values are
+delivered as `{ service, characteristic, data }` - hex throughout. They are refused when the server
+has no usable adapter, or only proxies hear the device: proxies listen and never connect - a
+command to a device linked to another way then goes that way (`twinsPrefer`, above).
+`BLUETOOTH_GATT_OPS` names them.
+
+A device spoken to in a **conversation** - a lock that hands out a session first and takes the
+command sealed with it, a blind that wants two frames - is a code driver with `continueCommand(
+target, { request, answer, index }, context)` beside `toCommand`: the hub sends the request
+`toCommand` built, hands the driver what the transport answered, and sends the request it returns,
+until it returns null - eight requests at most, all within the command's deadline. Each step is a
+pure function of the answers, as `toCommand` is; a throw fails the command with its message. A
+command whose deadline passes is reported unanswered, and is never sent another way, since the
+device may still carry it out. `driverHarness(...).converse(entityId, capability, command,
+answers)` runs one in a test.
 
 `defaultIcon` names the icon a device of this driver starts with, by its id in the platform's
 icon catalogue (`packages/icons/catalogue.json` lists the platform's own ids - `light`,

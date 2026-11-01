@@ -120,6 +120,18 @@ export type MappingContext = {
   lastState: (entityId: EntityId) => CapabilityState | undefined;
 };
 
+/** The most requests one command may take, `toCommand`'s first among them. */
+export const MAX_COMMAND_STEPS = 8;
+
+/** One request of a command already sent, and what the transport answered. */
+export type CommandStep = {
+  readonly request: TransportRequest;
+  readonly answer: unknown;
+
+  /** Its place in the command: 0 for the request `toCommand` built. */
+  readonly index: number;
+};
+
 /** A command, resolved to the device and entity it is for. */
 export type CommandTarget = {
   readonly entityId: EntityId;
@@ -214,6 +226,26 @@ export type Integration<TOptions = JsonObject> = {
    * @returns The request. Performing it is the transport's job.
    */
   toCommand: (target: CommandTarget, context: MappingContext) => TransportRequest;
+
+  /**
+   * Carries a command on once the transport answered its last request - for a device spoken to in
+   * a conversation: a Bluetooth lock asked for a session first, then sent the command sealed with
+   * it. Each step is a pure function of what came back; the hub sends what it returns, at most
+   * {@link MAX_COMMAND_STEPS} requests in all, and stops at null. A throw fails the command with
+   * its message.
+   *
+   * Optional: without it a command is the one request `toCommand` builds.
+   *
+   * @param target - The entity, the capability and the command.
+   * @param step - The request just sent, what the transport answered, and its place (0 first).
+   * @param context - The claim, the settings and the last known state.
+   * @returns The next request, or null when the command is done.
+   */
+  continueCommand?: (
+    target: CommandTarget,
+    step: CommandStep,
+    context: MappingContext,
+  ) => TransportRequest | null;
 
   /**
    * Reads what a message says about the device itself, beyond its entities: the firmware it runs

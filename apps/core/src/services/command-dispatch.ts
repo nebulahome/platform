@@ -123,15 +123,19 @@ export type CommandDispatcher = {
 };
 
 /**
- * Whether a source failed to reach the device - offline, out of range, its cloud down - so the
- * next way into a linked device may: a command the device refused would be refused there too.
+ * Whether a source said it could not reach the device - offline, out of range, its cloud down -
+ * so the next way into a linked device may: a command the device refused would be refused there
+ * too, and one that went unanswered in time may still be carried out, so neither is sent again.
  *
  * @param error - What sending it threw.
  * @returns True for a failure of the way rather than of the command.
  */
 function isUnreached(error: unknown): boolean {
+  if (error instanceof DeviceUnavailableError) {
+    return error.details['timeoutMs'] === undefined;
+  }
+
   return (
-    error instanceof DeviceUnavailableError ||
     error instanceof ConflictError ||
     error instanceof AdapterError ||
     error instanceof UpstreamError ||

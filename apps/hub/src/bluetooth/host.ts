@@ -124,6 +124,14 @@ export type BluetoothHost = {
     listener: ((data: string) => void) | null,
   ) => Promise<void>;
 
+  /**
+   * Writes a characteristic and waits for the first value another one notifies after it: a
+   * request and the device's answer to it.
+   *
+   * @throws {Error} When the device cannot be connected to, refuses, or does not answer in time.
+   */
+  exchange: (adapterId: string, address: string, exchange: GattExchange) => Promise<string>;
+
   /** The addresses connected on an adapter now. */
   connected: (adapterId: string) => readonly string[];
 
@@ -292,6 +300,20 @@ const SIGNAL = 4;
 const CONNECT_MS = 5000;
 const DEVICE_CONNECT_MS = 30_000;
 const SERVICES_MS = 15_000;
+
+/** One request written to a characteristic and the answer another one notifies. */
+export type GattExchange = {
+  readonly service: string;
+
+  /** Where the request is written. */
+  readonly characteristic: string;
+
+  /** Where the answer is notified. */
+  readonly notify: string;
+  readonly data: string;
+  readonly withResponse: boolean;
+  readonly timeoutMs: number;
+};
 
 /** How long a device connected for a read or a write is kept with nothing following it. */
 const IDLE_MS = 30_000;
@@ -609,6 +631,58 @@ class BluezHost implements BluetoothHost {
     this.#notifications.set(path, listener);
     clearTimeout(this.#idle.get(device));
     await this.#call(bus, path, GATT_CHARACTERISTIC, 'StartNotify');
+  }
+
+  /**
+   * Writes a characteristic and waits for the first value another one notifies after it. A
+   * characteristic already followed keeps its listener, which is handed the answer too.
+   *
+   * @param adapterId - The adapter.
+   * @param address - The device.
+   * @param exchange - The request and where its answer comes.
+   * @returns The answer, in hex.
+   */
+  async exchange(adapterId: string, address: string, exchange: GattExchange): Promise<string> {
+    const bus = await this.#connect();
+    const dbus = this.#module();
+    const device = await this.#connectDevice(bus, adapterId, address);
+    const written = await this.#characteristic(
+      bus,
+      device,
+      exchange.service,
+      exchange.characteristic,
+    );
+    const notified = await this.#characteristic(bus, device, exchange.service, exchange.notify);
+    const standing = this.#notifications.get(notified);
+    const answer = new Promise<string>((resolve) => {
+      this.#notifications.set(notified, (data) => {
+        standing?.(data);
+        resolve(data);
+      });
+    });
+
+    clearTimeout(this.#idle.get(device));
+
+    try {
+      if (standing === undefined) {
+        await this.#call(bus, notified, GATT_CHARACTERISTIC, 'StartNotify');
+      }
+
+      await this.#call(bus, written, GATT_CHARACTERISTIC, 'WriteValue', 'aya{sv}', [
+        Buffer.from(exchange.data, 'hex'),
+        { type: new dbus.Variant('s', exchange.withResponse ? 'request' : 'command') },
+      ]);
+
+      return await within(answer, exchange.timeoutMs, 'Waiting for the device to answer');
+    } finally {
+      if (standing === undefined) {
+        this.#notifications.delete(notified);
+        await this.#call(bus, notified, GATT_CHARACTERISTIC, 'StopNotify').catch(() => undefined);
+        this.#idleLater(bus, device);
+      } else {
+        this.#notifications.set(notified, standing);
+      }
+    }
   }
 
   /**

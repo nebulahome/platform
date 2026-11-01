@@ -89,9 +89,14 @@ type Harness = {
 /**
  * Wires one instance onto a fake broker, with a device already adopted.
  *
+ * @param integration - The integration it runs.
+ * @param answer - What the transport answers a request.
  * @returns The harness.
  */
-function harness(): Harness {
+function harness(
+  integration: Integration = relay(),
+  answer: (request: TransportRequest) => unknown = () => null,
+): Harness {
   const transport = new FakeTransport();
   const logger = createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' });
   const client = new BusClient({ transport, source: 'hub', logger, requestTimeoutMs: 500 });
@@ -103,7 +108,7 @@ function harness(): Harness {
     send: (request): Promise<unknown> => {
       sent.push(request);
 
-      return Promise.resolve(null);
+      return Promise.resolve(answer(request));
     },
     apply: (): Promise<void> => Promise.resolve(),
     close: (): Promise<void> => Promise.resolve(),
@@ -125,7 +130,7 @@ function harness(): Harness {
   const subscriptions = startInstanceServices({
     instanceId: 'relay-lab',
     options: {},
-    integration: relay(),
+    integration,
     book,
     client,
     connection,
@@ -157,6 +162,49 @@ describe('startInstanceServices', () => {
     stop();
 
     expect(sent).toEqual([{ deviceKey: '192.168.1.40', op: 'get', args: { path: '/relay/on' } }]);
+  });
+
+  it('carries a command on with each answer until the integration says it is done', async () => {
+    const steps: unknown[] = [];
+    const integration: Integration = {
+      ...relay(),
+      continueCommand: (target, step) => {
+        steps.push(step.answer);
+
+        if (step.answer === 'refused') {
+          throw new Error('The relay refused it');
+        }
+
+        return step.index === 0
+          ? {
+              deviceKey: '192.168.1.40',
+              op: 'get',
+              args: { path: `/relay/on/${String(step.answer)}` },
+            }
+          : null;
+      },
+    };
+    let session = 'session-7';
+    const { caller, sent, stop } = harness(integration, (request) =>
+      request.args['path'] === '/relay/on' ? session : 'done',
+    );
+    const turnOn = async (): Promise<unknown> =>
+      caller.request(
+        busSubjects.service('relay-lab', ADAPTER_COMMAND_METHOD),
+        { entityId: RELAY, capability: 'on_off', command: { command: 'turn_on' } },
+        adapterAckSchema,
+      );
+
+    await turnOn();
+    expect(sent.map((request) => request.args['path'])).toEqual([
+      '/relay/on',
+      '/relay/on/session-7',
+    ]);
+    expect(steps).toEqual(['session-7', 'done']);
+
+    session = 'refused';
+    await expect(turnOn()).rejects.toThrow(/refused/u);
+    stop();
   });
 
   it('refuses to install firmware while the device is installing it already', async () => {

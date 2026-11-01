@@ -266,6 +266,18 @@ export const bluetoothGattWriteArgsSchema = z.object({
   withResponse: z.boolean().default(true),
 });
 
+/**
+ * Arguments of `gatt.exchange`: a request written to `characteristic`, answered by the first value
+ * `notify` notifies after it, within `timeoutMs`; it answers {@link bluetoothGattValueSchema}.
+ */
+export const bluetoothGattExchangeArgsSchema = z.object({
+  ...gattTargetShape,
+  notify: bluetoothUuidSchema,
+  data: bluetoothHexSchema,
+  withResponse: z.boolean().default(false),
+  timeoutMs: z.int().min(100).max(10_000).default(5000),
+});
+
 /** Arguments of `gatt.notify`: notifications on or off; each arrives as a delivery. */
 export const bluetoothGattNotifyArgsSchema = z.object({ ...gattTargetShape, isOn: z.boolean() });
 

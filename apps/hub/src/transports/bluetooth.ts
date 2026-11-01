@@ -9,9 +9,10 @@
  * (`{ op: 'follow', args: { address, activeEveryMinutes? } }`) and is delivered each advertisement
  * heard from it, by any scanner, as `{ deviceKey: address, payload: advert }`; with
  * `activeEveryMinutes`, the proxy hearing it best scans actively once that often, for what the
- * device answers only when asked. A request is GATT on the local adapter -
- * `gatt.read`, `gatt.write`, `gatt.notify` - refused when only proxies hear the device; a followed
- * characteristic's values are delivered as `{ service, characteristic, data }`.
+ * device answers only when asked. A request is GATT on the local adapter - `gatt.read`,
+ * `gatt.write`, `gatt.exchange` (a request and the answer notified back), `gatt.notify` - refused
+ * when only proxies hear the device; a followed characteristic's values are delivered as
+ * `{ service, characteristic, data }`.
  */
 import { z } from 'zod';
 

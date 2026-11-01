@@ -5,6 +5,7 @@ import {
   ADAPTER_COMMAND_METHOD,
   busSubjects,
   ConflictError,
+  DeviceUnavailableError,
   parseEntityId,
   ValidationError,
   type AdapterAck,
@@ -136,6 +137,9 @@ describe('createCommandDispatcher', () => {
 
     bleFailure = new ValidationError('Wrong password');
     await expect(dispatcher.dispatch(request)).rejects.toThrow(/Wrong password/);
+    // Unanswered in time, it may still happen: never sent a second way.
+    bleFailure = new DeviceUnavailableError('No answer in time', { details: { timeoutMs: 4000 } });
+    await expect(dispatcher.dispatch(request)).rejects.toThrow(/No answer in time/);
     expect(received).toEqual([plugMatter]);
   });
 

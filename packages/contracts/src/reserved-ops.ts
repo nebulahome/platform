@@ -54,4 +54,7 @@ export const BLUETOOTH_GATT_OPS = {
   read: 'gatt.read',
   write: 'gatt.write',
   notify: 'gatt.notify',
+
+  /** Writes a request and answers what the device notifies back. */
+  exchange: 'gatt.exchange',
 } as const;

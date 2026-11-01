@@ -43,6 +43,7 @@ import {
   bluetoothGattNotifyArgsSchema,
   bluetoothGattReadArgsSchema,
   bluetoothGattWriteArgsSchema,
+  bluetoothGattExchangeArgsSchema,
   bluetoothProxyStateSchema,
   ConflictError,
   NotFoundError,
@@ -977,7 +978,7 @@ export class BluetoothBroker {
    *
    * @param request - A `gatt.*` op.
    * @param deliver - Where a followed characteristic's values go.
-   * @returns What the op answers: `{ data }` for a read, null otherwise.
+   * @returns What the op answers: `{ data }` for a read or an exchange, null otherwise.
    * @throws {ConflictError} When the adapter cannot connect, or only proxies hear the device.
    * @throws {ValidationError} When the op is not a GATT op, or its arguments are not.
    */
@@ -1035,6 +1036,21 @@ export class BluetoothBroker {
         );
 
         return null;
+      }
+
+      case 'gatt.exchange': {
+        const args = argsOf(bluetoothGattExchangeArgsSchema, request.args, request.op);
+
+        return {
+          data: await host.exchange(adapter.id, address.data, {
+            service: args.service,
+            characteristic: args.characteristic,
+            notify: args.notify,
+            data: args.data,
+            withResponse: args.withResponse,
+            timeoutMs: args.timeoutMs,
+          }),
+        };
       }
 
       case 'gatt.notify': {

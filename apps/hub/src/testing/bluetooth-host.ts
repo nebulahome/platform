@@ -36,6 +36,9 @@ export type FakeBluetoothHost = BluetoothHost & {
 
   /** Makes a followed characteristic notify a value. */
   readonly push: (address: string, characteristic: string, data: string) => void;
+
+  /** What the device answers each request written for an exchange, by the request's hex. */
+  readonly answers: Map<string, string>;
 };
 
 /**
@@ -89,6 +92,7 @@ export function createFakeBluetoothHost(
     scanning: new Map(),
     values: new Map(),
     written: [],
+    answers: new Map(),
 
     /**
      * Reads the adapters.
@@ -210,6 +214,25 @@ export function createFakeBluetoothHost(
       }
 
       return Promise.resolve();
+    },
+
+    /**
+     * Records the request and answers what a test put for it.
+     *
+     * @param adapterId - The adapter.
+     * @param address - The device.
+     * @param exchange - The request.
+     * @returns The answer.
+     */
+    exchange: async (adapterId, address, exchange) => {
+      connected.add(address);
+      host.written.push({ address, characteristic: exchange.characteristic, data: exchange.data });
+
+      const answer = host.answers.get(exchange.data);
+
+      return answer === undefined
+        ? Promise.reject(new Error('Waiting for the device to answer took longer than 1 s'))
+        : Promise.resolve(answer);
     },
 
     /**

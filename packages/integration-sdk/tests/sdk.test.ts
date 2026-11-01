@@ -289,6 +289,32 @@ describe('testing', () => {
     expect(harness.subscriptions()[0]?.op).toBe('poll');
   });
 
+  it('carries a command through the conversation a driver asks for', async () => {
+    const loaded = await loadIntegration({ root });
+    const light = loaded.driver('light').integration;
+    const harness = driverHarness(
+      {
+        ...light,
+        continueCommand: (target, step) =>
+          step.answer === 'busy'
+            ? { deviceKey: '192.0.2.7', op: 'post', args: { path: '/state/again' } }
+            : null,
+      },
+      { options: { pollInterval: 10 }, deviceId: 'hall' },
+    );
+
+    harness.add({
+      deviceKey: '192.0.2.7',
+      payload: { vendor: 'Fixture', id: 'fx-1', name: 'Hall', model: 'FX1' },
+    });
+
+    expect(
+      harness
+        .converse('light.hall', 'on_off', { command: 'turn_off' }, ['busy', 'ok'])
+        .map((request) => request.args['path']),
+    ).toEqual(['/state', '/state/again']);
+  });
+
   it('says what discovery makes of a device heard', async () => {
     const integration = await loadIntegration({ root });
 

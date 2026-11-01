@@ -632,6 +632,22 @@ describe('the bluetooth transport', () => {
       deviceKey: SENSOR,
       payload: { service: '181a', characteristic: '2a6e', data: '0b09' },
     });
+    host.answers.set('570100', '01');
+    expect(
+      await connection.send(
+        {
+          deviceKey: SENSOR,
+          op: 'gatt.exchange',
+          args: { service: '181a', characteristic: '2a6f', notify: '2a6e', data: '570100' },
+        },
+        AbortSignal.timeout(1000),
+      ),
+    ).toEqual({ data: '01' });
+    expect(host.written.at(-1)).toEqual({
+      address: SENSOR,
+      characteristic: '2a6f',
+      data: '570100',
+    });
     expect((await broker.devices()).length).toBe(0);
 
     const found: unknown[] = [];
