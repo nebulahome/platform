@@ -268,19 +268,29 @@ export class AutoAdoption {
     }
   }
 
-  /** Adds every device the hub proposes for a vendor that adds its own. */
+  /**
+   * One pass: adds first - the owner may be waiting on one - then hands Matter devices over and
+   * looks for twins, so a device added now is offered to link in this same pass.
+   */
   async #pass(): Promise<void> {
+    const context = this.#options.contextFor(ulid());
+
+    await this.#adopt(context);
+    await this.#rehome(context, this.#options.rehome ?? rehomeBrokerDevices);
+    await this.#offerTwins(context);
+  }
+
+  /**
+   * Adds every device the hub proposes for a vendor that adds its own.
+   *
+   * @param context - The pass's collaborators.
+   */
+  async #adopt(context: DevicesContext): Promise<void> {
     const {
       list = listDiscovered,
       adopt = adoptDiscovered,
       takenIds = registryIds,
-      rehome = rehomeBrokerDevices,
     } = this.#options;
-    const context = this.#options.contextFor(ulid());
-
-    await this.#rehome(context, rehome);
-    await this.#offerTwins(context);
-
     const candidates = (await list(context)).filter(
       (candidate) => candidate.adoption === 'automatic' && candidate.movedFrom === null,
     );

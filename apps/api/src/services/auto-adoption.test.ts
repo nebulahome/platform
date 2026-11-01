@@ -125,6 +125,40 @@ describe('AutoAdoption', () => {
     );
   });
 
+  it('adds before it hands devices over or looks for twins, so a twin added now is offered', async () => {
+    const steps: string[] = [];
+    const candidate = paired('aaaaaaaaaaaaaaaa', 'Bot');
+    const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
+    const adoption = new AutoAdoption({
+      contextFor: (traceId) => ({ logger, traceId }) as unknown as DevicesContext,
+      audit: { record: async () => Promise.resolve() },
+      list: async () => Promise.resolve([candidate]),
+      takenIds: async () => Promise.resolve([]),
+      rehome: async () => {
+        steps.push('rehome');
+
+        return Promise.resolve([]);
+      },
+      offerTwins: async () => {
+        steps.push('twins');
+
+        return Promise.resolve(0);
+      },
+      adopt: async (context, candidateId, body) => {
+        steps.push('adopt');
+
+        return Promise.resolve({
+          device: { id: body.id, kind: candidate.kind } as unknown as DeviceView,
+          candidate,
+        });
+      },
+    });
+
+    await adoption.settle();
+
+    expect(steps).toEqual(['adopt', 'rehome', 'twins']);
+  });
+
   it('hands a Matter device to the integration installed since, and records it', async () => {
     const { adoption, record } = service([], [], {}, [
       { deviceId: 'matter-plug', kind: 'shelly/matter' },
