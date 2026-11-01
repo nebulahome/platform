@@ -170,6 +170,9 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
        * @returns The device added.
        */
       async (request) => broker.add(request.address, request.kind),
+
+      // Each waits up to 15 s for the house: one at a time, a second would outwait the api.
+      { concurrency: 4 },
     ),
 
     client.serve(

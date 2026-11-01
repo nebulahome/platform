@@ -30,6 +30,7 @@ import {
   type Transport,
 } from '@nebulahome/package-runtime';
 
+import type { BluetoothSighting } from '../bluetooth/broker.js';
 import type { MdnsSource } from '../discovery/mdns-source.js';
 import type { TakenDevices } from '../domain/taken.js';
 import type { MatterSighting } from '../matter/broker.js';
@@ -38,6 +39,7 @@ import type { ModbusSighting } from '../modbus/broker.js';
 import type { LoadedListenSource } from './bundles.js';
 import { DiscoveryService, SCAN_DURATION_MS, type DiscoveryVendor } from './discovery.js';
 import {
+  platformBluetoothVendor,
   platformInfraredVendor,
   platformMatterVendor,
   platformModbusVendor,
@@ -1207,6 +1209,86 @@ describe('DiscoveryService and the Modbus broker', () => {
         ['modbus-1', 'modbus/generic', 'Modbus device', 'automatic'],
         ['modbus-2', 'acme/meter', 'Meter', 'automatic'],
       ]);
+    } finally {
+      await service.stop();
+    }
+  });
+});
+
+describe('DiscoveryService and the Bluetooth broker', () => {
+  it('adds a device being added as the model its advert names, among many', async () => {
+    const acme: DiscoveryVendor = {
+      id: 'acme',
+      discovery: {
+        plan: resolveDiscovery(
+          'acme',
+          vendorDiscoverySchema.parse({
+            bluetooth: {
+              match: [{ path: "serviceData.'fd3d'", exists: true }],
+              model: { path: "serviceData.'fd3d'", bytes: [0, 1], mask: 0x7f },
+            },
+          }),
+          [
+            {
+              id: 'ble',
+              name: 'Device',
+              kind: 'bluetooth',
+              transport: 'bluetooth',
+              models: ['Bot', 'Meter'],
+              modelCodes: { '48': 'Bot', '54': 'Meter' },
+            },
+          ],
+        ),
+        sources: [],
+      },
+    };
+    const platform = platformBluetoothVendor('1.0.0', '1.8.0');
+    const advert = {
+      address: 'AA:BB:CC:DD:EE:01',
+      rssi: -60,
+      manufacturerData: {},
+      serviceData: { fd3d: 'c8' },
+      serviceUuids: [],
+    };
+    const service = new DiscoveryService({
+      vendors: [acme],
+      mdns: fakeMdns(),
+      transports: new Registry<Transport>('transport'),
+      integrations: new Registry<Integration>('integration'),
+      logger: silent(),
+      vendorSettings: () => Promise.resolve({}),
+      taken: () =>
+        Promise.resolve({
+          externalIds: new Set<string>(),
+          hosts: new Set<string>(),
+          locations: new Map(),
+          matter: new Map(),
+          mqtt: new Map(),
+          modbus: new Map(),
+          bluetooth: new Map(),
+        }),
+      publishChanged: () => undefined,
+      queryIntervalMs: 60_000,
+      ttlMs: 60_000,
+      probeIntervalMs: 60_000,
+      bluetooth: {
+        devices: () => [
+          {
+            deviceKey: advert.address,
+            device: { deviceKey: advert.address, kind: 'acme/ble', name: 'WoHand', advert },
+          } as unknown as BluetoothSighting,
+        ],
+        onChange: () => () => undefined,
+        vendor: { id: 'bluetooth', discovery: platform.discovery! },
+      },
+    });
+
+    await service.start();
+
+    try {
+      expect(
+        service.list().map((device) => [device.externalId, device.kind, device.model]),
+      ).toEqual([['AA:BB:CC:DD:EE:01', 'acme/ble', 'Bot']]);
     } finally {
       await service.stop();
     }

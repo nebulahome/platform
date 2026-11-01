@@ -1407,7 +1407,7 @@ export class DiscoveryService {
     if (source === 'bluetooth') {
       return (this.#options.bluetooth?.devices() ?? []).map(({ deviceKey, device }) => ({
         deviceKey,
-        identity: device,
+        identity: device.advert,
         name: device.name,
         modelCode: null,
         swVersion: null,
@@ -1493,7 +1493,7 @@ export class DiscoveryService {
           : associateBroker(feed.vendor.discovery.plan, ruled, device.identity);
       const chosen =
         device.kind !== undefined
-          ? this.#ofKind(device.kind, feed.vendor)
+          ? this.#ofKind(device.kind, feed.vendor, ruled, device.identity)
           : only !== undefined && other === undefined
             ? only
             : fallback === null
@@ -1557,11 +1557,15 @@ export class DiscoveryService {
    *
    * @param kind - The driver, `vendor/driver`.
    * @param own - The broker's own vendor, which is not among the bundles.
+   * @param source - The broker, when vendors' rules read its devices.
+   * @param identity - Who the device says it is.
    * @returns Them, or undefined when that driver is not loaded.
    */
   #ofKind(
     kind: string,
     own: DiscoveryVendor,
+    source: RuledSource | undefined,
+    identity: unknown,
   ): { readonly vendor: DiscoveryVendor; readonly association: Association } | undefined {
     const [vendorId = '', driverId = ''] = kind.split('/');
     const vendor =
@@ -1570,6 +1574,17 @@ export class DiscoveryService {
 
     if (vendor === undefined || driver === undefined) {
       return undefined;
+    }
+
+    // The model the vendor's rules read off the device, which a driver of many models needs to
+    // be added without asking.
+    const read =
+      source === undefined || vendor === own
+        ? null
+        : associateBroker(vendor.discovery.plan, source, identity);
+
+    if (read?.driverId === driverId) {
+      return { vendor, association: read };
     }
 
     const choices = driver.models.length === 0 ? [driver.name] : driver.models;
