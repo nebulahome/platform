@@ -165,11 +165,17 @@ describe('LinkEngine', () => {
     say(plug, { state: { on_off: { isOn: true } } });
     say(plugMatter, { state: { on_off: { isOn: true } } });
 
-    expect(holder && engine.route(holder, 'on_off')?.entityId).toBe(plug);
+    expect(holder && engine.routes(holder, 'on_off').map((each) => each.entityId)).toEqual([
+      plug,
+      plugMatter,
+    ]);
 
     say(plug, { state: { on_off: { isOn: true } }, isAvailable: false });
 
-    expect(holder && engine.route(holder, 'on_off')?.entityId).toBe(plugMatter);
+    expect(holder && engine.routes(holder, 'on_off').map((each) => each.entityId)).toEqual([
+      plugMatter,
+      plug,
+    ]);
   });
 
   it('reads the other way when an adapter does not answer', () => {

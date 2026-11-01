@@ -163,17 +163,25 @@ export class LinkEngine implements LinkRouter {
   }
 
   /**
-   * The source a command for a linked entity goes to: the first in its order that answers and
-   * can do it, else the first that can do it.
+   * The sources a command for a linked entity is tried through, in turn: those that can do it and
+   * answer, in its order, then those that can do it and are silent.
    *
    * @param holder - The leading entity.
    * @param capability - What the command asks of it.
-   * @returns The source, or undefined when none declares the capability.
+   * @returns The sources; empty when none declares the capability.
    */
-  public route(holder: EntityRecord, capability: CapabilityName): EntityRecord | undefined {
+  public routes(holder: EntityRecord, capability: CapabilityName): EntityRecord[] {
     const able = this.#order(holder).filter((record) => record.capabilities.has(capability));
+    /**
+     * Whether a source answers now.
+     *
+     * @param record - The source.
+     * @returns True while its adapter says it is there.
+     */
+    const isAnswering = (record: EntityRecord): boolean =>
+      this.#raw.get(record.entityId)?.isAvailable === true;
 
-    return able.find((record) => this.#raw.get(record.entityId)?.isAvailable === true) ?? able[0];
+    return [...able.filter(isAnswering), ...able.filter((record) => !isAnswering(record))];
   }
 
   /**

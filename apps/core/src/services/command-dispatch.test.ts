@@ -4,7 +4,9 @@ import {
   adapterCommandSchema,
   ADAPTER_COMMAND_METHOD,
   busSubjects,
+  ConflictError,
   parseEntityId,
+  ValidationError,
   type AdapterAck,
   type AdapterCommand,
 } from '@nebulahome/contracts';
@@ -57,8 +59,10 @@ describe('createCommandDispatcher', () => {
       commandTimeoutMs: 500,
       // The link reads Matter first while Shelly is silent.
       links: {
-        route: (holder: EntityRecord): EntityRecord | undefined =>
-          holder.sources?.[1] === undefined ? undefined : harness.directory.get(holder.sources[1]),
+        routes: (holder: EntityRecord): EntityRecord[] =>
+          [...(holder.sources ?? [])]
+            .reverse()
+            .flatMap((address) => harness.directory.get(address) ?? []),
       },
     });
 
@@ -74,6 +78,65 @@ describe('createCommandDispatcher', () => {
     expect(received.map(({ adapter, command }) => [adapter, command.entityId])).toEqual([
       ['matter-plug', plugMatter],
     ]);
+  });
+
+  it('tries the next way when one cannot reach the device, never after a refusal', async () => {
+    const harness = createCoreHarness();
+    const received: string[] = [];
+    let bleFailure: Error = new ConflictError('Only proxies hear it');
+
+    harness.directory.set({
+      ...entityRecord(plug, { source: 'shelly-plug' }),
+      sources: [plug, plugMatter],
+    });
+    harness.directory.set({
+      ...entityRecord(plugMatter, { source: 'matter-plug' }),
+      linkedTo: plug,
+    });
+    harness
+      .clientFor('shelly-plug')
+      .serve(
+        busSubjects.service('shelly-plug', ADAPTER_COMMAND_METHOD),
+        adapterCommandSchema,
+        (): Promise<AdapterAck> => Promise.reject(bleFailure),
+      );
+    harness
+      .clientFor('matter-plug')
+      .serve(
+        busSubjects.service('matter-plug', ADAPTER_COMMAND_METHOD),
+        adapterCommandSchema,
+        (command): Promise<AdapterAck> => {
+          received.push(command.entityId);
+
+          return Promise.resolve({ acceptedAt: new Date() });
+        },
+      );
+
+    const dispatcher = createCommandDispatcher({
+      client: harness.client,
+      directory: harness.directory,
+      aliases: new AliasCatalog(),
+      aliasEngine: undefined as unknown as AliasEngine,
+      commandTimeoutMs: 500,
+      links: {
+        routes: (holder: EntityRecord): EntityRecord[] =>
+          (holder.sources ?? []).flatMap((address) => harness.directory.get(address) ?? []),
+      },
+    });
+    const request = {
+      entityId: plug,
+      capability: 'on_off',
+      command: { command: 'turn_on' },
+      traceId: '00000000-0000-4000-8000-000000000001',
+      logger: silentLogger(),
+    } as const;
+
+    await dispatcher.dispatch(request);
+    expect(received).toEqual([plugMatter]);
+
+    bleFailure = new ValidationError('Wrong password');
+    await expect(dispatcher.dispatch(request)).rejects.toThrow(/Wrong password/);
+    expect(received).toEqual([plugMatter]);
   });
 
   it('waits for a source being updated, sends when it is back, and gives up after the wait', async () => {

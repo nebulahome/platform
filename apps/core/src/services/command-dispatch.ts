@@ -22,8 +22,12 @@ import type { BusClient } from '@nebulahome/bus';
 import {
   adapterAckSchema,
   ADAPTER_COMMAND_METHOD,
+  AdapterError,
   busSubjects,
+  ConflictError,
   DeviceUnavailableError,
+  NotFoundError,
+  UpstreamError,
   ValidationError,
   type CapabilityName,
   type ChangeContext,
@@ -36,7 +40,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 import { isStoredAlias, type AliasCatalog } from '../domain/alias-catalog.js';
 import type { ChangeAttribution } from '../domain/change-attribution.js';
 import { validateCommand } from '../domain/command-validation.js';
-import type { EntityDirectory } from '../domain/entity-directory.js';
+import type { EntityDirectory, EntityRecord } from '../domain/entity-directory.js';
 import type { PackageTypes } from '../domain/package-types.js';
 
 import type { AliasEngine } from './alias-engine.js';
@@ -70,10 +74,10 @@ export type CommandDispatchOptions = {
   readonly attribution?: ChangeAttribution;
 
   /**
-   * Which source of a linked entity a command goes to. Optional: without it a linked entity is
-   * commanded through its own adapter.
+   * Which sources of a linked entity a command is tried through, in turn. Optional: without it a
+   * linked entity is commanded through its own adapter.
    */
-  readonly links?: Pick<LinkEngine, 'route'>;
+  readonly links?: Pick<LinkEngine, 'routes'>;
 
   /**
    * The sources being updated: a command to one waits for it, at most `updateWaitMs`. Optional:
@@ -119,6 +123,23 @@ export type CommandDispatcher = {
 };
 
 /**
+ * Whether a source failed to reach the device - offline, out of range, its cloud down - so the
+ * next way into a linked device may: a command the device refused would be refused there too.
+ *
+ * @param error - What sending it threw.
+ * @returns True for a failure of the way rather than of the command.
+ */
+function isUnreached(error: unknown): boolean {
+  return (
+    error instanceof DeviceUnavailableError ||
+    error instanceof ConflictError ||
+    error instanceof AdapterError ||
+    error instanceof UpstreamError ||
+    error instanceof NotFoundError
+  );
+}
+
+/**
  * Builds the one way `core` sends a command.
  *
  * @param options - The bus, the directory, the aliases, the timeout and the attribution.
@@ -162,49 +183,79 @@ export function createCommandDispatcher(options: CommandDispatchOptions): Comman
         );
       }
 
-      // The source the link reads first that can do it; the entity itself when it is not linked.
-      const record =
-        holder.sources === undefined
-          ? holder
-          : (options.links?.route(holder, capability) ?? holder);
-      const command = validateCommand(record, capability, request.command, options.packageTypes);
+      /**
+       * Sends the command through one source.
+       *
+       * @param record - The source.
+       * @param isFirst - Whether it is the first tried, the one the cause is noted for.
+       * @returns Once its adapter accepted it.
+       */
+      const sendThrough = async (record: EntityRecord, isFirst: boolean): Promise<void> => {
+        const command = validateCommand(record, capability, request.command, options.packageTypes);
 
-      if (context !== undefined) {
-        // Before the request, not after: a fast device can report before its adapter's
-        // acknowledgement has made it back here.
-        options.attribution?.note(entityId, context);
-      }
+        if (context !== undefined && isFirst) {
+          // Before the request, not after: a fast device can report before its adapter's
+          // acknowledgement has made it back here.
+          options.attribution?.note(entityId, context);
+        }
 
-      // Its package or integration is being replaced: wait for it rather than fail in the gap.
-      if (options.updating?.isUpdating(record.source) === true) {
-        logger.info({ entityId, adapter: record.source }, 'Waiting for its update to end');
+        // Its package or integration is being replaced: wait for it rather than fail in the gap.
+        if (options.updating?.isUpdating(record.source) === true) {
+          logger.info({ entityId, adapter: record.source }, 'Waiting for its update to end');
 
-        const isBack = await options.updating.wait(
-          record.source,
-          options.updateWaitMs ?? 0,
-          request.signal,
+          const isBack = await options.updating.wait(
+            record.source,
+            options.updateWaitMs ?? 0,
+            request.signal,
+          );
+
+          if (!isBack) {
+            throw new DeviceUnavailableError(`${record.source} is still being updated`, {
+              details: { entityId, adapter: record.source },
+            });
+          }
+        }
+
+        await options.client.request(
+          busSubjects.service(record.source, ADAPTER_COMMAND_METHOD),
+          { entityId: record.entityId, capability, command },
+          adapterAckSchema,
+          { traceId: request.traceId, timeoutMs: options.commandTimeoutMs },
         );
 
-        if (!isBack) {
-          throw new DeviceUnavailableError(`${record.source} is still being updated`, {
-            details: { entityId, adapter: record.source },
-          });
+        logger.debug(
+          { entityId, capability, adapter: record.source, through: record.entityId },
+          'Command accepted by the owning adapter',
+        );
+      };
+
+      // The sources the link reads first that can do it; the entity itself when it is not linked.
+      const routes =
+        holder.sources === undefined ? [] : (options.links?.routes(holder, capability) ?? []);
+      const records = routes.length === 0 ? [holder] : routes;
+      let firstFailure: unknown;
+
+      for (const [index, record] of records.entries()) {
+        try {
+          // eslint-disable-next-line no-await-in-loop -- one way at a time, the next only if it failed
+          await sendThrough(record, index === 0);
+
+          return { entityId, capability, acceptedAt: new Date() };
+        } catch (error: unknown) {
+          firstFailure ??= error;
+
+          if (index === records.length - 1 || !isUnreached(error)) {
+            throw firstFailure;
+          }
+
+          logger.info(
+            { entityId, capability, adapter: record.source, err: error },
+            'Could not reach it this way, trying the next',
+          );
         }
       }
 
-      await options.client.request(
-        busSubjects.service(record.source, ADAPTER_COMMAND_METHOD),
-        { entityId: record.entityId, capability, command },
-        adapterAckSchema,
-        { traceId: request.traceId, timeoutMs: options.commandTimeoutMs },
-      );
-
-      logger.debug(
-        { entityId, capability, adapter: record.source, through: record.entityId },
-        'Command accepted by the owning adapter',
-      );
-
-      return { entityId, capability, acceptedAt: new Date() };
+      throw firstFailure;
     },
   };
 }
