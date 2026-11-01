@@ -108,8 +108,12 @@ function toCapabilityMap(declared: Record<string, JsonObject>): Map<CapabilityNa
   );
 }
 
+/** An entity a device described again added or removed, by its address and its name then. */
+type NamedEntity = { readonly rowId: string; readonly entityId: EntityId; readonly name: string };
+
 /**
- * Completes one device and writes its entities.
+ * Completes one device and writes its entities - and, for a device described again
+ * (`replacesEntities`), removes the ones it no longer has, which take their history with them.
  *
  * Four statements regardless of how many entities the device has, rather than three per entity.
  * That is not only faster: a transaction holds one connection, so per-entity statements have to
@@ -118,16 +122,27 @@ function toCapabilityMap(declared: Record<string, JsonObject>): Map<CapabilityNa
  *
  * @param db - A connected database handle.
  * @param request - What `hub` heard.
- * @returns The device row, its name, and its entities.
+ * @returns The device row, its name, its entities, and - described again - those added and removed.
  * @throws {NotFoundError} When no device row belongs to the instance. The API writes that row;
  * `hub` cannot, and must not, make it appear.
+ * @throws {ConflictError} When a derived entity reads one the device no longer has.
  */
 async function write(
   db: Database,
   request: RegisterDeviceRequest,
-): Promise<{ deviceId: string; name: string; entities: WrittenEntity[] }> {
+): Promise<{
+  deviceId: string;
+  name: string;
+  entities: WrittenEntity[];
+  added: NamedEntity[];
+  removed: NamedEntity[];
+}> {
   return db.transaction(async (tx) => {
-    const { devices } = schema.registry;
+    const { aliasSources, devices, entities } = schema.registry;
+    const before = await tx
+      .select({ rowId: entities.id, entityId: entities.entityId, name: entities.name })
+      .from(entities)
+      .where(eq(entities.integrationId, request.integrationId));
 
     // What the hardware reports fills in only what the owner left blank. A printer that says
     // nothing about its model must not null the `X1C` the owner picked; a relay that reports
@@ -213,6 +228,44 @@ async function write(
       ),
     );
 
+    const had = new Set(before.map((entity) => entity.entityId));
+    const removed =
+      request.replacesEntities === true
+        ? before.filter((entity) => !declaredBy.has(entity.entityId))
+        : [];
+
+    if (removed.length > 0) {
+      const read = await tx
+        .selectDistinct({ rowId: aliasSources.entityId })
+        .from(aliasSources)
+        .where(
+          inArray(
+            aliasSources.entityId,
+            removed.map((entity) => entity.rowId),
+          ),
+        );
+
+      if (read.length > 0) {
+        const reading = new Set(read.map((row) => row.rowId));
+
+        throw new ConflictError('Derived entities read an entity the device no longer has', {
+          details: {
+            integrationId: request.integrationId,
+            entityIds: removed
+              .filter((entity) => reading.has(entity.rowId))
+              .map((entity) => entity.entityId),
+          },
+        });
+      }
+
+      await tx.delete(entities).where(
+        inArray(
+          entities.id,
+          removed.map((entity) => entity.rowId),
+        ),
+      );
+    }
+
     return {
       deviceId,
       name: device.name,
@@ -221,6 +274,17 @@ async function write(
         entityId: parseEntityId(row.entityId),
         capabilities: toCapabilityMap(declaredBy.get(row.entityId) ?? {}),
       })),
+      added:
+        request.replacesEntities === true
+          ? request.entities
+              .filter((entity) => !had.has(entity.entityId))
+              .map((entity) => ({
+                rowId: rows.find((row) => row.entityId === entity.entityId)?.id ?? '',
+                entityId: entity.entityId,
+                name: entity.name,
+              }))
+          : [],
+      removed: removed.map((entity) => ({ ...entity, entityId: parseEntityId(entity.entityId) })),
     };
   });
 }
@@ -398,7 +462,29 @@ function serveRegister(options: RegistrationOptions): BusSubscription {
      * @returns What was written.
      */
     async (request: RegisterDeviceRequest): Promise<RegisterDeviceReply> => {
-      const { deviceId, name, entities } = await write(options.db, request);
+      const { deviceId, name, entities, added, removed } = await write(options.db, request);
+      const wasLinked = removed.some((entity) => {
+        const record = options.directory.get(entity.entityId);
+
+        return record !== undefined && isLinked(record);
+      });
+
+      for (const entity of removed) {
+        options.directory.remove(entity.entityId);
+        options.registry.remove(entity.entityId);
+        options.registry.unalias(entity.entityId);
+      }
+
+      if (removed.length > 0) {
+        const rowIds = new Set(removed.map((entity) => entity.rowId));
+
+        options.stateCache.discard((row) => rowIds.has(row.entityId));
+      }
+
+      if (wasLinked) {
+        // What read through a removed entity is its own again, or has a source fewer.
+        await options.onLinksChanged?.();
+      }
 
       for (const entity of entities) {
         options.directory.set({
@@ -414,18 +500,39 @@ function serveRegister(options: RegistrationOptions): BusSubscription {
 
       const entityIds = entities.map((entity) => entity.entityId);
 
+      /**
+       * An entity as the event names it.
+       *
+       * @param entity - The entity.
+       * @returns Its address and its name.
+       */
+      const named = (entity: NamedEntity) => ({ entityId: entity.entityId, name: entity.name });
+
       // Named by its public id - the instance id every page lists it under - and by the name
       // the owner gave it, which is the row's.
-      options.client.publish(busSubjects.deviceEvent('added'), {
-        deviceId: request.integrationId,
-        source: request.integrationId,
-        name,
-        entityIds,
-      });
+      options.client.publish(
+        busSubjects.deviceEvent(request.replacesEntities === true ? 'updated' : 'added'),
+        {
+          deviceId: request.integrationId,
+          source: request.integrationId,
+          name,
+          entityIds,
+          ...(request.replacesEntities === true
+            ? { described: { added: added.map(named), removed: removed.map(named) } }
+            : {}),
+        },
+      );
 
       options.logger.info(
-        { deviceId, integrationId: request.integrationId, entities: entityIds.length },
-        'Completed a device',
+        {
+          deviceId,
+          integrationId: request.integrationId,
+          entities: entityIds.length,
+          ...(request.replacesEntities === true
+            ? { added: added.length, removed: removed.length }
+            : {}),
+        },
+        request.replacesEntities === true ? 'Described a device again' : 'Completed a device',
       );
 
       return { deviceId, entityIds };

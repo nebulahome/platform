@@ -354,6 +354,48 @@ describe('completing a device the API created', () => {
       entityIds: [relay],
     });
   });
+
+  it('described again, removes what the device no longer has and says what changed', async () => {
+    const press = parseEntityId(`button.reg_${suffix}_press`);
+    const seen: DeviceEventPayload[] = [];
+    const watching = caller.subscribe(
+      busSubjects.deviceEvent('updated'),
+      deviceEventSchema,
+      (payload): void => {
+        seen.push(payload);
+      },
+    );
+
+    try {
+      await register({
+        replacesEntities: true,
+        entities: [{ entityId: press, name: 'Press', capabilities: { button: {} } }],
+      });
+
+      for (let attempt = 0; attempt < 50 && seen.length === 0; attempt += 1) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+
+      const rows = await database.db
+        .select({ entityId: schema.registry.entities.entityId })
+        .from(schema.registry.entities)
+        .where(eq(schema.registry.entities.integrationId, instanceId));
+
+      expect(rows.map((row) => row.entityId)).toEqual([press]);
+      expect(directory.get(relay)).toBeUndefined();
+      // The removed one by the name the owner gave it earlier on.
+      expect(seen[0]?.described).toEqual({
+        added: [{ entityId: press, name: 'Press' }],
+        removed: [{ entityId: relay, name: 'Bench relay' }],
+      });
+    } finally {
+      watching.unsubscribe();
+      // Back as it was, for what follows.
+      await register({ replacesEntities: true });
+    }
+
+    expect(directory.get(press)).toBeUndefined();
+  });
 });
 
 /**
