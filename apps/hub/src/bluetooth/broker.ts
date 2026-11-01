@@ -337,6 +337,9 @@ export class BluetoothBroker {
   /** The addresses being added, as the driver each is added as. */
   readonly #adding = new Map<string, BluetoothDeviceSnapshot>();
 
+  /** The adds under way, by address: a second click joins the first rather than racing it. */
+  readonly #adds = new Map<string, Promise<{ deviceId: string }>>();
+
   /**
    * The addresses the transport follows - the house's devices that run - and how often each wants
    * an active scan, in minutes; null for never.
@@ -817,6 +820,29 @@ export class BluetoothBroker {
    * @throws {ConflictError} When it is in the house already, or was not added in time.
    */
   async add(address: string, kind: string | undefined): Promise<{ deviceId: string }> {
+    const running = this.#adds.get(address);
+
+    if (running !== undefined) {
+      return running;
+    }
+
+    const adding = this.#addOnce(address, kind).finally(() => {
+      this.#adds.delete(address);
+    });
+
+    this.#adds.set(address, adding);
+
+    return adding;
+  }
+
+  /**
+   * Adds a device heard, once: see {@link add}.
+   *
+   * @param address - The address.
+   * @param kind - The driver, when more than one recognises it.
+   * @returns The device added.
+   */
+  async #addOnce(address: string, kind: string | undefined): Promise<{ deviceId: string }> {
     const entry = this.#heard.get(address);
 
     if (entry === undefined) {

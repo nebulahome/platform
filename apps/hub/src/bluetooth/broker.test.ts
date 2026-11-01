@@ -372,7 +372,14 @@ describe('the Bluetooth broker', () => {
       }
     });
 
-    expect(await broker.add(SENSOR, undefined)).toEqual({ deviceId: 'thermometer' });
+    // A second click while the first waits joins it.
+    const [first, again] = await Promise.all([
+      broker.add(SENSOR, undefined),
+      broker.add(SENSOR, undefined),
+    ]);
+
+    expect(first).toEqual({ deviceId: 'thermometer' });
+    expect(again).toBe(first);
     expect(broker.sightings()).toEqual([]);
     expect((await broker.found()).items).toEqual([]);
     await expect(broker.add(SENSOR, undefined)).rejects.toThrow(/in the house already/u);
