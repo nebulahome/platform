@@ -155,6 +155,21 @@ beforeAll(async () => {
     { ...change, time: at(5), entityId: relay, state: on, previousState: on, isAvailable: true },
   ]);
 
+  // Set up differently in its vendor's app: described again, a reading removed and one added.
+  await database.db.insert(schema.system.auditLog).values({
+    time: at(6),
+    actorType: 'system',
+    actorLabel: 'system',
+    action: 'device.describe',
+    resourceType: 'device',
+    resourceId: instanceId,
+    result: 'success',
+    details: {
+      added: [{ entityId: relayId, name: 'Relay' }],
+      removed: [{ entityId: `button.${instanceId.replaceAll('-', '_')}_press`, name: 'Press' }],
+    },
+  });
+
   server = await buildTestServer(true, database.db);
 });
 
@@ -165,6 +180,9 @@ afterAll(async () => {
   await database.db
     .delete(schema.history.stateHistory)
     .where(inArray(schema.history.stateHistory.entityId, rowIds));
+  await database.db
+    .delete(schema.system.auditLog)
+    .where(eq(schema.system.auditLog.resourceId, instanceId));
   await database.db
     .delete(schema.registry.entities)
     .where(eq(schema.registry.entities.integrationId, instanceId));
@@ -180,6 +198,12 @@ describe('the activity of a device', () => {
 
     expect(status).toBe(200);
     expect(body.items).toEqual([
+      expect.objectContaining({
+        entityId: relayId,
+        kind: 'described',
+        from: { entities: ['Press'] },
+        to: { entities: ['Relay'] },
+      }),
       expect.objectContaining({
         entityId: relayId,
         kind: 'availability',
@@ -207,8 +231,8 @@ describe('the activity of a device', () => {
     const second = await read({ limit: '2', cursor: first.body.nextCursor ?? '' });
 
     expect(first.body.items).toHaveLength(2);
-    expect(second.body.items).toHaveLength(1);
-    expect(second.body.items[0]).toMatchObject({ kind: 'state' });
+    expect(second.body.items).toHaveLength(2);
+    expect(second.body.items[1]).toMatchObject({ kind: 'state' });
     expect(second.body.nextCursor).toBeUndefined();
   });
 

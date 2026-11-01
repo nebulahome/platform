@@ -658,6 +658,70 @@ export function rankedWay<T extends Pick<WayRow, 'transport'>>(
 }
 
 /**
+ * Links again what a way into a linked device has alike with the other ways, once the device was
+ * described again: each new reading to the other ways' reading of the same key, as linking the
+ * two did - declared pairs and sensors one to one, never a control unasked.
+ *
+ * @param context - The collaborators.
+ * @param id - The way described again.
+ * @returns The entities whose links changed; none for a device reached one way.
+ */
+export async function linkDescribedWay(
+  context: IntegrationsContext,
+  id: string,
+): Promise<string[]> {
+  const way = await wayOf(context.db, id);
+  const { holder, others } = await groupOf(context.db, way);
+  const ways = [holder, ...others];
+
+  if (ways.length < 2) {
+    return [];
+  }
+
+  const rows = await entitiesOf(
+    context.db,
+    ways.map((each) => each.rowId),
+  );
+  const leading = new Set(rows.flatMap((row) => (row.linkedTo === null ? [] : [row.linkedTo])));
+  const theirs = rows.filter((row) => row.linkedTo === null && row.deviceRowId !== way.rowId);
+  const mine = rows.filter(
+    (row) => row.linkedTo === null && row.deviceRowId === way.rowId && !leading.has(row.rowId),
+  );
+  const capabilities = await capabilitiesOf(
+    context.db,
+    rows.map((row) => row.rowId),
+  );
+  const byRow = new Map(rows.map((row) => [row.rowId, row]));
+  const { pairs } = matchEntities(
+    theirs.map((row) => toMatch(row, capabilities.get(row.rowId) ?? [])),
+    mine.map((row) => toMatch(row, capabilities.get(row.rowId) ?? [])),
+    holder.linkRefused,
+  );
+  const now = new Date();
+  const changed: string[] = [];
+
+  for (const pair of pairs) {
+    const left = byRow.get(pair.a.rowId);
+    const right = byRow.get(pair.b.rowId);
+
+    if (left === undefined || right === undefined) {
+      continue;
+    }
+
+    const [lead, other] = leadOf(left, right, leading);
+
+    // eslint-disable-next-line no-await-in-loop -- a few rows, one after the other
+    await context.db
+      .update(schema.registry.entities)
+      .set({ linkedTo: lead.rowId, linkOrigin: pair.origin, linkedAt: now, updatedAt: now })
+      .where(eq(schema.registry.entities.id, other.rowId));
+    changed.push(lead.rowId, other.rowId);
+  }
+
+  return changed;
+}
+
+/**
  * Plans unlinking a device: the way given leaves - every other way, when it is the device the
  * house shows - and each reading linked across goes back to its own entity.
  *

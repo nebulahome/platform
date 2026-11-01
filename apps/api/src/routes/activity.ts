@@ -61,10 +61,15 @@ export function registerActivityRoutes(environment: RouteEnvironment, context: A
         await findEntities(context.db, device.entityIds),
       );
 
-      return readActivity(context.db, entities, {
-        limit: route.query.limit,
-        ...(route.query.cursor === undefined ? {} : { cursor: route.query.cursor }),
-      });
+      return readActivity(
+        context.db,
+        entities,
+        {
+          limit: route.query.limit,
+          ...(route.query.cursor === undefined ? {} : { cursor: route.query.cursor }),
+        },
+        device.linked?.ways.map((way) => way.deviceId) ?? [device.id],
+      );
     },
   );
 }

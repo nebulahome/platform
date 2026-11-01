@@ -27,6 +27,7 @@ import { forRequest } from './routes/devices.js';
 import { buildServer } from './server.js';
 import { AuditLog } from './services/audit.js';
 import { AutoAdoption } from './services/auto-adoption.js';
+import { followDescribedDevices } from './services/described-devices.js';
 import { EventFanout } from './services/events.js';
 import { createIconStore, IconService } from './services/icons.js';
 import { MaintenanceMonitor } from './services/maintenance.js';
@@ -224,6 +225,20 @@ async function start(): Promise<void> {
     autoAdoption.start(client);
   }
 
+  const described =
+    client === undefined
+      ? undefined
+      : followDescribedDevices(client, {
+          /**
+           * The collaborators, as a request would have them.
+           *
+           * @param traceId - The unit of work.
+           * @returns The context.
+           */
+          contextFor: (traceId) => forRequest(context, traceId),
+          audit: context.audit,
+        });
+
   await server.listen({ host: config.API_HOST, port: config.API_PORT });
 
   logger.info(
@@ -257,6 +272,7 @@ async function start(): Promise<void> {
         idempotency.stop();
         events.stop();
         autoAdoption.stop();
+        described?.unsubscribe();
         maintenance.stop();
         await connection?.close();
         await database.close();

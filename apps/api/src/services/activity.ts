@@ -26,6 +26,7 @@ import type { Database } from '@nebulahome/db';
 import { isPermitted } from '../auth/permissions.js';
 import { decodeCursor, toPage, type PageResult } from '../http/pagination.js';
 
+import { DESCRIBED_ACTION } from './described-devices.js';
 import type { EntityDetail } from './entities.js';
 
 /**
@@ -46,7 +47,13 @@ type ActivityRow = {
   readonly source: string;
   readonly context_type: string | null;
   readonly context_id: string | null;
+
+  /** For a device described again, what was removed and added: the audit row's details. */
+  readonly described: unknown;
 };
+
+/** One entity a device described again removed or added, as the audit row keeps it. */
+type DescribedEntity = { readonly entityId: string; readonly name: string };
 
 /**
  * Whether an entity takes part in the activity: it has something other than readings to change.
@@ -82,6 +89,38 @@ export function readableActivityEntities(
 }
 
 /**
+ * One time a device was described again, as an activity entry: `from.entities` names what was
+ * removed, `to.entities` what was added, and the entry is about the first of them.
+ *
+ * @param row - The audit row.
+ * @param described - Its details.
+ * @returns The entry.
+ */
+function describedEntry(row: ActivityRow, described: Record<string, unknown>): ActivityEntry {
+  /**
+   * One list of the details.
+   *
+   * @param key - `added` or `removed`.
+   * @returns The entities; none when the row says nothing.
+   */
+  const listOf = (key: string): DescribedEntity[] =>
+    Array.isArray(described[key]) ? (described[key] as DescribedEntity[]) : [];
+  const added = listOf('added');
+  const removed = listOf('removed');
+
+  return activityEntrySchema.parse({
+    time: new Date(row.time),
+    entityId: (added[0] ?? removed[0])?.entityId,
+    kind: 'described',
+    from: { entities: removed.map((entity) => entity.name) },
+    to: { entities: added.map((entity) => entity.name) },
+    isAvailable: true,
+    wasAvailable: null,
+    source: row.source,
+  });
+}
+
+/**
  * Reads a JSON value the way the driver handed it over.
  *
  * @param value - Parsed already, or the column's text.
@@ -102,17 +141,22 @@ function jsonOf(value: unknown): unknown {
  * The cursor holds the time as Postgres wrote it, and is handed back to Postgres to compare, so
  * no precision is lost on the way through JavaScript's milliseconds.
  *
+ * The times the device was described again - set up differently, its entities changed - come
+ * from the audit log (`device.describe`), each with what was removed and added.
+ *
  * @param db - The database.
  * @param entities - Whose activity, already narrowed to what the caller may read.
  * @param page - How many and from where.
  * @param page.limit - The page size.
  * @param page.cursor - Where the previous page ended.
+ * @param deviceIds - The device's ways in, whose times it was described again are read too.
  * @returns A page of what happened, newest first.
  */
 export async function readActivity(
   db: Database,
   entities: readonly EntityDetail[],
   page: { limit: number; cursor?: string },
+  deviceIds: readonly string[] = [],
 ): Promise<PageResult<ActivityEntry>> {
   if (entities.length === 0) {
     return { items: [] };
@@ -123,43 +167,76 @@ export async function readActivity(
     entities.map((entity) => sql`${entity.rowId}::uuid`),
     sql`, `,
   );
+  const ways =
+    deviceIds.length === 0
+      ? sql`NULL::text`
+      : sql.join(
+          deviceIds.map((id) => sql`${id}`),
+          sql`, `,
+        );
   const cursor = page.cursor === undefined ? undefined : decodeCursor(page.cursor);
   const after =
     cursor === undefined
       ? sql``
-      : sql`AND (s.time, s.entity_id) < (${cursor.key}::timestamptz, ${cursor.id ?? ''}::uuid)`;
+      : sql`WHERE (u.time, u.entity_row_id) < (${cursor.key}::timestamptz, ${cursor.id ?? ''}::uuid)`;
 
   const result = await db.execute<ActivityRow>(sql`
     SELECT
-      s.time::text AS time,
-      s.entity_id AS entity_row_id,
-      s.state,
-      s.previous_state,
-      s.is_available,
-      p.is_available AS was_available,
-      s.source,
-      s.context_type,
-      s.context_id
-    FROM history.state_history s
-    LEFT JOIN LATERAL (
-      SELECT q.is_available
-      FROM history.state_history q
-      WHERE q.entity_id = s.entity_id AND q.time < s.time
-      ORDER BY q.time DESC
-      LIMIT 1
-    ) p ON true
-    WHERE s.entity_id IN (${rowIds})
-      ${after}
-      AND (
-        s.state IS DISTINCT FROM s.previous_state
-        OR p.is_available IS DISTINCT FROM s.is_available
-      )
-    ORDER BY s.time DESC, s.entity_id DESC
+      u.time::text AS time,
+      u.entity_row_id,
+      u.state,
+      u.previous_state,
+      u.is_available,
+      u.was_available,
+      u.source,
+      u.context_type,
+      u.context_id,
+      u.described
+    FROM (
+      SELECT
+        s.time,
+        s.entity_id AS entity_row_id,
+        s.state,
+        s.previous_state,
+        s.is_available,
+        p.is_available AS was_available,
+        s.source,
+        s.context_type,
+        s.context_id,
+        NULL::jsonb AS described
+      FROM history.state_history s
+      LEFT JOIN LATERAL (
+        SELECT q.is_available
+        FROM history.state_history q
+        WHERE q.entity_id = s.entity_id AND q.time < s.time
+        ORDER BY q.time DESC
+        LIMIT 1
+      ) p ON true
+      WHERE s.entity_id IN (${rowIds})
+        AND (
+          s.state IS DISTINCT FROM s.previous_state
+          OR p.is_available IS DISTINCT FROM s.is_available
+        )
+      UNION ALL
+      SELECT a.time, a.id, '{}'::jsonb, NULL, true, NULL, a.resource_id, NULL, NULL, a.details
+      FROM system.audit_log a
+      WHERE a.action = ${DESCRIBED_ACTION}
+        AND a.resource_type = 'device'
+        AND a.resource_id IN (${ways})
+    ) u
+    ${after}
+    ORDER BY u.time DESC, u.entity_row_id DESC
     LIMIT ${page.limit + 1}
   `);
 
   const rows = [...result];
   const entries = rows.map((row) => {
+    const described = jsonOf(row.described);
+
+    if (described !== null && typeof described === 'object') {
+      return describedEntry(row, described as Record<string, unknown>);
+    }
+
     const from = jsonOf(row.previous_state);
     const to = jsonOf(row.state);
     const isStateChange = JSON.stringify(from ?? null) !== JSON.stringify(to ?? null);
