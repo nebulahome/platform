@@ -250,23 +250,30 @@ export class DeviceBook {
   }
 
   /**
-   * Reads what a message says about its device's firmware, when it says something new.
+   * Reads what a message says about its device: its firmware, when it says something new, and how
+   * it is set up, whenever it says.
    *
-   * New since the last time this book heard it, not new to the registry: the first message
-   * after a start is always new here, and `core` - which holds what the row says - decides
-   * whether it changed anything. After that, a device repeating the same versions in every
-   * status is not asked about again.
+   * The firmware is new since the last time this book heard it, not new to the registry: the
+   * first message after a start is always new here, and `core` - which holds what the row says -
+   * decides whether it changed anything. After that, a device repeating the same versions in
+   * every status is not asked about again.
    *
    * @param integration - The integration that owns these devices.
    * @param options - The instance's settings.
    * @param message - What arrived.
-   * @returns What it says, or undefined when it says nothing new or belongs to nobody here.
+   * @returns The firmware, and the claim with the descriptor the device says it is now - `isNew`
+   * when that is not the claim's; undefined when it says neither or belongs to nobody here.
    */
   public infoOf(
     integration: Integration,
     options: JsonObject,
     message: TransportInbound,
-  ): DeviceInfo | undefined {
+  ):
+    | {
+        readonly firmware?: DeviceInfo;
+        readonly setUp?: { readonly claim: Claim; readonly isNew: boolean };
+      }
+    | undefined {
     const binding = this.#byDeviceKey.get(message.deviceKey);
 
     if (binding === undefined || integration.deviceInfo === undefined) {
@@ -279,15 +286,30 @@ export class DeviceBook {
       return undefined;
     }
 
-    const heard = JSON.stringify(info);
+    const { descriptor, ...firmware } = info;
+    const heard = JSON.stringify(firmware);
+    const isFirmwareNew =
+      Object.keys(firmware).length > 0 && this.#info.get(message.deviceKey) !== heard;
 
-    if (this.#info.get(message.deviceKey) === heard) {
+    if (!isFirmwareNew && descriptor === undefined) {
       return undefined;
     }
 
-    this.#info.set(message.deviceKey, heard);
+    if (isFirmwareNew) {
+      this.#info.set(message.deviceKey, heard);
+    }
 
-    return info;
+    return {
+      ...(isFirmwareNew ? { firmware } : {}),
+      ...(descriptor === undefined
+        ? {}
+        : {
+            setUp: {
+              claim: { ...binding.claim, descriptor },
+              isNew: JSON.stringify(descriptor) !== JSON.stringify(binding.claim.descriptor),
+            },
+          }),
+    };
   }
 
   /**

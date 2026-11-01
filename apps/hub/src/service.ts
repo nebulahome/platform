@@ -37,6 +37,7 @@ import {
   busSubjects,
   ConflictError,
   CORE_DEVICE_INFO_METHOD,
+  CORE_REGISTER_METHOD,
   CORE_SERVICE,
   deviceEventSchema,
   deviceInfoReplySchema,
@@ -50,6 +51,7 @@ import {
   MQTT_HOUSE_TRANSPORT,
   MQTT_VENDOR,
   NotFoundError,
+  registerDeviceReplySchema,
   serialDeviceConfigSchema,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
@@ -71,6 +73,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 import {
   findVendorFolder,
   Registry,
+  type Claim,
   type DeviceInfo,
   type Integration,
   type PlatformServices,
@@ -91,7 +94,8 @@ import {
   type HubConfig,
 } from './config.js';
 import { createMdnsSource, type MdnsSource } from './discovery/mdns-source.js';
-import { DeviceBook } from './domain/devices.js';
+import { DeviceBook, describeDevice } from './domain/devices.js';
+import { SetUpWaits } from './domain/set-up-waits.js';
 import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
 import { InfraredBroker } from './infrared/broker.js';
@@ -102,7 +106,7 @@ import { ModbusPool } from './modbus/client.js';
 import { MqttBroker } from './mqtt/broker.js';
 import { databaseAccountStore } from './persistence/accounts.js';
 import { databaseBluetoothStore, loadBluetoothInstances } from './persistence/bluetooth.js';
-import { loadBinding, loadDeviceName, loadExternalId } from './persistence/devices.js';
+import { configOf, loadBinding, loadDeviceName, loadExternalId } from './persistence/devices.js';
 import { databaseInfraredStore } from './persistence/infrared.js';
 import {
   loadInstance,
@@ -237,6 +241,9 @@ export class HubService {
   readonly #transports = new Registry<Transport>('transport');
   readonly #vendors = new Map<string, LoadedVendor>();
   readonly #running = new Map<string, RunningInstance>();
+
+  /** The devices saying they are set up differently, waited on before they are described again. */
+  readonly #setUps = new SetUpWaits();
   readonly #client: BusClient;
   readonly #pool: ConnectionPool;
   readonly #identification: IdentificationService;
@@ -1856,6 +1863,7 @@ export class HubService {
    */
   async #stopInstance(id: string): Promise<void> {
     await this.#stopListening([id]);
+    this.#setUps.drop(id);
 
     const running = this.#running.get(id);
 
@@ -2273,9 +2281,70 @@ export class HubService {
 
       const info = running.book.infoOf(running.integration, running.instance.options, message);
 
-      if (info !== undefined) {
-        void this.#reportInfo(running.instance.id, info);
+      if (info?.firmware !== undefined) {
+        void this.#reportInfo(running.instance.id, info.firmware);
       }
+
+      if (info?.setUp !== undefined) {
+        const instanceId = running.instance.id;
+
+        this.#setUps.follow(instanceId, info.setUp.claim, info.setUp.isNew, (claim) => {
+          void this.#describeAgain(instanceId, claim);
+        });
+      }
+    }
+  }
+
+  /**
+   * Describes a device again from what it says it is now: `core` keeps the entities still
+   * described, removes the others and adds the new ones, and the instance starts again bound to
+   * the new claim.
+   *
+   * @param instanceId - The instance, which is the device's id.
+   * @param claim - The claim to describe it from.
+   * @returns A promise that settles once done, or said why not.
+   */
+  async #describeAgain(instanceId: string, claim: Claim): Promise<void> {
+    const running = this.#running.get(instanceId);
+    const { logger } = this.#options;
+
+    if (running === undefined) {
+      return;
+    }
+
+    try {
+      const { descriptor, registrations } = describeDevice(
+        instanceId,
+        running.integration,
+        claim,
+        running.instance.options,
+      );
+
+      if (registrations.length === 0) {
+        logger.warn(
+          { instanceId },
+          'A device set up differently describes no entity: left as it was',
+        );
+
+        return;
+      }
+
+      await this.#client.request(
+        busSubjects.service(CORE_SERVICE, CORE_REGISTER_METHOD),
+        {
+          integrationId: instanceId,
+          externalId: descriptor.externalId,
+          ...(descriptor.model === undefined ? {} : { model: descriptor.model }),
+          config: configOf(claim),
+          entities: registrations,
+          replacesEntities: true,
+        },
+        registerDeviceReplySchema,
+      );
+      logger.info({ instanceId }, 'A device was set up differently: described it again');
+      await this.reloadInstance(instanceId);
+    } catch (error: unknown) {
+      logger.warn({ err: error, instanceId }, 'Could not describe a device set up differently');
     }
   }
 

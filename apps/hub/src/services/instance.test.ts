@@ -250,9 +250,44 @@ describe('startInstanceServices', () => {
         },
       );
 
-    expect(heard('1.0')).toEqual({ swVersion: '1.0' });
+    expect(heard('1.0')).toEqual({ firmware: { swVersion: '1.0' } });
     expect(heard('1.0')).toBeUndefined();
-    expect(heard('1.1')).toEqual({ swVersion: '1.1' });
+    expect(heard('1.1')).toEqual({ firmware: { swVersion: '1.1' } });
+    stop();
+  });
+
+  it('says how a device is set up whenever it says, and whether that is not its claim', () => {
+    const { book, stop } = harness();
+    const switching: Integration = {
+      ...relay(),
+      deviceInfo: (message) => {
+        const { mode } = message.payload as { mode?: string };
+
+        return mode === undefined
+          ? undefined
+          : { descriptor: { device: { id: 'relay-one' }, relay: {}, mode } };
+      },
+    };
+    const said = (payload: object): unknown =>
+      book.infoOf(
+        switching,
+        {},
+        { connectionKey: 'http:192.168.1.40', deviceKey: '192.168.1.40', payload },
+      );
+
+    expect(said({ relay: { on: true } })).toBeUndefined();
+    expect(said({ mode: 'cover' })).toEqual({
+      setUp: {
+        claim: {
+          deviceKey: '192.168.1.40',
+          externalId: 'relay-one',
+          descriptor: { device: { id: 'relay-one' }, relay: {}, mode: 'cover' },
+        },
+        isNew: true,
+      },
+    });
+    // Said twice, still said: the hub, not the book, decides when it is taken.
+    expect(said({ mode: 'cover' })).toMatchObject({ setUp: { isNew: true } });
     stop();
   });
 
