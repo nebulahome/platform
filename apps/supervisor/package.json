@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/supervisor",
-  "version": "2026.10.0-alpha.37",
+  "version": "2026.10.0-alpha.38",
   "private": true,
   "type": "module",
   "scripts": {
