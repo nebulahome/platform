@@ -120,7 +120,11 @@ function EntityHealth(props: { readonly view: EntityPageView; readonly ways: Ent
       <HealthCard
         label={t('entity.entity.availability', 'Availability')}
         tone={reading.isAvailable ? 'success' : 'warning'}
-        value={reading.isAvailable ? 'Reporting' : 'Unreachable'}
+        value={
+          reading.isAvailable
+            ? t('entity.entity.reporting', 'Reporting')
+            : t('entity.entity.unreachable', 'Unreachable')
+        }
         detail={
           reading.isAvailable
             ? ways?.active == null

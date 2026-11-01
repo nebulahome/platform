@@ -71,9 +71,11 @@ Use these words, the same way everywhere.
 | home / house       | casa          |
 | integration        | integrazione  |
 | package            | pacchetto     |
+| reporting          | in linea      |
 | room               | stanza        |
 | scene              | scena         |
 | setting            | impostazione  |
+| silent (a way)     | non risponde  |
 | sign in / sign out | accedi / esci |
 | tag                | tag           |
 | trigger            | attivazione   |
