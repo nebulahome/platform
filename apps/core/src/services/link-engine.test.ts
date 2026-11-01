@@ -190,6 +190,39 @@ describe('LinkEngine', () => {
     });
   });
 
+  it('reads a freshly linked way from what it said on its own, before it speaks again', () => {
+    const before = [harness.directory.get(plug), harness.directory.get(plugMatter)].filter(
+      (record): record is EntityRecord => record !== undefined,
+    );
+
+    harness.directory.set(entityRecord(plug, { source: 'shelly-plug' }));
+    harness.directory.set(entityRecord(plugMatter, { source: 'matter-plug' }));
+    engine.resync(before);
+    harness.registry.apply(
+      { entityId: plugMatter, state: { on_off: { isOn: false } } },
+      { source: 'matter-plug' },
+    );
+
+    const unlinked = [harness.directory.get(plug), harness.directory.get(plugMatter)].filter(
+      (record): record is EntityRecord => record !== undefined,
+    );
+
+    for (const record of before) {
+      harness.directory.set(record);
+    }
+
+    engine.resync(unlinked);
+
+    expect(engine.sourcesOf(plug)).toMatchObject([
+      { source: 'shelly-plug', state: undefined },
+      { source: 'matter-plug', isActive: true, state: { isAvailable: true } },
+    ]);
+    expect(harness.registry.get(plug)).toMatchObject({
+      state: { on_off: { isOn: false } },
+      source: 'matter-plug',
+    });
+  });
+
   it('gives an unlinked entity back what its adapter last said', () => {
     say(plug, { state: { on_off: { isOn: true } } });
     say(plugMatter, { state: { on_off: { isOn: false } } });

@@ -27,7 +27,7 @@ import {
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
-import type { EntityDirectory, EntityRecord } from '../domain/entity-directory.js';
+import { isLinked, type EntityDirectory, type EntityRecord } from '../domain/entity-directory.js';
 import { EntityRegistry } from '../domain/entity-registry.js';
 
 import { ingestReport, type LinkRouter, type StateIngestOptions } from './state-ingest.js';
@@ -233,6 +233,14 @@ export class LinkEngine implements LinkRouter {
 
       if (record === undefined) {
         continue;
+      }
+
+      const own = registry.get(record.entityId);
+
+      if (!isLinked(previous) && isLinked(record) && own !== undefined) {
+        // Freshly linked: what it said on its own is what this way last said. A transport that
+        // hands on only a change (a cloud read every ten minutes) would otherwise stay silent.
+        this.#raw.seed({ ...own, source: record.source });
       }
 
       if (record.linkedTo !== undefined) {
