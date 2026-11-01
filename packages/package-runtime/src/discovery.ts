@@ -48,7 +48,7 @@ import type { AccountHandle } from './account.js';
 import { bundlePathSchema } from './bundle.js';
 import { conditionHolds, resolvePath } from './evaluate.js';
 import { pathSchema } from './expression.js';
-import { claimConditionSchema } from './profile.js';
+import { claimConditionSchema, type ClaimCondition } from './profile.js';
 import type { BundleSdk } from './sdk.js';
 
 /** An mDNS service type, as announcements carry it: `_shelly._tcp`, `_ewelink._tcp`. */
@@ -225,17 +225,53 @@ export const modbusDiscoverySchema = brokerDiscoverySchema('values.model').exten
  */
 export const serialDiscoverySchema = brokerDiscoverySchema('product');
 
+/** How many rule sets a vendor's `bluetooth` block may list. */
+const MAXIMUM_RULE_SETS = 4;
+
+/**
+ * Some bytes of the hex at a path, read as a model: `bytes` is `[start, length]`, a start below
+ * zero counted from the end, and `mask` is ANDed with every byte. What it reads is the bytes in
+ * lower-case hex - `48` for a model letter `H` - and nothing when the data is shorter.
+ */
+const bytePlaceSchema = z.strictObject({
+  path: pathSchema,
+  bytes: z.tuple([z.int().min(-32).max(31), z.int().min(1).max(8)]),
+  mask: z.int().min(0).max(255).optional(),
+});
+
+/** Where an advertisement says its model: a path, or some of the bytes at one. */
+const modelPlaceSchema = z.union([pathSchema, bytePlaceSchema]);
+
+/** One way a vendor's devices advertise: the rules on it, and where it says its model. */
+const bluetoothRulesSchema = z.strictObject({
+  /** Every condition must hold. All-of, and at least one: a vendor does not take every device. */
+  match: z.array(claimConditionSchema).min(1).max(MAXIMUM_MATCH),
+
+  /** Where the device says its model; several are tried in order. */
+  model: z.union([modelPlaceSchema, z.array(modelPlaceSchema).min(1).max(4)]).default('name'),
+});
+
+/** Where an advertisement says its model. */
+export type ModelPlace = z.output<typeof modelPlaceSchema>;
+
 /**
  * Which of the devices the house's Bluetooth hears are the vendor's: rules on one advertisement (a
  * {@link BluetoothSighting}) - its `name`; `manufacturerData.'<company id>'`, the id in decimal,
  * that `exists` or `startsWith` the data's first bytes in hex; `serviceUuids`, which `contains` a
  * UUID in lower case; `serviceData.'<uuid>'`, that `exists`. The model is `name` unless said, in
- * the drivers on the `bluetooth` transport.
+ * the drivers on the `bluetooth` transport, or some bytes of the data: `{ "path", "bytes": [start,
+ * length], "mask" }`.
+ *
+ * One rule set, or a list of up to four for a vendor whose devices advertise in more than one way:
+ * the first whose rules hold is the one whose model is read. Of several places for the model, the
+ * first that reads a code one of the vendor's drivers maps is the model.
  *
  * A device the rules take is listed as found for the vendor, and added only by the owner: what a
  * neighbour's sensor advertises is heard as well as the house's own.
  */
-export const bluetoothDiscoverySchema = brokerDiscoverySchema('name');
+export const bluetoothDiscoverySchema = z
+  .union([bluetoothRulesSchema, z.array(bluetoothRulesSchema).min(1).max(MAXIMUM_RULE_SETS)])
+  .transform((rules) => (Array.isArray(rules) ? rules : [rules]));
 
 /** Which of a broker's devices are the vendor's. */
 export type BrokerDiscovery = z.output<typeof matterDiscoverySchema>;
@@ -623,9 +659,73 @@ export function associateModel(
  * @returns True when the vendor has the broker's block and every one of its conditions holds.
  */
 export function matchesBroker(plan: DiscoveryPlan, broker: RuleSource, identity: unknown): boolean {
-  return (
-    plan.discovery[broker]?.match.every((condition) => conditionHolds(condition, identity)) ?? false
-  );
+  return rulesOf(plan, broker).some((rules) => holds(rules, identity));
+}
+
+/** One set of a broker block's rules: Bluetooth may list several, the others have one. */
+type BrokerRules = {
+  readonly match: readonly ClaimCondition[];
+  readonly model: ModelPlace | ModelPlace[];
+};
+
+/**
+ * The rule sets of the vendor's block for a broker.
+ *
+ * @param plan - The vendor's discovery.
+ * @param broker - Which broker.
+ * @returns Bluetooth's list, the one block of another broker, or none without a block.
+ */
+function rulesOf(plan: DiscoveryPlan, broker: RuleSource): readonly BrokerRules[] {
+  const block = plan.discovery[broker];
+
+  return block === undefined ? [] : Array.isArray(block) ? block : [block];
+}
+
+/**
+ * Whether every condition of a rule set holds.
+ *
+ * @param rules - The rule set.
+ * @param identity - Who the device says it is.
+ * @returns True when they all hold.
+ */
+function holds(rules: BrokerRules, identity: unknown): boolean {
+  return rules.match.every((condition) => conditionHolds(condition, identity));
+}
+
+/**
+ * Reads a model from one place.
+ *
+ * @param identity - Who the device says it is.
+ * @param place - A path, or some bytes of the hex at one.
+ * @returns The text, the bytes in lower-case hex, or null when there is none.
+ */
+function modelAt(identity: unknown, place: ModelPlace): string | null {
+  if (typeof place === 'string') {
+    return textAt(identity, place);
+  }
+
+  const hex = resolvePath(identity, place.path);
+
+  if (typeof hex !== 'string' || !/^(?:[0-9a-f]{2})+$/iu.test(hex)) {
+    return null;
+  }
+
+  const [first, length] = place.bytes;
+  const start = first < 0 ? hex.length / 2 + first : first;
+
+  if (start < 0 || (start + length) * 2 > hex.length) {
+    return null;
+  }
+
+  let text = '';
+
+  for (let at = start * 2; at < (start + length) * 2; at += 2) {
+    const byte = Number.parseInt(hex.slice(at, at + 2), 16) & (place.mask ?? 0xff);
+
+    text += byte.toString(16).padStart(2, '0');
+  }
+
+  return text;
 }
 
 /**
@@ -634,7 +734,8 @@ export function matchesBroker(plan: DiscoveryPlan, broker: RuleSource, identity:
  *
  * The model the device says is looked up in the `modelCodes` of the vendor's drivers on that
  * broker's transport - for serial, its drivers of kind `serial` - and one it does not map goes to
- * the vendor's driver there when it has only one.
+ * the vendor's driver there when it has only one. Of several places for the model, the first that
+ * reads a mapped code wins; Bluetooth reads the places of its first rule set that holds.
  *
  * @param plan - The vendor's discovery.
  * @param broker - Which broker holds the device: `matter`, `mqtt`, `serial`.
@@ -649,13 +750,23 @@ export function associateBroker(
   const drivers = plan.drivers.filter((driver) =>
     broker === 'serial' ? driver.kind === 'serial' : driver.transport === BROKER_TRANSPORTS[broker],
   );
-  const modelCode = textAt(identity, plan.discovery[broker]?.model ?? BROKER_MODELS[broker]);
-  const coded =
-    modelCode === null
-      ? []
-      : (plan.codes.get(modelCode) ?? []).filter((entry) =>
-          drivers.some((driver) => driver.id === entry.driverId),
-        );
+  const sets = rulesOf(plan, broker);
+  const places = (sets.find((rules) => holds(rules, identity)) ?? sets[0])?.model;
+  /**
+   * The vendor's drivers on the broker that map a code.
+   *
+   * @param code - What the device says its model is.
+   * @returns Their entries.
+   */
+  const codedOf = (code: string) =>
+    (plan.codes.get(code) ?? []).filter((entry) =>
+      drivers.some((driver) => driver.id === entry.driverId),
+    );
+  const read = (Array.isArray(places) ? places : [places ?? BROKER_MODELS[broker]])
+    .map((place) => modelAt(identity, place))
+    .filter((code) => code !== null);
+  const modelCode = read.find((code) => codedOf(code).length > 0) ?? read[0] ?? null;
+  const coded = modelCode === null ? [] : codedOf(modelCode);
   const [first] = coded;
 
   if (first !== undefined) {

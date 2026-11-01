@@ -669,7 +669,7 @@ describe('devices the house’s Bluetooth hears', () => {
   };
 
   it('reads the model from `name` unless said', () => {
-    expect(plan.discovery.bluetooth?.model).toBe('name');
+    expect(plan.discovery.bluetooth?.[0]?.model).toBe('name');
   });
 
   it('takes an advertisement by its maker’s data, the driver by the name it gives', () => {
@@ -702,5 +702,73 @@ describe('devices the house’s Bluetooth hears', () => {
       true,
     );
     expect(matchesBroker(bthome, 'bluetooth', advert)).toBe(false);
+  });
+
+  it('reads a model from the bytes of the first rule set that holds', () => {
+    const plugs = resolveDiscovery(
+      'acme-ble',
+      vendorDiscoverySchema.parse({
+        bluetooth: [
+          {
+            match: [{ path: "serviceData.'fd3d'", exists: true }],
+            model: [
+              { path: "serviceData.'fd3d'", bytes: [-4, 4] },
+              { path: "serviceData.'fd3d'", bytes: [0, 1], mask: 0x7f },
+            ],
+          },
+          {
+            match: [{ path: "serviceData.'0d00'", exists: true }],
+            model: { path: "serviceData.'0d00'", bytes: [0, 1], mask: 0x7f },
+          },
+        ],
+      }),
+      [
+        {
+          id: 'plug',
+          name: 'Plug',
+          kind: 'bluetooth',
+          transport: 'bluetooth',
+          models: ['Bot', 'Hub 3'],
+          modelCodes: { '48': 'Bot', '0010b940': 'Hub 3' },
+        },
+        {
+          id: 'other',
+          name: 'Other',
+          kind: 'bluetooth',
+          transport: 'bluetooth',
+          models: ['Other'],
+        },
+      ],
+    );
+    const bot = { ...advert, serviceData: { fd3d: 'c8' } };
+
+    expect(matchesBroker(plugs, 'bluetooth', { ...advert, serviceData: { '0d00': '48' } })).toBe(
+      true,
+    );
+    expect(matchesBroker(plugs, 'bluetooth', advert)).toBe(false);
+    // A one-byte advert has no four bytes at its end: the masked letter is the model.
+    expect(associateBroker(plugs, 'bluetooth', bot)?.model).toBe('Bot');
+    expect(
+      associateBroker(plugs, 'bluetooth', { ...advert, serviceData: { '0d00': 'C8' } }),
+    ).toEqual({ driverId: 'plug', model: 'Bot', modelChoices: ['Bot'] });
+    // The four bytes at the end are a code the driver maps, so they win over the first byte.
+    expect(
+      associateBroker(plugs, 'bluetooth', { ...advert, serviceData: { fd3d: '480010b940' } })
+        ?.model,
+    ).toBe('Hub 3');
+    expect(associateBroker(plugs, 'bluetooth', { ...advert, serviceData: { fd3d: '5a' } })).toBe(
+      null,
+    );
+  });
+
+  it('refuses a byte place outside what a model can be', () => {
+    expect(
+      vendorDiscoverySchema.safeParse({
+        bluetooth: {
+          match: [{ path: 'name', exists: true }],
+          model: { path: 'name', bytes: [0, 9] },
+        },
+      }).success,
+    ).toBe(false);
   });
 });

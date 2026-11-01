@@ -595,7 +595,33 @@ sensor is heard as well as the house's own. The platform recognises BTHome senso
   `serviceUuids` (a list, read with `contains`) and `serviceData.'<uuid>'` (read with `exists`).
   UUIDs are lower case, a 16-bit one short: `fcd2`.
 - `model` - where the advertisement says its model, looked up in the `modelCodes` of the vendor's
-  drivers on the `bluetooth` transport; `name` when absent.
+  drivers on the `bluetooth` transport; `name` when absent. A model kept in a byte of the data is
+  read as `{ "path", "bytes": [start, length], "mask" }`: the bytes from `start` - counted from the
+  end when below zero - each ANDed with `mask` (0-255) when given, written in lower-case hex: the
+  letter `H` with its top bit set reads `48` with `"mask": 127`. Data shorter than the bytes reads
+  nothing. A list of up to four places is tried in order, and the first that reads a code one of
+  the drivers maps is the model.
+
+Devices that advertise in more than one way take a **list of up to four rule sets**; the first
+whose `match` holds is the one whose `model` is read:
+
+```json
+{
+  "bluetooth": [
+    {
+      "match": [{ "path": "serviceData.'fd3d'", "exists": true }],
+      "model": [
+        { "path": "serviceData.'fd3d'", "bytes": [-4, 4] },
+        { "path": "serviceData.'fd3d'", "bytes": [0, 1], "mask": 127 }
+      ]
+    },
+    {
+      "match": [{ "path": "serviceData.'0d00'", "exists": true }],
+      "model": { "path": "serviceData.'0d00'", "bytes": [0, 1], "mask": 127 }
+    }
+  ]
+}
+```
 
 A vendor may have `serial` or `bluetooth` alone, with no `listen`.
 
