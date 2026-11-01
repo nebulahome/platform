@@ -4298,6 +4298,9 @@
       "nothingMatchesTheseFilters": "Niente corrisponde a questi filtri.",
       "nothingMatchesTrimmed": "Niente corrisponde a “{{trimmed}}”."
     },
+    "quickPressButton": {
+      "pressName": "Premi {{name}}"
+    },
     "scene": {
       "reading": "Lettura…",
       "thereIsNoScene": "Non c'è nessuna scena con quell'id."

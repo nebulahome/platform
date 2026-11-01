@@ -10,8 +10,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { entityIdSchema } from '@nebulahome/contracts';
+
 import { useSession } from '@/auth/session-store';
 import {
+  commandEntity,
   fetchAreas,
   fetchDeviceActivity,
   fetchDevices,
@@ -213,6 +216,33 @@ describe('DevicePage', () => {
     expect(power.getAttribute('aria-checked')).toBe('false');
     expect(power).toHaveProperty('disabled', true);
     expect(screen.queryByRole('switch', { name: 'Nozzle temperature' })).toBeNull();
+  });
+
+  it('presses a button from its row where its reading would only say it is ready', async () => {
+    vi.mocked(fetchEntities).mockResolvedValue([
+      ...printerEntities(),
+      {
+        ...printerEntities()[1]!,
+        entityId: entityIdSchema.parse('button.bambu_lab_p1s_home'),
+        name: 'Home axes',
+        domain: 'button',
+        capabilities: [{ capability: 'button', params: {} }],
+      },
+    ]);
+    vi.mocked(commandEntity).mockResolvedValue(undefined as never);
+    renderPage('bambu-lab-p1s', ['device:write', 'entity:write', 'entity:control']);
+
+    const press = await screen.findByRole('button', { name: 'Press Home axes' });
+
+    expect(screen.queryByText('Ready')).toBeNull();
+
+    fireEvent.click(press);
+
+    await waitFor(() => {
+      expect(commandEntity).toHaveBeenCalledWith('button.bambu_lab_p1s_home', 'button', {
+        command: 'press',
+      });
+    });
   });
 
   it('shows what the channel delivers, and turns the device to reporting', async () => {

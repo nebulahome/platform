@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { EntityView } from '@nebulahome/contracts';
 import { Button, Modal } from '@nebulahome/ui';
 
 import { defineMessage, type Message, text } from '@/i18n/messages';
@@ -30,6 +31,16 @@ const ASKED_FIRST: Readonly<Record<string, Message>> = {
     'What the device is doing stops, and cannot be picked up again.',
   ),
 };
+
+/**
+ * Whether a button asks before it is pressed: one whose press cannot be taken back.
+ *
+ * @param entity - The button.
+ * @returns True when it asks.
+ */
+export function asksBeforePress(entity: EntityView): boolean {
+  return ASKED_FIRST[entity.deviceClass ?? ''] !== undefined;
+}
 
 /**
  * Renders the button control.

@@ -3,10 +3,11 @@
  *
  * The row is a link to the entity's own page, where it is controlled, read back over time and
  * configured - the whole row, because a name alone is a small target for the one thing a row
- * leads to. The switch and the spanner beside it are the exceptions, and the reason the link is
- * stretched over the row rather than wrapped around it: on and off is done from the list without
- * opening anything, the spanner opens the entity's settings over the list rather than leaving it,
- * and a button inside a link is a control nobody can reach by keyboard reliably.
+ * leads to. The switch, the press of a button entity and the spanner beside them are the
+ * exceptions, and the reason the link is stretched over the row rather than wrapped around it: on
+ * and off, and a press, are done from the list without opening anything, the spanner opens the
+ * entity's settings over the list rather than leaving it, and a button inside a link is a control
+ * nobody can reach by keyboard reliably.
  *
  * What it is reads as words - "Dimmable light", "Power sensor" - not as the capabilities it
  * declares. The tags sit under the name at full width, with their names, capped at three and a
@@ -32,8 +33,10 @@ import { AppIcon, cn, TagChip } from '@nebulahome/ui';
 import { entityKindOf } from '@/library/entity-kind';
 import { type Reading } from '@/library/entity-reading';
 import { isActiveState } from '@/library/history-series';
+import { asksBeforePress } from '@/routes/library/entity/controls/button-control';
 import { entityPath } from '@/routes/library/entity/entity-path';
 import { QuickPowerSwitch } from '@/routes/library/entity/quick-power-switch';
+import { QuickPressButton } from '@/routes/library/entity/quick-press-button';
 import { EntityStateSummary } from '@/routes/library/entity-state-summary';
 import { EntityTile } from '@/routes/library/entity-tile';
 
@@ -113,6 +116,12 @@ export function EntityRow(props: EntityRowProps) {
   const kind = entityKindOf(entity);
   const hasPower = entity.capabilities.some((entry) => entry.capability === 'on_off');
   const isOn = state.on_off?.isOn ?? false;
+  // A button reads only "Ready": where it can be pressed, the press takes the reading's place.
+  const canPress =
+    entity.capabilities.some((entry) => entry.capability === 'button') &&
+    canControl &&
+    reading.isAvailable &&
+    !asksBeforePress(entity);
   const room = entity.areaKey !== deviceAreaKey ? entity.areaName : null;
   const shownTags = tags.slice(0, TAGS_SHOWN);
   const hiddenTags = tags.length - shownTags.length;
@@ -201,9 +210,12 @@ export function EntityRow(props: EntityRowProps) {
         </span>
       ) : null}
 
-      <EntityStateSummary reading={reading} state={state} className="shrink-0 justify-end" />
+      {canPress ? null : (
+        <EntityStateSummary reading={reading} state={state} className="shrink-0 justify-end" />
+      )}
 
       <span className="flex shrink-0 items-center justify-end gap-2.5">
+        {canPress ? <QuickPressButton entityId={entity.entityId} name={entity.name} /> : null}
         {hasPower ? (
           <QuickPowerSwitch
             entityId={entity.entityId}
