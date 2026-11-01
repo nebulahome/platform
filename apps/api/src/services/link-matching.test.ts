@@ -20,6 +20,7 @@ function entity(rowId: string, fields: Partial<MatchEntity> = {}): MatchEntity {
     stateClass: 'measurement',
     matter: null,
     isMatter: false,
+    key: null,
     value: null,
     ...fields,
   };
@@ -40,6 +41,35 @@ describe('matchEntities', () => {
     expect(matchEntities([relay], [matterRelay]).pairs).toEqual([
       { a: relay, b: matterRelay, origin: 'declared' },
     ]);
+  });
+
+  it('links two controls of the vendor ways by their key, never one of another domain', () => {
+    const cloud = entity('cloud', { domain: 'cover', capabilities: ['cover'], key: 'cover' });
+    const ble = entity('ble', { domain: 'cover', capabilities: ['cover'], key: 'cover' });
+    const cloudSwitch = entity('c-switch', {
+      domain: 'switch',
+      capabilities: ['on_off'],
+      key: 'x',
+    });
+    const bleLight = entity('b-light', { domain: 'light', capabilities: ['on_off'], key: 'x' });
+
+    const result = matchEntities([cloud, cloudSwitch], [ble, bleLight]);
+
+    expect(result.pairs.map((pair) => [pair.a.rowId, pair.b.rowId, pair.origin])).toEqual([
+      ['cloud', 'ble', 'declared'],
+    ]);
+  });
+
+  it('does not link a Matter entity by its key alone', () => {
+    const relay = entity('relay', { domain: 'switch', capabilities: ['on_off'], key: 'switch:0' });
+    const matterRelay = entity('m-relay', {
+      domain: 'switch',
+      capabilities: ['on_off'],
+      key: 'switch:0',
+      isMatter: true,
+    });
+
+    expect(matchEntities([relay], [matterRelay]).pairs).toEqual([]);
   });
 
   it('links the one sensor of a kind on each side, and never two controls alike', () => {

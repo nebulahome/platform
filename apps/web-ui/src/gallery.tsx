@@ -338,6 +338,7 @@ const SAMPLE_VENDOR: IntegrationVendorView = {
   discoverySources: ['mdns'],
   adoption: 'owner',
   twins: [],
+  twinsPrefer: [],
   pairing: null,
   listener: null,
   passedOver: [],

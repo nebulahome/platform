@@ -20,6 +20,7 @@ const CATALOGUE: IntegrationVendor[] = [
     discoverySources: [],
     adoption: 'owner',
     twins: [],
+    twinsPrefer: [],
     pairing: null,
     listener: null,
     passedOver: [],

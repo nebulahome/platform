@@ -179,6 +179,13 @@ export const vendorManifestSchema = z.strictObject({
   twins: z.array(z.enum(TWIN_FACTS)).min(1).max(TWIN_FACTS.length).optional(),
 
   /**
+   * Which way into a linked device is read first, by transport, best first - `["matter",
+   * "bluetooth", "acme/cloud"]`: the way whose transport comes earliest is preferred when twins
+   * are linked, and the owner may pick another. Absent, the device the house had first is.
+   */
+  twinsPrefer: z.array(z.string().min(1).max(64)).min(1).max(8).optional(),
+
+  /**
    * Path to a `setup.json` of settings every device of this vendor shares - a cloud API key,
    * an account - relative to the bundle. Absent for the vendors whose devices are reached
    * directly, which is most of them.

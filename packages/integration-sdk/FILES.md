@@ -70,7 +70,16 @@ its `identity` reads, and its Matter identity's - and offers the owner to link t
 Matter node is added and as a suggestion on the vendor's page. Linked, it is one device with two
 ways in: its readings come the way the owner prefers, and the other way carries them while that
 one is silent. A vendor without `twins` is never offered a link. Each entity's `link` (below) says
-which of its readings is which in Matter.
+which of its readings is which in Matter, or, between two ways of the vendor's own - its cloud and
+its Bluetooth, say - which of them read the same thing.
+
+`twinsPrefer` says which way into a linked device is read first, by transport, best first:
+`["matter", "bluetooth", "switchbot/cloud"]` reads a SwitchBot through Matter while Matter answers,
+then through Bluetooth, and through the cloud last. When twins are linked, the way whose transport
+comes earliest is the one preferred, and the dialog says so before the owner confirms; the owner may
+pick another on the device's page. Without it, the device the house had first is read first.
+Commands go the same way, and to the next way when one cannot reach the device - a Bluetooth device
+only proxies hear, a cloud that does not answer.
 
 `requires` says what the vendor's devices need besides the hub, in the grammar a
 package's manifest uses (PACKAGES.md §8, Dependencies):
@@ -318,9 +327,12 @@ endpoint, the cluster and the attribute the platform's Matter mapping reads it f
 cluster and attribute of an entity it reads from several: 0 for a light). When the device is
 linked, an entity whose `matter` names a Matter entity of the twin is linked to it at once,
 whatever it is; a sensor without one is linked when exactly one Matter sensor reads the same
-thing, and a control never without one. The identity's `mac` and `serialNumber` are what the twin
-is found by: `"identity": { "externalId": "id", "mac": "mac" }`, written any way the device writes
-it.
+thing, and a control never without one. Between two ways of the vendor's own, neither of them
+Matter, two entities with the same `key` in the same domain are linked at once - a cloud's `cover`
+and the same device's Bluetooth `cover` - so a vendor reaching a device both ways gives each
+reading the same key on both. The identity's `mac` and `serialNumber` are what the twin is found
+by: `"identity": { "externalId": "id", "mac": "mac" }`, written any way the device writes it; a code
+driver says them in its `describe`.
 
 An entity may report **attributes** beside its state: `"attributes": { "endsAt":
 "pairing.endsAt" }`, each a camelCase key read the way a state field is, into a scalar. They are

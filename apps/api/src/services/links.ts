@@ -248,6 +248,7 @@ async function capabilitiesOf(
  */
 function toMatch(row: EntityRow, capabilities: readonly string[]): MatchEntity {
   const value = row.value === null ? Number.NaN : Number(row.value);
+  const hint = linkHintOf(row.config);
 
   return {
     rowId: row.rowId,
@@ -257,8 +258,9 @@ function toMatch(row: EntityRow, capabilities: readonly string[]): MatchEntity {
     deviceClass: row.deviceClass,
     unit: row.unit,
     stateClass: row.stateClass,
-    matter: linkHintOf(row.config).matter,
+    matter: hint.matter,
     isMatter: row.instanceTransport === MATTER_TRANSPORT,
+    key: hint.key,
     value: Number.isFinite(value) ? value : null,
   };
 }
@@ -528,6 +530,11 @@ async function planDeviceLink(
     context.db,
     pairs.flatMap(({ lead }) => lead),
   );
+  const preferred = await preferredWayOf(
+    context,
+    ways.find((way) => way.id === holder.preferredTransport) ?? holder,
+    joining,
+  );
 
   const preview = linkPreviewSchema.parse({
     action: 'link',
@@ -541,10 +548,9 @@ async function planDeviceLink(
     })),
     single: single.map((row) => sideOf(row, used)),
     preferred: {
-      deviceId: holder.preferredTransport ?? holder.id,
-      vendorId: vendorIdOf(holder.kind),
-      transport:
-        ways.find((way) => way.id === holder.preferredTransport)?.transport ?? holder.transport,
+      deviceId: preferred.id,
+      vendorId: vendorIdOf(preferred.kind),
+      transport: preferred.transport,
     },
     linkedSince: null,
   });
@@ -569,7 +575,7 @@ async function planDeviceLink(
           .where(eq(devices.id, joining.rowId));
         await tx
           .update(devices)
-          .set({ preferredTransport: holder.preferredTransport ?? holder.id, updatedAt: now })
+          .set({ preferredTransport: preferred.id, updatedAt: now })
           .where(eq(devices.id, holder.rowId));
 
         for (const { lead, origin } of pairs) {
@@ -600,6 +606,55 @@ async function planDeviceLink(
       return pairs.flatMap(({ lead }) => lead.map((row) => row.rowId));
     },
   };
+}
+
+/**
+ * The way a linked device is read through first: the one already preferred, unless the vendor
+ * ranks the joining way's transport higher (`twinsPrefer`).
+ *
+ * @param context - The request's collaborators.
+ * @param current - The way preferred now.
+ * @param joining - The way being linked.
+ * @returns The way to prefer.
+ */
+async function preferredWayOf(
+  context: IntegrationsContext,
+  current: WayRow,
+  joining: WayRow,
+): Promise<WayRow> {
+  const vendor = (await catalogueIfUp(context)).find(
+    (each) => each.id === vendorIdOf(current.kind),
+  );
+
+  return rankedWay(current, joining, vendor?.twinsPrefer ?? []);
+}
+
+/**
+ * Of two ways, the one whose transport the vendor ranks higher; the current one on a tie.
+ *
+ * @param current - The way preferred now.
+ * @param joining - The way being linked.
+ * @param prefer - The vendor's transports, best first.
+ * @returns The way to prefer.
+ */
+export function rankedWay<T extends Pick<WayRow, 'transport'>>(
+  current: T,
+  joining: T,
+  prefer: readonly string[],
+): T {
+  /**
+   * Where a way's transport stands in the vendor's order.
+   *
+   * @param way - The way.
+   * @returns Its place; infinity when the vendor does not rank it.
+   */
+  const rank = (way: T): number => {
+    const index = prefer.indexOf(way.transport);
+
+    return index === -1 ? Number.POSITIVE_INFINITY : index;
+  };
+
+  return rank(joining) < rank(current) ? joining : current;
 }
 
 /**

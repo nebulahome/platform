@@ -282,6 +282,7 @@ function vendorOf(
     ],
     adoption: vendor.discovery?.plan.discovery.adopt ?? 'owner',
     twins: manifest.twins ?? [],
+    twinsPrefer: manifest.twinsPrefer ?? [],
     pairing:
       pairing === undefined
         ? null

@@ -191,6 +191,7 @@ export function aVendor(overrides: Partial<IntegrationVendorView> = {}): Integra
     discoverySources: [],
     adoption: 'owner',
     twins: ['mac'],
+    twinsPrefer: [],
     pairing: null,
     listener: null,
     passedOver: [],

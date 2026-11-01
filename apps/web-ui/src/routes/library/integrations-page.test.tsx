@@ -112,6 +112,7 @@ function vendor(overrides: Partial<IntegrationVendorView>): IntegrationVendorVie
     discoverySources: [],
     adoption: 'owner',
     twins: [],
+    twinsPrefer: [],
     pairing: null,
     listener: null,
     passedOver: [],

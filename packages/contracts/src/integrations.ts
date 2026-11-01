@@ -511,6 +511,9 @@ export const integrationVendorSchema = z.object({
    */
   twins: z.array(z.enum(TWIN_FACTS)).max(TWIN_FACTS.length).default([]),
 
+  /** Which way into a linked device is read first, by transport, best first; empty when it says none. */
+  twinsPrefer: z.array(z.string().min(1).max(64)).max(8).default([]),
+
   /** The entities pairing is run by, for a vendor whose devices are paired through one of its own. */
   pairing: vendorPairingSchema.nullable().default(null),
 

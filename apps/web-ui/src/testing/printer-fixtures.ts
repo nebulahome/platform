@@ -103,6 +103,7 @@ export const VENDORS: IntegrationVendorView[] = ['bambu-lab', 'shelly'].map((id)
   discoverySources: [],
   adoption: 'owner',
   twins: [],
+  twinsPrefer: [],
   pairing: null,
   listener: null,
   passedOver: [],

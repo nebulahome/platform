@@ -4,7 +4,9 @@
  * Linking a device links its readings, in three passes, each taking only what the one before left:
  *
  * 1. **Declared.** An entity whose bundle says where its reading sits in Matter is linked to the
- *    Matter entity that sits there, whatever it is - a relay as much as a meter.
+ *    Matter entity that sits there, whatever it is - a relay as much as a meter; and two entities
+ *    of the vendor's own ways (its cloud and its Bluetooth, neither Matter) that carry the same key
+ *    in the same domain are linked to each other.
  * 2. **Alike, one each.** A sensor is linked to the one sensor of the other way that reads the
  *    same thing - the same domain, capabilities, class, unit and accumulation - when each is the
  *    only one of its kind on its side.
@@ -32,6 +34,9 @@ export type MatchEntity = {
 
   /** Whether it is reached through Matter. */
   readonly isMatter: boolean;
+
+  /** Its key in its transport's terms, when the bundle names one. */
+  readonly key: string | null;
 
   /** What it reads now, for a numeric sensor that has said. */
   readonly value: number | null;
@@ -191,15 +196,23 @@ export function matchEntities(
     pairs.push({ a, b, origin });
   };
 
-  // 1. Declared: where one side's bundle says the reading sits in Matter, and the other sits there.
+  // 1. Declared: where one side's bundle says the reading sits in Matter, and the other sits there;
+  // or, between two ways of the vendor's own, the same key in the same domain.
   for (const a of left) {
     for (const b of right) {
-      if (
-        taken.has(a.rowId) ||
-        taken.has(b.rowId) ||
-        isRefused(a, b) ||
-        a.isMatter === b.isMatter
-      ) {
+      if (taken.has(a.rowId) || taken.has(b.rowId) || isRefused(a, b)) {
+        continue;
+      }
+
+      if (!a.isMatter && !b.isMatter) {
+        if (a.key !== null && a.key === b.key && a.domain === b.domain) {
+          take(a, b, 'declared');
+        }
+
+        continue;
+      }
+
+      if (a.isMatter === b.isMatter) {
         continue;
       }
 

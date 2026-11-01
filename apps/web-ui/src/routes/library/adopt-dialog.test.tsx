@@ -48,6 +48,7 @@ const BAMBU: IntegrationVendorView = {
   discoverySources: [],
   adoption: 'owner',
   twins: [],
+  twinsPrefer: [],
   pairing: null,
   listener: null,
   passedOver: [],
