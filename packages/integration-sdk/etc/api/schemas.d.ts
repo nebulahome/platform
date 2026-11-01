@@ -433,9 +433,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       capabilities: z.ZodRecord<z.ZodEnum<{
         number: "number";
         custom: "custom";
-        image: "image";
-        level: "level";
         on_off: "on_off";
+        level: "level";
         color_hs: "color_hs";
         color_temp: "color_temp";
         cover: "cover";
@@ -451,6 +450,7 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         lawn_mower: "lawn_mower";
         select: "select";
         vacuum: "vacuum";
+        image: "image";
       }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
       state: z.ZodRecord<z.ZodEnum<{
         number: "number";

@@ -278,9 +278,8 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
   custom: "custom";
-  image: "image";
-  level: "level";
   on_off: "on_off";
+  level: "level";
   color_hs: "color_hs";
   color_temp: "color_temp";
   cover: "cover";
@@ -296,6 +295,7 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   lawn_mower: "lawn_mower";
   select: "select";
   vacuum: "vacuum";
+  image: "image";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -1262,7 +1262,8 @@ type Integration<TOptions = JsonObject> = {
   continueCommand?: (target: CommandTarget, step: CommandStep, context: MappingContext) => TransportRequest | null;
   /**
    * Reads what a message says about the device itself, beyond its entities: the firmware it runs
-   * now, which changes when it is updated and is otherwise only known from when it was found.
+   * now, which changes when it is updated and is otherwise only known from when it was found;
+   * and how it is set up, when that decides its entities (`descriptor`).
    *
    * Optional: an integration whose messages say nothing of the kind leaves it out.
    *
@@ -1292,6 +1293,17 @@ type StreamRequest = {
 type DeviceInfo = {
   readonly swVersion?: string;
   readonly hwVersion?: string;
+  /**
+   * What the device is now, for a device whose entities depend on how it is set up - a Bot in
+   * switch or in press mode: the claim's own descriptor while it is still that, a new one to
+   * describe it from once it changed. Left out when the message does not say.
+   *
+   * A new one is taken when the device still says it thirty seconds later - a message saying
+   * the claim's own again drops it. The device is then described again: an entity
+   * described both times stays, with its history; one no longer described is removed, with its
+   * history; one described only now is added.
+   */
+  readonly descriptor?: unknown;
 };
 //#endregion
 //#region ../package-runtime/dist/stream.d.ts

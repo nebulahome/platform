@@ -394,6 +394,20 @@ A profile may also say where its reports carry the firmware the device runs now 
 device's row as it hears it, so the device page follows an update without the device being added
 again.
 
+A device whose entities depend on how it is set up - a Bot that is a switch in switch mode and a
+button in press mode, a relay that is two switches or one cover - says so through a code driver's
+`deviceInfo(message, context)`: `descriptor` is what the device is now. Return the claim's own
+descriptor (`context.claim.descriptor`) while the message shows it is still set up that way, a new
+descriptor once it shows otherwise, and leave `descriptor` out when the message does not say. A
+new one is taken when the device still says it thirty seconds later; one message saying the
+claim's own again drops it, so a misread advertisement changes nothing. The hub then describes
+the device again from the new descriptor and keeps it as the claim: entities described both times
+stay, with their history and the owner's names; one no longer described is removed, with its
+history, and an automation using it says so; one described only now is added. The device's
+Activity says what was removed and added, and on a linked device the readings of the same `key`
+are linked again. Keep an entity's `objectId` the same in every setup where it is the same thing
+(a battery), so it is never removed for nothing.
+
 The logo rides inside the catalogue the hub serves, as a data URL, so it must be an `.svg` or a
 `.png` and at most 64 KiB; anything else fails the vendor at startup. Draw a monogram in the
 vendor's colour - nobody's trademark -; the interface draws the same monogram itself for a vendor

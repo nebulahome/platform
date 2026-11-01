@@ -249,7 +249,8 @@ export type Integration<TOptions = JsonObject> = {
 
   /**
    * Reads what a message says about the device itself, beyond its entities: the firmware it runs
-   * now, which changes when it is updated and is otherwise only known from when it was found.
+   * now, which changes when it is updated and is otherwise only known from when it was found;
+   * and how it is set up, when that decides its entities (`descriptor`).
    *
    * Optional: an integration whose messages say nothing of the kind leaves it out.
    *
@@ -282,4 +283,19 @@ export type StreamRequest = {
 export type DeviceInfo = {
   readonly swVersion?: string;
   readonly hwVersion?: string;
+
+  /**
+   * What the device is now, for a device whose entities depend on how it is set up - a Bot in
+   * switch or in press mode: the claim's own descriptor while it is still that, a new one to
+   * describe it from once it changed. Left out when the message does not say.
+   *
+   * A new one is taken when the device still says it thirty seconds later - a message saying
+   * the claim's own again drops it. The device is then described again: an entity
+   * described both times stays, with its history; one no longer described is removed, with its
+   * history; one described only now is added.
+   */
+  readonly descriptor?: unknown;
 };
+
+/** How long a device must keep saying it is set up differently before it is described again. */
+export const REDESCRIBE_AFTER_MS = 30_000;

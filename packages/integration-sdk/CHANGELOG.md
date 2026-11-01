@@ -3,6 +3,17 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.9.0
+
+A device whose entities depend on how it is set up.
+
+- A code driver's `deviceInfo` may say `descriptor`: what the device is now - the claim's own
+  descriptor while it still is that, a new one once it was set up differently (a Bot switched from
+  press to switch mode in its vendor's app). When the device still says the new one thirty seconds
+  later, the hub describes it again from it: an entity described both times stays with its
+  history, one no longer described is removed with its history, one described only now is added.
+  The device's Activity says so, and the readings of a linked device are linked again.
+
 ## 1.8.0
 
 One device reached more than one way.
