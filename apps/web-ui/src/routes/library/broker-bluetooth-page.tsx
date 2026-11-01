@@ -179,6 +179,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
     },
     onError: failed(t('brokers.bluetooth.addFailed', 'Couldn’t add the device')),
   });
+  const addingAddress = add.isPending ? add.variables.address : undefined;
   const ignore = useMutation({
     /**
      * Ignores an address, or stops.
@@ -386,6 +387,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
                   setTab('scanners');
                 }}
                 onAddProxy={openAddProxy}
+                addingAddress={addingAddress}
                 onAdd={
                   canWrite
                     ? (each) => {
@@ -429,6 +431,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
                 isForwardingAll={current.isForwardingAll}
                 holdsLease={props.holdsLease ?? true}
                 {...(props.openAddress === undefined ? {} : { openAddress: props.openAddress })}
+                addingAddress={addingAddress}
                 onAdd={
                   canWrite
                     ? (item) => {

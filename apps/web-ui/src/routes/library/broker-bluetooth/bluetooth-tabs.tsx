@@ -105,6 +105,9 @@ export type BluetoothOverviewProps = {
   /** Adds a device found; absent when the person may not. */
   readonly onAdd?: ((found: BluetoothFound) => void) | undefined;
 
+  /** The address being added: its Add waits, and every other Add with it. */
+  readonly addingAddress?: string | undefined;
+
   /** Ignores an address, or stops; absent when the person may not. */
   readonly onIgnore?: ((address: string, isIgnored: boolean) => void) | undefined;
 
@@ -272,6 +275,8 @@ export function BluetoothOverview(props: BluetoothOverviewProps) {
                                 <Button
                                   variant="ghost"
                                   size="compact"
+                                  isBusy={props.addingAddress === each.address}
+                                  disabled={props.addingAddress !== undefined}
                                   onClick={() => {
                                     onAdd(each);
                                   }}

@@ -154,6 +154,9 @@ export type BluetoothNearbyViewProps = {
   /** Adds a recognised device; absent when the person may not. */
   readonly onAdd?: ((item: BluetoothNearby) => void) | undefined;
 
+  /** The address being added: its Add waits, and every other Add with it. */
+  readonly addingAddress?: string | undefined;
+
   /** Ignores an address; absent when the person may not. */
   readonly onIgnore?: ((item: BluetoothNearby) => void) | undefined;
 
@@ -487,6 +490,7 @@ export function BluetoothNearbyView(props: BluetoothNearbyViewProps) {
               }}
               onAdd={props.onAdd}
               onIgnore={props.onIgnore}
+              addingAddress={props.addingAddress}
             />
           ))}
         </ul>
@@ -526,6 +530,7 @@ function serviceText(uuid: string): string {
  * @param props.onToggle - Opens or closes it.
  * @param props.onAdd - Adds it; absent when the person may not.
  * @param props.onIgnore - Ignores it; absent when the person may not.
+ * @param props.addingAddress - The address being added, whose Add waits with every other.
  * @returns The row.
  */
 function NearbyRow(props: {
@@ -534,6 +539,7 @@ function NearbyRow(props: {
   readonly onToggle: () => void;
   readonly onAdd?: ((item: BluetoothNearby) => void) | undefined;
   readonly onIgnore?: ((item: BluetoothNearby) => void) | undefined;
+  readonly addingAddress?: string | undefined;
 }) {
   const { t } = useTranslation();
   const { item, isOpen, onAdd, onIgnore } = props;
@@ -624,6 +630,8 @@ function NearbyRow(props: {
               <Button
                 variant="ghost"
                 size="compact"
+                isBusy={props.addingAddress === item.address}
+                disabled={props.addingAddress !== undefined}
                 onClick={() => {
                   onAdd(item);
                 }}
