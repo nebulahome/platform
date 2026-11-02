@@ -2,16 +2,18 @@
  * What a round of updates reads (docs/releases-and-updates.md 4): the update settings, the parts
  * a backup takes, the house's zone, and the quietest time core learned.
  */
-import { inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
   backupSectionsSchema,
   QUIET_TIME_ENTITY_ID,
   quietTimeFromState,
+  updateChannelSchema,
   updateWindowSchema,
   type BackupSection,
   type QuietTime,
+  type UpdateChannel,
   type UpdateWindow,
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
@@ -78,6 +80,26 @@ export async function readUpdateSettings(db: Database): Promise<UpdateSettings> 
     ],
     timezone: z.string().min(1).catch('UTC').parse(value.get('house.timezone')),
   };
+}
+
+/**
+ * Reads the release channel a kind follows, `updates.channel.<kind>`: which index of the Hub its
+ * releases come from.
+ *
+ * @param db - The service's connection.
+ * @param kind - Packages or integrations.
+ * @returns The channel; stable when its row is missing or wrong.
+ */
+export async function readChannel(
+  db: Database,
+  kind: 'packages' | 'integrations',
+): Promise<UpdateChannel> {
+  const rows = await db
+    .select({ value: schema.system.settings.value })
+    .from(schema.system.settings)
+    .where(eq(schema.system.settings.key, `updates.channel.${kind}`));
+
+  return updateChannelSchema.catch('stable').parse(rows[0]?.value);
 }
 
 /**

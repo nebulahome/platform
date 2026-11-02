@@ -185,6 +185,8 @@ function newestIn(
   return releases
     .filter(
       (release) =>
+        // shortcut: a range like ^1.0.0 never takes a beta or development build of the
+        // dependency, even on those channels; widen with includePrerelease if a package needs it.
         (range === undefined || context.satisfies(release.version, range)) &&
         context.satisfies(context.platformVersion, release.platform) &&
         (sdkVersion === undefined ||

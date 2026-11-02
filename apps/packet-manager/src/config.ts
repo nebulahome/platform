@@ -21,6 +21,7 @@ import {
   secretsEnvSchema,
   urlWithScheme,
 } from '@nebulahome/config';
+import type { UpdateChannel } from '@nebulahome/contracts';
 import integrationSdk from '@nebulahome/integration-sdk/package.json' with { type: 'json' };
 
 /** Name this service reports in log records and bus envelopes. */
@@ -139,15 +140,40 @@ export const packetManagerEnvSchema = runtimeEnvSchema
 export type PacketManagerConfig = z.output<typeof packetManagerEnvSchema>;
 
 /**
+ * Where one of the Community Hub's indexes is for a release channel. The stable one keeps the
+ * address every Hub serves; betas and development builds have one each beside it.
+ *
+ * @param config - The parsed environment.
+ * @param name - `packages` or `integrations`.
+ * @param channel - The house's channel for that kind.
+ * @returns Its address; undefined when no Hub is set.
+ */
+function indexUrlOf(
+  config: Pick<PacketManagerConfig, 'COMMUNITY_HUB_URL'>,
+  name: 'packages' | 'integrations',
+  channel: UpdateChannel,
+): string | undefined {
+  if (config.COMMUNITY_HUB_URL === undefined) {
+    return undefined;
+  }
+
+  return channel === 'stable'
+    ? `${config.COMMUNITY_HUB_URL}/v1/index/${name}.json`
+    : `${config.COMMUNITY_HUB_URL}/v1/index/${channel}/${name}.json`;
+}
+
+/**
  * Where the package index is: the Community Hub's document of it.
  *
  * @param config - The parsed environment.
+ * @param channel - The house's channel for packages.
  * @returns Its address; undefined when no Hub is set.
  */
-export function packageIndexUrlOf(config: PacketManagerConfig): string | undefined {
-  return config.COMMUNITY_HUB_URL === undefined
-    ? undefined
-    : `${config.COMMUNITY_HUB_URL}/v1/index/packages.json`;
+export function packageIndexUrlOf(
+  config: Pick<PacketManagerConfig, 'COMMUNITY_HUB_URL'>,
+  channel: UpdateChannel,
+): string | undefined {
+  return indexUrlOf(config, 'packages', channel);
 }
 
 /**
@@ -169,12 +195,14 @@ export function localPackagesDirectory(config: PacketManagerConfig): string | un
  * Where the integrations index is: the Community Hub's document of it.
  *
  * @param config - The parsed environment.
+ * @param channel - The house's channel for integrations.
  * @returns Its address; undefined when no Hub is set.
  */
-export function integrationIndexUrlOf(config: PacketManagerConfig): string | undefined {
-  return config.COMMUNITY_HUB_URL === undefined
-    ? undefined
-    : `${config.COMMUNITY_HUB_URL}/v1/index/integrations.json`;
+export function integrationIndexUrlOf(
+  config: Pick<PacketManagerConfig, 'COMMUNITY_HUB_URL'>,
+  channel: UpdateChannel,
+): string | undefined {
+  return indexUrlOf(config, 'integrations', channel);
 }
 
 /**

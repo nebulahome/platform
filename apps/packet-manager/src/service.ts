@@ -695,6 +695,8 @@ export class PacketManager {
         return this.#viewOf(entry, await this.#vendors());
       }
 
+      // shortcut: a house moved to a narrower channel keeps a newer prerelease until a release of
+      // its channel passes it; offer a downgrade here if owners ask for one.
       if (release === undefined || compareVersions(release.version, entry.row.version) <= 0) {
         throw new ConflictError(
           `${entry.files.manifest.name} ${entry.row.version} is the newest release`,

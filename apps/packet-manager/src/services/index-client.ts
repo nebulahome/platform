@@ -41,8 +41,11 @@ export type IntegrationIndexRead = IndexReadOf<IntegrationIndex>;
 
 /** What a client needs. */
 export type IndexClientOptions<TEntry> = {
-  /** The index's address; undefined when none is set. */
-  readonly url: string | undefined;
+  /**
+   * The index's address; undefined when none is set. A function is asked on every read: the
+   * address follows the house's release channel, and a new one is read at once.
+   */
+  readonly url: string | undefined | (() => Promise<string | undefined>);
   readonly ttlMs: number;
   readonly logger: PlatformLogger;
   readonly fetch?: typeof fetch;
@@ -133,6 +136,7 @@ class IndexClient<TIndex, TEntry extends Versioned> {
   readonly #options: IndexClientOptions<TEntry>;
   readonly #shape: IndexShape<TIndex, TEntry>;
   #last: IndexReadOf<TIndex> = { index: null, checkedAt: null, error: null };
+  #lastUrl: string | undefined;
   #reading: Promise<IndexReadOf<TIndex>> | undefined;
 
   /**
@@ -153,8 +157,10 @@ class IndexClient<TIndex, TEntry extends Versioned> {
    * @returns What was read, and when; the last good index is kept through a failed read.
    */
   public async read(force = false): Promise<IndexReadOf<TIndex>> {
+    const { url: urlOf } = this.#options;
+    const url = typeof urlOf === 'function' ? await urlOf() : urlOf;
     const [remote, local] = await Promise.all([
-      this.#remote(force),
+      this.#remote(url, force),
       this.#options.local?.() ?? Promise.resolve([]),
     ]);
     const at = new Date((this.#options.now ?? Date.now)());
@@ -163,25 +169,32 @@ class IndexClient<TIndex, TEntry extends Versioned> {
       index: withLocal(this.#shape, remote.index, local, at),
       checkedAt: remote.checkedAt ?? at,
       // An index never set is no problem while the local folder offers something.
-      error: this.#options.url === undefined && local.length > 0 ? null : remote.error,
+      error: url === undefined && local.length > 0 ? null : remote.error,
     };
   }
 
   /**
-   * The index alone, read again when it is older than the trust.
+   * The index alone, read again when it is older than the trust or its address changed.
    *
+   * @param url - Its address now.
    * @param force - Whether to read it whatever its age.
    * @returns What was read.
    */
-  async #remote(force: boolean): Promise<IndexReadOf<TIndex>> {
+  async #remote(url: string | undefined, force: boolean): Promise<IndexReadOf<TIndex>> {
     const now = (this.#options.now ?? Date.now)();
     const checkedAt = this.#last.checkedAt?.getTime();
 
-    if (!force && checkedAt !== undefined && now - checkedAt < this.#options.ttlMs) {
+    if (url !== this.#lastUrl) {
+      // Another channel's index is never kept as the last good one: a house moved from dev to
+      // stable must not be offered a development build when the stable index cannot be read.
+      this.#last = { index: null, checkedAt: null, error: null };
+      this.#lastUrl = url;
+      this.#reading = undefined;
+    } else if (!force && checkedAt !== undefined && now - checkedAt < this.#options.ttlMs) {
       return this.#last;
     }
 
-    this.#reading ??= this.#fetch().finally(() => {
+    this.#reading ??= this.#fetch(url).finally(() => {
       this.#reading = undefined;
     });
 
@@ -191,46 +204,48 @@ class IndexClient<TIndex, TEntry extends Versioned> {
   /**
    * Reads the index.
    *
+   * @param url - Its address.
    * @returns What was read.
    */
-  async #fetch(): Promise<IndexReadOf<TIndex>> {
-    const { url, logger } = this.#options;
+  async #fetch(url: string | undefined): Promise<IndexReadOf<TIndex>> {
+    const { logger } = this.#options;
     const { label } = this.#shape;
     const at = new Date((this.#options.now ?? Date.now)());
 
+    let read: IndexReadOf<TIndex>;
+
     if (url === undefined) {
-      this.#last = {
-        index: null,
-        checkedAt: at,
-        error: 'No Community Hub is set: COMMUNITY_HUB_URL',
-      };
+      read = { index: null, checkedAt: at, error: 'No Community Hub is set: COMMUNITY_HUB_URL' };
+    } else {
+      try {
+        const response = await (this.#options.fetch ?? globalThis.fetch)(url, {
+          headers: { accept: 'application/json' },
+          signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+        });
 
-      return this.#last;
-    }
+        if (!response.ok) {
+          throw new Error(`${capitalised(label)} answered HTTP ${String(response.status)}`);
+        }
 
-    try {
-      const response = await (this.#options.fetch ?? globalThis.fetch)(url, {
-        headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
-      });
+        read = {
+          index: this.#shape.parse(await response.json(), logger),
+          checkedAt: at,
+          error: null,
+        };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
 
-      if (!response.ok) {
-        throw new Error(`${capitalised(label)} answered HTTP ${String(response.status)}`);
+        logger.warn({ err: error, url }, `Could not read ${label}`);
+        read = { index: this.#last.index, checkedAt: at, error: message };
       }
-
-      this.#last = {
-        index: this.#shape.parse(await response.json(), logger),
-        checkedAt: at,
-        error: null,
-      };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-
-      logger.warn({ err: error, url }, `Could not read ${label}`);
-      this.#last = { index: this.#last.index, checkedAt: at, error: message };
     }
 
-    return this.#last;
+    // A read of an address the channel has since left is answered, never kept.
+    if (url === this.#lastUrl) {
+      this.#last = read;
+    }
+
+    return read;
   }
 }
 

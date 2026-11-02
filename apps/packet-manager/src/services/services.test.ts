@@ -11,8 +11,10 @@ import { pathToFileURL } from 'node:url';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { UpdateChannel } from '@nebulahome/contracts';
 import { createLogger } from '@nebulahome/logging';
 
+import { packageIndexUrlOf, type PacketManagerConfig } from '../config.js';
 import { RestartPolicy } from '../domain/restart-policy.js';
 import { archiveOf, fakeRunner, manifest, scratch, writePackage } from '../testing/fixtures.js';
 
@@ -227,6 +229,41 @@ describe('the package index', () => {
 
     expect(failed.error).toMatch(/HTTP 500/u);
     expect(failed.index?.packages).toEqual([]);
+  });
+
+  it('reads the index of a new channel at once, and never keeps the old one', async () => {
+    const hub: Pick<PacketManagerConfig, 'COMMUNITY_HUB_URL'> = {
+      COMMUNITY_HUB_URL: 'https://hub.example',
+    };
+    let channel: UpdateChannel = 'dev';
+    const fetch = vi.fn(async (input: string | URL | Request) =>
+      Promise.resolve(
+        typeof input === 'string' && input.includes('/dev/')
+          ? Response.json({ generatedAt: '2026-09-29T08:00:00Z', packages: [] })
+          : new Response('nope', { status: 503 }),
+      ),
+    );
+    const client = new PackageIndexClient({
+      url: async () => Promise.resolve(packageIndexUrlOf(hub, channel)),
+      ttlMs: 60_000,
+      logger,
+      fetch,
+    });
+
+    expect((await client.read()).index?.packages).toEqual([]);
+
+    channel = 'stable';
+
+    const moved = await client.read();
+
+    expect(fetch.mock.calls.map(([input]) => input)).toEqual([
+      'https://hub.example/v1/index/dev/packages.json',
+      'https://hub.example/v1/index/packages.json',
+    ]);
+    expect(moved).toMatchObject({
+      index: null,
+      error: expect.stringMatching(/HTTP 503/u) as unknown,
+    });
   });
 
   it('says why nothing is offered when no index is set', async () => {

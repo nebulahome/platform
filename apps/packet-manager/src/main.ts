@@ -27,6 +27,7 @@ import {
 import { IntegrationManager } from './integrations/integration-manager.js';
 import { databaseHubInstallationStore } from './persistence/hub-installations.js';
 import { databasePackageStore } from './persistence/packages.js';
+import { readChannel } from './persistence/update-settings.js';
 import { PacketManager } from './service.js';
 import { CommunityHubClient } from './services/hub-client.js';
 import { HubReporter } from './services/hub-reporter.js';
@@ -123,7 +124,12 @@ async function start(): Promise<void> {
     client,
     logger,
     index: new PackageIndexClient({
-      url: packageIndexUrlOf(config),
+      /**
+       * The package index of the house's channel for packages.
+       *
+       * @returns Its address.
+       */
+      url: async () => packageIndexUrlOf(config, await readChannel(database.db, 'packages')),
       ttlMs: config.PACKET_MANAGER_INDEX_TTL_MS,
       logger,
 
@@ -146,7 +152,13 @@ async function start(): Promise<void> {
 
   const integrations = new IntegrationManager({
     index: new IntegrationIndexClient({
-      url: integrationIndexUrlOf(config),
+      /**
+       * The integrations index of the house's channel for integrations.
+       *
+       * @returns Its address.
+       */
+      url: async () =>
+        integrationIndexUrlOf(config, await readChannel(database.db, 'integrations')),
       ttlMs: config.PACKET_MANAGER_INDEX_TTL_MS,
       logger,
 
