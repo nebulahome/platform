@@ -122,6 +122,12 @@ kept as the last good one. A house moved to a narrower channel keeps a newer pre
 installed until a release of its channel passes it (no downgrade). A dependency range such as
 `^1.0.0` never takes a beta or dev build of the dependency, on any channel.
 
+Every `pkg-*` and `integration-*` repository's `release.yml` refuses a version that is not
+`X.Y.Z`, `X.Y.Z-beta.K` or `X.Y.Z-alpha.K` before it builds, and publishes the last two as GitHub
+prereleases. The old `-dev.K` builds of pkg-music and pkg-3d-home (never released) were renumbered
+on 2026-11-02 as `0.2.0-alpha.1` and `0.1.6-alpha.1`. SemVer puts those below `-dev.K`, so a house
+that had a `-dev.K` installed does not see them as an update: reinstall it once.
+
 The repository is private for now; until it is public the Nebula Home check fails and the row
 says so. The platform's own container is left out of the Docker Hub digest check, so the two never
 disagree.
