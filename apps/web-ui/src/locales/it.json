@@ -5393,8 +5393,8 @@
       "updatesWindow": "Quando girano gli aggiornamenti automatici: a un orario fisso o nel momento più tranquillo",
       "updatesBackupFirst": "Un backup prima di ogni giro di aggiornamenti, a meno che uno sia finito da pochi minuti",
       "updatesChannelCore": "Quali versioni di Nebula Home vengono proposte: stabili, anche beta, o anche build di sviluppo",
-      "updatesChannelPackages": "Quali versioni dei pacchetti vengono proposte; le beta non sono ancora pubblicate",
-      "updatesChannelIntegrations": "Quali versioni delle integrazioni vengono proposte; le beta non sono ancora pubblicate"
+      "updatesChannelPackages": "Quali versioni dei pacchetti vengono proposte: stabili, anche beta, o anche build di sviluppo",
+      "updatesChannelIntegrations": "Quali versioni delle integrazioni vengono proposte: stabili, anche beta, o anche build di sviluppo"
     },
     "forbidden": {
       "note": "Serve <0>{{permission}}</0>, che il tuo ruolo non concede. Un proprietario o un amministratore può cambiarlo.",

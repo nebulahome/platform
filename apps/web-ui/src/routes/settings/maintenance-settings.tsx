@@ -183,7 +183,6 @@ export function MaintenanceSettings() {
   const updateWindow: UpdateWindow = windowParsed.success
     ? windowParsed.data
     : { mode: 'quietest', time: '03:00' };
-  const channel = updateChannelSchema.catch('stable').parse(shown(KEYS.channelCore));
   const isDirty = Object.keys(draft).length > 0;
 
   /**
@@ -660,24 +659,11 @@ export function MaintenanceSettings() {
                     name: row.title,
                   })}
                   disabled={!canWrite}
-                  value={
-                    row.auto === null
-                      ? channel
-                      : // Betas of packages and integrations are not published yet.
-                        'stable'
-                  }
+                  value={updateChannelSchema.catch('stable').parse(shown(row.key))}
                   options={[
                     { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
-                    {
-                      value: 'beta',
-                      label: t('settingsMaintenance.beta', 'Beta'),
-                      disabled: row.auto !== null,
-                    },
-                    {
-                      value: 'dev',
-                      label: t('settingsMaintenance.dev', 'Dev'),
-                      disabled: row.auto !== null,
-                    },
+                    { value: 'beta', label: t('settingsMaintenance.beta', 'Beta') },
+                    { value: 'dev', label: t('settingsMaintenance.dev', 'Dev') },
                   ]}
                   onChange={(value) => {
                     edit(row.key, value);

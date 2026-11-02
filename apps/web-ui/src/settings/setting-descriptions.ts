@@ -103,11 +103,11 @@ const DESCRIPTIONS: Readonly<Record<string, Message>> = {
   ),
   'updates.channel.packages': defineMessage(
     'settings.descriptions.updatesChannelPackages',
-    'Which releases of packages are offered; betas are not published yet',
+    'Which releases of packages are offered: stable, betas too, or dev builds too',
   ),
   'updates.channel.integrations': defineMessage(
     'settings.descriptions.updatesChannelIntegrations',
-    'Which releases of integrations are offered; betas are not published yet',
+    'Which releases of integrations are offered: stable, betas too, or dev builds too',
   ),
   'webhooks.allow_internet': defineMessage(
     'settings.descriptions.webhooksAllowInternet',

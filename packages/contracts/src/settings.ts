@@ -275,13 +275,13 @@ export const SETTINGS = [
     key: 'updates.channel.packages',
     schema: updateChannelSchema,
     defaultValue: 'stable',
-    description: 'Which releases of packages are offered; betas are not published yet',
+    description: 'Which releases of packages are offered: stable, betas too, or dev builds too',
   },
   {
     key: 'updates.channel.integrations',
     schema: updateChannelSchema,
     defaultValue: 'stable',
-    description: 'Which releases of integrations are offered; betas are not published yet',
+    description: 'Which releases of integrations are offered: stable, betas too, or dev builds too',
   },
   {
     key: 'webhooks.allow_internet',

@@ -110,8 +110,17 @@ Settings › System › Maintenance (board `N-Settings-System`).
 | Kind         | Source                                                                                      | Channel                                             |
 | ------------ | ------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | Nebula Home  | GitHub Releases of `nebulahome/platform`, read by the supervisor every 6 h and on Check now | `updates.channel.core`: Stable, Beta or Dev         |
-| Packages     | The Community Hub's package index, read by the packet-manager                               | `updates.channel.packages`, Stable only for now     |
-| Integrations | The Community Hub's integration index                                                       | `updates.channel.integrations`, Stable only for now |
+| Packages     | The Community Hub's package index of the channel, read by the packet-manager                | `updates.channel.packages`: Stable, Beta or Dev     |
+| Integrations | The Community Hub's integration index of the channel                                        | `updates.channel.integrations`: Stable, Beta or Dev |
+
+The Hub serves one index per channel and kind: `/v1/index/packages.json` (stable, the address
+every Hub has always served), `/v1/index/beta/packages.json` and `/v1/index/dev/packages.json`, the
+same for `integrations.json`. The beta index holds stable releases and betas, the dev index
+everything. The packet-manager reads the channel setting on every read of an index, so a change
+of channel takes effect on the next read, with no restart; the index of a channel it left is never
+kept as the last good one. A house moved to a narrower channel keeps a newer prerelease it has
+installed until a release of its channel passes it (no downgrade). A dependency range such as
+`^1.0.0` never takes a beta or dev build of the dependency, on any channel.
 
 The repository is private for now; until it is public the Nebula Home check fails and the row
 says so. The platform's own container is left out of the Docker Hub digest check, so the two never
@@ -126,9 +135,8 @@ itself**: only its Update button does.
 
 The page shows them as the board does: a section "Channels and automatic updates" with one row each
 for Nebula Home, Packages and Integrations - the channel (Stable / Beta / Dev) and an Auto switch.
-Nebula Home's Auto switch is shown off and disabled; Beta and Dev of packages and integrations are
-disabled option by option until the Hub publishes them (section 5). "How updates run" keeps When and
-Back up first.
+Nebula Home's Auto switch is shown off and disabled. "How updates run" keeps When and Back up
+first.
 
 ### The quietest time
 
@@ -274,13 +282,12 @@ is `settings:write`.
 
 For packages and integrations:
 
-- **How betas and dev builds reach a house.** The Hub imports prereleases but leaves them out of
-  the indexes (`listIndexableVersions`, `NOT v.is_prerelease`). Either each version in the index
-  carries its channel (from the `-beta`/`-alpha` suffix), or the Hub serves an index per channel.
-  The packet-manager would then take `-beta` on the beta channel and `-alpha` too on the dev
-  channel. Until then the two channel options stay disabled.
-- **Import validation.** Whether the Hub refuses a GitHub prerelease without a `-beta`/`-alpha`
-  suffix (or a suffixed version not marked prerelease), so the flag and the version always agree.
+- ~~How betas and dev builds reach a house~~ - decided 2026-11-02: the Hub serves an index per
+  channel (section 4, What is checked).
+- ~~Import validation~~ - decided 2026-11-02: the Hub reads the channel from the tag alone and
+  refuses any other prerelease label (`-rc.1`, `-dev.5`, `-BETA.1`, a bare `-beta`). GitHub's
+  prerelease flag decides nothing: a flag that disagrees with the suffix is imported with a
+  warning the staff console shows.
 - **Release script for `pkg-*` and `integration-*` repositories.** Reuse `scripts/release.ts` or one
   per repository; they stay **SemVer** (`1.5.0`, `-beta.K`, `-alpha.K`), never CalVer.
 - **Automatic updates across a major version**, or minor and patch only.
