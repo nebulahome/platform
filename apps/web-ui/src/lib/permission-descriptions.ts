@@ -99,7 +99,7 @@ const DESCRIPTIONS: Readonly<Record<string, Message>> = {
     'permissions.systemUpdate',
     'Update Nebula Home, its packages and its integrations',
   ),
-  'system:power': defineMessage('permissions.systemPower', 'Restart Nebula Home and shut it down'),
+  'system:power': defineMessage('permissions.systemPower', 'Restart Nebula Home'),
   'container:read': defineMessage(
     'permissions.containerRead',
     'See the containers the machine runs, their settings and their logs',

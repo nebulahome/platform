@@ -120,6 +120,16 @@ export const SETTINGS_TREE: readonly SettingsGroup[] = [
     isLeaf: false,
     pages: [
       {
+        path: '/settings/system/software',
+        label: defineMessage('settings.tree.software', 'Software'),
+        description: defineMessage(
+          'settings.pages.software',
+          'Updates, release channels and developer mode.',
+        ),
+        icon: 'layers',
+        permission: 'system:read',
+      },
+      {
         path: '/settings/system/monitor',
         label: defineMessage('settings.tree.monitor', 'Monitor'),
         description: defineMessage(
@@ -127,13 +137,6 @@ export const SETTINGS_TREE: readonly SettingsGroup[] = [
           'The machine Nebula Home runs on, live.',
         ),
         icon: 'activity',
-        permission: 'system:read',
-      },
-      {
-        path: '/settings/system/maintenance',
-        label: defineMessage('settings.tree.maintenance', 'Maintenance'),
-        description: defineMessage('settings.pages.maintenance', 'Updates, restart and shut down.'),
-        icon: 'download',
         permission: 'system:read',
       },
       {

@@ -89,13 +89,25 @@ const DESCRIPTIONS: Readonly<Record<string, Message>> = {
     'settings.descriptions.updatesAutoIntegrations',
     'Whether integrations update by themselves, at the time below',
   ),
-  'updates.window': defineMessage(
-    'settings.descriptions.updatesWindow',
-    'When automatic updates run: a fixed time, or the quietest learned',
+  'updates.window.packages': defineMessage(
+    'settings.descriptions.updatesWindowPackages',
+    'When packages update by themselves: a fixed time, or the quietest learned',
   ),
-  'updates.backup_first': defineMessage(
-    'settings.descriptions.updatesBackupFirst',
-    'A backup before each round of updates, unless one finished minutes ago',
+  'updates.window.integrations': defineMessage(
+    'settings.descriptions.updatesWindowIntegrations',
+    'When integrations update by themselves: a fixed time, or the quietest learned',
+  ),
+  'updates.backup_first.core': defineMessage(
+    'settings.descriptions.updatesBackupFirstCore',
+    'A backup before Nebula Home updates, unless one finished minutes ago',
+  ),
+  'updates.backup_first.packages': defineMessage(
+    'settings.descriptions.updatesBackupFirstPackages',
+    'A backup before packages update, unless one finished minutes ago',
+  ),
+  'updates.backup_first.integrations': defineMessage(
+    'settings.descriptions.updatesBackupFirstIntegrations',
+    'A backup before integrations update, unless one finished minutes ago',
   ),
   'updates.channel.core': defineMessage(
     'settings.descriptions.updatesChannelCore',
@@ -108,6 +120,10 @@ const DESCRIPTIONS: Readonly<Record<string, Message>> = {
   'updates.channel.integrations': defineMessage(
     'settings.descriptions.updatesChannelIntegrations',
     'Which releases of integrations are offered: stable, betas too, or dev builds too',
+  ),
+  'system.developer_mode': defineMessage(
+    'settings.descriptions.systemDeveloperMode',
+    'Offers the Dev channel; off, a Dev channel is read as Beta',
   ),
   'webhooks.allow_internet': defineMessage(
     'settings.descriptions.webhooksAllowInternet',

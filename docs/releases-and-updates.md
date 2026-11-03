@@ -1,7 +1,7 @@
 # Releases and updates
 
 How NebulaHome is versioned, how a release is cut and published, and how a house updates itself.
-Read this before touching versions, the release script, the Maintenance page or the update code;
+Read this before touching versions, the release script, the Software page or the update code;
 change this file in the same commit as the behaviour it describes.
 
 Status (2026-10-27, round 3): built and unit-tested; not yet exercised live (a real release, a real update
@@ -106,7 +106,8 @@ database the newer build already migrated, which the migrator refuses
 
 ## 4. How a house updates
 
-Settings › System › Maintenance (board `N-Settings-System`).
+Settings › System › Software (board `N-Settings-System`; the page was called Maintenance before
+2026-11-03).
 
 ### What is checked
 
@@ -142,15 +143,34 @@ disagree.
 
 ### Settings
 
-`updates.auto.packages`, `updates.auto.integrations` (off by default), `updates.window`
-(`{mode: 'quietest' | 'fixed', time}`), `updates.backup_first` (on), `updates.channel.core`,
-`updates.channel.packages`, `updates.channel.integrations`. **Nebula Home never updates by
-itself**: only its Update button does.
+Each component keeps its own:
 
-The page shows them as the board does: a section "Channels and automatic updates" with one row each
-for Nebula Home, Packages and Integrations - the channel (Stable / Beta / Dev) and an Auto switch.
-Nebula Home's Auto switch is shown off and disabled. "How updates run" keeps When and Back up
-first.
+| Component    | Automatic updates           | When                          | Channel                        | Back up first                       |
+| ------------ | --------------------------- | ----------------------------- | ------------------------------ | ----------------------------------- |
+| Nebula Home  | never                       | -                             | `updates.channel.core`         | `updates.backup_first.core`         |
+| Packages     | `updates.auto.packages`     | `updates.window.packages`     | `updates.channel.packages`     | `updates.backup_first.packages`     |
+| Integrations | `updates.auto.integrations` | `updates.window.integrations` | `updates.channel.integrations` | `updates.backup_first.integrations` |
+
+Automatic updates are off by default, Back up first on; a window is `{mode: 'quietest' | 'fixed',
+time}`. **Nebula Home never updates by itself**: only its Update button does. Migration 0006 split
+the old `updates.window` and `updates.backup_first` into these, each kind keeping the house's value.
+
+- **When**: each kind is planned at its own window's time; kinds due at the same time share one
+  round (two rounds at once would refuse the second).
+- **Back up first**: a round backs up when any kind in it asks to.
+- **Channel**: for packages and integrations it is also what the Hub shows when you browse (search
+  and item pages are asked with `channel=`), not only what updates offer. The page calls it
+  "Versions in the Hub".
+- **Developer mode** (`system.developer_mode`, off by default): for now it only offers the Dev
+  channel. Without it a stored Dev channel is read as Beta everywhere (`channelIn`,
+  `packages/contracts/src/updates.ts`, used by the packet-manager and the API), and turning it off
+  on the page moves every Dev channel to Beta. Migration 0006 turned it on for a house already on
+  Dev somewhere. Turning it on asks for a confirmation that the risk is the owner's.
+
+The page draws a card per component - its updates ("Ready to install", Update N), and behind its
+chevron its settings - then Advanced: Restart and Developer mode. The header says how long Nebula
+Home has run (`startedAt` of `GET /api/v1/system/platform`: the container's start, or the
+supervisor's outside one).
 
 ### The quietest time
 
@@ -237,7 +257,7 @@ The supervisor runs inside the platform's container and cannot replace it, so:
 6. An updater that exits while the supervisor still runs gave up before stopping it (one of a new
    version that wants what this one does not pass it exits at once). The supervisor then writes a
    `failed` outcome unless the updater wrote one, stops refusing updates, and tells the pages the
-   update is over, so the screen goes and Maintenance shows why. The round's row for Nebula Home
+   update is over, so the screen goes and Software shows why. The round's row for Nebula Home
    says "Update started", never "Updated": a row still there means it did not restart.
 
 Checked live on 2026-10-29 with a throwaway container: alpha.14 updated to alpha.15 by alpha.15's
@@ -248,13 +268,12 @@ to the version in the working tree, whatever it was updated to.
 Without the Docker socket, or outside the container (`pnpm dev`), Update is refused with the
 reason.
 
-### Restart and shut down
+### Restart
 
-- **Restart**: `docker restart` of the platform's own container, done by the Docker daemon, so it
-  completes even though the caller stops. Without the socket: s6's `halt`, and the
-  `unless-stopped` policy starts the container again.
-- **Shut down**: `docker stop` of its own container; it stays down until started again. Not
-  possible without the socket (refused with the reason).
+`docker restart` of the platform's own container, done by the Docker daemon, so it completes even
+though the caller stops. Without the socket: s6's `halt`, and the `unless-stopped` policy starts the
+container again. Shutting down was removed on 2026-11-03 (endpoint, supervisor method and page):
+stop the container on the machine instead.
 
 ### What every page shows
 
@@ -292,7 +311,7 @@ A restart or an update of Nebula Home takes over **every signed-in page**, whoev
 
 ### Permissions
 
-`system:update` runs updates; `system:power` restarts and shuts down. Changing the update settings
+`system:update` runs updates; `system:power` restarts. Changing the update settings
 is `settings:write`.
 
 ## 5. Decisions still open
@@ -331,8 +350,6 @@ For the platform:
   entity as usual until the next change.
 - A page loaded while the platform's container is down cannot load at all (the proxy is in the same
   container); it shows the screen once the server answers and the update is being checked.
-- Shutting down has no screen of its own: only the page that asked says so; other pages lose the
-  server.
 - The restart's first duration (automations paused) compares the server's clock with the page's; it
   is left out when they disagree.
 - The quiet trigger's once-a-day guard lives in the engine's memory: a core restart after it fired

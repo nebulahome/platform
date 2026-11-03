@@ -31,6 +31,12 @@ export type SettingsPageProps = {
   /** For a page under the entry, such as Recent calls under Webhooks: its own title and line. */
   readonly sub?: { readonly title: string; readonly description: string };
 
+  /** Beside the title: a state the whole page is in, such as Developer mode. */
+  readonly badge?: ReactNode;
+
+  /** In place of the entry's line: what the page knows now, such as how long it has run. */
+  readonly line?: ReactNode;
+
   /** The blocks. */
   readonly children: ReactNode;
 };
@@ -43,7 +49,7 @@ export type SettingsPageProps = {
  */
 export function SettingsPage(props: SettingsPageProps) {
   const { t } = useTranslation();
-  const { path, sub, children } = props;
+  const { path, sub, badge, line, children } = props;
   const found = settingsPageAt(path);
 
   if (found === undefined) {
@@ -89,11 +95,14 @@ export function SettingsPage(props: SettingsPageProps) {
             <AppIcon id={page.icon} size={22} />
           </span>
           <div className="flex min-w-0 flex-col gap-1">
-            <h2 className="text-headline-lg font-medium text-foreground">
-              {sub?.title ?? text(page.label)}
-            </h2>
+            <span className="flex flex-wrap items-center gap-3">
+              <h2 className="text-headline-lg font-medium text-foreground">
+                {sub?.title ?? text(page.label)}
+              </h2>
+              {badge}
+            </span>
             <span className="text-ui text-foreground-subtle">
-              {sub?.description ?? text(page.description)}
+              {line ?? sub?.description ?? text(page.description)}
             </span>
           </div>
         </div>
@@ -117,6 +126,9 @@ export type HeroCardProps = {
 
   /** The buttons on the right. */
   readonly actions?: ReactNode;
+
+  /** Under it all, the whole width: a breakdown of the state. */
+  readonly children?: ReactNode;
 };
 
 /**
@@ -126,7 +138,7 @@ export type HeroCardProps = {
  * @returns The card.
  */
 export function HeroCard(props: HeroCardProps) {
-  const { leading, title, subtitle, actions } = props;
+  const { leading, title, subtitle, actions, children } = props;
 
   return (
     <div className="hero-glow flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card border border-border-strong px-5 py-4.5 shadow-edge">
@@ -142,6 +154,7 @@ export function HeroCard(props: HeroCardProps) {
       {actions === undefined ? null : (
         <div className="flex flex-wrap items-center gap-2">{actions}</div>
       )}
+      {children === undefined ? null : <div className="w-full">{children}</div>}
     </div>
   );
 }

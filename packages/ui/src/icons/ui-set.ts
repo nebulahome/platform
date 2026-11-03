@@ -42,6 +42,7 @@ import {
   CircleX,
   ClipboardPaste,
   Clock,
+  CodeXml,
   Columns2,
   Compass,
   Container,
@@ -352,6 +353,9 @@ export const BUILTIN_UI_NODES = {
   usb: drawing(Usb),
   'qr-code': drawing(QrCode),
   terminal: drawing(Terminal),
+
+  // Developer mode, in Settings › Software.
+  'code-xml': drawing(CodeXml),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */

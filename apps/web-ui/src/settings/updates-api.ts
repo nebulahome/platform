@@ -1,6 +1,6 @@
 /**
- * Settings › Maintenance's calls (docs/releases-and-updates.md 4): the list of updates, a check,
- * a round of updates, and restarting or shutting down Nebula Home.
+ * Settings › Software's calls (docs/releases-and-updates.md 4): the list of updates, a check,
+ * a round of updates, and restarting Nebula Home.
  */
 import { z } from 'zod';
 
@@ -18,6 +18,9 @@ import { apiRequest } from '@/lib/api-client';
 
 /** Where the list is cached. */
 export const UPDATES_QUERY_KEY = ['system', 'updates'] as const;
+
+/** Where Nebula Home's own state is cached. */
+export const PLATFORM_QUERY_KEY = ['system', 'platform'] as const;
 
 /**
  * Reads everything that can update.
@@ -80,13 +83,9 @@ export async function runSystemUpdates(items?: readonly UpdateItem[]): Promise<U
   return reply.round;
 }
 
-/**
- * Restarts or shuts down Nebula Home.
- *
- * @param action - Which.
- */
-export async function powerPlatform(action: 'restart' | 'shutdown'): Promise<void> {
-  await apiRequest(`/system/${action}`, z.unknown(), { method: 'POST' });
+/** Restarts Nebula Home. */
+export async function restartPlatform(): Promise<void> {
+  await apiRequest('/system/restart', z.unknown(), { method: 'POST' });
 }
 
 /**

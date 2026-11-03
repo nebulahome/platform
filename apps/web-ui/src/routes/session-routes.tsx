@@ -76,12 +76,12 @@ import { BackupSettings } from '@/routes/settings/backup-settings';
 import { DataAndRetention } from '@/routes/settings/data-and-retention';
 import { IconsPanel } from '@/routes/settings/icons-panel';
 import { InterfaceSettings } from '@/routes/settings/interface-settings';
-import { MaintenanceSettings } from '@/routes/settings/maintenance-settings';
 import { PeoplePanel } from '@/routes/settings/people-panel';
 import { RequiresPermission } from '@/routes/settings/requires-permission';
 import { RolesPanel } from '@/routes/settings/roles-panel';
 import { SettingsLayout } from '@/routes/settings/settings-layout';
 import { DEFAULT_SETTINGS_PAGE } from '@/routes/settings/settings-tree';
+import { SoftwareSettings } from '@/routes/settings/software-settings';
 import { SystemMonitor } from '@/routes/settings/system-monitor';
 import { WebhookCalls, WebhooksSettings } from '@/routes/settings/webhooks-settings';
 import { PagePlaceholder, Shell } from '@/routes/shell';
@@ -528,13 +528,13 @@ export function SessionRoutes() {
             }
           />
           <Route
-            path="system/maintenance"
+            path="system/software"
             element={
               <RequiresPermission
                 permission="system:read"
-                section={t('settings.sections.maintenance', 'Maintenance')}
+                section={t('settings.sections.software', 'Software')}
               >
-                <MaintenanceSettings />
+                <SoftwareSettings />
               </RequiresPermission>
             }
           />

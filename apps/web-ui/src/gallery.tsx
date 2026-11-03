@@ -103,11 +103,10 @@ import { WaysTag } from '@/routes/library/transport-marks';
 import { ListenerCallout, PassedOverPanel } from '@/routes/library/vendor-hearing';
 import { PairingButton, PairingPanel, type PairingState } from '@/routes/library/vendor-pairing';
 import { BackupSettings } from '@/routes/settings/backup-settings';
-import { MaintenanceSettings } from '@/routes/settings/maintenance-settings';
+import { SoftwareSettings } from '@/routes/settings/software-settings';
 import { backupSampleCache, SAMPLE_OWNER } from '@/testing/backup-samples';
 import { energySample, energySampleCache } from '@/testing/energy-samples';
 import { aDevice, anArea, anEntity } from '@/testing/fixtures';
-import { maintenanceSampleCache } from '@/testing/maintenance-samples';
 import {
   matterSampleCache,
   MATTER_SAMPLE_DEVICES,
@@ -115,6 +114,7 @@ import {
   MATTER_SAMPLE_NODES,
 } from '@/testing/matter-samples';
 import { MODBUS_SAMPLE_RELAY_ID, modbusSampleCache } from '@/testing/modbus-samples';
+import { softwareSampleCache } from '@/testing/software-samples';
 
 import {
   AliasEditorSample,
@@ -503,8 +503,8 @@ const GALLERY_WAYS = [
 /** The cache the Backup page reads from. */
 const BACKUP_CACHE = backupSampleCache();
 
-/** The cache the Maintenance page reads from. */
-const MAINTENANCE_CACHE = maintenanceSampleCache();
+/** The cache the Software page reads from. */
+const SOFTWARE_CACHE = softwareSampleCache();
 
 // The Backup page shows its controls to whoever may use them: the gallery's visitor is the owner.
 useSession.setState({ user: SAMPLE_OWNER });
@@ -1398,13 +1398,13 @@ function Gallery() {
         </Section>
 
         <Section
-          title="Maintenance settings"
-          note="The real page over a cache holding its answers: Nebula Home, two packages and two integrations with an update, automatic updates on, the quietest time."
+          title="Software settings"
+          note="The real page over a cache holding its answers: Nebula Home, two packages and two integrations with an update, a card per component with its own settings, developer mode."
         >
-          <QueryClientProvider client={MAINTENANCE_CACHE}>
-            <MemoryRouter initialEntries={['/settings/system/maintenance']}>
+          <QueryClientProvider client={SOFTWARE_CACHE}>
+            <MemoryRouter initialEntries={['/settings/system/software']}>
               <div className="flex w-full flex-col gap-4">
-                <MaintenanceSettings />
+                <SoftwareSettings />
               </div>
             </MemoryRouter>
           </QueryClientProvider>

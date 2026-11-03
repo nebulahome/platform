@@ -1,14 +1,14 @@
 /**
- * What the Maintenance page reads, as the board draws it: Nebula Home, two packages and two
- * integrations with an update, the last round, and the settings.
+ * What the Software page reads, as the board draws it: Nebula Home, two packages and two
+ * integrations with an update, Nebula Home's own state, and the settings.
  */
 import { QueryClient } from '@tanstack/react-query';
 
-import type { SettingsResponse, SystemUpdatesView } from '@nebulahome/contracts';
+import type { PlatformState, SettingsResponse, SystemUpdatesView } from '@nebulahome/contracts';
 
 import { BACKUP_QUERY_KEYS } from '@/backup/api';
 import { SETTINGS_QUERY_KEYS } from '@/settings/api';
-import { UPDATES_QUERY_KEY } from '@/settings/updates-api';
+import { PLATFORM_QUERY_KEY, UPDATES_QUERY_KEY } from '@/settings/updates-api';
 import { SAMPLE_STATUS } from '@/testing/backup-samples';
 
 /** The list of updates. */
@@ -17,7 +17,7 @@ export const SAMPLE_UPDATES: SystemUpdatesView = {
     installedVersion: '2026.10.1',
     stable: {
       version: '2026.11.0',
-      notes: '## What is new\n\n- Settings › Maintenance\n- The quietest time as an entity',
+      notes: '## What is new\n\n- Settings › Software\n- The quietest time as an entity',
       url: 'https://github.com/nebulahome/platform/releases/tag/v2026.11.0',
       publishedAt: new Date('2026-11-02T10:00:00Z'),
     },
@@ -35,7 +35,7 @@ export const SAMPLE_UPDATES: SystemUpdatesView = {
       name: 'Nebula Home',
       installedVersion: '2026.10.1',
       latestVersion: '2026.11.0',
-      notes: '## What is new\n\n- Settings › Maintenance',
+      notes: '## What is new\n\n- Settings › Software',
       notesUrl: 'https://github.com/nebulahome/platform/releases/tag/v2026.11.0',
     },
     {
@@ -66,7 +66,7 @@ export const SAMPLE_UPDATES: SystemUpdatesView = {
       item: { kind: 'integration', id: 'zigbee2mqtt' },
       name: 'Zigbee2MQTT',
       installedVersion: '2.1.0',
-      latestVersion: '2.2.0',
+      latestVersion: '2.2.0-beta.1',
       notes: null,
       notesUrl: null,
     },
@@ -75,12 +75,21 @@ export const SAMPLE_UPDATES: SystemUpdatesView = {
   round: null,
 };
 
+/** Nebula Home itself: up for 10 h 21 min on PC-Roby. */
+const SAMPLE_PLATFORM: PlatformState = {
+  version: '2026.10.1',
+  machine: 'PC-Roby',
+  startedAt: new Date(Date.now() - (10 * 60 + 21) * 60_000),
+  operation: null,
+  lastUpdate: null,
+};
+
 /**
- * A cache holding what the Maintenance page reads.
+ * A cache holding what the Software page reads.
  *
  * @returns The cache.
  */
-export function maintenanceSampleCache(): QueryClient {
+export function softwareSampleCache(): QueryClient {
   const client = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false, refetchInterval: false } },
   });
@@ -88,9 +97,15 @@ export function maintenanceSampleCache(): QueryClient {
     items: [
       ['updates.auto.packages', true],
       ['updates.auto.integrations', true],
-      ['updates.window', { mode: 'quietest', time: '03:00' }],
-      ['updates.backup_first', true],
+      ['updates.window.packages', { mode: 'quietest', time: '03:00' }],
+      ['updates.window.integrations', { mode: 'fixed', time: '04:30' }],
+      ['updates.backup_first.core', true],
+      ['updates.backup_first.packages', true],
+      ['updates.backup_first.integrations', false],
       ['updates.channel.core', 'stable'],
+      ['updates.channel.packages', 'stable'],
+      ['updates.channel.integrations', 'beta'],
+      ['system.developer_mode', false],
     ].map(([key, value]) => ({
       key: key as string,
       value: value as never,
@@ -102,6 +117,7 @@ export function maintenanceSampleCache(): QueryClient {
   };
 
   client.setQueryData(UPDATES_QUERY_KEY, SAMPLE_UPDATES);
+  client.setQueryData(PLATFORM_QUERY_KEY, SAMPLE_PLATFORM);
   client.setQueryData(SETTINGS_QUERY_KEYS.server, settings);
   client.setQueryData(BACKUP_QUERY_KEYS.status, SAMPLE_STATUS);
 
