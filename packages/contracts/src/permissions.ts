@@ -333,7 +333,7 @@ export const PERMISSIONS = [
     resource: 'system',
     action: 'power',
     isScopable: false,
-    description: 'Restart Nebula Home and shut it down',
+    description: 'Restart Nebula Home',
   },
   {
     key: 'container:read',

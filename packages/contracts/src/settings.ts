@@ -254,16 +254,34 @@ export const SETTINGS = [
     description: 'Whether integrations update by themselves, at the time below',
   },
   {
-    key: 'updates.window',
+    key: 'updates.window.packages',
     schema: updateWindowSchema,
     defaultValue: { mode: 'quietest', time: '03:00' },
-    description: 'When automatic updates run: a fixed time, or the quietest learned',
+    description: 'When packages update by themselves: a fixed time, or the quietest learned',
   },
   {
-    key: 'updates.backup_first',
+    key: 'updates.window.integrations',
+    schema: updateWindowSchema,
+    defaultValue: { mode: 'quietest', time: '03:00' },
+    description: 'When integrations update by themselves: a fixed time, or the quietest learned',
+  },
+  {
+    key: 'updates.backup_first.core',
     schema: z.boolean(),
     defaultValue: true,
-    description: 'A backup before each round of updates, unless one finished minutes ago',
+    description: 'A backup before Nebula Home updates, unless one finished minutes ago',
+  },
+  {
+    key: 'updates.backup_first.packages',
+    schema: z.boolean(),
+    defaultValue: true,
+    description: 'A backup before packages update, unless one finished minutes ago',
+  },
+  {
+    key: 'updates.backup_first.integrations',
+    schema: z.boolean(),
+    defaultValue: true,
+    description: 'A backup before integrations update, unless one finished minutes ago',
   },
   {
     key: 'updates.channel.core',
@@ -282,6 +300,12 @@ export const SETTINGS = [
     schema: updateChannelSchema,
     defaultValue: 'stable',
     description: 'Which releases of integrations are offered: stable, betas too, or dev builds too',
+  },
+  {
+    key: 'system.developer_mode',
+    schema: z.boolean(),
+    defaultValue: false,
+    description: 'Offers the Dev channel; off, a Dev channel is read as Beta',
   },
   {
     key: 'webhooks.allow_internet',

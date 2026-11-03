@@ -23,6 +23,18 @@ export const updateChannelSchema = z.enum(UPDATE_CHANNELS);
 /** Which releases a kind follows. */
 export type UpdateChannel = z.output<typeof updateChannelSchema>;
 
+/**
+ * The channel a kind follows in fact: Dev is offered only in developer mode
+ * (`system.developer_mode`), so without it a stored Dev channel is read as Beta.
+ *
+ * @param channel - The stored channel.
+ * @param isDeveloperMode - Whether developer mode is on.
+ * @returns The channel to follow.
+ */
+export function channelIn(channel: UpdateChannel, isDeveloperMode: boolean): UpdateChannel {
+  return channel === 'dev' && !isDeveloperMode ? 'beta' : channel;
+}
+
 /** When automatic updates run: a fixed time of day, or the quietest (`sensor.system_quiet_time`). */
 export const updateWindowSchema = z.object({
   mode: z.enum(['quietest', 'fixed']),
@@ -213,6 +225,9 @@ export const platformStateSchema = z.object({
 
   /** The machine's name, as Docker knows it; null without Docker. */
   machine: z.string().max(256).nullable(),
+
+  /** When Nebula Home started: its container, or the supervisor outside one. */
+  startedAt: timestampSchema,
   operation: platformOperationSchema.nullable(),
   lastUpdate: platformUpdateOutcomeSchema.nullable(),
 });

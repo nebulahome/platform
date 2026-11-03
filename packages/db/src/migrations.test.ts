@@ -53,6 +53,7 @@ describe('the migration set', () => {
       '0003_brokers_ir_serial_bt_thread.sql',
       '0004_backup_containers_section.sql',
       '0005_bluetooth_proxy_scan_by_hub.sql',
+      '0006_software_settings.sql',
     ]);
   });
 
@@ -344,9 +345,16 @@ describe('seed data against the contracts', () => {
   });
 
   it('seeds exactly the settings the code defines', () => {
-    const seeded = [...initialSql.matchAll(/^ {2}\('([a-z][a-z0-9_.]+)', '.*'::jsonb,/gm)].map(
-      ([, key]) => key ?? '',
+    // What every migration inserts, less what a later one deletes.
+    const allSql = files.map((file) => file.sql).join('\n');
+    const deleted = new Set(
+      [...allSql.matchAll(/^DELETE FROM system\.settings WHERE key IN \(([^)]*)\);/gm)].flatMap(
+        ([, keys]) => [...(keys ?? '').matchAll(/'([^']+)'/g)].map(([, key]) => key ?? ''),
+      ),
     );
+    const seeded = [...allSql.matchAll(/^ {2}\('([a-z][a-z0-9_.]+)', '.*'::jsonb,/gm)]
+      .map(([, key]) => key ?? '')
+      .filter((key) => !deleted.has(key));
 
     expect(seeded.sort()).toEqual(SETTINGS.map((setting) => setting.key).sort());
   });

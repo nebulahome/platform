@@ -111,22 +111,32 @@ describe('the vocabularies the database constrains', () => {
 });
 
 /**
- * Reads the rows the migration seeds into `system.settings`.
+ * Reads the rows the migrations seed into `system.settings`: what each inserts, less what a later
+ * one deletes (0006 split two settings into one per component).
  *
  * @returns Each seeded key with the value it is seeded with.
  */
 function seededSettings(): { key: string; value: unknown }[] {
-  const block = /INSERT INTO system\.settings \(key, value, schema_ref\) VALUES([\s\S]*?);/.exec(
-    MIGRATION,
+  const deleted = new Set(
+    [
+      ...ALL_MIGRATIONS.matchAll(/^DELETE FROM system\.settings WHERE key IN \(([^)]*)\);/gm),
+    ].flatMap((match) => [...(match[1] ?? '').matchAll(/'([^']+)'/g)].map((key) => key[1] ?? '')),
   );
 
-  return [...(block?.[1] ?? '').matchAll(/\('([a-z0-9_.]+)',\s*'(.*?)'::jsonb/g)].map((match) => ({
-    key: match[1] ?? '',
-    value: JSON.parse(match[2] ?? 'null') as unknown,
-  }));
+  return [
+    ...ALL_MIGRATIONS.matchAll(
+      /INSERT INTO system\.settings \(key, value, schema_ref\) VALUES([\s\S]*?);/g,
+    ),
+  ]
+    .flatMap((block) => [...(block[1] ?? '').matchAll(/\('([a-z0-9_.]+)',\s*'(.*?)'::jsonb/g)])
+    .map((match) => ({
+      key: match[1] ?? '',
+      value: JSON.parse(match[2] ?? 'null') as unknown,
+    }))
+    .filter((row) => !deleted.has(row.key));
 }
 
-describe('the settings catalogue and the migration that seeds it', () => {
+describe('the settings catalogue and the migrations that seed it', () => {
   it('seeds exactly the keys the code knows about', () => {
     expect(
       seededSettings()

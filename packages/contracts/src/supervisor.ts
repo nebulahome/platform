@@ -56,9 +56,6 @@ export const SUPERVISOR_METHODS = {
   /** Restarts the platform's own container. */
   restartPlatform: 'restart_platform',
 
-  /** Stops the platform's own container, until it is started again. */
-  shutdownPlatform: 'shutdown_platform',
-
   /** Every container, as the list shows it. */
   list: 'list',
 
