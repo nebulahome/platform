@@ -54,8 +54,11 @@ dev`); with neither, `0.0.0-dev`. `/healthz` reports it.
   SDK tags (`package-sdk@…`, `integration-sdk@…`). An SDK tag makes no GitHub release - the
   SDKs are published on npm - so the platform's releases page lists Nebula Home alone.
 - **A beta is a version with a `-beta.K` suffix, a dev build one with `-alpha.K`, and only that.**
-  Their GitHub releases are marked prerelease; a stable one is marked latest. Flag and suffix must
-  always agree.
+  Their GitHub releases are marked prerelease; a stable one is marked latest. The supervisor reads
+  the channel from the tag alone, as the Community Hub does for packages and integrations: a
+  stable tag marked prerelease by mistake is still offered as stable. Keep flag and suffix in step
+  all the same: GitHub's `/releases/latest`, the fallback when the 100 newest hold no stable
+  release, follows the flag.
 
 ## 3. Cutting a release (Nebula Home)
 

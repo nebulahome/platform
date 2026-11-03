@@ -4,8 +4,9 @@
  * hour per address, and the supervisor asks every six hours and on Check now: the hundred newest,
  * and GitHub's latest release as well when none of them is stable.
  *
- * A beta is a version with a `-beta.K` suffix, a dev build one with `-alpha.K`, both marked
- * prerelease; drafts are never offered.
+ * A beta is a version with a `-beta.K` suffix, a dev build one with `-alpha.K`: the tag decides,
+ * as it does on the Community Hub, and GitHub's prerelease flag is not read. Drafts are never
+ * offered.
  */
 import { z } from 'zod';
 
@@ -23,7 +24,6 @@ const githubReleaseSchema = z.looseObject({
   html_url: z.string(),
   body: z.string().nullish(),
   draft: z.boolean(),
-  prerelease: z.boolean(),
   published_at: z.string().nullish(),
 });
 
@@ -69,7 +69,7 @@ export function newestReleases(body: unknown): PlatformReleases {
               notes: (release.body ?? '').slice(0, 65_536),
               url: release.html_url,
               publishedAt: new Date(release.published_at),
-              isPrerelease: release.prerelease || version.includes('-'),
+              isPrerelease: version.includes('-'),
               isAlpha: version.includes('-alpha.'),
             },
           ];

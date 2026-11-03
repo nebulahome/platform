@@ -35,6 +35,17 @@ describe('newestReleases', () => {
     expect(found.beta?.notes).toBe('Notes of v2026.11.1-beta.1');
   });
 
+  it('reads the channel from the tag, whatever GitHub flags', () => {
+    const found = newestReleases([
+      release('v2026.11.1', { prerelease: true }),
+      release('v2026.11.2-alpha.1', { prerelease: false }),
+    ]);
+
+    expect(found.stable?.version).toBe('2026.11.1');
+    expect(found.beta?.version).toBe('2026.11.1');
+    expect(found.dev?.version).toBe('2026.11.2-alpha.1');
+  });
+
   it('never offers a draft, and gives the stable to the beta channel when it is newest', () => {
     const found = newestReleases([
       release('v2026.12.0', { draft: true }),
