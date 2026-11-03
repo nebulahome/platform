@@ -69,6 +69,9 @@ export type PlatformUpdatesOptions = {
 /** A release this platform names: CalVer, a beta (`-beta.K`) or a dev build (`-alpha.K`). */
 export const RELEASE_VERSION = /^\d{4}\.\d{1,2}\.\d+(?:-(?:alpha|beta)\.\d+)?$/;
 
+/** When this process started: Nebula Home's start where there is no container to ask. */
+const PROCESS_STARTED_AT = new Date(Date.now() - process.uptime() * 1000);
+
 /** s6's way of ending the container. */
 const HALT = '/run/s6/basedir/bin/halt';
 
@@ -140,9 +143,15 @@ export class PlatformUpdates {
    * @returns The state.
    */
   public async state(): Promise<PlatformState> {
+    const started = this.#options.self()?.State.StartedAt;
+    // Docker's zero time, 0001-01-01, is a container that never started.
+    const containerStart = new Date(started?.startsWith('0001-') === false ? started : '');
+
     return {
       version: this.#options.version,
       machine: this.#options.machine(),
+      // The container's start; outside one, this process's.
+      startedAt: Number.isNaN(containerStart.getTime()) ? PROCESS_STARTED_AT : containerStart,
       operation: this.#operation ?? (await this.#checking()),
       lastUpdate: await this.#lastUpdate(),
     };
@@ -362,28 +371,6 @@ export class PlatformUpdates {
       .catch((error: unknown) => {
         this.#announce(null);
         this.#options.logger.error({ err: error }, 'Could not restart the platform');
-      });
-  }
-
-  /**
-   * Stops the platform's container until it is started again.
-   *
-   * @throws {ConflictError} Without Docker: a stop the restart policy would undo.
-   */
-  public shutdown(): void {
-    const self = this.#options.self();
-
-    if (self === null || !this.#options.isDockerAvailable()) {
-      throw new ConflictError(
-        'Shutting down needs the Docker socket: without it the container would start again',
-        { details: { reason: 'unreachable' } },
-      );
-    }
-
-    void this.#options.engine
-      .control(self.Id, 'stop', PLATFORM_STOP_GRACE_SECONDS)
-      .catch((error: unknown) => {
-        this.#options.logger.error({ err: error }, 'Could not shut the platform down');
       });
   }
 

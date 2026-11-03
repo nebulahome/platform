@@ -45,7 +45,11 @@ function platformOver(dataRoot: string): { platform: PlatformUpdates; told: Plat
     dataRoot,
     socketPath: '/var/run/docker.sock',
     isDockerAvailable: () => true,
-    self: () => ({ Id: 'self' }) as unknown as InspectedContainer,
+    self: () =>
+      ({
+        Id: 'self',
+        State: { StartedAt: '2026-11-03T08:00:00Z' },
+      }) as unknown as InspectedContainer,
     machine: () => 'PC-Roby',
     publish: (event) => {
       told.push(event);
@@ -65,6 +69,7 @@ describe('PlatformUpdates', () => {
     await expect(platform.state()).resolves.toMatchObject({
       version: '2026.10.1',
       machine: 'PC-Roby',
+      startedAt: new Date('2026-11-03T08:00:00Z'),
       operation: { kind: 'restart', fromVersion: '2026.10.1', toVersion: null },
     });
   });
@@ -119,6 +124,7 @@ describe('PlatformUpdates', () => {
       self: () =>
         ({
           Id: 'self',
+          State: { StartedAt: '0001-01-01T00:00:00Z' },
           Config: { Image: 'nebulahome/platform:latest' },
           Mounts: [
             { Type: 'volume', Name: 'data', Destination: dataRoot },

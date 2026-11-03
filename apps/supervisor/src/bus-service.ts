@@ -141,11 +141,6 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
 
       return ok;
     }),
-    client.serve(subject(SUPERVISOR_METHODS.shutdownPlatform), supervisorEmptyRequestSchema, () => {
-      service.platform.shutdown();
-
-      return ok;
-    }),
     client.serve(
       subject(SUPERVISOR_METHODS.platformService),
       platformServiceRequestSchema,

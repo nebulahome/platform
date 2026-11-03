@@ -21,6 +21,7 @@ import {
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   supervisorAcknowledgementSchema,
+  channelIn,
   updateChannelSchema,
   updateStatusReplySchema,
   type PlatformReleasesReply,
@@ -157,7 +158,10 @@ export async function systemUpdates(context: SystemUpdatesContext): Promise<Syst
       ),
     ),
   ]);
-  const channel = updateChannelSchema.catch('stable').parse(settings.get('updates.channel.core'));
+  const channel = channelIn(
+    updateChannelSchema.catch('stable').parse(settings.get('updates.channel.core')),
+    settings.get('system.developer_mode') === true,
+  );
   const release = core === null ? null : newestFor(core, channel);
 
   for (const error of [core?.error, packages?.error, integrations?.error]) {
@@ -292,19 +296,15 @@ export async function reloadUpdates(context: SystemUpdatesContext): Promise<void
 }
 
 /**
- * Restarts or shuts down the platform's own container.
+ * Restarts the platform's own container.
  *
  * @param context - The request's collaborators.
- * @param action - Which.
  */
-export async function powerPlatform(
-  context: SystemUpdatesContext,
-  action: 'restart' | 'shutdown',
-): Promise<void> {
+export async function restartPlatform(context: SystemUpdatesContext): Promise<void> {
   await ask(
     context,
     SUPERVISOR_SERVICE,
-    action === 'restart' ? SUPERVISOR_METHODS.restartPlatform : SUPERVISOR_METHODS.shutdownPlatform,
+    SUPERVISOR_METHODS.restartPlatform,
     {},
     supervisorAcknowledgementSchema,
     POWER_TIMEOUT_MS,

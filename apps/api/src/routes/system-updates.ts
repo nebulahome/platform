@@ -1,9 +1,8 @@
 /**
- * Settings › Maintenance (docs/releases-and-updates.md 4): the list of updates, a check, a round
- * of updates, and restarting or shutting down Nebula Home.
+ * Settings › Software (docs/releases-and-updates.md 4): the list of updates, a check, a round
+ * of updates, and restarting Nebula Home.
  *
- * `system:read` sees the list; `system:update` checks and updates; `system:power` restarts and
- * shuts down. Every action is in the audit log, refused or not. What Nebula Home itself is doing -
+ * `system:read` sees the list; `system:update` checks and updates; `system:power` restarts. Every action is in the audit log, refused or not. What Nebula Home itself is doing -
  * its version, a restart or an update under way - any signed-in page reads, since every one shows
  * it.
  */
@@ -27,7 +26,7 @@ import {
   checkSystemUpdates,
   dismissLastPlatformUpdate,
   platformState,
-  powerPlatform,
+  restartPlatform,
   runSystemUpdates,
   systemUpdates,
   type SystemUpdatesContext,
@@ -238,33 +237,28 @@ export function registerSystemUpdateRoutes(
     },
   );
 
-  for (const action of ['restart', 'shutdown'] as const) {
-    defineRoute(
-      environment,
-      {
-        method: 'POST',
-        url: `/system/${action}`,
-        summary:
-          action === 'restart'
-            ? "Restart Nebula Home's container"
-            : "Stop Nebula Home's container until it is started again",
-        tag: 'System',
-        permission: 'system:power',
-        successStatus: 202,
-      },
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/system/restart',
+      summary: "Restart Nebula Home's container",
+      tag: 'System',
+      permission: 'system:power',
+      successStatus: 202,
+    },
 
-      /**
-       * Asks the supervisor to do it.
-       *
-       * @param route - Who is asking.
-       */
-      async (route): Promise<void> => {
-        requirePermission(route.identity, 'system:power');
+    /**
+     * Asks the supervisor to do it.
+     *
+     * @param route - Who is asking.
+     */
+    async (route): Promise<void> => {
+      requirePermission(route.identity, 'system:power');
 
-        await audited(context, route, action, async () =>
-          powerPlatform(updatesContext(context, route.request.traceId), action),
-        );
-      },
-    );
-  }
+      await audited(context, route, 'restart', async () =>
+        restartPlatform(updatesContext(context, route.request.traceId)),
+      );
+    },
+  );
 }
