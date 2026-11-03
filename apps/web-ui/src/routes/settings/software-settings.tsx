@@ -11,6 +11,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
 
 import {
   channelIn,
@@ -171,7 +172,19 @@ export function SoftwareSettings() {
   const [isSaving, setSaving] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [isAcknowledged, setAcknowledged] = useState(false);
-  const [closed, setClosed] = useState<ReadonlySet<Kind>>(new Set());
+  const [params] = useSearchParams();
+  // Folded at first, but the card holding a setting the search sent somebody to opens.
+  const [opened, setOpened] = useState<ReadonlySet<Kind>>(() => {
+    const found = params.get('highlight');
+
+    return new Set(
+      found === null
+        ? []
+        : COMPONENTS.filter((each) =>
+            [each.auto, each.window, each.channel, each.backup].some((key) => key === found),
+          ).map((each) => each.kind),
+    );
+  });
 
   const updates = useQuery({
     queryKey: UPDATES_QUERY_KEY,
@@ -726,7 +739,7 @@ export function SoftwareSettings() {
         <div className="flex flex-col gap-4">
           {COMPONENTS.map((each) => {
             const inKind = rowsOf(each.kind);
-            const isOpen = !closed.has(each.kind);
+            const isOpen = opened.has(each.kind);
             const name = names[each.kind];
             const channel = channelOf(each.channel);
             const isCore = each.kind === 'core';
@@ -806,15 +819,15 @@ export function SoftwareSettings() {
                       aria-expanded={isOpen}
                       aria-controls={`${each.anchor}-settings`}
                       onClick={() => {
-                        const next = new Set(closed);
+                        const next = new Set(opened);
 
                         if (isOpen) {
-                          next.add(each.kind);
-                        } else {
                           next.delete(each.kind);
+                        } else {
+                          next.add(each.kind);
                         }
 
-                        setClosed(next);
+                        setOpened(next);
                       }}
                     >
                       <AppIcon
