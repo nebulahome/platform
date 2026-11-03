@@ -107,24 +107,28 @@ Settings › System › Maintenance (board `N-Settings-System`).
 
 ### What is checked
 
-| Kind         | Source                                                                                      | Channel                                             |
-| ------------ | ------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Nebula Home  | GitHub Releases of `nebulahome/platform`, read by the supervisor every 6 h and on Check now | `updates.channel.core`: Stable, Beta or Dev         |
-| Packages     | The Community Hub's package index of the channel, read by the packet-manager                | `updates.channel.packages`: Stable, Beta or Dev     |
-| Integrations | The Community Hub's integration index of the channel                                        | `updates.channel.integrations`: Stable, Beta or Dev |
+| Kind         | Source                                                                                                                                                              | Channel                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Nebula Home  | GitHub Releases of `nebulahome/platform`, read by the supervisor every 6 h and on Check now: the 100 newest, and `/releases/latest` too when none of them is stable | `updates.channel.core`: Stable, Beta or Dev         |
+| Packages     | The Community Hub's package index of the channel, read by the packet-manager                                                                                        | `updates.channel.packages`: Stable, Beta or Dev     |
+| Integrations | The Community Hub's integration index of the channel                                                                                                                | `updates.channel.integrations`: Stable, Beta or Dev |
 
 The Hub serves one index per channel and kind: `/v1/index/packages.json` (stable, the address
 every Hub has always served), `/v1/index/beta/packages.json` and `/v1/index/dev/packages.json`, the
 same for `integrations.json`. The beta index holds stable releases and betas, the dev index
 everything. The packet-manager reads the channel setting on every read of an index, so a change
 of channel takes effect on the next read, with no restart; the index of a channel it left is never
-kept as the last good one. A house moved to a narrower channel keeps a newer prerelease it has
+kept as the last good one. A failed read is tried again a minute later, and every read sends the
+ETag of the index kept, so an unchanged index costs a 304. The Hub's search and item pages are
+asked with the same channel: a house is shown only what its channel offers, each item with its
+newest release there. A house moved to a narrower channel keeps a newer prerelease it has
 installed until a release of its channel passes it (no downgrade). A dependency range such as
 `^1.0.0` never takes a beta or dev build of the dependency, on any channel.
 
 Every `pkg-*` and `integration-*` repository's `release.yml` refuses a version that is not
-`X.Y.Z`, `X.Y.Z-beta.K` or `X.Y.Z-alpha.K` before it builds, and publishes the last two as GitHub
-prereleases. On 2026-11-02, every package and integration still in development (all of them but
+`X.Y.Z`, `X.Y.Z-beta.K` or `X.Y.Z-alpha.K` - numbers without leading zeros, exactly as the Hub
+reads them, since the Hub skips any other tag without a word - before it builds, and publishes the
+last two as GitHub prereleases. On 2026-11-02, every package and integration still in development (all of them but
 the two templates) was renumbered as `1.0.0-alpha.1` on its repository's `dev` branch. SemVer puts
 that below any `1.0.0`-or-higher version and below the old `-dev.K` builds. A house that has one of
 those installed does not see the alpha as an update, so reinstall it once.
