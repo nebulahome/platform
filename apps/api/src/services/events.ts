@@ -20,15 +20,26 @@ import {
   discoveryEventSchema,
   isDeviceEvent,
   jsonObjectSchema,
+  libraryEventSchema,
   packageLiveMessageSchema,
   platformEventSchema,
   stateChangedEventSchema,
   type JsonObject,
   type JsonValue,
+  type LibraryKind,
   type WsServerMessage,
   integrationEventSchema,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
+
+/** The parts of the library that decide who may read an entity, or whether it is there. */
+const SCOPING_KINDS: ReadonlySet<LibraryKind> = new Set([
+  'areas',
+  'tags',
+  'entities',
+  'devices',
+  'aliases',
+]);
 
 /** How many retained live messages one package may have kept at once: the oldest goes first. */
 const MAX_RETAINED_TOPICS = 256;
@@ -47,7 +58,10 @@ export type Subscriber = {
   /** Sends one message. */
   readonly send: (message: WsServerMessage) => void;
 
-  /** Decides again which entities it may hear about: some were added without a device event. */
+  /**
+   * Decides again which entities it may hear about: one was added, or moved to another room or
+   * tag, without a device event.
+   */
   readonly registryChanged?: () => void;
 };
 
@@ -184,6 +198,28 @@ export class EventFanout {
             type: 'integration_event',
             vendorId: payload.vendorId,
           });
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
+        busSubjects.libraryEvent(),
+        libraryEventSchema,
+
+        /**
+         * Tells every socket that part of the library an owner edits changed, and has each decide
+         * again what it may hear when the change moves that: who may read an entity follows its
+         * room and its tags.
+         *
+         * @param payload - Which part.
+         */
+        (payload): void => {
+          if (SCOPING_KINDS.has(payload.kind)) {
+            this.#registryChanged();
+          }
+
+          this.#dispatch('library', null, { type: 'library_event', kind: payload.kind });
         },
       ),
     );
@@ -386,10 +422,11 @@ export class EventFanout {
   }
 
   /**
-   * Tells every socket that entities were added without a device event - a derived entity - so
-   * that each hears about them from now on rather than from its next connection.
+   * Tells every socket that entities were added or moved without a device event - a derived
+   * entity, a room renamed - so that each hears about them from now on rather than from its next
+   * connection.
    */
-  public registryChanged(): void {
+  #registryChanged(): void {
     for (const subscriber of this.#subscribers) {
       subscriber.registryChanged?.();
     }

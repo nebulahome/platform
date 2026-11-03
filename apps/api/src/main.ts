@@ -13,7 +13,13 @@
  */
 import { BusClient, connectBus, type BusConnection } from '@nebulahome/bus';
 import { loadConfigOrExit, resolveDataLayout } from '@nebulahome/config';
-import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebulahome/contracts';
+import {
+  busSubjects,
+  ERROR_CODES,
+  EXIT_CODES,
+  isNebulaError,
+  type LibraryEvent,
+} from '@nebulahome/contracts';
 import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebulahome/db';
 import { loadBuiltinIcons } from '@nebulahome/icons';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
@@ -30,6 +36,7 @@ import { AutoAdoption } from './services/auto-adoption.js';
 import { followDescribedDevices } from './services/described-devices.js';
 import { EventFanout } from './services/events.js';
 import { createIconStore, IconService } from './services/icons.js';
+import { libraryKindOf } from './services/library-events.js';
 import { MaintenanceMonitor } from './services/maintenance.js';
 import { createMapTileService } from './services/map-tiles.js';
 
@@ -187,7 +194,16 @@ async function start(): Promise<void> {
     maintenance,
     challenges: new ChallengeStore(),
     idempotency,
-    audit: new AuditLog(database.db, logger),
+    audit: new AuditLog(database.db, logger, (entry) => {
+      const kind = entry.result === 'success' ? libraryKindOf(entry.action) : null;
+
+      // Every open page listing that part reads it again, in whichever browser it is open.
+      if (kind !== null && client !== undefined) {
+        const event: LibraryEvent = { kind };
+
+        client.publish(busSubjects.libraryEvent(), event);
+      }
+    }),
     events,
     icons,
     mapTiles: createMapTileService({

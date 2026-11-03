@@ -28,31 +28,37 @@ async function until(condition: () => boolean): Promise<void> {
 }
 
 describe('EventFanout', () => {
-  it('asks every open socket to decide again which entities it may hear about', () => {
-    const fanout = new EventFanout(
-      createLogger({ service: 'api', version: '0.0.0', level: 'fatal' }),
-    );
+  it('tells every socket that part of the library changed, and has each decide again what it may hear when rooms move', async () => {
+    const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
+    const transport = new FakeTransport();
+    const api = new BusClient({ transport, source: 'api', logger });
+    const fanout = new EventFanout(logger);
+    const told: WsServerMessage[] = [];
     let asked = 0;
 
+    fanout.start(new BusClient({ transport, source: 'api', logger }));
     fanout.add({
       canRead: () => false,
-      topics: new Set(['state']),
+      topics: new Set(['library']),
       packageTopics: new Set(),
-      send: () => undefined,
+      send: (message) => {
+        told.push(message);
+      },
       registryChanged: () => {
         asked += 1;
       },
     });
-    // A socket that never asked to be told is passed over.
-    fanout.add({
-      canRead: () => false,
-      topics: new Set(['state']),
-      packageTopics: new Set(),
-      send: () => undefined,
-    });
 
-    fanout.registryChanged();
+    api.publish(busSubjects.libraryEvent(), { kind: 'scenes' });
+    api.publish(busSubjects.libraryEvent(), { kind: 'areas' });
+    await until(() => told.length === 2);
+    fanout.stop();
 
+    expect(told).toEqual([
+      { type: 'library_event', kind: 'scenes' },
+      { type: 'library_event', kind: 'areas' },
+    ]);
+    // A scene saved moves no entity; a room does.
     expect(asked).toBe(1);
   });
 

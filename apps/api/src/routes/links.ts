@@ -282,6 +282,18 @@ export function registerLinkRoutes(environment: RouteEnvironment, context: ApiCo
         route.params.suggestionId,
         route.body.isDismissed,
       );
+
+      // Recorded like any other answer about what is linked, which also tells the other pages.
+      await context.audit.record({
+        action: 'device.update',
+        resourceType: 'link_suggestion',
+        resourceId: route.params.suggestionId,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: { isDismissed: route.body.isDismissed },
+      });
     },
   );
 }

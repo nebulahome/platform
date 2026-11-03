@@ -814,9 +814,6 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         route.identity,
       );
 
-      // Its entity is new, and no device event says so: open sockets would drop its readings.
-      context.events.registryChanged();
-
       await context.audit.record({
         action: 'alias.create',
         resourceType: 'alias',

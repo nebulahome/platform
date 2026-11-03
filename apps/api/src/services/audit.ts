@@ -81,15 +81,24 @@ export class AuditLog {
   /** Where a failed write is reported. */
   readonly #logger: PlatformLogger;
 
+  /** Told of every entry recorded, whether or not it could be written. */
+  readonly #onRecorded: ((entry: AuditEntry) => void) | undefined;
+
   /**
    * Creates the writer.
    *
    * @param db - The database.
    * @param logger - Where failures are reported.
+   * @param onRecorded - Told of every entry: what was done is done, written down or not.
    */
-  public constructor(db: Database, logger: PlatformLogger) {
+  public constructor(
+    db: Database,
+    logger: PlatformLogger,
+    onRecorded?: (entry: AuditEntry) => void,
+  ) {
     this.#db = db;
     this.#logger = logger;
+    this.#onRecorded = onRecorded;
   }
 
   /**
@@ -137,6 +146,12 @@ export class AuditLog {
         { err: error, action: entry.action, traceId: entry.traceId },
         'Audit entry could not be written',
       );
+    }
+
+    try {
+      this.#onRecorded?.(entry);
+    } catch (error: unknown) {
+      this.#logger.warn({ err: error, action: entry.action }, 'Could not announce an audit entry');
     }
   }
 }
