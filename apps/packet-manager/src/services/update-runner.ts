@@ -6,9 +6,10 @@
  * packages, the integrations, and Nebula Home last, since the supervisor's update restarts
  * everything. A failed backup stops the round; a failed item does not stop the others.
  *
- * The schedule runs each day at the window's time: the fixed one, or the quietest core learned
- * (`sensor.system_quiet_time`), read again just after midnight. It updates only the kinds whose
- * automatic updates are on, and never Nebula Home.
+ * Each kind whose automatic updates are on - packages, integrations, never Nebula Home - runs
+ * each day at its own window's time: the fixed one, or the quietest core learned
+ * (`sensor.system_quiet_time`), read again just after midnight. Each kind has its own Back up
+ * first: a round backs up when any kind in it asks to.
  */
 import { randomUUID } from 'node:crypto';
 
@@ -37,6 +38,7 @@ import type { IntegrationManager } from '../integrations/integration-manager.js'
 import {
   readQuietTime,
   readUpdateSettings,
+  type AutoKind,
   type UpdateSettings,
 } from '../persistence/update-settings.js';
 import type { PacketManager } from '../service.js';
@@ -175,31 +177,50 @@ export class UpdateRunner {
       }),
     );
 
-    if (!settings.autoPackages && !settings.autoIntegrations) {
+    const kinds = (['package', 'integration'] as const).filter((kind) => settings.auto[kind]);
+
+    if (kinds.length === 0) {
       logger.info('Automatic updates are off');
 
       return;
     }
 
-    const quiet = settings.window.mode === 'quietest' ? await readQuietTime(db) : null;
-    const time = quiet?.time ?? settings.window.time;
-    const timezone = quiet?.timezone ?? settings.timezone;
-    const [hours = '3', minutes = '0'] = time.split(':');
-    const job = new Cron(
-      `${String(Number(minutes))} ${String(Number(hours))} * * *`,
-      { timezone, protect: true },
-      () => {
-        void this.#runScheduled().catch((error: unknown) => {
-          logger.error({ err: error }, 'The automatic updates did not start');
-        });
-      },
-    );
+    const quiet = kinds.some((kind) => settings.window[kind].mode === 'quietest')
+      ? await readQuietTime(db)
+      : null;
 
-    this.#jobs.push(job);
-    logger.info(
-      { time, timezone, nextRunAt: job.nextRun()?.toISOString() ?? null },
-      'Automatic updates planned',
-    );
+    // Kinds due at the same time share one round: two rounds at once would refuse the second.
+    const due = new Map<string, { time: string; timezone: string; kinds: AutoKind[] }>();
+
+    for (const kind of kinds) {
+      const window = settings.window[kind];
+      const learned = window.mode === 'quietest' ? quiet : null;
+      const time = learned?.time ?? window.time;
+      const timezone = learned?.timezone ?? settings.timezone;
+      const slot = due.get(`${time} ${timezone}`) ?? { time, timezone, kinds: [] };
+
+      slot.kinds.push(kind);
+      due.set(`${time} ${timezone}`, slot);
+    }
+
+    for (const { time, timezone, kinds: those } of due.values()) {
+      const [hours = '3', minutes = '0'] = time.split(':');
+      const job = new Cron(
+        `${String(Number(minutes))} ${String(Number(hours))} * * *`,
+        { timezone, protect: true },
+        () => {
+          void this.#runScheduled(those).catch((error: unknown) => {
+            logger.error({ err: error, kinds: those }, 'The automatic updates did not start');
+          });
+        },
+      );
+
+      this.#jobs.push(job);
+      logger.info(
+        { kinds: those, time, timezone, nextRunAt: job.nextRun()?.toISOString() ?? null },
+        'Automatic updates planned',
+      );
+    }
   }
 
   /** Stops planning; a round running goes on. */
@@ -211,13 +232,24 @@ export class UpdateRunner {
     this.#jobs = [];
   }
 
-  /** Runs the automatic updates: what has one, of the kinds that update by themselves. */
-  async #runScheduled(): Promise<void> {
-    const { packages, integrations } = this.#options;
+  /**
+   * Runs the automatic updates of the kinds due: what has one.
+   *
+   * @param kinds - Packages, integrations or both.
+   */
+  async #runScheduled(kinds: readonly AutoKind[]): Promise<void> {
+    const { packages, integrations, logger } = this.#options;
     const settings = await this.#settings();
+    /**
+     * Whether a kind is due and still updates by itself.
+     *
+     * @param kind - The kind.
+     * @returns Whether to look for its updates.
+     */
+    const wants = (kind: AutoKind): boolean => kinds.includes(kind) && settings.auto[kind];
     const [installed, vendors] = await Promise.all([
-      settings.autoPackages ? packages.available() : null,
-      settings.autoIntegrations ? integrations.available() : null,
+      wants('package') ? packages.available() : null,
+      wants('integration') ? integrations.available() : null,
     ]);
     const items: UpdateItem[] = [
       ...(installed?.items ?? [])
@@ -229,11 +261,13 @@ export class UpdateRunner {
     ];
 
     if (items.length === 0) {
-      this.#options.logger.info('Automatic updates: nothing to update');
+      logger.info({ kinds }, 'Automatic updates: nothing to update');
 
       return;
     }
 
+    // shortcut: a round the owner started a moment before makes this one wait for tomorrow;
+    // queue it if that ever matters.
     this.run(items, null, 'schedule');
   }
 
@@ -249,6 +283,7 @@ export class UpdateRunner {
 
     try {
       round.backup = await this.#backupFirst(
+        round.items.map((entry) => entry.item.kind),
         requestedBy,
         core?.item.kind === 'core' ? core.item.version : null,
       );
@@ -328,22 +363,24 @@ export class UpdateRunner {
   }
 
   /**
-   * Takes the backup before a round, unless the settings say not to or one finished minutes ago
-   * with every part a backup takes now.
+   * Takes the backup before a round, unless no kind in it asks for one or one finished minutes
+   * ago with every part a backup takes now.
    *
+   * @param kinds - The kinds the round updates.
    * @param requestedBy - Who asked, for the backup's record.
    * @param coreVersion - The release of Nebula Home the round updates to, whose screen every page
    *   shows from the backup on; null when the round leaves it alone.
    * @returns What was done.
    */
   async #backupFirst(
+    kinds: readonly UpdateItem['kind'][],
     requestedBy: Requester,
     coreVersion: string | null,
   ): Promise<NonNullable<UpdateRound['backup']>> {
     const { client, logger } = this.#options;
     const settings = await this.#settings();
 
-    if (!settings.backupFirst) {
+    if (!kinds.some((kind) => settings.backupFirst[kind])) {
       return 'off';
     }
 

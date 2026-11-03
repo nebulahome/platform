@@ -10,10 +10,12 @@ import type { UpdateSettings } from '../persistence/update-settings.js';
 import { UpdateRunner, type UpdateRunnerOptions } from './update-runner.js';
 
 const SETTINGS: UpdateSettings = {
-  autoPackages: false,
-  autoIntegrations: false,
-  window: { mode: 'fixed', time: '03:00' },
-  backupFirst: false,
+  auto: { package: false, integration: false },
+  window: {
+    package: { mode: 'fixed', time: '03:00' },
+    integration: { mode: 'fixed', time: '03:00' },
+  },
+  backupFirst: { core: false, package: false, integration: false },
   backupSections: ['configuration'],
   timezone: 'UTC',
 };
@@ -126,7 +128,11 @@ describe('UpdateRunner', () => {
       client: {
         request: vi.fn(async () => Promise.reject(new Error('backup is down'))),
       } as unknown as BusClient,
-      readSettings: async () => Promise.resolve({ ...SETTINGS, backupFirst: true }),
+      readSettings: async () =>
+        Promise.resolve({
+          ...SETTINGS,
+          backupFirst: { core: false, package: true, integration: false },
+        }),
     });
 
     runner.run([{ kind: 'package', id: 'mqtt' }], null);
@@ -136,5 +142,22 @@ describe('UpdateRunner', () => {
     expect(done).toEqual([]);
     expect(round.backup).toBe('failed');
     expect(round.items[0]?.status).toBe('skipped');
+  });
+
+  it('backs up only when a kind in the round asks to', async () => {
+    const { runner, done } = runnerWith({
+      readSettings: async () =>
+        Promise.resolve({
+          ...SETTINGS,
+          backupFirst: { core: false, package: true, integration: false },
+        }),
+    });
+
+    runner.run([{ kind: 'integration', id: 'shelly' }], null);
+
+    const round = await ended(runner);
+
+    expect(round.backup).toBe('off');
+    expect(done).toEqual(['integration shelly']);
   });
 });
