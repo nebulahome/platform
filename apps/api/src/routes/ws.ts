@@ -229,9 +229,9 @@ export function registerWebSocket(
        * a state change of every entity for every client - but the registry moves under a socket
        * that stays open. A device adopted after the handshake has entities the set has never
        * heard of, and its readings would be dropped here for as long as the socket lived. So
-       * every device event, which is exactly the moment the registry changed, is also the moment
-       * this is done over. A filter the client asked for keeps narrowing what the permissions
-       * allow, as it did the first time.
+       * every device event that adds, removes or describes again entities, and every derived
+       * entity created, is also the moment this is done over. A filter the client asked for keeps
+       * narrowing what the permissions allow, as it did the first time.
        */
       const refreshReadable = async (): Promise<void> => {
         if (state.identity === undefined) {
@@ -245,6 +245,16 @@ export function registerWebSocket(
           requested === undefined
             ? permitted
             : new Set([...permitted].filter((entityId) => requested.has(entityId)));
+      };
+
+      /** Decides again, reporting rather than throwing when the registry cannot be read. */
+      const rereadReadable = (): void => {
+        refreshReadable().catch((error: unknown) => {
+          context.logger.warn(
+            { err: error, traceId: request.traceId },
+            'Could not re-read which entities a socket may hear about',
+          );
+        });
       };
 
       const authTimer = setTimeout(() => {
@@ -351,15 +361,16 @@ export function registerWebSocket(
                 send: (message: WsServerMessage): void => {
                   send(message);
 
-                  if (message.type === 'device_event') {
-                    refreshReadable().catch((error: unknown) => {
-                      context.logger.warn(
-                        { err: error, traceId: request.traceId },
-                        'Could not re-read which entities a socket may hear about',
-                      );
-                    });
+                  // A device that only changed its own row - started, failed, a new firmware -
+                  // kept its entities: only one added, removed or described again moves them.
+                  if (
+                    message.type === 'device_event' &&
+                    (message.event !== 'updated' || message.payload.described !== undefined)
+                  ) {
+                    rereadReadable();
                   }
                 },
+                registryChanged: rereadReadable,
               });
 
               send({

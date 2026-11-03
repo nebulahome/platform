@@ -46,6 +46,9 @@ export type Subscriber = {
 
   /** Sends one message. */
   readonly send: (message: WsServerMessage) => void;
+
+  /** Decides again which entities it may hear about: some were added without a device event. */
+  readonly registryChanged?: () => void;
 };
 
 /**
@@ -380,6 +383,16 @@ export class EventFanout {
    */
   public get size(): number {
     return this.#subscribers.size;
+  }
+
+  /**
+   * Tells every socket that entities were added without a device event - a derived entity - so
+   * that each hears about them from now on rather than from its next connection.
+   */
+  public registryChanged(): void {
+    for (const subscriber of this.#subscribers) {
+      subscriber.registryChanged?.();
+    }
   }
 
   /** Stops listening to the bus. */

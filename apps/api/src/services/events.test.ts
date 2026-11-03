@@ -28,6 +28,34 @@ async function until(condition: () => boolean): Promise<void> {
 }
 
 describe('EventFanout', () => {
+  it('asks every open socket to decide again which entities it may hear about', () => {
+    const fanout = new EventFanout(
+      createLogger({ service: 'api', version: '0.0.0', level: 'fatal' }),
+    );
+    let asked = 0;
+
+    fanout.add({
+      canRead: () => false,
+      topics: new Set(['state']),
+      packageTopics: new Set(),
+      send: () => undefined,
+      registryChanged: () => {
+        asked += 1;
+      },
+    });
+    // A socket that never asked to be told is passed over.
+    fanout.add({
+      canRead: () => false,
+      topics: new Set(['state']),
+      packageTopics: new Set(),
+      send: () => undefined,
+    });
+
+    fanout.registryChanged();
+
+    expect(asked).toBe(1);
+  });
+
   it('tells the sockets watching discovery that the proposals changed, and how many there are', async () => {
     const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
     const transport = new FakeTransport();
