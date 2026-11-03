@@ -35,6 +35,9 @@ export type CheckboxProps = {
   /** Called with what it should become. */
   readonly onChange: (isChecked: boolean) => void;
 
+  /** `warning`: ticking it accepts something that asks for care. */
+  readonly tone?: 'primary' | 'warning';
+
   /** Whether it can be changed at all. */
   readonly disabled?: boolean;
 
@@ -57,6 +60,7 @@ export function Checkbox(props: CheckboxProps) {
     count,
     onChange,
     disabled = false,
+    tone = 'primary',
     className,
   } = props;
   const isFilled = isChecked || isMixed;
@@ -89,10 +93,15 @@ export function Checkbox(props: CheckboxProps) {
         aria-hidden="true"
         className={cn(
           'mt-px flex size-4.5 shrink-0 items-center justify-center rounded-check border-[1.5px] transition-colors',
-          'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary',
-          isFilled
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-border-strong bg-transparent',
+          'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2',
+          tone === 'warning'
+            ? 'peer-focus-visible:outline-warning'
+            : 'peer-focus-visible:outline-primary',
+          !isFilled
+            ? 'border-border-strong bg-transparent'
+            : tone === 'warning'
+              ? 'border-warning bg-warning text-canvas'
+              : 'border-primary bg-primary text-primary-foreground',
         )}
       >
         {isMixed ? (

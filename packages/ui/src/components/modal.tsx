@@ -164,7 +164,7 @@ export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
    */
   readonly layout?: 'plain' | 'sections' | 'card';
 
-  /** In the `sections` and `card` layouts: what stands before the title - a way back, an icon. */
+  /** What stands before the title - a way back, an icon. */
   readonly lead?: ReactNode;
 
   /** In the `sections` layout: what the close button is called. */
@@ -178,6 +178,9 @@ export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
    * it from - a picker, where choosing is the only other way out.
    */
   readonly hasCloseButton?: boolean;
+
+  /** Extra classes for the dialog: a tone for its card, such as `warning-glow`, or its backdrop. */
+  readonly className?: string;
 };
 
 /**
@@ -204,6 +207,7 @@ export function Modal(props: ModalProps) {
     closeLabel: givenCloseLabel,
     trail,
     hasCloseButton = false,
+    className,
   } = props;
   const closeLabel = givenCloseLabel ?? t('ui.modal.close', 'Close');
 
@@ -380,7 +384,8 @@ export function Modal(props: ModalProps) {
       card
     ) : (
       <div className="flex flex-col gap-5 p-6">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3.5">
+          {lead}
           <div className="flex min-w-0 grow flex-col gap-1.5">
             <h2 id={titleId} className="text-headline-sm font-medium">
               {title}
@@ -419,7 +424,7 @@ export function Modal(props: ModalProps) {
       onClose={onNativeClose}
       onMouseDown={onMouseDown}
       onClick={onClick}
-      className={cn(dialogBox({ size, isPaired }))}
+      className={cn(dialogBox({ size, isPaired }), className)}
     >
       {isPaired ? (
         <div

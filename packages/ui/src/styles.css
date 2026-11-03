@@ -892,6 +892,20 @@
     var(--color-surface);
 }
 
+/*
+ * The same light in the warning's amber, for something that asks for care: the developer mode
+ * dialog, and its card while it is on. `--glow-at` moves where it comes from.
+ */
+.warning-glow {
+  background:
+    radial-gradient(
+      120% 120% at var(--glow-at, 0% 0%),
+      color-mix(in oklab, var(--color-warning) 9%, transparent),
+      transparent 58%
+    ),
+    var(--color-surface);
+}
+
 /* A toast's shadow: the float under it, and below that a glow in its kind's colour. */
 .toast-card {
   --toast-tint: var(--color-cyan);

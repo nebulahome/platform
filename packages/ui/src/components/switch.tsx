@@ -28,11 +28,21 @@ const track = cva(
         medium: 'h-6 w-10',
       },
       isOn: {
-        true: 'bg-primary',
+        true: '',
         false: 'bg-control',
       },
+
+      /** `warning`: on means something that asks for care, such as developer mode. */
+      tone: {
+        primary: '',
+        warning: '',
+      },
     },
-    defaultVariants: { size: 'medium', isOn: false },
+    compoundVariants: [
+      { isOn: true, tone: 'primary', className: 'bg-primary' },
+      { isOn: true, tone: 'warning', className: 'bg-warning' },
+    ],
+    defaultVariants: { size: 'medium', isOn: false, tone: 'primary' },
   },
 );
 
@@ -46,15 +56,21 @@ const knob = cva(
         medium: 'size-4.5',
       },
       isOn: {
-        true: 'bg-knob',
+        true: '',
         false: 'translate-x-0 bg-foreground-muted',
+      },
+      tone: {
+        primary: '',
+        warning: '',
       },
     },
     compoundVariants: [
       { size: 'small', isOn: true, className: 'translate-x-3.5' },
       { size: 'medium', isOn: true, className: 'translate-x-4' },
+      { isOn: true, tone: 'primary', className: 'bg-knob' },
+      { isOn: true, tone: 'warning', className: 'bg-canvas' },
     ],
-    defaultVariants: { size: 'medium', isOn: false },
+    defaultVariants: { size: 'medium', isOn: false, tone: 'primary' },
   },
 );
 
@@ -86,7 +102,7 @@ export type SwitchProps = Omit<VariantProps<typeof track>, 'isOn'> & {
  * @returns The switch.
  */
 export function Switch(props: SwitchProps) {
-  const { label, isOn, onChange, size, disabled = false, isBusy = false, className } = props;
+  const { label, isOn, onChange, size, tone, disabled = false, isBusy = false, className } = props;
 
   return (
     <button
@@ -97,12 +113,12 @@ export function Switch(props: SwitchProps) {
       aria-busy={isBusy || undefined}
       title={label}
       disabled={disabled || isBusy}
-      className={cn(track({ size, isOn }), isBusy && 'cursor-progress', className)}
+      className={cn(track({ size, isOn, tone }), isBusy && 'cursor-progress', className)}
       onClick={() => {
         onChange(!isOn);
       }}
     >
-      <span aria-hidden="true" className={knob({ size, isOn })} />
+      <span aria-hidden="true" className={knob({ size, isOn, tone })} />
     </button>
   );
 }
