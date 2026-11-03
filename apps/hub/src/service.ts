@@ -62,6 +62,8 @@ import {
   type DiscoverReply,
   type DiscoveryEventPayload,
   type ForgetReply,
+  type IntegrationEvent,
+  type IntegrationState,
   type JsonObject,
   type ReloadReply,
   type BundleFailureView,
@@ -1384,6 +1386,11 @@ export class HubService {
     this.#bluetooth.reidentify();
     // A blaster comes and goes with its integration's profile.
     void this.#infrared.refresh();
+
+    // Every page showing the vendor reads it again - whoever installed, updated or removed it.
+    const changed: IntegrationEvent = { vendorId };
+
+    this.#client.publish(busSubjects.integrationEvent(), changed);
   }
 
   /**
@@ -1888,7 +1895,7 @@ export class HubService {
       await this.#applySubscriptions(sharing.instance.id);
     }
 
-    await recordStatus(this.#options.db, id, 'stopped');
+    await this.#recordStatus(id, 'stopped');
     // A blaster stopped: its remotes' buttons cannot be sent.
     void this.#infrared.refresh();
     this.#options.logger.info({ instanceId: id }, 'Integration instance stopped');
@@ -1904,13 +1911,13 @@ export class HubService {
     const { db, logger } = this.#options;
 
     if (!stored.isEnabled) {
-      await recordStatus(db, stored.id, 'disabled');
+      await this.#recordStatus(stored.id, 'disabled');
 
       return;
     }
 
     try {
-      await recordStatus(db, stored.id, 'starting');
+      await this.#recordStatus(stored.id, 'starting');
 
       // Opened here, inside the catch: a key that no longer opens this instance's secrets fails
       // this instance with a message naming the key, and nothing else.
@@ -1959,7 +1966,7 @@ export class HubService {
       // A Modbus device or a remote is identified again on every start, never bound from the kept
       // claim: the claim holds its template or its buttons, which the owner may have changed since.
       if (instance.transport === MODBUS_TRANSPORT || instance.transport === INFRARED_TRANSPORT) {
-        await recordStatus(db, instance.id, 'identifying');
+        await this.#recordStatus(instance.id, 'identifying');
         this.#listen(this.#running.get(instance.id), await loadExternalId(db, instance.id));
 
         return;
@@ -1972,7 +1979,7 @@ export class HubService {
       if (restored.status === 'bound') {
         book.bind(restored.binding);
         await this.#applySubscriptions(instance.id);
-        await recordStatus(db, instance.id, 'running');
+        await this.#recordStatus(instance.id, 'running');
         // A blaster runs: its remotes' buttons can be sent.
         void this.#infrared.refresh();
         logger.info(
@@ -2000,7 +2007,7 @@ export class HubService {
         );
       }
 
-      await recordStatus(db, instance.id, 'identifying');
+      await this.#recordStatus(instance.id, 'identifying');
       this.#listen(
         this.#running.get(instance.id),
         restored.status === 'unrestorable' || restored.status === 'adopted'
@@ -2013,7 +2020,7 @@ export class HubService {
       const message = error instanceof Error ? error.message : String(error);
 
       await this.#pool.release(stored.id);
-      await recordStatus(db, stored.id, 'failed', message);
+      await this.#recordStatus(stored.id, 'failed', message);
       // A blaster that failed cannot send, whatever its row said before the hub started.
       void this.#infrared.refresh();
       logger.error({ instanceId: stored.id, kind: stored.kind }, message);
@@ -2146,6 +2153,19 @@ export class HubService {
       await this.#announceUpdated(id);
       logger.error({ instanceId: id, kind: running.instance.kind }, message);
     }
+  }
+
+  /**
+   * Writes where an instance stands, and tells whoever shows the device: a page that read it as
+   * failed or starting would otherwise say so until it was opened again.
+   *
+   * @param id - The instance.
+   * @param state - Where it stands.
+   * @param lastError - Why it failed, for `failed`.
+   */
+  async #recordStatus(id: string, state: IntegrationState, lastError?: string): Promise<void> {
+    await recordStatus(this.#options.db, id, state, lastError);
+    await this.#announceUpdated(id);
   }
 
   /**
