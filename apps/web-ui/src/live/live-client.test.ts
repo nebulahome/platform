@@ -164,6 +164,7 @@ describe('LiveClient', () => {
       JSON.stringify({ type: 'subscribe', topic: 'packages' }),
       JSON.stringify({ type: 'subscribe', topic: 'automations' }),
       JSON.stringify({ type: 'subscribe', topic: 'system' }),
+      JSON.stringify({ type: 'subscribe', topic: 'library' }),
     ]);
     expect(statuses).toEqual(['connecting', 'live']);
 

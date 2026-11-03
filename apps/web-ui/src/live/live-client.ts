@@ -79,8 +79,8 @@ export type LiveClientOptions = {
 };
 
 /**
- * What is asked for when nothing is specified: states, the device events that add to them, and
- * the devices found on the network that the integrations page offers to adopt.
+ * What is asked for when nothing is specified: every topic - states, the device events that add
+ * to them, what the network offers, and every list a page shows that something else may change.
  */
 const DEFAULT_TOPICS: readonly WsTopic[] = [
   'state',
@@ -91,6 +91,7 @@ const DEFAULT_TOPICS: readonly WsTopic[] = [
   'packages',
   'automations',
   'system',
+  'library',
 ];
 
 /**

@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { wsServerMessageSchema, type WsServerMessage } from '@nebulahome/contracts';
+import { LIBRARY_KINDS, wsServerMessageSchema, type WsServerMessage } from '@nebulahome/contracts';
 
 import { BACKUP_QUERY_KEYS } from '@/backup/api';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -70,6 +70,7 @@ const MESSAGES: readonly WsServerMessage[] = [
     },
   }),
   wsServerMessageSchema.parse({ type: 'platform_event', payload: { operation: null } }),
+  ...LIBRARY_KINDS.map((kind) => wsServerMessageSchema.parse({ type: 'library_event', kind })),
 ];
 
 describe('staleAfter', () => {
@@ -90,6 +91,15 @@ describe('staleAfter', () => {
 
   it('reads the archives again when a backup moves on', () => {
     expect(staleAfter(BACKUP)).toContainEqual(BACKUP_QUERY_KEYS.archives);
+  });
+
+  it('reads a list edited in another browser again', () => {
+    expect(
+      staleAfter(wsServerMessageSchema.parse({ type: 'library_event', kind: 'scenes' })),
+    ).toEqual([LIBRARY_QUERY_KEYS.scenes]);
+    expect(
+      staleAfter(wsServerMessageSchema.parse({ type: 'library_event', kind: 'areas' })),
+    ).toContainEqual(LIBRARY_QUERY_KEYS.entities);
   });
 
   it('keeps fresh, after a drop, every list a message can make stale', () => {

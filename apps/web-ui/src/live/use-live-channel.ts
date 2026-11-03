@@ -8,7 +8,8 @@
  * Every other message says that something a page lists changed, and {@link staleAfter} names the
  * lists: they are read again, a moment later and once for a burst of messages. A device added,
  * removed or described again also opens the socket afresh, because the server decided what this
- * socket may hear when it authenticated and those entities are not in that decision.
+ * socket may hear when it authenticated and those entities are not in that decision. An account
+ * or a role changed takes a new token first: the permissions are written into it.
  *
  * A channel that comes back after a drop forgets what it had said and has every list it keeps
  * fresh read again: nothing replays the changes made while it was down, and a reading kept from
@@ -17,11 +18,12 @@
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
-import type { WsServerMessage } from '@nebulahome/contracts';
+import type { LibraryKind, WsServerMessage } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { BACKUP_QUERY_KEYS } from '@/backup/api';
 import { CONTAINER_QUERY_KEYS } from '@/containers/api';
+import { DASHBOARD_QUERY_KEYS } from '@/dashboard/api';
 import { refreshAccessToken } from '@/lib/api-client';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { INTEGRATION_CATALOGUE_KEYS } from '@/library/integration-catalogue-api';
@@ -30,6 +32,7 @@ import { LiveClient } from '@/live/live-client';
 import { useLive } from '@/live/live-store';
 import { packageLive } from '@/live/package-live';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
+import { SETTINGS_QUERY_KEYS } from '@/settings/api';
 import { fetchPlatformState, UPDATES_QUERY_KEY } from '@/settings/updates-api';
 import { usePlatform } from '@/system/platform-store';
 
@@ -38,6 +41,38 @@ import { usePlatform } from '@/system/platform-store';
  * so sixty times in a second, and each list is read once for all of them.
  */
 const REFRESH_DELAY_MS = 200;
+
+/** The lists each part of the library an owner edits is shown in. */
+const LIBRARY_LISTS: Readonly<Record<LibraryKind, readonly QueryKey[]>> = {
+  // Where the house is goes into the automation editor's sun and zone.
+  areas: [
+    LIBRARY_QUERY_KEYS.areas,
+    LIBRARY_QUERY_KEYS.automationHouse,
+    LIBRARY_QUERY_KEYS.devices,
+    LIBRARY_QUERY_KEYS.entities,
+  ],
+  tags: [LIBRARY_QUERY_KEYS.tags, LIBRARY_QUERY_KEYS.devices, LIBRARY_QUERY_KEYS.entities],
+  entities: [LIBRARY_QUERY_KEYS.entities, LIBRARY_QUERY_KEYS.devices, LIBRARY_QUERY_KEYS.tags],
+
+  // A device linked to another, or unlinked, is offered no longer, or again.
+  devices: [
+    LIBRARY_QUERY_KEYS.devices,
+    LIBRARY_QUERY_KEYS.entities,
+    LIBRARY_QUERY_KEYS.tags,
+    LINK_QUERY_KEYS.suggestions,
+  ],
+  scenes: [LIBRARY_QUERY_KEYS.scenes],
+  aliases: [LIBRARY_QUERY_KEYS.aliases, LIBRARY_QUERY_KEYS.entities],
+
+  // A webhook is an automation's trigger.
+  automations: [LIBRARY_QUERY_KEYS.automations, LIBRARY_QUERY_KEYS.webhooks],
+  dashboards: [DASHBOARD_QUERY_KEYS.dashboards],
+  people: [SETTINGS_QUERY_KEYS.users, SETTINGS_QUERY_KEYS.roles, DASHBOARD_QUERY_KEYS.assignees],
+  settings: [SETTINGS_QUERY_KEYS.server],
+  icons: [LIBRARY_QUERY_KEYS.icons],
+  backups: [BACKUP_QUERY_KEYS.locations, BACKUP_QUERY_KEYS.status],
+  vendors: [LIBRARY_QUERY_KEYS.vendors, LIBRARY_QUERY_KEYS.devices],
+};
 
 /** Every list the channel keeps fresh, read again when it comes back from a drop. */
 export const KEPT_FRESH: readonly QueryKey[] = [
@@ -58,6 +93,7 @@ export const KEPT_FRESH: readonly QueryKey[] = [
   BACKUP_QUERY_KEYS.runs,
   BACKUP_QUERY_KEYS.archives,
   UPDATES_QUERY_KEY,
+  ...Object.values(LIBRARY_LISTS).flat(),
 ];
 
 /**
@@ -137,6 +173,9 @@ export function staleAfter(message: WsServerMessage): readonly QueryKey[] {
     case 'platform_event':
       // An update that ended or gave up without a restart: Maintenance says how at once.
       return message.payload.operation === null ? [UPDATES_QUERY_KEY] : [];
+
+    case 'library_event':
+      return LIBRARY_LISTS[message.kind];
 
     default:
       return [];
@@ -226,6 +265,19 @@ export function useLiveChannel(): void {
         if (message.type === 'platform_event') {
           // Nebula Home restarts or updates: every page shows it, whoever started it.
           usePlatform.getState().follow(message.payload.operation);
+        }
+
+        if (message.type === 'library_event' && message.kind === 'people') {
+          // A role or an account changed, perhaps this one's: what it may see is written into the
+          // token, so a new one is asked for, the socket opened with it, and the account read.
+          void refreshAccessToken()
+            .then(async (token) => {
+              if (token !== null) {
+                client.reconnect();
+                await useSession.getState().refreshUser();
+              }
+            })
+            .catch(() => undefined);
         }
       },
 
