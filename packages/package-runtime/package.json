@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/package-runtime",
-  "version": "2026.10.0-alpha.54",
+  "version": "2026.10.0-alpha.55",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
