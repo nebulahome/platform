@@ -15,12 +15,14 @@
 import { eq } from 'drizzle-orm';
 
 import {
+  busSubjects,
   ValidationError,
   type CapabilityName,
   type CapabilityState,
   type ChangeContext,
   type EntityId,
   type JsonObject,
+  type LibraryEvent,
   type StateReport,
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
@@ -99,6 +101,9 @@ const storedNumberCommandSchema = {
 export class AliasEngine {
   readonly #options: AliasEngineOptions;
   readonly #timers = new Map<EntityId, ReturnType<typeof setTimeout>>();
+
+  /** Each alias's last error as written, null while it works; unknown ones are taken as working. */
+  readonly #errors = new Map<string, string | null>();
 
   /**
    * @param options - Collaborators.
@@ -466,6 +471,16 @@ export class AliasEngine {
         .where(eq(schema.registry.aliases.id, aliasId));
     } catch (cause) {
       this.#options.logger.warn({ err: cause, aliasId }, 'Failed to persist alias evaluation');
+
+      return;
+    }
+
+    // Only when it starts or stops failing: an alias works out on every change of its sources.
+    if ((this.#errors.get(aliasId) ?? null) !== error) {
+      const event: LibraryEvent = { kind: 'aliases' };
+
+      this.#errors.set(aliasId, error);
+      this.#options.ingest.client.publish(busSubjects.libraryEvent(), event);
     }
   }
 }
