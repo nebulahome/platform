@@ -154,7 +154,9 @@ export function HeroCard(props: HeroCardProps) {
       {actions === undefined ? null : (
         <div className="flex flex-wrap items-center gap-2">{actions}</div>
       )}
-      {children === undefined ? null : <div className="w-full">{children}</div>}
+      {children === undefined || children === null ? null : (
+        <div className="w-full">{children}</div>
+      )}
     </div>
   );
 }

@@ -31,7 +31,6 @@ import {
   IconButton,
   Logo,
   Modal,
-  Pill,
   Segmented,
   Switch,
   TextField,
@@ -87,6 +86,7 @@ const COMPONENTS = [
     channel: 'updates.channel.core',
     backup: 'updates.backup_first.core',
     dot: 'bg-primary',
+    text: 'text-primary',
     chip: 'border-primary/28 bg-primary/12 text-primary',
   },
   {
@@ -97,6 +97,7 @@ const COMPONENTS = [
     channel: 'updates.channel.packages',
     backup: 'updates.backup_first.packages',
     dot: 'bg-violet',
+    text: 'text-violet',
     chip: 'border-violet/28 bg-violet/12 text-violet',
   },
   {
@@ -107,6 +108,7 @@ const COMPONENTS = [
     channel: 'updates.channel.integrations',
     backup: 'updates.backup_first.integrations',
     dot: 'bg-cyan',
+    text: 'text-cyan',
     chip: 'border-cyan/28 bg-cyan/10 text-cyan',
   },
 ] as const;
@@ -379,7 +381,10 @@ export function SoftwareSettings() {
               }),
         ].join(' · ');
   const badge = isDeveloperMode ? (
-    <Pill tone="warning">{t('settingsMaintenance.developerMode', 'Developer mode')}</Pill>
+    <span className="inline-flex h-6 items-center gap-1.5 rounded-pill border border-warning/30 bg-warning/10 px-2.5 text-caption font-medium whitespace-nowrap text-warning">
+      <AppIcon id="code-xml" size={12} />
+      {t('settingsMaintenance.developerMode', 'Developer mode')}
+    </span>
   ) : null;
 
   if (updates.data === undefined) {
@@ -454,13 +459,16 @@ export function SoftwareSettings() {
   const updateRow = (row: SystemUpdateRow): ReactNode => {
     const refusal = row.item.kind === 'core' ? (core?.refusal ?? null) : null;
     const prerelease = prereleaseOf(row.latestVersion);
+    const tone = COMPONENTS.find((each) => each.kind === row.item.kind)?.text;
 
     return (
       <SettingsRow
         key={keyOf(row.item)}
         leading={
           <RowIcon>
-            <span className="font-mono text-ui">{row.name.slice(0, 1).toUpperCase()}</span>
+            <span className={cn('font-mono text-ui', tone)}>
+              {row.name.slice(0, 1).toUpperCase()}
+            </span>
           </RowIcon>
         }
         title={row.name}
@@ -784,7 +792,8 @@ export function SoftwareSettings() {
                       </Button>
                     ) : null}
                     <IconButton
-                      variant="raised"
+                      variant="bare"
+                      className="size-9 border-border-strong"
                       label={
                         isOpen
                           ? t('settingsMaintenance.hideSettings', 'Hide {{name}} settings', {
@@ -811,212 +820,240 @@ export function SoftwareSettings() {
                       <AppIcon
                         id="chevron-down"
                         size={16}
-                        className={cn('transition-transform', isOpen && 'rotate-180')}
+                        className={cn(
+                          'transition-transform duration-250 ease-out motion-reduce:transition-none',
+                          isOpen && 'rotate-180',
+                        )}
                       />
                     </IconButton>
                   </div>
                 </div>
 
-                {isOpen ? (
-                  <div
-                    id={`${each.anchor}-settings`}
-                    className="mx-3 rounded-tile border border-border bg-canvas px-4"
-                  >
-                    {each.auto === null ? null : (
+                {/* Folded rather than removed, so it can open and shut; what is folded away is
+                    inert, out of reach of the keyboard and a screen reader. */}
+                <div
+                  className={cn(
+                    'grid transition-[grid-template-rows,opacity] duration-250 ease-out motion-reduce:transition-none',
+                    isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+                  )}
+                  inert={!isOpen}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div
+                      id={`${each.anchor}-settings`}
+                      className="mx-3 rounded-tile border border-border bg-canvas/40 px-4"
+                    >
+                      {each.auto === null ? null : (
+                        <SettingsRow
+                          searchId={each.auto}
+                          title={t('settingsMaintenance.automatic', 'Automatic updates')}
+                          note={
+                            isAuto
+                              ? t('settingsMaintenance.autoOn', 'Installs new versions on its own.')
+                              : t(
+                                  'settingsMaintenance.autoOff',
+                                  'New versions wait until you install them.',
+                                )
+                          }
+                          control={
+                            <Switch
+                              label={t(
+                                'settingsMaintenance.autoOf',
+                                'Update {{name}} automatically',
+                                {
+                                  name,
+                                },
+                              )}
+                              isOn={isAuto}
+                              disabled={!canWrite}
+                              onChange={(isOn) => {
+                                edit({ [each.auto]: isOn });
+                              }}
+                            />
+                          }
+                        />
+                      )}
+                      {each.window === null || !isAuto ? null : (
+                        <SettingsRow
+                          searchId={each.window}
+                          title={t('settingsMaintenance.when', 'When')}
+                          note={
+                            updateWindow.mode === 'fixed'
+                              ? t('settingsMaintenance.whenFixed', 'Every day at {{time}}.', {
+                                  time: updateWindow.time,
+                                })
+                              : quiet?.state === 'ready'
+                                ? t(
+                                    'settingsMaintenance.whenQuietest',
+                                    'When the house is quietest: {{time}}.',
+                                    { time: quiet.time },
+                                  )
+                                : t(
+                                    'settingsMaintenance.whenLearning',
+                                    'Learning when the house is idle: {{time}} for now.',
+                                    { time: quiet?.time ?? updateWindow.time },
+                                  )
+                          }
+                          control={
+                            <>
+                              {updateWindow.mode === 'fixed' ? (
+                                <TextField
+                                  label={t('settingsMaintenance.timeOf', '{{name}} update time', {
+                                    name,
+                                  })}
+                                  isLabelHidden
+                                  size="compact"
+                                  type="time"
+                                  className="font-mono"
+                                  disabled={!canWrite}
+                                  value={updateWindow.time}
+                                  onChange={(event) => {
+                                    edit({
+                                      [each.window]: { ...updateWindow, time: event.target.value },
+                                    });
+                                  }}
+                                />
+                              ) : null}
+                              <Segmented
+                                label={t('settingsMaintenance.whenOf', 'When {{name}} update', {
+                                  name,
+                                })}
+                                disabled={!canWrite}
+                                value={updateWindow.mode}
+                                options={[
+                                  {
+                                    value: 'quietest',
+                                    label: t('settingsMaintenance.quietest', 'Quietest hour'),
+                                  },
+                                  {
+                                    value: 'fixed',
+                                    label: t('settingsMaintenance.atATime', 'Set time'),
+                                  },
+                                ]}
+                                onChange={(mode) => {
+                                  edit({ [each.window]: { ...updateWindow, mode } });
+                                }}
+                              />
+                            </>
+                          }
+                        />
+                      )}
                       <SettingsRow
-                        searchId={each.auto}
-                        title={t('settingsMaintenance.automatic', 'Automatic updates')}
+                        searchId={each.channel}
+                        title={
+                          isCore
+                            ? t('settingsMaintenance.releaseChannel', 'Release channel')
+                            : t('settingsMaintenance.hubVersions', 'Versions in the Hub')
+                        }
                         note={
-                          isAuto
-                            ? t('settingsMaintenance.autoOn', 'Installs new versions on its own.')
+                          isCore
+                            ? {
+                                stable: t(
+                                  'settingsMaintenance.coreStable',
+                                  'Gets tested releases only.',
+                                ),
+                                beta: t(
+                                  'settingsMaintenance.coreBeta',
+                                  'Gets new releases earlier. They may still have bugs.',
+                                ),
+                                dev: t(
+                                  'settingsMaintenance.coreDev',
+                                  'Gets every build as soon as it is made. Things may break.',
+                                ),
+                              }[channel]
+                            : {
+                                stable: t(
+                                  'settingsMaintenance.hubStable',
+                                  'The Hub shows stable versions only.',
+                                ),
+                                beta: t(
+                                  'settingsMaintenance.hubBeta',
+                                  'The Hub also shows beta versions when you browse.',
+                                ),
+                                dev: t(
+                                  'settingsMaintenance.hubDev',
+                                  'The Hub shows every build, beta and dev included.',
+                                ),
+                              }[channel]
+                        }
+                        control={
+                          <Segmented
+                            label={t('settingsMaintenance.channelOf', '{{name}} channel', { name })}
+                            disabled={!canWrite}
+                            value={channel}
+                            options={[
+                              { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
+                              { value: 'beta', label: t('settingsMaintenance.beta', 'Beta') },
+                              ...(isDeveloperMode
+                                ? [
+                                    {
+                                      value: 'dev' as const,
+                                      label: t('settingsMaintenance.dev', 'Dev'),
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                            onChange={(value) => {
+                              edit({ [each.channel]: value });
+                            }}
+                          />
+                        }
+                      />
+                      <SettingsRow
+                        searchId={each.backup}
+                        title={t('settingsMaintenance.backupFirst', 'Back up first')}
+                        note={
+                          shown(each.backup) === false
+                            ? t(
+                                'settingsMaintenance.backupFirstOff',
+                                'Installs updates without taking a backup.',
+                              )
                             : t(
-                                'settingsMaintenance.autoOff',
-                                'New versions wait until you install them.',
+                                'settingsMaintenance.backupFirstOn',
+                                'Takes a backup before each update, so you can roll back.',
                               )
                         }
                         control={
                           <Switch
                             label={t(
-                              'settingsMaintenance.autoOf',
-                              'Update {{name}} automatically',
+                              'settingsMaintenance.backupFirstOf',
+                              'Back up before updating {{name}}',
                               {
                                 name,
                               },
                             )}
-                            isOn={isAuto}
+                            isOn={shown(each.backup) !== false}
                             disabled={!canWrite}
                             onChange={(isOn) => {
-                              edit({ [each.auto]: isOn });
+                              edit({ [each.backup]: isOn });
                             }}
                           />
                         }
                       />
-                    )}
-                    {each.window === null || !isAuto ? null : (
-                      <SettingsRow
-                        searchId={each.window}
-                        title={t('settingsMaintenance.when', 'When')}
-                        note={
-                          updateWindow.mode === 'fixed'
-                            ? t('settingsMaintenance.whenFixed', 'Every day at {{time}}.', {
-                                time: updateWindow.time,
-                              })
-                            : quiet?.state === 'ready'
-                              ? t(
-                                  'settingsMaintenance.whenQuietest',
-                                  'When the house is quietest: {{time}}.',
-                                  { time: quiet.time },
-                                )
-                              : t(
-                                  'settingsMaintenance.whenLearning',
-                                  'Learning when the house is idle: {{time}} for now.',
-                                  { time: quiet?.time ?? updateWindow.time },
-                                )
-                        }
-                        control={
-                          <>
-                            {updateWindow.mode === 'fixed' ? (
-                              <TextField
-                                label={t('settingsMaintenance.timeOf', '{{name}} update time', {
-                                  name,
-                                })}
-                                isLabelHidden
-                                size="compact"
-                                type="time"
-                                className="font-mono"
-                                disabled={!canWrite}
-                                value={updateWindow.time}
-                                onChange={(event) => {
-                                  edit({
-                                    [each.window]: { ...updateWindow, time: event.target.value },
-                                  });
-                                }}
-                              />
-                            ) : null}
-                            <Segmented
-                              label={t('settingsMaintenance.whenOf', 'When {{name}} update', {
-                                name,
-                              })}
-                              disabled={!canWrite}
-                              value={updateWindow.mode}
-                              options={[
-                                {
-                                  value: 'quietest',
-                                  label: t('settingsMaintenance.quietest', 'Quietest hour'),
-                                },
-                                {
-                                  value: 'fixed',
-                                  label: t('settingsMaintenance.atATime', 'Set time'),
-                                },
-                              ]}
-                              onChange={(mode) => {
-                                edit({ [each.window]: { ...updateWindow, mode } });
-                              }}
-                            />
-                          </>
-                        }
-                      />
-                    )}
-                    <SettingsRow
-                      searchId={each.channel}
-                      title={
-                        isCore
-                          ? t('settingsMaintenance.releaseChannel', 'Release channel')
-                          : t('settingsMaintenance.hubVersions', 'Versions in the Hub')
-                      }
-                      note={
-                        isCore
-                          ? {
-                              stable: t(
-                                'settingsMaintenance.coreStable',
-                                'Gets tested releases only.',
-                              ),
-                              beta: t(
-                                'settingsMaintenance.coreBeta',
-                                'Gets new releases earlier. They may still have bugs.',
-                              ),
-                              dev: t(
-                                'settingsMaintenance.coreDev',
-                                'Gets every build as soon as it is made. Things may break.',
-                              ),
-                            }[channel]
-                          : {
-                              stable: t(
-                                'settingsMaintenance.hubStable',
-                                'The Hub shows stable versions only.',
-                              ),
-                              beta: t(
-                                'settingsMaintenance.hubBeta',
-                                'The Hub also shows beta versions when you browse.',
-                              ),
-                              dev: t(
-                                'settingsMaintenance.hubDev',
-                                'The Hub shows every build, beta and dev included.',
-                              ),
-                            }[channel]
-                      }
-                      control={
-                        <Segmented
-                          label={t('settingsMaintenance.channelOf', '{{name}} channel', { name })}
-                          disabled={!canWrite}
-                          value={channel}
-                          options={[
-                            { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
-                            { value: 'beta', label: t('settingsMaintenance.beta', 'Beta') },
-                            ...(isDeveloperMode
-                              ? [
-                                  {
-                                    value: 'dev' as const,
-                                    label: t('settingsMaintenance.dev', 'Dev'),
-                                  },
-                                ]
-                              : []),
-                          ]}
-                          onChange={(value) => {
-                            edit({ [each.channel]: value });
-                          }}
-                        />
-                      }
-                    />
-                    <SettingsRow
-                      searchId={each.backup}
-                      title={t('settingsMaintenance.backupFirst', 'Back up first')}
-                      note={
-                        shown(each.backup) === false
-                          ? t(
-                              'settingsMaintenance.backupFirstOff',
-                              'Installs updates without taking a backup.',
-                            )
-                          : t(
-                              'settingsMaintenance.backupFirstOn',
-                              'Takes a backup before each update, so you can roll back.',
-                            )
-                      }
-                      control={
-                        <Switch
-                          label={t(
-                            'settingsMaintenance.backupFirstOf',
-                            'Back up before updating {{name}}',
-                            {
-                              name,
-                            },
-                          )}
-                          isOn={shown(each.backup) !== false}
-                          disabled={!canWrite}
-                          onChange={(isOn) => {
-                            edit({ [each.backup]: isOn });
-                          }}
-                        />
-                      }
-                    />
+                    </div>
                   </div>
-                ) : null}
+                </div>
 
                 {inKind.length === 0 ? (
-                  <div className="h-3" />
+                  <div
+                    className={cn(
+                      'transition-[height] duration-250 ease-out motion-reduce:transition-none',
+                      isOpen ? 'h-3' : 'h-0',
+                    )}
+                  />
                 ) : (
-                  <div className="flex flex-col px-5 pt-2 pb-1.5">
-                    <span className="pt-2.5 font-mono text-label text-foreground-subtle uppercase">
+                  <div
+                    className={cn(
+                      'flex flex-col px-5 pb-1.5 transition-[padding] duration-250 ease-out motion-reduce:transition-none',
+                      isOpen ? 'pt-2' : 'pt-0',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'font-mono text-label text-foreground-subtle uppercase transition-[padding] duration-250 ease-out motion-reduce:transition-none',
+                        isOpen ? 'pt-2.5' : 'pt-0',
+                      )}
+                    >
                       {t('settingsMaintenance.readyToInstall', 'Ready to install')}
                     </span>
                     <div>{inKind.map(updateRow)}</div>
@@ -1057,17 +1094,25 @@ export function SoftwareSettings() {
               }
             />
           </SettingsCard>
-          <SettingsCard className={isDeveloperMode ? 'border-warning-line' : undefined}>
+          <SettingsCard
+            className={cn(
+              'transition-colors duration-200',
+              isDeveloperMode && 'warning-glow border-warning/35 [--glow-at:100%_0%]',
+            )}
+          >
             <SettingsRow
               searchId={DEVELOPER_MODE}
               leading={
-                <RowIcon>
-                  <AppIcon
-                    id="code-xml"
-                    size={16}
-                    className={isDeveloperMode ? 'text-warning' : undefined}
-                  />
-                </RowIcon>
+                <span
+                  className={cn(
+                    'flex size-9 shrink-0 items-center justify-center rounded-field border transition-colors duration-200',
+                    isDeveloperMode
+                      ? 'border-warning/30 bg-warning/14 text-warning'
+                      : 'border-border-strong bg-surface-raised text-foreground-muted',
+                  )}
+                >
+                  <AppIcon id="code-xml" size={16} />
+                </span>
               }
               title={t('settingsMaintenance.developerMode', 'Developer mode')}
               note={
@@ -1084,6 +1129,7 @@ export function SoftwareSettings() {
               control={
                 <Switch
                   label={t('settingsMaintenance.developerMode', 'Developer mode')}
+                  tone="warning"
                   isOn={isDeveloperMode}
                   disabled={!canWrite}
                   onChange={(isOn) => {
@@ -1201,6 +1247,12 @@ export function SoftwareSettings() {
       {dialog?.kind === 'developer' ? (
         <Modal
           isOpen
+          className="warning-glow backdrop:backdrop-blur-[6px]"
+          lead={
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-inner border border-warning/30 bg-warning/14 text-warning">
+              <AppIcon id="triangle-alert" size={20} />
+            </span>
+          }
           title={t('settingsMaintenance.developerConfirm', 'Turn on developer mode?')}
           description={t(
             'settingsMaintenance.developerWhat',
@@ -1212,7 +1264,7 @@ export function SoftwareSettings() {
           footer={
             <>
               <Button
-                variant="bare"
+                variant="ghost"
                 onClick={() => {
                   setDialog(null);
                 }}
@@ -1220,6 +1272,7 @@ export function SoftwareSettings() {
                 {t('common.cancel', 'Cancel')}
               </Button>
               <Button
+                className="bg-warning text-canvas hover:enabled:bg-warning/90 disabled:bg-surface-high disabled:text-foreground-subtle disabled:opacity-100"
                 disabled={!isAcknowledged}
                 onClick={() => {
                   setDeveloperMode(true);
@@ -1231,12 +1284,12 @@ export function SoftwareSettings() {
             </>
           }
         >
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2.5 rounded-tile border border-border bg-canvas px-4 py-3.5">
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2.5 rounded-inner border border-border bg-canvas/40 px-4 py-3.5">
               <span className="font-mono text-label text-foreground-subtle uppercase">
                 {t('settingsMaintenance.developerTurnsOn', 'It turns on')}
               </span>
-              <span className="flex items-baseline gap-2.5 text-ui text-foreground">
+              <span className="flex items-center gap-2.5 text-ui text-foreground">
                 <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-warning" />
                 {t(
                   'settingsMaintenance.developerDevChannel',
@@ -1249,6 +1302,7 @@ export function SoftwareSettings() {
                 'settingsMaintenance.developerAcknowledge',
                 'I understand that problems caused in developer mode are on me, and I have a recent backup.',
               )}
+              tone="warning"
               isChecked={isAcknowledged}
               onChange={setAcknowledged}
             />
