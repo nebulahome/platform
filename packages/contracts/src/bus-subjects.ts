@@ -144,6 +144,13 @@ export const busSubjects = {
   integrationEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.integration.changed`,
 
   /**
+   * Announcing that part of the library changed that an owner edits: a room, a scene, a role.
+   *
+   * @returns The fan-out subject `api` and `core` publish on.
+   */
+  libraryEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.library.changed`,
+
+  /**
    * Commanding an entity.
    *
    * @param entityId - The entity to command.

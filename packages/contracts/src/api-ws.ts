@@ -16,6 +16,7 @@ import { DISCOVERY_EVENTS } from './discovery.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema } from './entity-state.js';
 import { jsonObjectSchema, jsonValueSchema } from './json.js';
+import { LIBRARY_KINDS } from './library-events.js';
 import { packageIdSchema } from './package-id.js';
 import { packageLiveTopicSchema } from './packet-manager.js';
 import { DEVICE_EVENTS, deviceEventSchema } from './registration.js';
@@ -58,6 +59,7 @@ export const WS_TOPICS = [
   'containers',
   'backups',
   'system',
+  'library',
 ] as const;
 
 /** What a client may subscribe to. */
@@ -195,6 +197,12 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('backup_event'),
     payload: backupEventSchema,
+  }),
+
+  /** Part of the library changed that an owner edits: the pages listing it read it again. */
+  z.object({
+    type: z.literal('library_event'),
+    kind: z.enum(LIBRARY_KINDS),
   }),
   z.object({
     type: z.literal('platform_event'),
