@@ -25,6 +25,7 @@ import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
   checkSystemUpdates,
+  dismissLastPlatformUpdate,
   platformState,
   powerPlatform,
   runSystemUpdates,
@@ -209,6 +210,31 @@ export function registerSystemUpdateRoutes(
       );
 
       return { round };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'DELETE',
+      url: '/system/updates/last',
+      summary: 'Forget how the last update of Nebula Home ended',
+      tag: 'System',
+      permission: 'system:update',
+      successStatus: 204,
+    },
+
+    /**
+     * Forgets it.
+     *
+     * @param route - Who is asking.
+     */
+    async (route): Promise<void> => {
+      requirePermission(route.identity, 'system:update');
+
+      await audited(context, route, 'dismiss_update', async () =>
+        dismissLastPlatformUpdate(updatesContext(context, route.request.traceId)),
+      );
     },
   );
 

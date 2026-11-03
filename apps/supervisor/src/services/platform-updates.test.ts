@@ -148,6 +148,40 @@ describe('PlatformUpdates', () => {
     });
   });
 
+  it('leaves out a failure the running version already reached, and forgets one dismissed', async () => {
+    const dataRoot = await mkdtemp(path.join(os.tmpdir(), 'nebula-'));
+    const { platform } = platformOver(dataRoot);
+    const outcomeTo = async (toVersion: string): Promise<void> =>
+      writeFile(
+        path.join(dataRoot, 'updates', 'last.json'),
+        JSON.stringify({
+          fromVersion: '2026.10.0',
+          toVersion,
+          status: 'rolled_back',
+          finishedAt: '2026-11-03T13:05:50Z',
+          error: 'The new version did not start: it is unhealthy',
+          log: [],
+          restoredInMs: 3499,
+        }),
+      );
+
+    await mkdir(path.join(dataRoot, 'updates'));
+    await outcomeTo('2026.10.1');
+
+    await expect(platform.state()).resolves.toMatchObject({ lastUpdate: null });
+
+    await outcomeTo('2026.11.0');
+
+    await expect(platform.state()).resolves.toMatchObject({
+      lastUpdate: { status: 'rolled_back', toVersion: '2026.11.0' },
+    });
+
+    await platform.dismissLastUpdate();
+    await platform.dismissLastUpdate();
+
+    await expect(platform.state()).resolves.toMatchObject({ lastUpdate: null });
+  });
+
   it("says an update is being checked while the updater's marker is there", async () => {
     const dataRoot = await mkdtemp(path.join(os.tmpdir(), 'nebula-'));
     const { platform } = platformOver(dataRoot);

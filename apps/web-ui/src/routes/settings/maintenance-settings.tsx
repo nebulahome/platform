@@ -44,6 +44,7 @@ import { SETTINGS_QUERY_KEYS, fetchServerSettings, updateServerSettings } from '
 import {
   UPDATES_QUERY_KEY,
   checkSystemUpdates,
+  dismissLastPlatformUpdate,
   fetchSystemUpdates,
   powerPlatform,
   runSystemUpdates,
@@ -253,6 +254,13 @@ export function MaintenanceSettings() {
     /** Asks GitHub again, then reads the list. */
     mutationFn: async (): Promise<void> => {
       await checkSystemUpdates();
+      await queryClient.invalidateQueries({ queryKey: UPDATES_QUERY_KEY });
+    },
+  });
+  const dismiss = useMutation({
+    /** Forgets how the last update ended, then reads the list. */
+    mutationFn: async (): Promise<void> => {
+      await dismissLastPlatformUpdate();
       await queryClient.invalidateQueries({ queryKey: UPDATES_QUERY_KEY });
     },
   });
@@ -486,6 +494,23 @@ export function MaintenanceSettings() {
                   })
             }
             note={<span className="text-danger">{core.lastUpdate.error}</span>}
+            control={
+              canUpdate ? (
+                <Button
+                  variant="bare"
+                  size="compact"
+                  className="px-2"
+                  aria-label={t('settingsMaintenance.dismissUpdate', 'Dismiss')}
+                  title={t('settingsMaintenance.dismissUpdate', 'Dismiss')}
+                  disabled={dismiss.isPending}
+                  onClick={() => {
+                    dismiss.mutate();
+                  }}
+                >
+                  <AppIcon id="x" size={16} />
+                </Button>
+              ) : undefined
+            }
           />
         </SettingsCard>
       )}

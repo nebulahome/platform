@@ -312,6 +312,21 @@ export async function powerPlatform(
 }
 
 /**
+ * Forgets how the last update of Nebula Home ended, so the page stops showing it.
+ *
+ * @param context - The request's collaborators.
+ */
+export async function dismissLastPlatformUpdate(context: SystemUpdatesContext): Promise<void> {
+  await ask(
+    context,
+    SUPERVISOR_SERVICE,
+    SUPERVISOR_METHODS.dismissLastUpdate,
+    {},
+    supervisorAcknowledgementSchema,
+  );
+}
+
+/**
  * What every page knows of Nebula Home itself: its version, a restart or an update under way,
  * how the last update ended.
  *

@@ -231,6 +231,9 @@ The supervisor runs inside the platform's container and cannot replace it, so:
    `/data/updates/current.json` (`{fromVersion, toVersion, startedAt}`), which the outcome removes:
    the version that comes up reads it and says the update is being checked. When the updater
    cannot even read the platform's container, nothing is touched and it writes a `failed` outcome.
+   A failed or undone outcome is no longer shown once the version running is the one it aimed at
+   or newer (a later update, or the image changed by hand), and its X on the page forgets it
+   (`DELETE /api/v1/system/updates/last`, `system:update`).
 6. An updater that exits while the supervisor still runs gave up before stopping it (one of a new
    version that wants what this one does not pass it exits at once). The supervisor then writes a
    `failed` outcome unless the updater wrote one, stops refusing updates, and tells the pages the

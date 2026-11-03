@@ -59,6 +59,11 @@ export async function checkSystemUpdates(): Promise<void> {
   await apiRequest('/system/updates/check', z.unknown(), { method: 'POST' });
 }
 
+/** Forgets how the last update of Nebula Home ended, so the page stops showing it. */
+export async function dismissLastPlatformUpdate(): Promise<void> {
+  await apiRequest('/system/updates/last', z.unknown(), { method: 'DELETE' });
+}
+
 /**
  * Starts a round of updates.
  *

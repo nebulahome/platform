@@ -11,10 +11,11 @@
  */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  compareVersions,
   ConflictError,
   NotFoundError,
   platformUpdateMarkerSchema,
@@ -476,7 +477,17 @@ export class PlatformUpdates {
   }
 
   /**
+   * Forgets how the last update ended: the page shows it until then.
+   */
+  public async dismissLastUpdate(): Promise<void> {
+    await rm(path.join(this.#options.dataRoot, 'updates', 'last.json'), { force: true });
+  }
+
+  /**
    * How the last update ended, as the updater wrote it.
+   *
+   * A failure is left out once the version running is the one it aimed at or newer: the house got
+   * there another way (a later update, or the image changed by hand), so it no longer matters.
    *
    * @returns It, or null when there was none.
    */
@@ -486,8 +497,12 @@ export class PlatformUpdates {
         path.join(this.#options.dataRoot, 'updates', 'last.json'),
         'utf8',
       );
+      const outcome = platformUpdateOutcomeSchema.parse(JSON.parse(text));
 
-      return platformUpdateOutcomeSchema.parse(JSON.parse(text));
+      return outcome.status !== 'success' &&
+        compareVersions(this.#options.version, outcome.toVersion) >= 0
+        ? null
+        : outcome;
     } catch {
       return null;
     }

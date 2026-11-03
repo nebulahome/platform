@@ -44,6 +44,9 @@ export const SUPERVISOR_METHODS = {
   /** The version running, a restart or an update under way, how the last update ended. */
   platformState: 'platform_state',
 
+  /** Forgets how the last update ended, so the page stops showing it. */
+  dismissLastUpdate: 'dismiss_last_update',
+
   /** Updates Nebula Home to a release, through a throwaway updater container. */
   updatePlatform: 'update_platform',
 

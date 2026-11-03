@@ -110,6 +110,15 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
       reads,
     ),
     client.serve(
+      subject(SUPERVISOR_METHODS.dismissLastUpdate),
+      supervisorEmptyRequestSchema,
+      async () => {
+        await service.platform.dismissLastUpdate();
+
+        return ok;
+      },
+    ),
+    client.serve(
       subject(SUPERVISOR_METHODS.updatePlatform),
       updatePlatformRequestSchema,
       async (request) => {
