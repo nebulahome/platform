@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { newestReleases } from './github-releases.js';
+import { fetchPlatformReleases, newestReleases } from './github-releases.js';
 
 /**
  * A release as GitHub answers.
@@ -60,5 +60,38 @@ describe('newestReleases', () => {
 
   it('has nothing when there is no release', () => {
     expect(newestReleases([])).toEqual({ stable: null, beta: null, dev: null });
+  });
+});
+
+describe('fetchPlatformReleases', () => {
+  it('asks for GitHub’s latest release when the page holds no stable one', async () => {
+    const asked: string[] = [];
+    const found = await fetchPlatformReleases({
+      timeoutMs: 1000,
+      userAgent: 'NebulaHome/test',
+
+      /**
+       * GitHub, with a page of development builds only.
+       *
+       * @param input - What is asked.
+       * @returns The page, or the latest stable release.
+       */
+      fetch: async (input) => {
+        const url = String(input instanceof Request ? input.url : input);
+
+        asked.push(url.replace('https://api.github.com/repos/nebulahome/platform', ''));
+
+        return Promise.resolve(
+          Response.json(
+            url.endsWith('/latest') ? release('v2026.10.4') : [release('v2026.11.1-alpha.40')],
+          ),
+        );
+      },
+    });
+
+    expect(asked).toEqual(['/releases?per_page=100', '/releases/latest']);
+    expect(found.stable?.version).toBe('2026.10.4');
+    expect(found.beta?.version).toBe('2026.10.4');
+    expect(found.dev?.version).toBe('2026.11.1-alpha.40');
   });
 });

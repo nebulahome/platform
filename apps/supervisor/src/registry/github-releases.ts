@@ -1,7 +1,8 @@
 /**
  * Nebula Home's releases on GitHub (docs/releases-and-updates.md 4): the newest stable one and
  * the newest of all, betas included, asked of the public API without a token - sixty calls an
- * hour per address, and the supervisor asks every six hours and on Check now.
+ * hour per address, and the supervisor asks every six hours and on Check now: the hundred newest,
+ * and GitHub's latest release as well when none of them is stable.
  *
  * A beta is a version with a `-beta.K` suffix, a dev build one with `-alpha.K`, both marked
  * prerelease; drafts are never offered.
@@ -11,7 +12,10 @@ import { z } from 'zod';
 import { compareVersions, UpstreamError, type PlatformRelease } from '@nebulahome/contracts';
 
 /** Where the releases are. */
-const RELEASES_URL = 'https://api.github.com/repos/nebulahome/platform/releases?per_page=30';
+const RELEASES_URL = 'https://api.github.com/repos/nebulahome/platform/releases?per_page=100';
+
+/** The newest stable release, wherever it is in the list. */
+const LATEST_URL = 'https://api.github.com/repos/nebulahome/platform/releases/latest';
 
 /** One release, as GitHub answers. */
 const githubReleaseSchema = z.looseObject({
@@ -95,7 +99,8 @@ export function newestReleases(body: unknown): PlatformReleases {
 }
 
 /**
- * Asks GitHub for the releases.
+ * Asks GitHub for the releases: the hundred newest, and GitHub's latest release when no stable one
+ * is among them - a run of development builds can push it out of the page.
  *
  * @param options - The timeout, the user agent, and a fetch to use instead of the global one.
  * @returns The newest of each channel.
@@ -105,10 +110,38 @@ export function newestReleases(body: unknown): PlatformReleases {
 export async function fetchPlatformReleases(
   options: GithubReleasesOptions,
 ): Promise<PlatformReleases> {
+  const page = await ask(RELEASES_URL, options);
+  const releases = newestReleases(page);
+
+  if (releases.stable !== null || !Array.isArray(page)) {
+    return releases;
+  }
+
+  const listed: unknown[] = page;
+  // GitHub answers 404 while no stable release was ever published.
+  const latest = await ask(LATEST_URL, options, true);
+
+  return latest === null ? releases : newestReleases([...listed, latest]);
+}
+
+/**
+ * Asks GitHub one address.
+ *
+ * @param url - The address.
+ * @param options - The timeout, the user agent, and a fetch to use instead of the global one.
+ * @param isMissingOk - Whether a 404 is an answer, null, rather than a failure.
+ * @returns What it answered.
+ * @throws {UpstreamError} When GitHub cannot be reached or refuses.
+ */
+async function ask(
+  url: string,
+  options: GithubReleasesOptions,
+  isMissingOk = false,
+): Promise<unknown> {
   let response: Response;
 
   try {
-    response = await (options.fetch ?? globalThis.fetch)(RELEASES_URL, {
+    response = await (options.fetch ?? globalThis.fetch)(url, {
       headers: {
         accept: 'application/vnd.github+json',
         'user-agent': options.userAgent,
@@ -121,11 +154,15 @@ export async function fetchPlatformReleases(
     });
   }
 
+  if (isMissingOk && response.status === 404) {
+    return null;
+  }
+
   if (!response.ok) {
     throw new UpstreamError(`GitHub answered ${String(response.status)}`, {
       details: { status: response.status },
     });
   }
 
-  return newestReleases(await response.json());
+  return response.json();
 }
