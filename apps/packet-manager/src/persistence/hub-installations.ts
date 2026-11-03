@@ -2,7 +2,7 @@
  * `system.community_hub_installations`: the house's registration at each Community Hub it reported
  * an install to - the installation the Hub made of it, and the token it showed once, sealed.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { isSealed, schema, type Database, type SealedValue } from '@nebulahome/db';
 
@@ -20,7 +20,7 @@ export type HubInstallationRow = {
 export type HubInstallationStore = {
   readonly get: (hubUrl: string) => Promise<HubInstallationRow | undefined>;
   readonly save: (row: Omit<HubInstallationRow, 'registeredAt'>) => Promise<void>;
-  readonly remove: (hubUrl: string) => Promise<void>;
+  readonly remove: (hubUrl: string, installationId: string) => Promise<void>;
 };
 
 /**
@@ -70,12 +70,16 @@ export function databaseHubInstallationStore(db: Database): HubInstallationStore
     },
 
     /**
-     * Forgets the registration at one Hub: its token is refused.
+     * Forgets the registration at one Hub whose token it refused - and not one made since, which
+     * a report may have registered while the refused token was in flight.
      *
      * @param hubUrl - The Hub's address.
+     * @param installationId - The installation whose token was refused.
      */
-    remove: async (hubUrl) => {
-      await db.delete(table).where(eq(table.hubUrl, hubUrl));
+    remove: async (hubUrl, installationId) => {
+      await db
+        .delete(table)
+        .where(and(eq(table.hubUrl, hubUrl), eq(table.installationId, installationId)));
     },
   };
 }

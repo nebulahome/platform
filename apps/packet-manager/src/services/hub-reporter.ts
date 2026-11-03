@@ -10,8 +10,10 @@
  * a reinstall of the same version and anything installed while reports are off are not.
  *
  * Reports are best-effort and never hold an install up: events wait in memory and go in batches a
- * moment later, again a minute later when the Hub cannot be reached, and a token the Hub refuses -
- * revoked, or a Hub whose database was emptied - is forgotten and the house registers again. A
+ * moment later, again a minute later when the Hub cannot be reached - twice as long after each
+ * attempt that fails in a row, up to an hour, so a Hub that keeps refusing a registration is not
+ * sent a proof of work every minute - and a token the Hub refuses - revoked, or a Hub whose
+ * database was emptied - is forgotten and the house registers again. A
  * batch the Hub refuses for good - a house it blocked, events it cannot read - is dropped rather
  * than sent every minute ahead of the rest. What waits is sent on shutdown, briefly; a report lost
  * to a restart only makes the Hub's count one smaller.
@@ -27,8 +29,11 @@ import { solveChallenge } from './proof-of-work.js';
 /** How long after an install its report goes: the next install of a plan joins the batch. */
 const BATCH_DELAY_MS = 2000;
 
-/** How long before a report the Hub could not take is tried again. */
+/** How long before a report the Hub could not take is tried again, the first time. */
 const RETRY_MS = 60_000;
+
+/** The longest wait between attempts, however many failed. */
+const MAXIMUM_RETRY_MS = 3_600_000;
 
 /** The most events one report carries, as the Hub takes them. */
 const BATCH_LIMIT = 100;
@@ -70,6 +75,9 @@ export class HubReporter implements InstallReporter {
   #timer: NodeJS.Timeout | undefined;
   #flushing: Promise<void> | undefined;
 
+  /** How many attempts in a row failed: each doubles the wait before the next. */
+  #failures = 0;
+
   /**
    * Makes a reporter that holds nothing yet.
    *
@@ -106,7 +114,7 @@ export class HubReporter implements InstallReporter {
       );
 
       if (outcome === 'token-refused') {
-        await store.remove(hub.url);
+        await store.remove(hub.url, known.installationId);
       }
     } catch (error: unknown) {
       logger.debug({ err: error }, 'Could not tell the Community Hub the release the house runs');
@@ -187,9 +195,14 @@ export class HubReporter implements InstallReporter {
       try {
         // One batch after another: a refused token is renewed before the next goes.
         // eslint-disable-next-line no-await-in-loop -- see above
-        const token = await this.#token();
+        const { token, installationId } = await this.#token();
         // eslint-disable-next-line no-await-in-loop -- see above
         const outcome = await hub.reportInstalls(token, batch);
+
+        if (outcome !== 'token-refused') {
+          // The Hub took the house's token: the next failure waits a minute again.
+          this.#failures = 0;
+        }
 
         if (outcome === 'refused') {
           // A house the Hub blocked, or events it cannot read: sent again, they would only hold
@@ -201,7 +214,7 @@ export class HubReporter implements InstallReporter {
 
         if (outcome === 'token-refused') {
           // eslint-disable-next-line no-await-in-loop -- see above
-          await this.#options.store.remove(hub.url ?? '');
+          await this.#options.store.remove(hub.url ?? '', installationId);
 
           // Once per attempt: a house the Hub blocks is refused again, and waits for the retry.
           if (isRenewed) {
@@ -220,15 +233,33 @@ export class HubReporter implements InstallReporter {
           return;
         }
 
-        logger.warn(
-          { err: error, events: this.#queue.length },
-          'Could not report installs to the Community Hub; trying again in a minute',
+        const retryMs = Math.min(
+          (this.#options.retryMs ?? RETRY_MS) * 2 ** this.#failures,
+          MAXIMUM_RETRY_MS,
         );
-        this.#schedule(this.#options.retryMs ?? RETRY_MS);
+
+        this.#failures += 1;
+        logger.warn(
+          { err: error, events: this.#queue.length, retryMs },
+          'Could not report installs to the Community Hub; trying again later',
+        );
+        this.#reschedule(retryMs);
 
         return;
       }
     }
+  }
+
+  /**
+   * Sends what waits after a delay, in place of any send already due: the wait after a failure
+   * outranks the short one a new event asked for.
+   *
+   * @param delayMs - How long to wait.
+   */
+  #reschedule(delayMs: number): void {
+    clearTimeout(this.#timer);
+    this.#timer = undefined;
+    this.#schedule(delayMs);
   }
 
   /**
@@ -243,15 +274,15 @@ export class HubReporter implements InstallReporter {
   /**
    * The house's token at the Hub, registering the house when it has none.
    *
-   * @returns The token, in the clear.
+   * @returns The token, in the clear, and the installation it is of.
    */
-  async #token(): Promise<string> {
+  async #token(): Promise<{ token: string; installationId: string }> {
     const { hub, store, secretsKey, logger } = this.#options;
     const url = hub.url ?? '';
     const known = await store.get(url);
 
     if (known !== undefined) {
-      return openSecret(known.token, secretsKey);
+      return { token: openSecret(known.token, secretsKey), installationId: known.installationId };
     }
 
     const { challenge, difficultyBits } = await hub.challenge();
@@ -272,6 +303,6 @@ export class HubReporter implements InstallReporter {
       'Registered the house at the Community Hub',
     );
 
-    return registered.token;
+    return { token: registered.token, installationId: registered.id };
   }
 }

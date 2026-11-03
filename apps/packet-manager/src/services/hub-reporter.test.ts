@@ -1,10 +1,11 @@
 /**
  * Reporting installs to the Community Hub, against a Hub faked over fetch: the house registered
  * once with a proof of work and its token kept sealed, events sent in one batch, a refused token
- * renewed, a Hub away tried again, a batch refused for good dropped, the release the house runs
- * told on start, and nothing sent while reports are off.
+ * renewed - and only that one forgotten -, a Hub away tried again, later after each failure, a
+ * batch refused for good dropped, the release the house runs told on start, and nothing sent while
+ * reports are off.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { isSealed, openSecret } from '@nebulahome/db';
 import { createLogger } from '@nebulahome/logging';
@@ -55,18 +56,31 @@ function memoryStore(): HubInstallationStore & { rows: Map<string, HubInstallati
     },
 
     /**
-     * Forgets a row.
+     * Forgets a row, when it is of that installation.
      *
      * @param url - Which.
+     * @param installationId - The installation it must be of.
      * @returns Once forgotten.
      */
-    remove: async (url) => {
-      rows.delete(url);
+    remove: async (url, installationId) => {
+      if (rows.get(url)?.installationId === installationId) {
+        rows.delete(url);
+      }
 
       return Promise.resolve();
     },
   };
 }
+
+/** How the fake Hub behaves, which a test changes as it goes. */
+type FakeHubState = {
+  isAway: boolean;
+  refusals: number;
+  isBlocked: boolean;
+
+  /** Run just before a token is refused. */
+  beforeRefusal: () => void;
+};
 
 /**
  * A Hub that registers houses and counts their reports.
@@ -78,17 +92,20 @@ function memoryStore(): HubInstallationStore & { rows: Map<string, HubInstallati
  */
 function fakeHub(options: { isAway?: boolean; refusals?: number } = {}): {
   fetch: typeof fetch;
+  calls: number;
   registrations: number;
   reports: { token: string; events: HubInstallEvent[] }[];
   versions: string[];
-  state: { isAway: boolean; refusals: number; isBlocked: boolean };
+  state: FakeHubState;
 } {
-  const state = {
+  const state: FakeHubState = {
     isAway: options.isAway ?? false,
     refusals: options.refusals ?? 0,
     isBlocked: false,
+    beforeRefusal: () => undefined,
   };
   const seen = {
+    calls: 0,
     registrations: 0,
     reports: [] as { token: string; events: HubInstallEvent[] }[],
     versions: [] as string[],
@@ -102,6 +119,8 @@ function fakeHub(options: { isAway?: boolean; refusals?: number } = {}): {
    * @returns Its answer.
    */
   const fetch: typeof globalThis.fetch = async (input, init) => {
+    seen.calls += 1;
+
     if (state.isAway) {
       throw new TypeError('fetch failed');
     }
@@ -129,6 +148,7 @@ function fakeHub(options: { isAway?: boolean; refusals?: number } = {}): {
 
     if (state.refusals > 0) {
       state.refusals -= 1;
+      state.beforeRefusal();
 
       return Promise.resolve(
         Response.json(
@@ -161,6 +181,9 @@ function fakeHub(options: { isAway?: boolean; refusals?: number } = {}): {
   return {
     fetch,
     state,
+    get calls() {
+      return seen.calls;
+    },
     get registrations() {
       return seen.registrations;
     },
@@ -264,6 +287,59 @@ describe('reporting installs', () => {
     await reporter.flush();
 
     expect(hub.reports).toEqual([{ token: 'nhi_1', events: [NVR] }]);
+    reporter.stop();
+  });
+
+  it('waits twice as long after each failed attempt, and sends once the Hub is back', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const hub = fakeHub({ isAway: true });
+      const { reporter } = reporterOver(hub);
+
+      reporter.report(NVR);
+      await reporter.flush();
+      expect(hub.calls).toBe(1);
+
+      // A minute after the first failure, then two after the second.
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(hub.calls).toBe(2);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(hub.calls).toBe(2);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(hub.calls).toBe(3);
+
+      hub.state.isAway = false;
+      await vi.advanceTimersByTimeAsync(240_000);
+
+      expect(hub.reports).toEqual([{ token: 'nhi_1', events: [NVR] }]);
+      reporter.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('forgets only the token the Hub refused, not one registered meanwhile', async () => {
+    const hub = fakeHub();
+    const { reporter, store } = reporterOver(hub);
+    const url = 'https://hub.example';
+
+    reporter.report(NVR);
+    await reporter.flush();
+
+    const refused = store.rows.get(url);
+    const other = '0192a6f0-0000-7000-8000-000000000002';
+
+    // A report registered the house again while the start's request was in flight.
+    hub.state.refusals = 1;
+    hub.state.beforeRefusal = () => {
+      if (refused !== undefined) {
+        store.rows.set(url, { ...refused, installationId: other });
+      }
+    };
+    await reporter.start();
+
+    expect(store.rows.get(url)?.installationId).toBe(other);
     reporter.stop();
   });
 
