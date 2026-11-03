@@ -5,30 +5,143 @@
  * socket is one per browser tab by design (API.md 7), and a page that opened its own would be a
  * second authentication and a second copy of every state change.
  *
- * A device event does two things here. The lists that show devices and entities are read again,
- * because a row was just added or removed; and the socket is opened afresh, because the server
- * decided what this socket may hear when it authenticated and a device adopted since is not in
- * that decision. An `updated` device only has the device list read again: its entities are the
- * ones it had.
+ * Every other message says that something a page lists changed, and {@link staleAfter} names the
+ * lists: they are read again, a moment later and once for a burst of messages. A device added,
+ * removed or described again also opens the socket afresh, because the server decided what this
+ * socket may hear when it authenticated and those entities are not in that decision.
  *
- * A channel that comes back after a drop forgets what it had said and has the lists read again:
- * nothing replays the changes made while it was down, and a reading kept from before the drop
- * would stand over the fresh one until the entity happened to change again.
+ * A channel that comes back after a drop forgets what it had said and has every list it keeps
+ * fresh read again: nothing replays the changes made while it was down, and a reading kept from
+ * before the drop would stand over the fresh one until the entity happened to change again.
  */
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useEffect } from 'react';
+
+import type { WsServerMessage } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
 import { BACKUP_QUERY_KEYS } from '@/backup/api';
 import { CONTAINER_QUERY_KEYS } from '@/containers/api';
 import { refreshAccessToken } from '@/lib/api-client';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
+import { INTEGRATION_CATALOGUE_KEYS } from '@/library/integration-catalogue-api';
+import { LINK_QUERY_KEYS } from '@/library/links-api';
 import { LiveClient } from '@/live/live-client';
 import { useLive } from '@/live/live-store';
 import { packageLive } from '@/live/package-live';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { fetchPlatformState, UPDATES_QUERY_KEY } from '@/settings/updates-api';
 import { usePlatform } from '@/system/platform-store';
+
+/**
+ * How long stale lists wait to be read again, in milliseconds: a hub starting thirty devices says
+ * so sixty times in a second, and each list is read once for all of them.
+ */
+const REFRESH_DELAY_MS = 200;
+
+/** Every list the channel keeps fresh, read again when it comes back from a drop. */
+export const KEPT_FRESH: readonly QueryKey[] = [
+  LIBRARY_QUERY_KEYS.devices,
+  LIBRARY_QUERY_KEYS.entities,
+  LIBRARY_QUERY_KEYS.activity,
+  LIBRARY_QUERY_KEYS.vendors,
+  LIBRARY_QUERY_KEYS.discovered,
+  LINK_QUERY_KEYS.found,
+  LINK_QUERY_KEYS.suggestions,
+  LIBRARY_QUERY_KEYS.automations,
+  LIBRARY_QUERY_KEYS.automationRuns,
+  LIBRARY_QUERY_KEYS.webhookCalls,
+  INTEGRATION_CATALOGUE_KEYS.all,
+  CONTAINER_QUERY_KEYS.all,
+  PACKAGE_QUERY_KEYS.all,
+  BACKUP_QUERY_KEYS.status,
+  BACKUP_QUERY_KEYS.runs,
+  BACKUP_QUERY_KEYS.archives,
+  UPDATES_QUERY_KEY,
+];
+
+/**
+ * Whether a device event changed which entities there are.
+ *
+ * @param message - The event.
+ * @returns False for a device that changed on its own - its state, a new firmware - and kept the
+ *   entities it had.
+ */
+function changesEntities(message: Extract<WsServerMessage, { type: 'device_event' }>): boolean {
+  return message.event !== 'updated' || message.payload.described !== undefined;
+}
+
+/**
+ * The lists a message from the channel makes stale.
+ *
+ * @param message - What the server sent.
+ * @returns Their keys; none for a message that changes no list.
+ */
+export function staleAfter(message: WsServerMessage): readonly QueryKey[] {
+  switch (message.type) {
+    case 'device_event':
+      // A device added or removed is offered to be linked, or no longer, and leaves the found.
+      return changesEntities(message)
+        ? [
+            LIBRARY_QUERY_KEYS.devices,
+            LIBRARY_QUERY_KEYS.entities,
+            LIBRARY_QUERY_KEYS.discovered,
+            LINK_QUERY_KEYS.found,
+            LINK_QUERY_KEYS.suggestions,
+          ]
+        : [LIBRARY_QUERY_KEYS.devices];
+
+    case 'discovery_event':
+      // Only the count travels; the lists are read again with the permission they take - the
+      // integrations page's and each vendor's Found tab. So are the vendors: what a vendor's
+      // listener says and the devices it passed over are theirs.
+      return [LIBRARY_QUERY_KEYS.discovered, LINK_QUERY_KEYS.found, LIBRARY_QUERY_KEYS.vendors];
+
+    case 'integration_event':
+      // A vendor was installed, updated or removed, or an account of it signed in, out, or needs
+      // signing in again: its page, the devices that come with it, what the catalogue says of it.
+      return [
+        LIBRARY_QUERY_KEYS.vendors,
+        LIBRARY_QUERY_KEYS.devices,
+        INTEGRATION_CATALOGUE_KEYS.all,
+      ];
+
+    case 'container_event':
+      // Only the name travels: the containers pages, and a vendor's page shows where its
+      // containers stand.
+      return [CONTAINER_QUERY_KEYS.all, LIBRARY_QUERY_KEYS.vendors];
+
+    case 'package_event':
+      // A new release is a new address to import its interface from, and a stopped one takes its
+      // devices with it.
+      return [
+        PACKAGE_QUERY_KEYS.all,
+        LIBRARY_QUERY_KEYS.devices,
+        LIBRARY_QUERY_KEYS.entities,
+        LIBRARY_QUERY_KEYS.vendors,
+      ];
+
+    case 'automation_event':
+      // A run started or ended: the list shows its last run, the editor its runs, and a webhook
+      // that started it its calls.
+      return [
+        LIBRARY_QUERY_KEYS.automations,
+        LIBRARY_QUERY_KEYS.automationRuns,
+        LIBRARY_QUERY_KEYS.webhookCalls,
+      ];
+
+    case 'backup_event':
+      // A backup began, moved on or ended - a scheduled one too - and one that ended is an archive.
+      return [BACKUP_QUERY_KEYS.status, BACKUP_QUERY_KEYS.runs, BACKUP_QUERY_KEYS.archives];
+
+    case 'platform_event':
+      // An update that ended or gave up without a restart: Maintenance says how at once.
+      return message.payload.operation === null ? [UPDATES_QUERY_KEY] : [];
+
+    default:
+      return [];
+  }
+}
 
 /**
  * Where the channel is, next to wherever the page was served from.
@@ -54,6 +167,37 @@ export function useLiveChannel(): void {
     // Whether the channel has been live before, which makes the next time it is live a return.
     let hasBeenLive = false;
 
+    // The lists made stale and not yet read again, by key, and the timer that reads them.
+    const due = new Map<string, QueryKey>();
+    let pending: ReturnType<typeof setTimeout> | undefined;
+
+    /** Has every stale list read again now. */
+    const flush = (): void => {
+      clearTimeout(pending);
+      pending = undefined;
+
+      for (const key of due.values()) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
+
+      due.clear();
+    };
+
+    /**
+     * Has lists read again shortly, together with any others made stale meanwhile.
+     *
+     * @param keys - Their keys.
+     */
+    const refresh = (keys: readonly QueryKey[]): void => {
+      for (const key of keys) {
+        due.set(JSON.stringify(key), key);
+      }
+
+      if (due.size > 0 && pending === undefined) {
+        pending = setTimeout(flush, REFRESH_DELAY_MS);
+      }
+    };
+
     const client = new LiveClient({
       url: liveChannelUrl(),
 
@@ -66,77 +210,22 @@ export function useLiveChannel(): void {
       refreshAccessToken,
 
       /**
-       * Hands a message to the store, and reacts to the registry changing.
+       * Hands a message to the store, and has what it made stale read again.
        *
        * @param message - What the server sent.
        */
       onMessage: (message): void => {
         useLive.getState().apply(message);
         packageLive.apply(message);
+        refresh(staleAfter(message));
 
-        if (message.type === 'device_event' && message.event === 'updated') {
-          // The device changed on its own - found, a new firmware - and nothing about which
-          // entities there are, so the socket's decision still stands.
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
-        } else if (message.type === 'device_event') {
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
+        if (message.type === 'device_event' && changesEntities(message)) {
           client.reconnect();
-        }
-
-        if (message.type === 'discovery_event') {
-          // Only the count travels; the list is read again with the permission it takes. So are
-          // the vendors: what a vendor's listener says and the devices it passed over are theirs.
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
-        }
-
-        if (message.type === 'integration_event') {
-          // An account of a vendor signed in, out, or needs signing in again: its page reads
-          // the vendor again, and the devices that come with an account.
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
-        }
-
-        if (message.type === 'container_event') {
-          // Only the name travels: the containers pages read again, and a vendor's page shows
-          // where its containers stand.
-          void queryClient.invalidateQueries({ queryKey: CONTAINER_QUERY_KEYS.all });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
-        }
-
-        if (message.type === 'package_event') {
-          // A package was installed, updated, started, stopped or removed: the packages pages read
-          // again, and so does whatever draws it - a new release is a new address to import its
-          // interface from, and a stopped one takes its devices with it.
-          void queryClient.invalidateQueries({ queryKey: PACKAGE_QUERY_KEYS.all });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
-        }
-
-        if (message.type === 'automation_event') {
-          // A run started or ended: the list shows its last run, the editor its runs.
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.automations });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.automationRuns });
         }
 
         if (message.type === 'platform_event') {
           // Nebula Home restarts or updates: every page shows it, whoever started it.
           usePlatform.getState().follow(message.payload.operation);
-
-          if (message.payload.operation === null) {
-            // It ended or gave up without a restart: Maintenance says how at once.
-            void queryClient.invalidateQueries({ queryKey: UPDATES_QUERY_KEY });
-          }
-        }
-
-        if (message.type === 'backup_event') {
-          // A backup began, moved on or ended - a scheduled one too: the backups page follows it
-          // at once rather than at its next poll.
-          void queryClient.invalidateQueries({ queryKey: BACKUP_QUERY_KEYS.status });
-          void queryClient.invalidateQueries({ queryKey: BACKUP_QUERY_KEYS.runs });
         }
       },
 
@@ -148,9 +237,9 @@ export function useLiveChannel(): void {
       onStatus: (next): void => {
         if (next === 'live' && hasBeenLive) {
           useLive.getState().forgetReadings();
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.entities });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
-          void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.activity });
+          // At once: the readings just forgotten leave the older lists showing until then.
+          refresh(KEPT_FRESH);
+          flush();
         }
 
         if (next === 'live') {
@@ -183,6 +272,7 @@ export function useLiveChannel(): void {
     client.start();
 
     return (): void => {
+      clearTimeout(pending);
       client.stop();
       useLive.getState().reset();
       packageLive.reset();

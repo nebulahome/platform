@@ -14,6 +14,7 @@ import type { DiscoveredDevice } from '@nebulahome/contracts';
 
 import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS, scanNetwork } from '@/library/api';
+import { LINK_QUERY_KEYS } from '@/library/links-api';
 
 /** What a search came to. */
 export type ScanOutcome =
@@ -88,7 +89,11 @@ export function useNetworkScan(): NetworkScan {
    * @param before - Its devices proposed when the search started.
    */
   const conclude = async (vendorId: string, before: ReadonlySet<string>): Promise<void> => {
-    await queryClient.refetchQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered });
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: LIBRARY_QUERY_KEYS.discovered }),
+      // The vendor's Found tab reads its own list, which the one above does not refresh.
+      queryClient.invalidateQueries({ queryKey: LINK_QUERY_KEYS.found }),
+    ]);
 
     const after = proposedIds(
       queryClient.getQueryData<DiscoveredDevice[]>(LIBRARY_QUERY_KEYS.discovered),
