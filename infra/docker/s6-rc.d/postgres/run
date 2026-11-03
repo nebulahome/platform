@@ -8,4 +8,6 @@ export POSTGRES_USER=nebula POSTGRES_DB=nebula
 export POSTGRES_PASSWORD="$NEBULA_PG_SUPERUSER_PASSWORD"
 export POSTGRES_INITDB_ARGS="--auth-host=scram-sha-256 --auth-local=trust"
 
-exec docker-entrypoint.sh postgres -c listen_addresses=127.0.0.1 -c port="${NEBULA_PG_PORT:-5433}"
+# timescaledb-tune caps max_connections at 25; the services' pools alone need about 40.
+exec docker-entrypoint.sh postgres -c listen_addresses=127.0.0.1 -c port="${NEBULA_PG_PORT:-5433}" \
+  -c max_connections=50
