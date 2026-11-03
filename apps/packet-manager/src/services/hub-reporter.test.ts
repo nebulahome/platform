@@ -1,7 +1,8 @@
 /**
  * Reporting installs to the Community Hub, against a Hub faked over fetch: the house registered
  * once with a proof of work and its token kept sealed, events sent in one batch, a refused token
- * renewed, a Hub away tried again, and nothing sent while reports are off.
+ * renewed, a Hub away tried again, a batch refused for good dropped, the release the house runs
+ * told on start, and nothing sent while reports are off.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -79,12 +80,18 @@ function fakeHub(options: { isAway?: boolean; refusals?: number } = {}): {
   fetch: typeof fetch;
   registrations: number;
   reports: { token: string; events: HubInstallEvent[] }[];
-  state: { isAway: boolean; refusals: number };
+  versions: string[];
+  state: { isAway: boolean; refusals: number; isBlocked: boolean };
 } {
-  const state = { isAway: options.isAway ?? false, refusals: options.refusals ?? 0 };
+  const state = {
+    isAway: options.isAway ?? false,
+    refusals: options.refusals ?? 0,
+    isBlocked: false,
+  };
   const seen = {
     registrations: 0,
     reports: [] as { token: string; events: HubInstallEvent[] }[],
+    versions: [] as string[],
   };
 
   /**
@@ -131,6 +138,21 @@ function fakeHub(options: { isAway?: boolean; refusals?: number } = {}): {
       );
     }
 
+    if (state.isBlocked) {
+      return Promise.resolve(
+        Response.json(
+          { error: { code: 'FORBIDDEN', message: 'This installation is blocked' } },
+          { status: 403 },
+        ),
+      );
+    }
+
+    if (init?.method === 'PATCH') {
+      seen.versions.push(String(body['platformVersion']));
+
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }
+
     seen.reports.push({ token, events: body['events'] as HubInstallEvent[] });
 
     return Promise.resolve(Response.json({ accepted: 1, ignored: 0 }, { status: 202 }));
@@ -144,6 +166,9 @@ function fakeHub(options: { isAway?: boolean; refusals?: number } = {}): {
     },
     get reports() {
       return seen.reports;
+    },
+    get versions() {
+      return seen.versions;
     },
   };
 }
@@ -239,6 +264,37 @@ describe('reporting installs', () => {
     await reporter.flush();
 
     expect(hub.reports).toEqual([{ token: 'nhi_1', events: [NVR] }]);
+    reporter.stop();
+  });
+
+  it('drops a batch the Hub refuses for good, rather than holding up the next', async () => {
+    const hub = fakeHub();
+    const { reporter } = reporterOver(hub);
+
+    hub.state.isBlocked = true;
+    reporter.report(NVR);
+    await reporter.flush();
+    hub.state.isBlocked = false;
+    reporter.report(ACME);
+    await reporter.flush();
+
+    expect(hub.reports).toEqual([{ token: 'nhi_1', events: [ACME] }]);
+    reporter.stop();
+  });
+
+  it('tells the Hub the release it runs on start, once it is registered', async () => {
+    const hub = fakeHub();
+    const { reporter } = reporterOver(hub);
+
+    await reporter.start();
+    expect(hub.versions).toEqual([]);
+
+    reporter.report(NVR);
+    await reporter.flush();
+    await reporter.start();
+
+    expect(hub.versions).toEqual(['1.0.0']);
+    expect(hub.registrations).toBe(1);
     reporter.stop();
   });
 

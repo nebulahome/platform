@@ -20,6 +20,7 @@ import {
   UpstreamError,
   type HubItemKind,
   type PackageHubLogoReply,
+  type UpdateChannel,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
@@ -155,8 +156,12 @@ export type HubInstallEvent = {
   readonly action: 'install' | 'update';
 };
 
-/** What reporting installs came to: sent, or a token the Hub no longer takes. */
-export type HubReportOutcome = 'sent' | 'token-refused';
+/**
+ * What a call with the house's token came to: sent, a token the Hub no longer takes, or a request
+ * the Hub refuses for good - a house it blocked, events it cannot read - that sending again would
+ * not change.
+ */
+export type HubReportOutcome = 'sent' | 'token-refused' | 'refused';
 
 /** What the client needs. */
 export type HubClientOptions = {
@@ -164,11 +169,18 @@ export type HubClientOptions = {
   readonly url: string | undefined;
   readonly logger: PlatformLogger;
   readonly fetch?: typeof fetch;
+
+  /**
+   * The release channel the house follows for a kind, asked on every search and description: the
+   * Hub then lists only what that channel offers, each with its newest release there. None when
+   * not said.
+   */
+  readonly channelOf?: (kind: HubItemKind) => Promise<UpdateChannel>;
 };
 
 /** How one call is made. */
 type CallOptions = {
-  readonly method?: 'GET' | 'POST';
+  readonly method?: 'GET' | 'POST' | 'PATCH';
   readonly accept: string;
   readonly body?: unknown;
   readonly token?: string;
@@ -207,6 +219,9 @@ function segmentOf(kind: HubItemKind): string {
 
 /** The Hub no longer takes the house's token: revoked, or of another Hub's database. */
 class TokenRefusedError extends UpstreamError {}
+
+/** The Hub refuses the request itself (4xx): asking again the same way gets the same answer. */
+class RefusedError extends UpstreamError {}
 
 /** The Community Hub, as the packet-manager asks it. */
 export class CommunityHubClient {
@@ -256,7 +271,10 @@ export class CommunityHubClient {
       readonly limit: number;
     },
   ): Promise<HubSearchPage> {
-    const params = new URLSearchParams({ limit: String(query.limit) });
+    const params = new URLSearchParams({
+      limit: String(query.limit),
+      ...(await this.#channelParam(kind)),
+    });
 
     if (query.q !== undefined) {
       params.set('q', query.q);
@@ -327,9 +345,11 @@ export class CommunityHubClient {
       throw new NotFoundError('The Community Hub has no such thing');
     }
 
-    const response = await this.#call(`/v1/${segmentOf(kind)}/${slug}`, {
-      accept: 'application/json',
-    });
+    const channel = new URLSearchParams(await this.#channelParam(kind)).toString();
+    const response = await this.#call(
+      `/v1/${segmentOf(kind)}/${slug}${channel === '' ? '' : `?${channel}`}`,
+      { accept: 'application/json' },
+    );
     const parsed = hubItemDetailSchema.safeParse(await response.json().catch(() => null));
 
     if (!parsed.success) {
@@ -455,29 +475,76 @@ export class CommunityHubClient {
    *
    * @param token - The token the Hub gave at registration.
    * @param events - What was installed or updated, at most a hundred.
-   * @returns Sent, or the Hub no longer takes the token.
-   * @throws {UpstreamError} When the Hub cannot be reached, or refuses for another reason.
+   * @returns Sent, the Hub no longer takes the token, or it refuses these events for good.
+   * @throws {UpstreamError} When the Hub cannot be reached, or fails.
    */
   public async reportInstalls(
     token: string,
     events: readonly HubInstallEvent[],
   ): Promise<HubReportOutcome> {
+    return this.#withToken('/v1/installations/me/installs', 'POST', token, { events });
+  }
+
+  /**
+   * Tells the Hub which release the house runs now, which it shows its staff.
+   *
+   * @param token - The token the Hub gave at registration.
+   * @param platformVersion - The release, `2026.11.0`.
+   * @returns Sent, the Hub no longer takes the token, or it refuses the change for good.
+   * @throws {UpstreamError} When the Hub cannot be reached, or fails.
+   */
+  public async updateInstallation(
+    token: string,
+    platformVersion: string,
+  ): Promise<HubReportOutcome> {
+    return this.#withToken('/v1/installations/me', 'PATCH', token, { platformVersion });
+  }
+
+  /**
+   * Sends a body with the house's token.
+   *
+   * @param path - From the Hub's address on.
+   * @param method - POST or PATCH.
+   * @param token - The house's token.
+   * @param body - What is sent.
+   * @returns Sent, the token refused, or the request refused.
+   * @throws {UpstreamError} When the Hub cannot be reached, or fails.
+   */
+  async #withToken(
+    path: string,
+    method: 'POST' | 'PATCH',
+    token: string,
+    body: unknown,
+  ): Promise<HubReportOutcome> {
     try {
-      await this.#call('/v1/installations/me/installs', {
-        method: 'POST',
-        accept: 'application/json',
-        body: { events },
-        token,
-      });
+      await this.#call(path, { method, accept: 'application/json', body, token });
     } catch (error: unknown) {
       if (error instanceof TokenRefusedError) {
         return 'token-refused';
+      }
+
+      if (error instanceof RefusedError) {
+        this.#options.logger.warn({ err: error, path }, 'The Community Hub refused a request');
+
+        return 'refused';
       }
 
       throw error;
     }
 
     return 'sent';
+  }
+
+  /**
+   * The channel the house follows for a kind, as a query parameter.
+   *
+   * @param kind - Packages or integrations.
+   * @returns `channel=…`, or nothing when no channel is said.
+   */
+  async #channelParam(kind: HubItemKind): Promise<Record<string, string>> {
+    const channel = await this.#options.channelOf?.(kind);
+
+    return channel === undefined ? {} : { channel };
   }
 
   /**
@@ -578,6 +645,14 @@ export class CommunityHubClient {
       throw new NotFoundError(`The Community Hub has no such thing${said}`);
     }
 
-    throw new UpstreamError(`The Community Hub answered HTTP ${String(response.status)}${said}`);
+    const message = `The Community Hub answered HTTP ${String(response.status)}${said}`;
+
+    // A timeout or a rate limit passes; any other 4xx is the Hub's answer to the request itself.
+    throw response.status >= 400 &&
+      response.status < 500 &&
+      response.status !== 408 &&
+      response.status !== 429
+      ? new RefusedError(message)
+      : new UpstreamError(message);
   }
 }

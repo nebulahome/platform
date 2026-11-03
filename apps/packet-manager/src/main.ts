@@ -6,6 +6,7 @@
  * every package's process is stopped before the service leaves, so none is left behind with no
  * one to restart it.
  */
+import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import { BusClient, connectBus } from '@nebulahome/bus';
@@ -40,6 +41,9 @@ const SHUTDOWN_TIMEOUT_MS = 20_000;
 
 /** Signals that mean "stop". */
 const SHUTDOWN_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
+
+/** How long a shutdown waits for the install reports still waiting to go. */
+const REPORT_FLUSH_MS = 2000;
 
 /**
  * Ends the process after a bounded wait, whatever the shutdown is doing.
@@ -109,12 +113,24 @@ async function start(): Promise<void> {
   const localIntegrationsFolder = localIntegrationsDirectory(config);
   const localIntegrations = new LocalIntegrationReleases(localIntegrationsFolder, logger);
   const secretsKey = secretsKeyFrom(config.NEBULA_SECRETS_KEY);
-  const hub = new CommunityHubClient({ url: config.COMMUNITY_HUB_URL, logger });
+  const hub = new CommunityHubClient({
+    url: config.COMMUNITY_HUB_URL,
+    logger,
+
+    /**
+     * The channel the house follows for a kind, which the Hub's search and descriptions follow.
+     *
+     * @param kind - Packages or integrations.
+     * @returns The channel.
+     */
+    channelOf: async (kind) =>
+      readChannel(database.db, kind === 'package' ? 'packages' : 'integrations'),
+  });
   const reporter = new HubReporter({
     hub,
     store: databaseHubInstallationStore(database.db),
     secretsKey,
-    platformVersion: config.NEBULA_PLATFORM_VERSION,
+    platformVersion: config.NEBULA_VERSION,
     logger,
     isEnabled: config.COMMUNITY_HUB_REPORT_INSTALLS,
   });
@@ -191,6 +207,7 @@ async function start(): Promise<void> {
   const subscriptions = servePacketManager(client, service, integrations, updates);
 
   await service.start();
+  void reporter.start();
   await updates.reload().catch((error: unknown) => {
     logger.error({ err: error }, 'Could not plan the automatic updates');
   });
@@ -228,6 +245,8 @@ async function start(): Promise<void> {
           subscription.unsubscribe();
         }
 
+        // What was installed a moment ago goes out, if the Hub answers soon.
+        await Promise.race([reporter.flush(), delay(REPORT_FLUSH_MS)]);
         reporter.stop();
         updates.stop();
         await service.stop();

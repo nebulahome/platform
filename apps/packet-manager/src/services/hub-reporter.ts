@@ -4,14 +4,17 @@
  *
  * The house registers once per Hub, the first time it has something to report: a proof of work,
  * then a token the Hub shows that once, kept sealed in `system.community_hub_installations` and
- * sent with every report after - one token for the whole house, whatever it installs. Only
+ * sent with every report after - one token for the whole house, whatever it installs - and, on
+ * every start, with the release the house runs, so the Hub follows its updates. Only
  * releases of the index are reported, an install or an update each; a file of the local folder,
  * a reinstall of the same version and anything installed while reports are off are not.
  *
  * Reports are best-effort and never hold an install up: events wait in memory and go in batches a
  * moment later, again a minute later when the Hub cannot be reached, and a token the Hub refuses -
  * revoked, or a Hub whose database was emptied - is forgotten and the house registers again. A
- * report lost to a restart only makes the Hub's count one smaller.
+ * batch the Hub refuses for good - a house it blocked, events it cannot read - is dropped rather
+ * than sent every minute ahead of the rest. What waits is sent on shutdown, briefly; a report lost
+ * to a restart only makes the Hub's count one smaller.
  */
 import { openSecret, sealSecret } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -44,7 +47,10 @@ export type HubReporterOptions = {
   readonly store: HubInstallationStore;
   readonly secretsKey: Buffer;
 
-  /** This platform's release, which the Hub records at registration. */
+  /**
+   * The release the house runs, `NEBULA_VERSION` (`2026.11.0`): the Hub records it at registration
+   * and is told again on every start, so it follows the house's updates.
+   */
   readonly platformVersion: string;
   readonly logger: PlatformLogger;
 
@@ -71,6 +77,40 @@ export class HubReporter implements InstallReporter {
    */
   public constructor(options: HubReporterOptions) {
     this.#options = options;
+  }
+
+  /**
+   * Tells the Hub the release the house runs now, when the house is registered there already: a
+   * restart is what an update brings. Best-effort; a token the Hub no longer takes is forgotten,
+   * so the next report registers the house again.
+   *
+   * @returns Once the Hub answered, or could not be asked.
+   */
+  public async start(): Promise<void> {
+    const { hub, store, secretsKey, logger } = this.#options;
+
+    if (!this.#options.isEnabled || hub.url === undefined) {
+      return;
+    }
+
+    try {
+      const known = await store.get(hub.url);
+
+      if (known === undefined) {
+        return;
+      }
+
+      const outcome = await hub.updateInstallation(
+        openSecret(known.token, secretsKey),
+        this.#options.platformVersion,
+      );
+
+      if (outcome === 'token-refused') {
+        await store.remove(hub.url);
+      }
+    } catch (error: unknown) {
+      logger.debug({ err: error }, 'Could not tell the Community Hub the release the house runs');
+    }
   }
 
   /**
@@ -150,6 +190,14 @@ export class HubReporter implements InstallReporter {
         const token = await this.#token();
         // eslint-disable-next-line no-await-in-loop -- see above
         const outcome = await hub.reportInstalls(token, batch);
+
+        if (outcome === 'refused') {
+          // A house the Hub blocked, or events it cannot read: sent again, they would only hold
+          // up every report after them.
+          this.#queue.splice(0, batch.length);
+          logger.warn({ events: batch.length }, 'The Community Hub refused installs; dropped');
+          continue;
+        }
 
         if (outcome === 'token-refused') {
           // eslint-disable-next-line no-await-in-loop -- see above

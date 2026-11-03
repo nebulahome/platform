@@ -231,6 +231,42 @@ describe('the package index', () => {
     expect(failed.index?.packages).toEqual([]);
   });
 
+  it('tries a failed read again a minute later, and revalidates the index with its ETag', async () => {
+    let now = 1_000_000;
+    let isDown = true;
+    const fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) =>
+      Promise.resolve(
+        isDown
+          ? new Response('nope', { status: 503 })
+          : new Headers(init?.headers).get('if-none-match') === '"one"'
+            ? new Response(null, { status: 304 })
+            : Response.json(
+                { generatedAt: '2026-09-29T08:00:00Z', packages: [] },
+                { headers: { etag: '"one"' } },
+              ),
+      ),
+    );
+    const client = new PackageIndexClient({
+      url: 'https://example.com/index.json',
+      ttlMs: 21_600_000,
+      logger,
+      fetch,
+      now: () => now,
+    });
+
+    expect((await client.read()).error).toMatch(/HTTP 503/u);
+
+    isDown = false;
+    now += 30_000;
+    expect((await client.read()).error).toMatch(/HTTP 503/u);
+
+    now += 31_000;
+    expect((await client.read()).index?.packages).toEqual([]);
+    expect(await client.read(true)).toMatchObject({ error: null, index: { packages: [] } });
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(new Headers(fetch.mock.calls[2]?.[1]?.headers).get('if-none-match')).toBe('"one"');
+  });
+
   it('reads the index of a new channel at once, and never keeps the old one', async () => {
     const hub: Pick<PacketManagerConfig, 'COMMUNITY_HUB_URL'> = {
       COMMUNITY_HUB_URL: 'https://hub.example',
@@ -440,6 +476,35 @@ describe('the Community Hub client', () => {
         ),
       ).search('package', { limit: 30 }),
     ).rejects.toThrow('The Community Hub answered HTTP 503: Upgrading the catalogue');
+  });
+
+  it('asks the Hub for what the house’s channel offers', async () => {
+    const asked: string[] = [];
+    const client = new CommunityHubClient({
+      url: 'https://hub.example',
+      logger,
+      channelOf: async (kind) => Promise.resolve(kind === 'package' ? 'beta' : 'stable'),
+
+      /**
+       * The fake Hub.
+       *
+       * @param input - What is asked.
+       * @returns An empty page, or a bare item.
+       */
+      fetch: async (input) => {
+        asked.push(String(input instanceof Request ? input.url : input));
+
+        return Promise.resolve(Response.json({ items: [], latest: null }));
+      },
+    });
+
+    await client.search('package', { q: 'nvr', limit: 30 });
+    await client.detail('integration', 'acme');
+
+    expect(asked).toEqual([
+      'https://hub.example/v1/packages?limit=30&channel=beta&q=nvr',
+      'https://hub.example/v1/integrations/acme?channel=stable',
+    ]);
   });
 
   it('leaves out a package the Hub describes wrongly, not the page', async () => {

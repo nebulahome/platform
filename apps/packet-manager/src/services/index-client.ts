@@ -2,7 +2,9 @@
  * The indexes: what there is to install.
  *
  * One JSON document each that the Community Hub serves - the package index (PACKAGES.md 10) and
- * the integrations index - read when asked and trusted for a few hours, then read again. Beside
+ * the integrations index - read when asked and trusted for a few hours, then read again; a failed
+ * read is tried again a minute later, and every read sends the ETag of the index kept, so an
+ * unchanged index answers 304 and costs no download. Beside
  * each, the releases of the platform's local folder for it, read on every ask: a release there
  * wins over the index's of the same version. An installation without the internet, or without a
  * Hub set, offers what the local folder holds and nothing else, and says why.
@@ -25,6 +27,9 @@ import type { PlatformLogger } from '@nebulahome/logging';
 
 /** How long one read of an index may take. */
 const INDEX_TIMEOUT_MS = 20_000;
+
+/** How long a read that failed stands before the index is read again, whatever the trust. */
+const ERROR_RETRY_MS = 60_000;
 
 /** What reading an index gave. */
 export type IndexReadOf<TIndex> = {
@@ -137,6 +142,9 @@ class IndexClient<TIndex, TEntry extends Versioned> {
   readonly #shape: IndexShape<TIndex, TEntry>;
   #last: IndexReadOf<TIndex> = { index: null, checkedAt: null, error: null };
   #lastUrl: string | undefined;
+
+  /** The ETag of the index kept, sent back so an unchanged one answers 304 with no body. */
+  #etag: string | null = null;
   #reading: Promise<IndexReadOf<TIndex>> | undefined;
 
   /**
@@ -184,19 +192,33 @@ class IndexClient<TIndex, TEntry extends Versioned> {
     const now = (this.#options.now ?? Date.now)();
     const checkedAt = this.#last.checkedAt?.getTime();
 
+    // A failed read is tried again a minute later, not after the hours a good index is trusted.
+    const trustMs =
+      this.#last.error === null
+        ? this.#options.ttlMs
+        : Math.min(this.#options.ttlMs, ERROR_RETRY_MS);
+
     if (url !== this.#lastUrl) {
       // Another channel's index is never kept as the last good one: a house moved from dev to
       // stable must not be offered a development build when the stable index cannot be read.
       this.#last = { index: null, checkedAt: null, error: null };
       this.#lastUrl = url;
+      this.#etag = null;
       this.#reading = undefined;
-    } else if (!force && checkedAt !== undefined && now - checkedAt < this.#options.ttlMs) {
+    } else if (!force && checkedAt !== undefined && now - checkedAt < trustMs) {
       return this.#last;
     }
 
-    this.#reading ??= this.#fetch(url).finally(() => {
-      this.#reading = undefined;
-    });
+    if (this.#reading === undefined) {
+      const reading = this.#fetch(url).finally(() => {
+        // A read of an address the channel has since left must not end the one of the new address.
+        if (this.#reading === reading) {
+          this.#reading = undefined;
+        }
+      });
+
+      this.#reading = reading;
+    }
 
     return this.#reading;
   }
@@ -218,20 +240,30 @@ class IndexClient<TIndex, TEntry extends Versioned> {
       read = { index: null, checkedAt: at, error: 'No Community Hub is set: COMMUNITY_HUB_URL' };
     } else {
       try {
+        const kept = this.#last.index === null ? null : this.#etag;
         const response = await (this.#options.fetch ?? globalThis.fetch)(url, {
-          headers: { accept: 'application/json' },
+          headers: {
+            accept: 'application/json',
+            ...(kept === null ? {} : { 'if-none-match': kept }),
+          },
           signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
         });
 
-        if (!response.ok) {
+        if (response.status === 304 && this.#last.index !== null) {
+          read = { index: this.#last.index, checkedAt: at, error: null };
+        } else if (response.ok) {
+          read = {
+            index: this.#shape.parse(await response.json(), logger),
+            checkedAt: at,
+            error: null,
+          };
+
+          if (url === this.#lastUrl) {
+            this.#etag = response.headers.get('etag');
+          }
+        } else {
           throw new Error(`${capitalised(label)} answered HTTP ${String(response.status)}`);
         }
-
-        read = {
-          index: this.#shape.parse(await response.json(), logger),
-          checkedAt: at,
-          error: null,
-        };
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
 
