@@ -507,6 +507,37 @@ describe('the Community Hub client', () => {
     ]);
   });
 
+  it("reads an integration's transports from its description, or from its release on an older Hub", async () => {
+    const asked: string[] = [];
+
+    /**
+     * A Hub that says the transports in a description, or not.
+     *
+     * @param inDetail - Whether the description says them.
+     * @returns The client.
+     */
+    const hubSaying = (inDetail: boolean): CommunityHubClient =>
+      clientOf((url) => {
+        asked.push(url);
+
+        return url.includes('/versions/')
+          ? Response.json({ drivers: [{ transport: 'http' }, { transport: 'http' }] })
+          : Response.json({
+              latest: { version: '2.0.0' },
+              ...(inDetail ? { transports: ['bluetooth', 'http'] } : {}),
+            });
+      });
+
+    expect((await hubSaying(true).detail('integration', 'acme')).transports).toEqual([
+      'bluetooth',
+      'http',
+    ]);
+    expect(asked).toEqual(['https://hub.example/v1/integrations/acme']);
+
+    expect((await hubSaying(false).detail('integration', 'acme')).transports).toEqual(['http']);
+    expect(asked.at(-1)).toBe('https://hub.example/v1/integrations/acme/versions/2.0.0');
+  });
+
   it('leaves out a package the Hub describes wrongly, not the page', async () => {
     const page = await clientOf(() =>
       Response.json({

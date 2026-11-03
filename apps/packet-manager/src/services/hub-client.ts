@@ -77,6 +77,9 @@ const hubItemDetailSchema = z.looseObject({
     })
     .nullable()
     .optional(),
+
+  /** What the drivers of `latest` speak; a Hub older than this field leaves it out. */
+  transports: z.array(z.string().max(64)).max(512).optional(),
 });
 
 /** One release, as `GET /v1/<kind>s/:slug/versions/:version` says it: its drivers. */
@@ -359,7 +362,11 @@ export class CommunityHubClient {
     const item = parsed.data;
     const version = item.latest?.version ?? item.latestVersion ?? null;
     const transports =
-      kind === 'integration' && version !== null ? await this.#transportsOf(slug, version) : [];
+      kind !== 'integration' || version === null
+        ? []
+        : item.transports === undefined
+          ? await this.#transportsOf(slug, version)
+          : [...new Set(item.transports)].slice(0, 32);
 
     return {
       owner: item.repository?.split('/')[0] ?? null,
