@@ -6,6 +6,7 @@
  * them and seals the house's token at the Community Hub; where the Hub and the local folders are,
  * and whether installs are reported to it; and the runner a `node` package is started with.
  */
+import { BlockList, isIP } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -46,6 +47,39 @@ const REPOSITORY_LOCAL_INTEGRATIONS_DIR = path.resolve(
   '../../../infra/local-integrations',
 );
 
+/** Loopback and private networks: where a Hub may be asked over plain HTTP in production. */
+const LOCAL_NETWORKS = new BlockList();
+
+LOCAL_NETWORKS.addSubnet('127.0.0.0', 8);
+LOCAL_NETWORKS.addSubnet('10.0.0.0', 8);
+LOCAL_NETWORKS.addSubnet('172.16.0.0', 12);
+LOCAL_NETWORKS.addSubnet('192.168.0.0', 16);
+LOCAL_NETWORKS.addSubnet('::1', 128, 'ipv6');
+LOCAL_NETWORKS.addSubnet('fc00::', 7, 'ipv6');
+
+/**
+ * Says whether the Hub may be asked at an address: over HTTPS anywhere, over plain HTTP only on
+ * this machine or its network - a container's name, `localhost`, `host.docker.internal`, a
+ * `.local` name, a loopback or private address - since anyone on the way could otherwise change
+ * the index, and with it which archive and digest a house installs, or read the house's token.
+ *
+ * @param url - The Hub's address.
+ * @returns True when it may.
+ */
+export function isTrustedHubUrl(url: string): boolean {
+  const { protocol, hostname } = new URL(url);
+  const host = hostname.replace(/^\[|\]$/gu, '').toLowerCase();
+  const family = isIP(host);
+
+  if (protocol === 'https:') {
+    return true;
+  }
+
+  return family === 0
+    ? !host.includes('.') || /(?:^|\.)(?:localhost|internal|local)$/u.test(host)
+    : LOCAL_NETWORKS.check(host, family === 6 ? 'ipv6' : 'ipv4');
+}
+
 /** Everything `packet-manager` needs from the environment. */
 export const packetManagerEnvSchema = runtimeEnvSchema
   .extend(databaseEnvSchema.shape)
@@ -56,7 +90,8 @@ export const packetManagerEnvSchema = runtimeEnvSchema
      * The Community Hub's public API, `https://hub.example.com` - no path, no `/v1`: where the
      * indexes are read (`/v1/index/packages.json`, `/v1/index/integrations.json`), packages and
      * integrations are searched (`/v1/packages`, `/v1/integrations`) and installs are reported.
-     * Unset, nothing is offered but what the local folders hold.
+     * Unset, nothing is offered but what the local folders hold. In production it must be HTTPS,
+     * but for a Hub on this machine or its network ({@link isTrustedHubUrl}).
      */
     COMMUNITY_HUB_URL: urlWithScheme(['https:', 'http:'])
       .transform((url) => url.replace(/\/+$/u, ''))
@@ -134,7 +169,20 @@ export const packetManagerEnvSchema = runtimeEnvSchema
     TZ: z.string().optional(),
   })
   .extend(dataEnvSchema.shape)
-  .superRefine(requireDataDirInProduction);
+  .superRefine(requireDataDirInProduction)
+  .superRefine((config, context) => {
+    if (
+      config.NODE_ENV === 'production' &&
+      config.COMMUNITY_HUB_URL !== undefined &&
+      !isTrustedHubUrl(config.COMMUNITY_HUB_URL)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['COMMUNITY_HUB_URL'],
+        message: 'Must be https in production, unless the Hub is on this machine or its network',
+      });
+    }
+  });
 
 /** Everything `packet-manager` needs from the environment. */
 export type PacketManagerConfig = z.output<typeof packetManagerEnvSchema>;

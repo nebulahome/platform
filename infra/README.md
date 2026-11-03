@@ -229,7 +229,9 @@ archives in `infra/local-integrations` are offered to install.
 
 **The Community Hub.** `COMMUNITY_HUB_URL` names it (`cloud-backend`, `http://localhost:8088` when
 its stack runs on this machine); unset, the install dialogs offer the local folders and nothing
-else. `packet-manager` reports to it what it installs from its indexes, with one token for the
+else. In production it must be HTTPS unless the Hub is on this machine or its network
+(`host.docker.internal`, a container's name, a loopback or private address): `packet-manager`
+refuses to start otherwise. `packet-manager` reports to it what it installs from its indexes, with one token for the
 whole installation kept in `system.community_hub_installations`;
 `COMMUNITY_HUB_REPORT_INSTALLS=false` turns that off.
 
