@@ -14,6 +14,8 @@ import { FieldShell, Segmented, SelectField, TextField } from '@nebulahome/ui';
 import { PasswordField } from '@/components/password-field';
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import type { DraftValue, SetupDraft } from '@/library/setup-values';
+import { EntityField } from '@/routes/library/entity-field';
+import { IconField } from '@/routes/library/icon-field';
 
 /** What the form needs. */
 export type SetupFormProps = {
@@ -213,6 +215,33 @@ function Field(props: {
           onChange={(event) => {
             onChange(event.target.value);
           }}
+        />
+      );
+    case 'entity':
+      return (
+        <EntityField
+          label={field.label}
+          size="medium"
+          value={textOf(value)}
+          accept={
+            field.domains === undefined
+              ? undefined
+              : (entity) => field.domains?.some((domain) => domain === entity.domain) ?? true
+          }
+          isOptional={!field.isRequired}
+          hint={help}
+          error={error}
+          onChange={onChange}
+        />
+      );
+    case 'icon':
+      return (
+        <IconField
+          label={field.label}
+          value={textOf(value)}
+          hint={help}
+          error={error}
+          onChange={onChange}
         />
       );
     case 'text':

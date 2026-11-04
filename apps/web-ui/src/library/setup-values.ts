@@ -59,7 +59,10 @@ function shown(field: SetupField, stored: JsonValue | undefined): DraftValue {
       return typeof stored === 'number' ? String(stored) : String(field.default ?? '');
     case 'text':
     case 'choice':
+    case 'icon':
       return typeof stored === 'string' ? stored : (field.default ?? '');
+    case 'entity':
+      return typeof stored === 'string' ? stored : '';
   }
 }
 
@@ -140,6 +143,8 @@ function typed(field: SetupField, draft: DraftValue): { value?: JsonValue; error
     case 'text':
     case 'secret':
     case 'choice':
+    case 'entity':
+    case 'icon':
       return { value: text };
   }
 }

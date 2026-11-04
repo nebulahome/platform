@@ -50,26 +50,38 @@ export type NameIconFieldProps = {
   readonly required?: boolean;
 };
 
+/** What the icon button needs. */
+export type IconPickButtonProps = {
+  /** The icon id, or null for none. */
+  readonly icon: string | null;
+
+  /** What it draws while the icon is null. A blank square when not given. */
+  readonly fallback?: UiIconId | undefined;
+
+  /** Called with the icon picked from the catalogue. */
+  readonly onPick: (icon: IconView) => void;
+
+  /** The field's hint and error, for a screen reader. */
+  readonly describedBy?: string | undefined;
+
+  /** What pressing it does, to a screen reader; "Change icon" when not said. */
+  readonly label?: string | undefined;
+
+  /** The id its field's label points at. */
+  readonly id?: string | undefined;
+};
+
 /**
- * Renders the field.
+ * The 44px icon button and the catalogue picker it opens: the icon half of a name-and-icon
+ * field, and the whole of an icon field.
  *
- * @param props - See {@link NameIconFieldProps}.
- * @returns The field, and the picker it opens.
+ * @param props - See {@link IconPickButtonProps}.
+ * @returns The button, and the picker it opens.
  */
-export function NameIconField(props: NameIconFieldProps) {
+export function IconPickButton(props: IconPickButtonProps) {
   const { t } = useTranslation();
 
-  const {
-    label = 'Name',
-    value,
-    onChange,
-    icon,
-    fallback,
-    onIconChange,
-    hint,
-    error,
-    required = false,
-  } = props;
+  const { icon, fallback, onPick, describedBy, label, id } = props;
   const [picked, setPicked] = useState<IconView | undefined>(undefined);
   const [isPicking, setPicking] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -90,38 +102,84 @@ export function NameIconField(props: NameIconFieldProps) {
   const shown = icon === null ? undefined : picked?.id === icon ? picked : read.data;
 
   return (
+    <>
+      <button
+        ref={button}
+        id={id}
+        type="button"
+        aria-label={label ?? t('library.nameIconField.changeIcon', 'Change icon')}
+        aria-haspopup="dialog"
+        aria-expanded={isPicking}
+        aria-describedby={describedBy}
+        onClick={() => {
+          setPicking(!isPicking);
+        }}
+        className={cn(
+          'press-scale flex size-11 shrink-0 items-center justify-center rounded-tile border transition-colors duration-150',
+          'focus-visible:shadow-focus focus-visible:outline-none',
+          isPicking
+            ? 'border-primary bg-primary/14 text-primary'
+            : 'border-border-strong bg-surface-raised text-foreground hover:border-foreground-subtle/50 hover:bg-surface-high',
+        )}
+      >
+        {shown === undefined && icon === null && fallback !== undefined ? (
+          <AppIcon id={fallback} size={18} />
+        ) : shown === undefined ? (
+          <span className="size-4.5 rounded-check bg-surface-high" aria-hidden="true" />
+        ) : (
+          <CatalogueIcon node={shown.node} frame={shown.frame} size={18} />
+        )}
+        <span className="sr-only">
+          {shown?.name ?? icon ?? t('library.nameIconField.none', 'None')}
+        </span>
+      </button>
+
+      <IconPicker
+        anchor={button}
+        isOpen={isPicking}
+        current={icon}
+        onClose={() => {
+          setPicking(false);
+        }}
+        onPick={(view) => {
+          setPicked(view);
+          setPicking(false);
+          onPick(view);
+        }}
+      />
+    </>
+  );
+}
+
+/**
+ * Renders the field.
+ *
+ * @param props - See {@link NameIconFieldProps}.
+ * @returns The field, and the picker it opens.
+ */
+export function NameIconField(props: NameIconFieldProps) {
+  const {
+    label = 'Name',
+    value,
+    onChange,
+    icon,
+    fallback,
+    onIconChange,
+    hint,
+    error,
+    required = false,
+  } = props;
+
+  return (
     <FieldShell label={label} hint={hint} error={error}>
       {(ids) => (
         <div className="flex gap-2">
-          <button
-            ref={button}
-            type="button"
-            aria-label={t('library.nameIconField.changeIcon', 'Change icon')}
-            aria-haspopup="dialog"
-            aria-expanded={isPicking}
-            aria-describedby={ids.describedBy}
-            onClick={() => {
-              setPicking(!isPicking);
-            }}
-            className={cn(
-              'press-scale flex size-11 shrink-0 items-center justify-center rounded-tile border transition-colors duration-150',
-              'focus-visible:shadow-focus focus-visible:outline-none',
-              isPicking
-                ? 'border-primary bg-primary/14 text-primary'
-                : 'border-border-strong bg-surface-raised text-foreground hover:border-foreground-subtle/50 hover:bg-surface-high',
-            )}
-          >
-            {shown === undefined && icon === null && fallback !== undefined ? (
-              <AppIcon id={fallback} size={18} />
-            ) : shown === undefined ? (
-              <span className="size-4.5 rounded-check bg-surface-high" aria-hidden="true" />
-            ) : (
-              <CatalogueIcon node={shown.node} frame={shown.frame} size={18} />
-            )}
-            <span className="sr-only">
-              {shown?.name ?? icon ?? t('library.nameIconField.none', 'None')}
-            </span>
-          </button>
+          <IconPickButton
+            icon={icon}
+            fallback={fallback}
+            onPick={onIconChange}
+            describedBy={ids.describedBy}
+          />
 
           <input
             id={ids.id}
@@ -140,20 +198,6 @@ export function NameIconField(props: NameIconFieldProps) {
                 ? 'border-danger focus-visible:border-danger'
                 : 'border-border-strong focus-visible:border-primary',
             )}
-          />
-
-          <IconPicker
-            anchor={button}
-            isOpen={isPicking}
-            current={icon}
-            onClose={() => {
-              setPicking(false);
-            }}
-            onPick={(view) => {
-              setPicked(view);
-              setPicking(false);
-              onIconChange(view);
-            }}
           />
         </div>
       )}

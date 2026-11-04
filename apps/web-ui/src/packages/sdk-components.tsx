@@ -6,7 +6,13 @@
  * be accepted by the component lent for it, so the SDK cannot promise a prop the interface would
  * ignore.
  */
-import type { ComponentsHost, IconProps } from '@nebulahome/package-sdk/components';
+import type { EntityView } from '@nebulahome/contracts';
+import type {
+  ComponentsHost,
+  EntityFieldProps,
+  EntityPickerProps,
+  IconProps,
+} from '@nebulahome/package-sdk/components';
 import {
   Badge,
   Button,
@@ -32,6 +38,61 @@ import {
 } from '@nebulahome/ui';
 
 import { useCatalogueIcons } from '@/routes/library/device-icon';
+import { EntityField as HouseEntityField } from '@/routes/library/entity-field';
+import { EntityPicker as HouseEntityPicker } from '@/routes/library/entity-picker/entity-picker';
+import { IconField } from '@/routes/library/icon-field';
+
+/**
+ * What a package's `domains` lets be chosen.
+ *
+ * @param domains - The domains, or undefined for any.
+ * @returns The interface's `accept`, or undefined for every entity.
+ */
+function acceptOf(
+  domains: readonly string[] | undefined,
+): ((entity: EntityView) => boolean) | undefined {
+  return domains === undefined ? undefined : (entity) => domains.includes(entity.domain);
+}
+
+/**
+ * One entity of the house, from the interface's entity picker.
+ *
+ * @param props - The SDK's props.
+ * @returns The interface's field.
+ */
+function EntityField(props: EntityFieldProps) {
+  const { domains, onChange, ...rest } = props;
+
+  return (
+    <HouseEntityField
+      {...rest}
+      accept={acceptOf(domains)}
+      onChange={(entityId) => {
+        onChange(entityId);
+      }}
+    />
+  );
+}
+
+/**
+ * The interface's entity picker, handing back addresses.
+ *
+ * @param props - The SDK's props.
+ * @returns The interface's picker.
+ */
+function EntityPicker(props: EntityPickerProps) {
+  const { domains, onChoose, ...rest } = props;
+
+  return (
+    <HouseEntityPicker
+      {...rest}
+      accept={acceptOf(domains)}
+      onChoose={(entities) => {
+        onChoose(entities.map((entity) => entity.entityId));
+      }}
+    />
+  );
+}
 
 /**
  * A catalogue icon by its id: the drawing the owner gave it, the space it takes while it is read.
@@ -75,5 +136,8 @@ export const COMPONENTS_HOST = {
   Stepper,
   TagChip,
   Modal,
+  IconField,
+  EntityField,
+  EntityPicker,
   cn,
 } satisfies ComponentsHost;
