@@ -1,4 +1,5 @@
-import { O as OptionField, S as FormValues, T as NoFields, d as EntityTypeDefinition, lt as EntityId, x as Fields } from "./json.js";
+import { r as EntityId } from "./entities.js";
+import { C as Fields, M as OptionField, d as EntityTypeDefinition, k as NoFields, w as FormValues } from "./json.js";
 //#region src/definitions/card.d.ts
 /** The cells a card can cover: 1×1, 2×1, 2×2 and 2×3. */
 type CardSize = 'small' | 'wide' | 'medium' | 'large';

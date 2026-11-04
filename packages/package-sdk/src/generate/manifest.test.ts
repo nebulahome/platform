@@ -286,6 +286,42 @@ describe('the manifest generator', () => {
     ]);
   });
 
+  it('asks an entity and an icon in the settings, and never as an entity’s field', () => {
+    const { setup } = generatePackage(
+      {
+        ...template,
+        settings: defineSettings({
+          lamp: field.entity({ label: 'Lamp', domains: ['light'], isRequired: true }),
+          badge: field.icon({ label: 'Badge', default: 'star' }),
+        }),
+      },
+      OPTIONS,
+    );
+
+    expect(setup?.transport.fields).toEqual([
+      expect.objectContaining({
+        key: 'lamp',
+        type: 'entity',
+        domains: ['light'],
+        isRequired: true,
+      }),
+      expect.objectContaining({ key: 'badge', type: 'icon', default: 'star' }),
+    ]);
+    expect(
+      problemsOf({
+        ...template,
+        entityTypes: [
+          defineEntityType({
+            id: 'note',
+            name: 'Note',
+            icon: 'sticky-note',
+            state: { lamp: field.entity({ label: 'Lamp' }) },
+          }),
+        ],
+      }),
+    ).toContain("entityTypes.note.state.lamp: an entity's field is never an entity");
+  });
+
   it('names every problem, in the declaration’s terms', () => {
     expect(problemsOf({ id: 'x' })).toEqual([
       'nebula.config.ts must default-export the package: export default definePackage({ … })',

@@ -14,8 +14,8 @@ export type FormPlace = 'settings' | 'options';
 
 /** The kinds a form asks, by place. */
 const FORM_KINDS: Readonly<Record<FormPlace, readonly string[]>> = {
-  settings: ['text', 'secret', 'number', 'boolean', 'choice', 'list'],
-  options: ['text', 'number', 'boolean', 'choice', 'list'],
+  settings: ['text', 'secret', 'number', 'boolean', 'choice', 'list', 'entity', 'icon'],
+  options: ['text', 'number', 'boolean', 'choice', 'list', 'entity', 'icon'],
 };
 
 /** The kinds of an entity's field. */
@@ -39,6 +39,7 @@ const FORM_ONLY = [
   'warning',
   'minItems',
   'maxItems',
+  'domains',
 ];
 
 /**
@@ -149,7 +150,7 @@ export function entityField(
   const where = pathOf(path);
 
   if (typeof kind === 'string' && !VALUE_KINDS.includes(kind)) {
-    found.add(where, `an entity's field is never a ${kind}`);
+    found.add(where, `an entity's field is never ${/^[aeiou]/u.test(kind) ? 'an' : 'a'} ${kind}`);
   }
 
   for (const name of Object.keys(rest)) {

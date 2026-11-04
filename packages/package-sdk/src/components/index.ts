@@ -12,9 +12,12 @@ import type {
   ButtonProps,
   CardHeadingProps,
   ClassValue,
+  EntityFieldProps,
+  EntityPickerProps,
   FigureProps,
   HintProps,
   IconButtonProps,
+  IconFieldProps,
   IconProps,
   ModalProps,
   PanelNoteProps,
@@ -245,6 +248,39 @@ export function TagChip(props: TagChipProps): ReactElement {
  */
 export function Modal(props: ModalProps): ReactElement {
   return createElement(hostMember(COMPONENTS_MODULE, 'Modal', '1.0'), props);
+}
+
+/**
+ * One icon of the catalogue, chosen with the interface's icon picker: a button with the icon,
+ * opening a searchable grid of the catalogue under it.
+ *
+ * @param props - Its label and the icon's id.
+ * @returns The field.
+ */
+export function IconField(props: IconFieldProps): ReactElement {
+  return createElement(hostMember(COMPONENTS_MODULE, 'IconField', '1.7'), props);
+}
+
+/**
+ * One entity of the house, chosen with the interface's entity picker: a field showing the
+ * entity, opening the picker when pressed.
+ *
+ * @param props - Its label, the entity's address and the domains it may be chosen from.
+ * @returns The field.
+ */
+export function EntityField(props: EntityFieldProps): ReactElement {
+  return createElement(hostMember(COMPONENTS_MODULE, 'EntityField', '1.7'), props);
+}
+
+/**
+ * The interface's entity picker, for one entity or several: a dialog that finds them by floor,
+ * room and device, or by typing.
+ *
+ * @param props - Whether it is open, what is chosen, and what may be.
+ * @returns The dialog.
+ */
+export function EntityPicker(props: EntityPickerProps): ReactElement {
+  return createElement(hostMember(COMPONENTS_MODULE, 'EntityPicker', '1.7'), props);
 }
 
 /**

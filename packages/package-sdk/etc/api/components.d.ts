@@ -1,3 +1,4 @@
+import { n as EntityDomain, r as EntityId } from "./chunks/entities.js";
 import { ButtonHTMLAttributes, ComponentType, InputHTMLAttributes, ReactElement, ReactNode, SVGProps } from "react";
 //#region src/components/types.d.ts
 /** What a button does: the one thing a screen is for, anything else, or a destructive action. */
@@ -202,6 +203,54 @@ type ModalProps = {
   /** Its buttons. */
   readonly footer?: ReactNode;
 };
+/** One icon of the catalogue, chosen from the interface's icon picker. Since SDK 1.7. */
+type IconFieldProps = {
+  readonly label: string;
+  readonly isLabelHidden?: boolean;
+  /** The icon's id, or null for none yet. */
+  readonly value: string | null;
+  /** Called with the id of the icon picked. */
+  readonly onChange: (id: string) => void;
+  readonly hint?: ReactNode;
+  readonly error?: string | undefined;
+};
+/** One entity of the house, chosen from the interface's entity picker. Since SDK 1.7. */
+type EntityFieldProps = {
+  readonly label: string;
+  readonly isLabelHidden?: boolean;
+  /** The entity's address, or empty for none yet. */
+  readonly value: EntityId;
+  /** Called with the address chosen; empty when the field was cleared. */
+  readonly onChange: (entityId: EntityId) => void;
+  /** Only entities of these domains may be chosen; any of the house when not said. */
+  readonly domains?: readonly EntityDomain[] | undefined;
+  /** Whether it may be left empty, which offers to clear it. */
+  readonly isOptional?: boolean;
+  readonly size?: 'compact' | 'medium';
+  /** What the picker asks: "Which light?". */
+  readonly pickerTitle?: string;
+  readonly hint?: string | undefined;
+  readonly error?: string | undefined;
+  readonly disabled?: boolean;
+};
+/**
+ * The interface's entity picker on its own: a dialog that finds entities by floor, room and
+ * device, or by typing. Since SDK 1.7.
+ */
+type EntityPickerProps = {
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  /** What the dialog asks; "Which one?" when not said. */
+  readonly title?: string;
+  /** The addresses already chosen, drawn as chosen when it opens. */
+  readonly value?: readonly EntityId[];
+  /** Only entities of these domains may be chosen; any of the house when not said. */
+  readonly domains?: readonly EntityDomain[] | undefined;
+  /** Whether several may be chosen at once. */
+  readonly isMultiple?: boolean;
+  /** Called with the addresses chosen, once the choice is confirmed. */
+  readonly onChoose: (entityIds: readonly EntityId[]) => void;
+};
 /** What `cn` joins: classes, conditions, lists of them. */
 type ClassValue = string | number | bigint | boolean | null | undefined | readonly ClassValue[] | Readonly<Record<string, unknown>>;
 /** What the interface lends to implement `/components`. */
@@ -226,6 +275,12 @@ type ComponentsHost = {
   readonly Stepper: ComponentType<StepperProps>;
   readonly TagChip: ComponentType<TagChipProps>;
   readonly Modal: ComponentType<ModalProps>;
+  /** Since 1.7. */
+  readonly IconField: ComponentType<IconFieldProps>;
+  /** Since 1.7. */
+  readonly EntityField: ComponentType<EntityFieldProps>;
+  /** Since 1.7. */
+  readonly EntityPicker: ComponentType<EntityPickerProps>;
   readonly cn: (...classes: readonly ClassValue[]) => string;
 };
 //#endregion
@@ -371,6 +426,30 @@ export declare function TagChip(props: TagChipProps): ReactElement;
  */
 export declare function Modal(props: ModalProps): ReactElement;
 /**
+ * One icon of the catalogue, chosen with the interface's icon picker: a button with the icon,
+ * opening a searchable grid of the catalogue under it.
+ *
+ * @param props - Its label and the icon's id.
+ * @returns The field.
+ */
+export declare function IconField(props: IconFieldProps): ReactElement;
+/**
+ * One entity of the house, chosen with the interface's entity picker: a field showing the
+ * entity, opening the picker when pressed.
+ *
+ * @param props - Its label, the entity's address and the domains it may be chosen from.
+ * @returns The field.
+ */
+export declare function EntityField(props: EntityFieldProps): ReactElement;
+/**
+ * The interface's entity picker, for one entity or several: a dialog that finds them by floor,
+ * room and device, or by typing.
+ *
+ * @param props - Whether it is open, what is chosen, and what may be.
+ * @returns The dialog.
+ */
+export declare function EntityPicker(props: EntityPickerProps): ReactElement;
+/**
  * Joins class names, resolving Tailwind conflicts: the later class wins.
  *
  * @param classes - Classes, conditions, lists of them.
@@ -378,4 +457,4 @@ export declare function Modal(props: ModalProps): ReactElement;
  */
 export declare function cn(...classes: readonly ClassValue[]): string;
 //#endregion
-export type { BadgeProps, BadgeTone, ButtonProps, ButtonSize, ButtonVariant, CardHeadingProps, ClassValue, ComponentsHost, ControlOption, FigureProps, HintProps, IconButtonProps, IconProps, ModalProps, PanelNoteProps, PanelProps, PanelRowProps, ProgressBarProps, SegmentedProps, SelectFieldProps, SliderProps, StatusDotProps, StepperProps, SwitchProps, TagChipProps, TagColor, TextFieldProps };
+export type { BadgeProps, BadgeTone, ButtonProps, ButtonSize, ButtonVariant, CardHeadingProps, ClassValue, ComponentsHost, ControlOption, EntityFieldProps, EntityPickerProps, FigureProps, HintProps, IconButtonProps, IconFieldProps, IconProps, ModalProps, PanelNoteProps, PanelProps, PanelRowProps, ProgressBarProps, SegmentedProps, SelectFieldProps, SliderProps, StatusDotProps, StepperProps, SwitchProps, TagChipProps, TagColor, TextFieldProps };

@@ -3,6 +3,18 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.7.0
+
+- **The interface's pickers.** `<IconField>` is the 44 px icon button that opens the interface's
+  searchable icon picker, and hands back the icon's id. `<EntityField>` shows one entity of the
+  house and opens the interface's entity picker - by floor, room and device, or by typing - and
+  hands back its address; `isOptional` lets it be cleared. `<EntityPicker>` is that picker on its
+  own, for one entity or several (`isMultiple`). `domains` limits what may be chosen; any entity
+  of the house when not said.
+- **`field.entity` and `field.icon`**, for settings and card options: asked with those pickers,
+  held as the entity's address and the icon's id. `field.entity` takes `domains` and no `default`,
+  and the platform refuses an address of another domain. Neither is an entity's field.
+
 ## 1.6.0
 
 - **The background.** `ui.background: defineBackground({ component, description })` is a

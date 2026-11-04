@@ -9,6 +9,8 @@
  * always there.
  */
 
+import type { EntityDomain } from './entities.js';
+
 /** A condition on an earlier field of the same form: asked only while it holds one of these. */
 export type ShownWhen = {
   readonly key: string;
@@ -108,6 +110,16 @@ export type ListOptions = FieldBase &
     readonly patternMessage?: string;
   };
 
+/** What `field.entity` takes: one entity of the house, chosen with the entity picker. */
+export type EntityOptions = FieldBase &
+  Omit<InForm<string>, 'default'> & {
+    /** Only entities of these domains may be chosen; any when not said. */
+    readonly domains?: readonly EntityDomain[];
+  };
+
+/** What `field.icon` takes: one icon of the catalogue, chosen with the icon picker. */
+export type IconOptions = FieldBase & InForm<string>;
+
 /** What `field.timestamp` takes: an instant, as ISO 8601 text. */
 export type TimestampOptions = FieldBase & InEntity;
 
@@ -141,6 +153,16 @@ export type ListField<TOptions extends ListOptions = ListOptions> = TOptions & {
   readonly kind: 'list';
 };
 
+/** An entity field: its value is the entity's address. Since SDK 1.7. */
+export type EntityField<TOptions extends EntityOptions = EntityOptions> = TOptions & {
+  readonly kind: 'entity';
+};
+
+/** An icon field: its value is the icon's id. Since SDK 1.7. */
+export type IconField<TOptions extends IconOptions = IconOptions> = TOptions & {
+  readonly kind: 'icon';
+};
+
 /** A timestamp field. */
 export type TimestampField<TOptions extends TimestampOptions = TimestampOptions> = TOptions & {
   readonly kind: 'timestamp';
@@ -148,15 +170,32 @@ export type TimestampField<TOptions extends TimestampOptions = TimestampOptions>
 
 /** Any field. */
 export type Field =
-  TextField | SecretField | NumberField | BooleanField | ChoiceField | ListField | TimestampField;
+  | TextField
+  | SecretField
+  | NumberField
+  | BooleanField
+  | ChoiceField
+  | ListField
+  | EntityField
+  | IconField
+  | TimestampField;
 
 /** A field the settings may hold: every kind a form asks. */
 export type SettingField = (
-  TextField | SecretField | NumberField | BooleanField | ChoiceField | ListField
+  | TextField
+  | SecretField
+  | NumberField
+  | BooleanField
+  | ChoiceField
+  | ListField
+  | EntityField
+  | IconField
 ) & { readonly isOptional?: never };
 
 /** A field a card's inspector may ask: a form's kinds, no secret, nothing live. */
-export type OptionField = (TextField | NumberField | BooleanField | ChoiceField | ListField) & {
+export type OptionField = (
+  TextField | NumberField | BooleanField | ChoiceField | ListField | EntityField | IconField
+) & {
   readonly isOptional?: never;
   readonly isLive?: never;
 };
@@ -289,6 +328,30 @@ export const field = {
   list: <const TOptions extends ListOptions>(options: TOptions): ListField<TOptions> => ({
     ...options,
     kind: 'list',
+  }),
+
+  /**
+   * One entity of the house, asked with the interface's entity picker: its value is the
+   * entity's address, `light.kitchen`. A setting or a card's option, never an entity's field.
+   *
+   * @param options - Its label, and the domains it may be chosen from.
+   * @returns The field.
+   */
+  entity: <const TOptions extends EntityOptions>(options: TOptions): EntityField<TOptions> => ({
+    ...options,
+    kind: 'entity',
+  }),
+
+  /**
+   * One icon of the catalogue, asked with the interface's icon picker: its value is the icon's
+   * id, for `<Icon id>`. A setting or a card's option, never an entity's field.
+   *
+   * @param options - Its label and default.
+   * @returns The field.
+   */
+  icon: <const TOptions extends IconOptions>(options: TOptions): IconField<TOptions> => ({
+    ...options,
+    kind: 'icon',
   }),
 
   /**

@@ -14,6 +14,8 @@ import type {
   SVGProps,
 } from 'react';
 
+import type { EntityDomain, EntityId } from '../entities.js';
+
 /** What a button does: the one thing a screen is for, anything else, or a destructive action. */
 export type ButtonVariant = 'primary' | 'ghost' | 'danger';
 
@@ -277,6 +279,72 @@ export type ModalProps = {
   readonly footer?: ReactNode;
 };
 
+/** One icon of the catalogue, chosen from the interface's icon picker. Since SDK 1.7. */
+export type IconFieldProps = {
+  readonly label: string;
+  readonly isLabelHidden?: boolean;
+
+  /** The icon's id, or null for none yet. */
+  readonly value: string | null;
+
+  /** Called with the id of the icon picked. */
+  readonly onChange: (id: string) => void;
+
+  readonly hint?: ReactNode;
+  readonly error?: string | undefined;
+};
+
+/** One entity of the house, chosen from the interface's entity picker. Since SDK 1.7. */
+export type EntityFieldProps = {
+  readonly label: string;
+  readonly isLabelHidden?: boolean;
+
+  /** The entity's address, or empty for none yet. */
+  readonly value: EntityId;
+
+  /** Called with the address chosen; empty when the field was cleared. */
+  readonly onChange: (entityId: EntityId) => void;
+
+  /** Only entities of these domains may be chosen; any of the house when not said. */
+  readonly domains?: readonly EntityDomain[] | undefined;
+
+  /** Whether it may be left empty, which offers to clear it. */
+  readonly isOptional?: boolean;
+
+  readonly size?: 'compact' | 'medium';
+
+  /** What the picker asks: "Which light?". */
+  readonly pickerTitle?: string;
+
+  readonly hint?: string | undefined;
+  readonly error?: string | undefined;
+  readonly disabled?: boolean;
+};
+
+/**
+ * The interface's entity picker on its own: a dialog that finds entities by floor, room and
+ * device, or by typing. Since SDK 1.7.
+ */
+export type EntityPickerProps = {
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+
+  /** What the dialog asks; "Which one?" when not said. */
+  readonly title?: string;
+
+  /** The addresses already chosen, drawn as chosen when it opens. */
+  readonly value?: readonly EntityId[];
+
+  /** Only entities of these domains may be chosen; any of the house when not said. */
+  readonly domains?: readonly EntityDomain[] | undefined;
+
+  /** Whether several may be chosen at once. */
+  readonly isMultiple?: boolean;
+
+  /** Called with the addresses chosen, once the choice is confirmed. */
+  readonly onChoose: (entityIds: readonly EntityId[]) => void;
+};
+
 /** What `cn` joins: classes, conditions, lists of them. */
 export type ClassValue =
   | string
@@ -310,5 +378,15 @@ export type ComponentsHost = {
   readonly Stepper: ComponentType<StepperProps>;
   readonly TagChip: ComponentType<TagChipProps>;
   readonly Modal: ComponentType<ModalProps>;
+
+  /** Since 1.7. */
+  readonly IconField: ComponentType<IconFieldProps>;
+
+  /** Since 1.7. */
+  readonly EntityField: ComponentType<EntityFieldProps>;
+
+  /** Since 1.7. */
+  readonly EntityPicker: ComponentType<EntityPickerProps>;
+
   readonly cn: (...classes: readonly ClassValue[]) => string;
 };

@@ -1,35 +1,4 @@
-//#region src/entities.d.ts
-/**
- * Entity identifiers: `<domain>.<object id>`, as the platform writes them everywhere - in its
- * API, on its bus, in automations. A package never composes one by hand: the server's
- * `ctx.entityId` does, and these read one back.
- */
-/** The kinds of thing an entity is. */
-declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "image", "custom", "alias"];
-/** The kind of thing an entity is. */
-type EntityDomain = (typeof ENTITY_DOMAINS)[number];
-/** An entity's identifier: `sensor.weather_temperature`. */
-type EntityId = string;
-/** What an entity identifier is made of. */
-type ParsedEntityId = {
-  readonly domain: EntityDomain;
-  readonly objectId: string;
-};
-/**
- * Reads an entity identifier.
- *
- * @param entityId - The identifier.
- * @returns Its domain and object id, or undefined when it is not one.
- */
-declare function parseEntityId(entityId: string): ParsedEntityId | undefined;
-/**
- * Says whether a value is an entity identifier.
- *
- * @param value - The value.
- * @returns True when it is a string the platform would take as one.
- */
-declare function isEntityId(value: unknown): value is EntityId;
-//#endregion
+import { n as EntityDomain, r as EntityId } from "./entities.js";
 //#region src/capabilities.d.ts
 /** Every capability an entity may declare. */
 type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'image' | 'custom';
@@ -371,16 +340,6 @@ type CapabilityCommand = { readonly [TName in CommandableCapability]: {
 }; }[CommandableCapability];
 //#endregion
 //#region src/fields.d.ts
-/**
- * The field builders: one set that describes a package's settings, a card's options, the state
- * of an entity type and the arguments of its commands (PACKAGES_DOCS.md 4.10).
- *
- * Not every kind fits every place - a secret is never a card option, a timestamp is never asked
- * in a form - and the places say which they take: `SettingField`, `OptionField`, `ValueField`.
- * Each builder keeps the literal options it was given, which is what lets `SettingsOf`,
- * `OptionsOf` and `ValuesOf` give a choice the union of its values and know which fields are
- * always there.
- */
 /** A condition on an earlier field of the same form: asked only while it holds one of these. */
 type ShownWhen = {
   readonly key: string;
@@ -453,6 +412,13 @@ type ListOptions = FieldBase & Omit<InForm<readonly string[]>, 'default'> & {
   readonly pattern?: string;
   readonly patternMessage?: string;
 };
+/** What `field.entity` takes: one entity of the house, chosen with the entity picker. */
+type EntityOptions = FieldBase & Omit<InForm<string>, 'default'> & {
+  /** Only entities of these domains may be chosen; any when not said. */
+  readonly domains?: readonly EntityDomain[];
+};
+/** What `field.icon` takes: one icon of the catalogue, chosen with the icon picker. */
+type IconOptions = FieldBase & InForm<string>;
 /** What `field.timestamp` takes: an instant, as ISO 8601 text. */
 type TimestampOptions = FieldBase & InEntity;
 /** A text field. */
@@ -479,18 +445,26 @@ type ChoiceField<TOptions extends ChoiceOptions = ChoiceOptions> = TOptions & {
 type ListField<TOptions extends ListOptions = ListOptions> = TOptions & {
   readonly kind: 'list';
 };
+/** An entity field: its value is the entity's address. Since SDK 1.7. */
+type EntityField<TOptions extends EntityOptions = EntityOptions> = TOptions & {
+  readonly kind: 'entity';
+};
+/** An icon field: its value is the icon's id. Since SDK 1.7. */
+type IconField<TOptions extends IconOptions = IconOptions> = TOptions & {
+  readonly kind: 'icon';
+};
 /** A timestamp field. */
 type TimestampField<TOptions extends TimestampOptions = TimestampOptions> = TOptions & {
   readonly kind: 'timestamp';
 };
 /** Any field. */
-type Field = TextField | SecretField | NumberField | BooleanField | ChoiceField | ListField | TimestampField;
+type Field = TextField | SecretField | NumberField | BooleanField | ChoiceField | ListField | EntityField | IconField | TimestampField;
 /** A field the settings may hold: every kind a form asks. */
-type SettingField = (TextField | SecretField | NumberField | BooleanField | ChoiceField | ListField) & {
+type SettingField = (TextField | SecretField | NumberField | BooleanField | ChoiceField | ListField | EntityField | IconField) & {
   readonly isOptional?: never;
 };
 /** A field a card's inspector may ask: a form's kinds, no secret, nothing live. */
-type OptionField = (TextField | NumberField | BooleanField | ChoiceField | ListField) & {
+type OptionField = (TextField | NumberField | BooleanField | ChoiceField | ListField | EntityField | IconField) & {
   readonly isOptional?: never;
   readonly isLive?: never;
 };
@@ -579,6 +553,22 @@ declare const field: {
    */
   list: <const TOptions extends ListOptions>(options: TOptions) => ListField<TOptions>;
   /**
+   * One entity of the house, asked with the interface's entity picker: its value is the
+   * entity's address, `light.kitchen`. A setting or a card's option, never an entity's field.
+   *
+   * @param options - Its label, and the domains it may be chosen from.
+   * @returns The field.
+   */
+  entity: <const TOptions extends EntityOptions>(options: TOptions) => EntityField<TOptions>;
+  /**
+   * One icon of the catalogue, asked with the interface's icon picker: its value is the icon's
+   * id, for `<Icon id>`. A setting or a card's option, never an entity's field.
+   *
+   * @param options - Its label and default.
+   * @returns The field.
+   */
+  icon: <const TOptions extends IconOptions>(options: TOptions) => IconField<TOptions>;
+  /**
    * An instant, as ISO 8601 text: an entity's state or a command's argument, never a form's.
    *
    * @param options - Its label.
@@ -654,4 +644,4 @@ type JsonObject = {
   readonly [key: string]: JsonValue;
 };
 //#endregion
-export { PlaybackState as $, SecretOptions as A, field as B, ListField as C, NumberOptions as D, NumberField as E, TextOptions as F, CapabilityState as G, CapabilityCommands as H, TimestampField as I, CustomValue as J, CapabilityStates as K, TimestampOptions as L, ShownWhen as M, Simplify as N, OptionField as O, TextField as P, LawnMowerActivity as Q, ValueField as R, FormValues as S, NoFields as T, CapabilityName as U, CapabilityCommand as V, CapabilityParams as W, EntityStateClass as X, DeclaredCapabilities as Y, ImageContentType as Z, ChoiceOption as _, SettingsOf as a, VacuumActivity as at, Field as b, CommandDeclaration as c, EntityDomain as ct, EntityTypeDefinition as d, isEntityId as dt, ReportedCapabilityState as et, ValuesOf as f, parseEntityId as ft, ChoiceField as g, BooleanOptions as h, SettingsDefinition as i, ThermostatMode as it, SettingField as j, SecretField as k, CommandDeclarations as l, EntityId as lt, BooleanField as m, JsonPrimitive as n, SelectOption as nt, defineSettings as o, VacuumRoom as ot, defineEntityType as p, CommandableCapability as q, JsonValue as r, ThermostatAction as rt, ArgsOf as s, ENTITY_DOMAINS as st, JsonObject as t, ReportedStates as tt, CommandsOf as u, ParsedEntityId as ut, ChoiceOptions as v, ListOptions as w, Fields as x, EntityValues as y, ValueOfField as z };
+export { DeclaredCapabilities as $, NumberField as A, TimestampField as B, Fields as C, ListField as D, IconOptions as E, SettingField as F, CapabilityCommand as G, ValueField as H, ShownWhen as I, CapabilityParams as J, CapabilityCommands as K, Simplify as L, OptionField as M, SecretField as N, ListOptions as O, SecretOptions as P, CustomValue as Q, TextField as R, Field as S, IconField as T, ValueOfField as U, TimestampOptions as V, field as W, CapabilityStates as X, CapabilityState as Y, CommandableCapability as Z, ChoiceOption as _, SettingsOf as a, ReportedStates as at, EntityOptions as b, CommandDeclaration as c, ThermostatMode as ct, EntityTypeDefinition as d, EntityStateClass as et, ValuesOf as f, ChoiceField as g, BooleanOptions as h, SettingsDefinition as i, ReportedCapabilityState as it, NumberOptions as j, NoFields as k, CommandDeclarations as l, VacuumActivity as lt, BooleanField as m, JsonPrimitive as n, LawnMowerActivity as nt, defineSettings as o, SelectOption as ot, defineEntityType as p, CapabilityName as q, JsonValue as r, PlaybackState as rt, ArgsOf as s, ThermostatAction as st, JsonObject as t, ImageContentType as tt, CommandsOf as u, VacuumRoom as ut, ChoiceOptions as v, FormValues as w, EntityValues as x, EntityField as y, TextOptions as z };
