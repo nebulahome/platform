@@ -40,7 +40,74 @@ import {
 export type DownloadOptions = {
   readonly fetch?: typeof fetch;
   readonly timeoutMs: number;
+
+  /** Reads release assets of private GitHub repositories through GitHub's API. */
+  readonly githubToken?: string | undefined;
 };
+
+/** A GitHub release asset's public address: owner, repository, tag, file. */
+const RELEASE_ASSET =
+  /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/releases\/download\/([^/]+)\/([^/?#]+)$/u;
+
+/**
+ * A private GitHub release asset, read through GitHub's API: its public address answers 404 to
+ * anyone, token or not. The token goes to api.github.com only, never to the host GitHub
+ * redirects to for the bytes.
+ *
+ * @param url - The asset's public address.
+ * @param token - A token that may read the repository's contents.
+ * @param options - The HTTP client and how long it may take.
+ * @returns The response with the bytes, or undefined when the address is not a release asset.
+ * @throws {Error} When GitHub has no such release or asset, or refuses the token.
+ */
+async function githubAsset(
+  url: string,
+  token: string,
+  options: DownloadOptions,
+): Promise<Response | undefined> {
+  const match = RELEASE_ASSET.exec(url);
+
+  if (match === null) {
+    return undefined;
+  }
+
+  const [, owner = '', repo = '', tag = '', name = ''] = match;
+  const call = options.fetch ?? globalThis.fetch;
+  const signal = AbortSignal.timeout(options.timeoutMs);
+  const headers = { authorization: `Bearer ${token}`, 'x-github-api-version': '2022-11-28' };
+  const release = await call(`https://api.github.com/repos/${owner}/${repo}/releases/tags/${tag}`, {
+    headers: { ...headers, accept: 'application/vnd.github+json' },
+    signal,
+  });
+
+  if (!release.ok) {
+    throw new Error(
+      `GitHub answered HTTP ${String(release.status)} for the release ${decodeURIComponent(tag)} of ${owner}/${repo}: the token cannot read it, or it does not exist`,
+    );
+  }
+
+  const { assets } = z
+    .object({ assets: z.array(z.object({ name: z.string(), url: z.url() })) })
+    .parse(await release.json());
+  const asset = assets.find((each) => each.name === decodeURIComponent(name));
+
+  if (asset === undefined) {
+    throw new Error(
+      `The release ${decodeURIComponent(tag)} of ${owner}/${repo} has no ${decodeURIComponent(name)}`,
+    );
+  }
+
+  const answer = await call(asset.url, {
+    headers: { ...headers, accept: 'application/octet-stream' },
+    redirect: 'manual',
+    signal,
+  });
+  const location = answer.headers.get('location');
+
+  return answer.status >= 300 && answer.status < 400 && location !== null
+    ? call(location, { redirect: 'follow', signal })
+    : answer;
+}
 
 /**
  * The bytes of an archive: a local file's, or what its address answers.
@@ -55,10 +122,14 @@ async function bytesOf(artifact: PackageArtifact, options: DownloadOptions): Pro
     return createReadStream(fileURLToPath(artifact.url));
   }
 
-  const response = await (options.fetch ?? globalThis.fetch)(artifact.url, {
-    redirect: 'follow',
-    signal: AbortSignal.timeout(options.timeoutMs),
-  });
+  const response =
+    (options.githubToken === undefined
+      ? undefined
+      : await githubAsset(artifact.url, options.githubToken, options)) ??
+    (await (options.fetch ?? globalThis.fetch)(artifact.url, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(options.timeoutMs),
+    }));
 
   if (!response.ok || response.body === null) {
     throw new Error(`The archive answered HTTP ${String(response.status)}: ${artifact.url}`);

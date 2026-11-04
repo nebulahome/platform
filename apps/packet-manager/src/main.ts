@@ -192,6 +192,7 @@ async function start(): Promise<void> {
     cacheDir: `${layout.cache}/integrations`,
     runtimeVersion: INTEGRATION_RUNTIME_VERSION,
     downloadTimeoutMs: config.PACKET_MANAGER_DOWNLOAD_TIMEOUT_MS,
+    githubToken: config.GITHUB_TOKEN,
     reporter,
   });
 

@@ -127,6 +127,16 @@ export const packetManagerEnvSchema = runtimeEnvSchema
       .min(5000)
       .max(3_600_000)
       .default(600_000),
+
+    /**
+     * Lets downloads read release assets of private GitHub repositories: a fine-grained token with
+     * read-only Contents on them. Unset (or empty), only public releases download.
+     */
+    GITHUB_TOKEN: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => (value === '' ? undefined : value)),
   })
   .extend({
     /** Handed to a package's process as they are: where programs are, and the time zone. */

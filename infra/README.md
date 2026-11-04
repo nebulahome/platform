@@ -232,6 +232,9 @@ its stack runs on this machine); unset, the install dialogs offer the local fold
 else. `packet-manager` reports to it what it installs from its indexes, with one token for the
 whole installation kept in `system.community_hub_installations`;
 `COMMUNITY_HUB_REPORT_INSTALLS=false` turns that off.
+A release of a private GitHub repository answers 404 at its public address:
+`GITHUB_TOKEN` (fine-grained, read-only Contents on those repositories) makes `packet-manager` read
+it through GitHub's API instead; the token goes to api.github.com only, never past its redirect.
 
 ## Development
 

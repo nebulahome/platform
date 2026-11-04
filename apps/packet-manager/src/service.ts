@@ -1812,8 +1812,13 @@ export class PacketManager {
    *
    * @returns The option.
    */
-  #fetchOption(): { readonly fetch?: typeof fetch } {
-    return this.#options.fetch === undefined ? {} : { fetch: this.#options.fetch };
+  #fetchOption(): { readonly fetch?: typeof fetch; readonly githubToken?: string } {
+    return {
+      ...(this.#options.fetch === undefined ? {} : { fetch: this.#options.fetch }),
+      ...(this.#options.config.GITHUB_TOKEN === undefined
+        ? {}
+        : { githubToken: this.#options.config.GITHUB_TOKEN }),
+    };
   }
 
   // --- dependencies and views ---------------------------------------------------------------

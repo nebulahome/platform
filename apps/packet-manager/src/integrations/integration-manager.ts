@@ -86,6 +86,9 @@ export type IntegrationManagerOptions = {
 
   readonly downloadTimeoutMs: number;
 
+  /** Reads release assets of private GitHub repositories (`GITHUB_TOKEN`). */
+  readonly githubToken?: string | undefined;
+
   /** Where an install from the index is reported to the Hub; none in a test. */
   readonly reporter?: InstallReporter;
   readonly fetch?: typeof fetch;
@@ -325,6 +328,7 @@ export class IntegrationManager {
         this.#options.cacheDir,
         {
           timeoutMs: this.#options.downloadTimeoutMs,
+          githubToken: this.#options.githubToken,
           ...(this.#options.fetch === undefined ? {} : { fetch: this.#options.fetch }),
         },
       );

@@ -88,6 +88,50 @@ describe('installing a release', () => {
     expect(existsSync(path.join(packages, 'nvr', 'nvr-1.4.0.tgz'))).toBe(false);
   });
 
+  it('reads a private release asset through GitHub’s API with the token, not past its redirect', async () => {
+    const work = await folder();
+    const source = await writePackage(path.join(work, 'source'), manifest({ id: 'nvr' }));
+    const archive = await archiveOf(source, path.join(work, 'nvr.tgz'));
+    const url = 'https://github.com/nebulahome/pkg-nvr/releases/download/v1.0.0-alpha.1/nvr.tgz';
+    const asset = 'https://api.github.com/repos/nebulahome/pkg-nvr/releases/assets/7';
+    const storage = 'https://objects.githubusercontent.com/nvr.tgz?sig=x';
+    const seen: { readonly url: string; readonly auth: string | null }[] = [];
+    const fetch: typeof globalThis.fetch = async (input, init) => {
+      const address = input instanceof Request ? input.url : String(input);
+      const auth = new Headers(init?.headers).get('authorization');
+
+      seen.push({ url: address, auth });
+
+      if (address.endsWith('/releases/tags/v1.0.0-alpha.1') && auth === 'Bearer secret') {
+        return Promise.resolve(Response.json({ assets: [{ name: 'nvr.tgz', url: asset }] }));
+      }
+
+      if (address === asset && auth === 'Bearer secret') {
+        return Promise.resolve(new Response(null, { status: 302, headers: { location: storage } }));
+      }
+
+      return Promise.resolve(
+        address === storage
+          ? new Response(new Uint8Array(archive.bytes))
+          : new Response('', { status: 404 }),
+      );
+    };
+
+    const files = await installRelease(
+      {
+        id: 'nvr',
+        version: '1.0.0',
+        artifact: { url, size: archive.size, sha256: archive.sha256 },
+      },
+      path.join(work, 'packages'),
+      { timeoutMs: 5000, fetch, githubToken: 'secret' },
+    );
+
+    expect(files.manifest.id).toBe('nvr');
+    expect(seen.find((each) => each.url === storage)?.auth).toBeNull();
+    expect(seen.some((each) => each.url === url)).toBe(false);
+  });
+
   it('refuses an archive whose digest is not the index’s, and one of another package', async () => {
     const work = await folder();
     const source = await writePackage(path.join(work, 'source'), manifest({ id: 'nvr' }));
