@@ -195,6 +195,9 @@ export type HouseDevice = {
   readonly manufacturer: string | null;
   readonly model: string | null;
   readonly swVersion: string | null;
+
+  /** The owner's own id for it: the serial, the id the relay answers with. */
+  readonly externalId: string | null;
   readonly areaId: string | null;
 
   /** The package or the integration (its vendor's id) that brought it. */

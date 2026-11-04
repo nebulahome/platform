@@ -37,6 +37,9 @@ export const houseDeviceSchema = z.strictObject({
   manufacturer: z.string().nullable(),
   model: z.string().nullable(),
   swVersion: z.string().nullable(),
+
+  /** The owner's own id for it: the serial, the id the relay answers with. */
+  externalId: z.string().nullable(),
   areaId: z.uuid().nullable(),
 
   /** The package or the integration (its vendor's id) that brought it; null for the platform's own. */
