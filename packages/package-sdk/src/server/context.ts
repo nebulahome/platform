@@ -6,6 +6,7 @@
  */
 import type {
   CapabilityCommand,
+  CapabilityName,
   CapabilityState,
   DeclaredCapabilities,
   EntityStateClass,
@@ -167,6 +168,69 @@ export type StateChange = {
 export type EntityFilter = {
   readonly domain?: EntityDomain;
   readonly entityIds?: readonly EntityId[];
+};
+
+/** One floor, room or the house itself, as the owner arranged them. Since 1.8. */
+export type HouseArea = {
+  readonly id: string;
+  readonly name: string;
+
+  /** `house`, `floor` or `room`. */
+  readonly kind: string;
+
+  /** The house a floor is in, or the floor a room is on. */
+  readonly parentId: string | null;
+
+  /** Which storey a floor is: 0 the ground, 1 the one above. Null for the rest. */
+  readonly level: number | null;
+  readonly icon: string | null;
+  readonly sortOrder: number;
+};
+
+/** One device of the house. Since 1.8. */
+export type HouseDevice = {
+  readonly id: string;
+  readonly name: string;
+  readonly icon: string | null;
+  readonly manufacturer: string | null;
+  readonly model: string | null;
+  readonly swVersion: string | null;
+  readonly areaId: string | null;
+
+  /** The package or the integration (its vendor's id) that brought it. */
+  readonly owner: string | null;
+};
+
+/** One entity of the house, as the owner sees it. Since 1.8. */
+export type HouseEntity = {
+  readonly entityId: EntityId;
+  readonly name: string;
+  readonly icon: string | null;
+
+  /** What the owner shows it as, when not its address's domain: a relay as a light. */
+  readonly shownDomain: string | null;
+  readonly deviceId: string | null;
+
+  /** Its own room, else its device's. */
+  readonly areaId: string | null;
+  readonly deviceClass: string | null;
+  readonly unitOfMeasurement: string | null;
+  readonly isHidden: boolean;
+
+  /** The package or the integration (its vendor's id) that brought it; `derived` or `system` else. */
+  readonly owner: string;
+
+  /** Each declared capability and the device's own limits for it: a lamp's mired range. */
+  readonly capabilities: Readonly<Record<string, JsonObject>>;
+};
+
+/** The house, whole: what `ctx.house.read` answers. Since 1.8. */
+export type House = {
+  readonly areas: readonly HouseArea[];
+  readonly devices: readonly HouseDevice[];
+
+  /** The enabled entities; linked ones are read through the entity they are linked to. */
+  readonly entities: readonly HouseEntity[];
 };
 
 /** Which entities' past `ctx.history` reads, over which window. Since 1.2. */
@@ -472,6 +536,35 @@ export type ServerContext<TSettings = undefined> = {
       filter: EntityFilter,
       handler: (change: StateChange) => Awaitable<void>,
     ) => Unsubscribe;
+
+    /**
+     * Sends a command to any entity of the house, checked as one a person sends: for a package
+     * that acts for the house, such as a bridge to a voice assistant. Since 1.8.
+     *
+     * @param entityId - The entity.
+     * @param capability - Which of its capabilities: `on_off`, `level`, `cover`.
+     * @param command - The command and its arguments: `{ command: 'set_level', level: 40 }`.
+     * @returns Once the entity's owner has accepted it.
+     * @throws {Error} When the entity is unknown, cannot be asked this, or did not answer.
+     */
+    readonly command: (
+      entityId: EntityId,
+      capability: CapabilityName,
+      command: JsonObject,
+    ) => Promise<void>;
+  };
+
+  /**
+   * The house as the owner arranged it: floors and rooms, devices, entities with their names and
+   * capabilities. Read whole, when needed: it does not follow edits by itself. Since 1.8.
+   */
+  readonly house: {
+    /**
+     * Reads the house.
+     *
+     * @returns Its areas, devices and entities.
+     */
+    readonly read: () => Promise<House>;
   };
 
   /**

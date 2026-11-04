@@ -247,4 +247,23 @@ describe('the past of the house', () => {
       }),
     ).rejects.toThrow('The window starts at or after it ends');
   });
+
+  it('records the commands sent to other entities, fails one the test refuses, and reads the house', async () => {
+    const test = createTestContext({
+      onEntityCommand: (command) => {
+        if (command.entityId === 'lock.front') {
+          throw new Error('Jammed');
+        }
+      },
+    });
+
+    await test.ctx.entities.command('light.hall', 'on_off', { command: 'turn_on' });
+    await expect(
+      test.ctx.entities.command('lock.front', 'lock', { command: 'lock' }),
+    ).rejects.toThrow('Jammed');
+    expect(test.entityCommands.map((each) => each.entityId)).toEqual(['light.hall', 'lock.front']);
+    expect(await test.ctx.house.read()).toEqual({ areas: [], devices: [], entities: [] });
+
+    test.setHouse({ areas: [], devices: [], entities: [] });
+  });
 });

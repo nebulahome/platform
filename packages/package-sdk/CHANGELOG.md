@@ -3,6 +3,18 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.8.0
+
+- **`ctx.entities.command(entityId, capability, command)`**: a package that acts for the house -
+  a bridge to a voice assistant - commands any entity, checked by `core` as a person's command is,
+  and resolved once the entity's owner has accepted it. Nothing records the package as the cause
+  yet.
+- **`ctx.house.read()`**: the house as the owner arranged it, whole - floors and rooms, devices
+  (manufacturer, model, room, who brought them) and enabled entities with their names, rooms,
+  device classes, hidden flag and declared capabilities with the device's own limits. Linked
+  devices and entities are read through the one they are linked to.
+- **Testing**: `createTestContext({ house, onEntityCommand })`, `entityCommands` and `setHouse`.
+
 ## 1.7.0
 
 - **The interface's pickers.** `<IconField>` is the 44 px icon button that opens the interface's

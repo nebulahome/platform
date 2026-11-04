@@ -11,7 +11,9 @@ import {
   adapterAckSchema,
   busSubjects,
   CORE_HISTORY_STATES_METHOD,
+  capabilityCommandRequestSchema,
   CORE_HISTORY_TELEMETRY_METHOD,
+  CORE_HOUSE_METHOD,
   CORE_SERVICE,
   CORE_SYNC_PACKAGE_METHOD,
   historyStatesRequestSchema,
@@ -525,5 +527,46 @@ describe("a package's context", () => {
         to: '2026-10-02T00:00:00Z',
       }),
     ).rejects.toThrow('A read of the past is refused: The window starts at or after it ends');
+  });
+
+  it('commands another entity on the command subject, and reads the house through core', async () => {
+    const { handle: made, platform } = setUp();
+    const lamp = parseEntityId('light.kitchen_ceiling');
+    const asked: unknown[] = [];
+    const house = {
+      areas: [],
+      devices: [],
+      entities: [
+        {
+          entityId: lamp,
+          name: 'Ceiling',
+          icon: null,
+          shownDomain: null,
+          deviceId: null,
+          areaId: null,
+          deviceClass: null,
+          unitOfMeasurement: null,
+          isHidden: false,
+          owner: 'shelly',
+          capabilities: { on_off: {}, level: {} },
+        },
+      ],
+    };
+
+    platform.serve(
+      busSubjects.command(lamp, 'level'),
+      capabilityCommandRequestSchema,
+      (request) => {
+        asked.push(request);
+
+        return { entityId: lamp, capability: 'level', acceptedAt: '2026-10-02T08:00:00.000Z' };
+      },
+    );
+    platform.serve(busSubjects.service(CORE_SERVICE, CORE_HOUSE_METHOD), z.unknown(), () => house);
+
+    await made.context.entities.command(lamp, 'level', { command: 'set_level', level: 40 });
+
+    expect(asked).toEqual([{ command: { command: 'set_level', level: 40 } }]);
+    expect(await made.context.house.read()).toEqual(house);
   });
 });

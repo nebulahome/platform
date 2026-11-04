@@ -17,6 +17,7 @@ import {
   definePage,
   defineSettings,
   field,
+  type ValueField,
 } from '../index.js';
 
 import { generatePackage, githubRepositoryOf, sdkRangeOf } from './manifest.js';
@@ -298,7 +299,7 @@ describe('the manifest generator', () => {
       OPTIONS,
     );
 
-    expect(setup?.transport.fields).toEqual([
+    expect((setup as { transport: { fields: unknown } } | undefined)?.transport.fields).toEqual([
       expect.objectContaining({
         key: 'lamp',
         type: 'entity',
@@ -315,7 +316,8 @@ describe('the manifest generator', () => {
             id: 'note',
             name: 'Note',
             icon: 'sticky-note',
-            state: { lamp: field.entity({ label: 'Lamp' }) },
+            // Refused at run time too: the test hands what the types already refuse.
+            state: { lamp: field.entity({ label: 'Lamp' }) as unknown as ValueField },
           }),
         ],
       }),

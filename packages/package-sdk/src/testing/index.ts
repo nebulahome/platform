@@ -6,7 +6,12 @@
  * changes and restarts, entity ids, a second command handler refused, method and service inputs
  * checked by their schemas, reserved service names refused.
  */
-import type { CapabilityCommand, CustomValue, ReportedCapabilityState } from '../capabilities.js';
+import type {
+  CapabilityCommand,
+  CapabilityName,
+  CustomValue,
+  ReportedCapabilityState,
+} from '../capabilities.js';
 import type {
   ArgsOf,
   CommandsOf,
@@ -27,6 +32,7 @@ import type {
   EntitySnapshot,
   HistoryAnswer,
   HistoryRead,
+  House,
   LiveCall,
   LivePublishOptions,
   Logger,
@@ -66,6 +72,15 @@ export type TestContextOptions<TSettings extends SettingsDefinition | undefined>
   /** The past `ctx.history` reads, by entity: points in any order. */
   readonly history?: Readonly<Record<string, RecordedHistory>>;
 
+  /** The house `ctx.house.read` answers: an empty one when not said. Since 1.8. */
+  readonly house?: House;
+
+  /**
+   * What a command the package sends another entity does (`ctx.entities.command`); a throw is
+   * its failure. Every command is recorded either way. Since 1.8.
+   */
+  readonly onEntityCommand?: (command: RecordedEntityCommand) => Awaitable<void>;
+
   readonly dataDir?: string;
   readonly cacheDir?: string;
 };
@@ -81,6 +96,13 @@ export type RecordedReport = {
   readonly entityId: EntityId;
   readonly state: ReportedCapabilityState;
   readonly options?: ReportOptions;
+};
+
+/** One command the package sent another entity of the house. Since 1.8. */
+export type RecordedEntityCommand = {
+  readonly entityId: EntityId;
+  readonly capability: CapabilityName;
+  readonly command: JsonObject;
 };
 
 /** One live message the package sent its interfaces. */
@@ -120,6 +142,9 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
 
   /** Every line logged. */
   readonly logs: readonly RecordedLog[];
+
+  /** The commands it sent other entities, in order. Since 1.8. */
+  readonly entityCommands: readonly RecordedEntityCommand[];
 
   /** Every live message published and sent, in order. */
   readonly published: readonly RecordedLiveMessage[];
@@ -186,6 +211,13 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
    * @param snapshot - The entity.
    */
   readonly setEntity: (snapshot: EntitySnapshot) => void;
+
+  /**
+   * Replaces the house `ctx.house.read` answers. Since 1.8.
+   *
+   * @param house - The house.
+   */
+  readonly setHouse: (house: House) => void;
 
   /**
    * Changes an entity of the house, as `ctx.entities.subscribe` hears it.
@@ -364,6 +396,8 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
   const abort = new AbortController();
   const reports: RecordedReport[] = [];
   const logs: RecordedLog[] = [];
+  const entityCommands: RecordedEntityCommand[] = [];
+  let house: House = options.house ?? { areas: [], devices: [], entities: [] };
   const entities = new Map((options.entities ?? []).map((each) => [each.entityId, each]));
   const histories = new Map<string, RecordedHistory>(Object.entries(options.history ?? {}));
   const methods = new Map<
@@ -954,6 +988,27 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
           subscriptions.delete(subscription);
         };
       },
+      /**
+       * Records a command to another entity, and runs the test's answer to it.
+       *
+       * @param entityId - The entity.
+       * @param capability - Which capability.
+       * @param command - The command.
+       */
+      command: async (entityId, capability, command) => {
+        const recorded = { entityId, capability, command };
+
+        entityCommands.push(recorded);
+        await options.onEntityCommand?.(recorded);
+      },
+    },
+    house: {
+      /**
+       * The house the test gave.
+       *
+       * @returns It.
+       */
+      read: async () => Promise.resolve(house),
     },
     history: {
       /**
@@ -1007,6 +1062,7 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
       last: (entityId) => reports.findLast((each) => each.entityId === entityId)?.state,
     },
     logs,
+    entityCommands,
     published,
     /**
      * Sends the package a live message.
@@ -1162,6 +1218,14 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
      */
     setEntity: (snapshot) => {
       entities.set(snapshot.entityId, snapshot);
+    },
+    /**
+     * Replaces the house.
+     *
+     * @param next - The house.
+     */
+    setHouse: (next) => {
+      house = next;
     },
     /**
      * Gives an entity a past.

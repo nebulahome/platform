@@ -17,10 +17,13 @@ import type { BusClient, BusSubscription, MessageContext } from '@nebulahome/bus
 import {
   ADAPTER_COMMAND_METHOD,
   adapterCommandSchema,
+  commandAckSchema,
   BUS_PATTERNS,
   busSubjects,
+  capabilityNameSchema,
   CORE_HISTORY_STATES_METHOD,
   CORE_HISTORY_TELEMETRY_METHOD,
+  CORE_HOUSE_METHOD,
   CORE_SERVICE,
   CORE_SYNC_PACKAGE_METHOD,
   DeviceUnavailableError,
@@ -29,6 +32,7 @@ import {
   historyStatesRequestSchema,
   historyTelemetryReplySchema,
   historyTelemetryRequestSchema,
+  houseReplySchema,
   isPackageServiceAllowed,
   jsonValueSchema,
   NotFoundError,
@@ -218,6 +222,12 @@ function snapshotOf(state: EntityState): EntitySnapshot {
     lastUpdated: state.lastUpdated.toISOString(),
   };
 }
+
+/** How long a command may wait on its entity's owner, as the interface's do. */
+const COMMAND_TIMEOUT_MS = 10_000;
+
+/** How long a read of the house may take before it fails. */
+const HOUSE_TIMEOUT_MS = 10_000;
 
 /** How long a read of the past may take before it fails. */
 const HISTORY_TIMEOUT_MS = 10_000;
@@ -1150,6 +1160,36 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
           }
         };
       },
+
+      /**
+       * Sends a command on the command subject `core` serves, as the interface's commands go.
+       *
+       * @param entityId - The entity.
+       * @param capability - Which of its capabilities.
+       * @param command - The command and its arguments.
+       */
+      command: async (entityId, capability, command) => {
+        // shortcut: no cause is recorded (no `package` context type yet), so history shows the
+        // change unattributed; add one with a migration when the activity log names packages.
+        await client.request(
+          busSubjects.command(parseEntityId(entityId), capabilityNameSchema.parse(capability)),
+          { command },
+          commandAckSchema,
+          { timeoutMs: COMMAND_TIMEOUT_MS },
+        );
+      },
+    },
+
+    house: {
+      /**
+       * Reads the house through `core`.
+       *
+       * @returns Its areas, devices and entities.
+       */
+      read: async () =>
+        client.request(busSubjects.service(CORE_SERVICE, CORE_HOUSE_METHOD), {}, houseReplySchema, {
+          timeoutMs: HOUSE_TIMEOUT_MS,
+        }),
     },
 
     history: {
