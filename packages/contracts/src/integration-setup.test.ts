@@ -202,6 +202,29 @@ describe('setupValueSchema', () => {
     expect(schema.safeParse({ hosts: ['a'], note: 'far too long a note' }).success).toBe(false);
   });
 
+  it('holds an entity to its domains and an icon to an id, defaulting only the icon', () => {
+    const schema = setupValueSchema(
+      integrationSetupSchema.parse({
+        transport: {},
+        options: {
+          fields: [
+            { key: 'lamp', type: 'entity', label: 'Lamp', domains: ['light', 'switch'] },
+            { key: 'badge', type: 'icon', label: 'Badge', default: 'star' },
+          ],
+        },
+      }).options,
+      'complete',
+    );
+
+    expect(schema.parse({ lamp: 'light.kitchen' })).toEqual({
+      lamp: 'light.kitchen',
+      badge: 'star',
+    });
+    expect(schema.safeParse({ lamp: 'sensor.kitchen' }).success).toBe(false);
+    expect(schema.safeParse({ lamp: 'kitchen' }).success).toBe(false);
+    expect(schema.safeParse({ badge: 'Not An Icon' }).success).toBe(false);
+  });
+
   it('makes every field optional and fills nothing when validating a change', () => {
     // A PATCH sends only what changed; the API merges it over the row. A default filled in
     // here would overwrite a value the owner set on purpose.

@@ -21,6 +21,8 @@
  */
 import { z } from 'zod';
 
+import { ENTITY_DOMAINS, entityIdSchema } from './entity-id.js';
+import { iconIdSchema } from './icons.js';
 import type { JsonObject, JsonValue } from './json.js';
 
 /** A field key: an identifier, so it can be a JSON key and a profile path segment. */
@@ -179,6 +181,25 @@ const listFieldSchema = z.strictObject({
   patternMessage: patternMessageSchema.optional(),
 });
 
+/**
+ * One entity of the house, chosen with the interface's entity picker: its address. Never a
+ * default - no declaration knows what a house holds. For a package's settings and card options.
+ */
+const entityFieldSchema = z.strictObject({
+  ...fieldBase,
+  type: z.literal('entity'),
+
+  /** Only entities of these domains may be chosen; any when not said. */
+  domains: z.array(z.enum(ENTITY_DOMAINS)).min(1).max(ENTITY_DOMAINS.length).optional(),
+});
+
+/** One icon of the catalogue, chosen with the interface's icon picker: its id. */
+const iconFieldSchema = z.strictObject({
+  ...fieldBase,
+  type: z.literal('icon'),
+  default: iconIdSchema.optional(),
+});
+
 /** Validates one field of a group. */
 export const setupFieldSchema = z.discriminatedUnion('type', [
   textFieldSchema,
@@ -187,6 +208,8 @@ export const setupFieldSchema = z.discriminatedUnion('type', [
   booleanFieldSchema,
   choiceFieldSchema,
   listFieldSchema,
+  entityFieldSchema,
+  iconFieldSchema,
 ]);
 
 /** One field of a group. */
@@ -476,6 +499,15 @@ function valueOf(field: SetupField): z.ZodType<JsonValue> {
 
       return z.array(item).min(field.minItems).max(field.maxItems);
     }
+    case 'entity':
+      return field.domains === undefined
+        ? entityIdSchema
+        : entityIdSchema.refine(
+            (entityId) => field.domains?.some((domain) => entityId.startsWith(`${domain}.`)),
+            { message: `Must be an entity of ${field.domains.join(', ')}` },
+          );
+    case 'icon':
+      return iconIdSchema;
   }
 }
 
@@ -491,9 +523,11 @@ function defaultOf(field: SetupField): JsonValue | undefined {
     case 'number':
     case 'boolean':
     case 'choice':
+    case 'icon':
       return field.default;
     case 'secret':
     case 'list':
+    case 'entity':
       return undefined;
   }
 }
