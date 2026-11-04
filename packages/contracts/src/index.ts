@@ -40,6 +40,7 @@ export * from './entity-requirement.js';
 export * from './entity-state.js';
 export * from './entity-state-token.js';
 export * from './history-reads.js';
+export * from './house-read.js';
 export * from './errors.js';
 export * from './exit-codes.js';
 export * from './icons.js';

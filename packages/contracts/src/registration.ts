@@ -70,6 +70,12 @@ export const CORE_HISTORY_STATES_METHOD = 'history_states';
 export const CORE_HISTORY_TELEMETRY_METHOD = 'history_telemetry';
 
 /**
+ * Reads the house as the owner arranged it - areas, devices, entities with their names and
+ * capabilities - for a package's process (`ctx.house`; house-read.ts).
+ */
+export const CORE_HOUSE_METHOD = 'house';
+
+/**
  * How history should aggregate a numeric entity.
  *
  * `total_increasing` is the one that matters: energy consumed over a day is last minus first,

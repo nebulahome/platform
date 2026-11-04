@@ -38,6 +38,7 @@ import { EntityRegistry } from '@/domain/entity-registry.js';
 import { PackageTypes } from '@/domain/package-types.js';
 import type { BatchWriter } from '@/persistence/batch-writer.js';
 import { createStateCacheWriter, type EntityStateRow } from '@/persistence/history-writer.js';
+import { readHouse } from '@/services/house-service.js';
 import { startPackagesService } from '@/services/packages.js';
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
@@ -248,5 +249,22 @@ describe("taking in a package's devices", () => {
     expect(reply.kept).toEqual([]);
     expect((await devices()).map((device) => device.externalId)).toEqual(['door']);
     expect(directory.get(parseEntityId(`binary_sensor.${prefix}garden_person`))).toBeUndefined();
+  });
+
+  it('reads the device back in the house, owned by the package, with its capabilities', async () => {
+    const house = await readHouse(database.db);
+    const door = house.devices.find((device) => device.id === packageDeviceId(packageId, 'door'));
+    const person = house.entities.find(
+      (entity) => entity.entityId === `binary_sensor.${prefix}door_person`,
+    );
+
+    expect(door).toMatchObject({ name: 'Front door', model: 'Reolink Duo', owner: packageId });
+    expect(person).toMatchObject({
+      name: 'Person',
+      deviceId: door?.id,
+      owner: packageId,
+      isHidden: false,
+      capabilities: { sensor_binary: {} },
+    });
   });
 });
