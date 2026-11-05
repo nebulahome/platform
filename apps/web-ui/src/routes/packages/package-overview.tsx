@@ -37,6 +37,7 @@ import {
 import { useInstalledPackages } from '@/packages/use-packages';
 import { ContainerBadges } from '@/routes/containers/container-parts';
 import { devicePath } from '@/routes/library/device/device-path';
+import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
 
 /** What the sources are called. */
 const SOURCE_LABELS = {
@@ -134,6 +135,7 @@ export function PackageOverview(props: PackageOverviewProps) {
   const ownDevices = (devices.data ?? []).filter(
     (device) => device.origin === 'package' && device.vendorId === found.id,
   );
+  const icons = useDeviceIcons(ownDevices);
   const ownContainers = (containers.data?.items ?? []).filter(
     (container) =>
       container.managedBy?.ownerKind === 'package' && container.managedBy.vendorId === found.id,
@@ -212,7 +214,7 @@ export function PackageOverview(props: PackageOverviewProps) {
             {ownDevices.map((device) => (
               <ListRow
                 key={device.id}
-                icon={<AppIcon id="cpu" size={18} />}
+                icon={<DeviceIcon icon={icons.get(device.icon ?? '')} />}
                 title={device.name}
                 subtitle={[
                   t('packages.packageOverview.device', 'Device'),
