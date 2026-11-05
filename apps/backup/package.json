@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/backup",
-  "version": "2026.10.0-alpha.57",
+  "version": "2026.10.0-alpha.58",
   "private": true,
   "type": "module",
   "scripts": {
