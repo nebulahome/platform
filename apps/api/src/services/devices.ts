@@ -516,7 +516,8 @@ function platformHalfOf(row: {
  * Lists every device, with where each stands and what it exposes.
  *
  * @param context - The request's collaborators.
- * @returns The system device first, then the rest by name, then the host's containers.
+ * @returns The system device first, then the rest by name, then the packages' devices, then the
+ * host's containers.
  */
 export async function listDevices(context: DevicesContext): Promise<DeviceView[]> {
   const [rows, catalogue, platform] = await Promise.all([
@@ -554,6 +555,7 @@ export async function listDevices(context: DevicesContext): Promise<DeviceView[]
           ways,
         );
       }),
+    ...platform.filter((device) => device.origin === 'package'),
     ...platform.filter((device) => device.origin === 'container'),
   ];
 }
