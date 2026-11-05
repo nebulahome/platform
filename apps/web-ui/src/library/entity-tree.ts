@@ -104,9 +104,17 @@ function groupByDevice(
   devices: ReadonlyMap<string, DeviceView>,
 ): DeviceGroup[] {
   const groups = new Map<string, EntityView[]>();
+  // A package's entities name the package as their source: its devices list them.
+  const packaged = new Map(
+    [...devices.values()]
+      .filter((device) => device.origin === 'package')
+      .flatMap((device) => device.entityIds.map((id): [string, string] => [id, device.id])),
+  );
 
   for (const entity of entities) {
-    const key = devices.has(entity.source) ? entity.source : NO_DEVICE;
+    const key = devices.has(entity.source)
+      ? entity.source
+      : (packaged.get(entity.entityId) ?? NO_DEVICE);
 
     groups.set(key, [...(groups.get(key) ?? []), entity]);
   }

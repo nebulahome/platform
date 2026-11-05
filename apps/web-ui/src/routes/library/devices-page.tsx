@@ -139,7 +139,7 @@ export function DevicesPage() {
   }, []);
 
   const now = new Date();
-  const groups = bySource(entities.data ?? []);
+  const groups = bySource(entities.data ?? [], devices.data ?? []);
   const vendorNames = vendorNamesOf(vendors.data ?? []);
   const all: DeviceLine[] = (devices.data ?? []).map((device) => {
     const owned = groups.get(device.id) ?? [];

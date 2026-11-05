@@ -165,7 +165,7 @@ export function useDevicePage(deviceId: string): DevicePageData {
       fetchDevice(listed?.id ?? deviceId, signal),
   });
   const device = listed?.linked == null ? listed : (detail.data ?? listed);
-  const sources = bySource(entities.data ?? []);
+  const sources = bySource(entities.data ?? [], devices.data ?? []);
   const owned =
     device === undefined
       ? []

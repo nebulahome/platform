@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { aDevice, anArea, anEntity } from '@/testing/fixtures';
 
+import { bySource } from './device-entities';
 import { buildEntityTree, entityCountOf } from './entity-tree';
 
 const AREAS = [
@@ -144,5 +145,44 @@ describe('buildEntityTree', () => {
       null,
     ]);
     expect(entityCountOf(tree)).toBe(2);
+  });
+});
+
+describe('buildEntityTree, a package', () => {
+  it('places a package’s entities under the device that lists them, not under the package', () => {
+    const entity = anEntity({
+      entityId: 'switch.matter_bridge_vfan',
+      name: 'Fan',
+      source: 'matter-bridge',
+      areaKey: 'kitchen',
+    });
+    const fan = aDevice({
+      id: 'package-matter-bridge-vfan',
+      name: 'Fan',
+      origin: 'package',
+      entityIds: [entity.entityId],
+    });
+    const tree = buildEntityTree({ areas: AREAS, devices: [fan], entities: [entity] });
+
+    expect(tree.floors[0]?.rooms[0]?.devices[0]?.device?.name).toBe('Fan');
+  });
+});
+
+describe('bySource', () => {
+  it('gives a package’s device the entities it lists', () => {
+    const entity = anEntity({ entityId: 'switch.matter_bridge_vfan', source: 'matter-bridge' });
+    const groups = bySource(
+      [entity],
+      [
+        aDevice({
+          id: 'package-matter-bridge-vfan',
+          origin: 'package',
+          entityIds: [entity.entityId],
+        }),
+      ],
+    );
+
+    expect(groups.get('package-matter-bridge-vfan')).toEqual([entity]);
+    expect(groups.get('matter-bridge')).toEqual([entity]);
   });
 });
