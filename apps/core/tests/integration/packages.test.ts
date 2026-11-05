@@ -243,6 +243,32 @@ describe("taking in a package's devices", () => {
     expect(reply.refused).toEqual([expect.objectContaining({ entityId: 'switch.somebody_elses' })]);
   });
 
+  it("gives a device the icon it never had, and keeps the owner's after", async () => {
+    /**
+     * The door's icon.
+     *
+     * @returns It.
+     */
+    const iconOfDoor = async (): Promise<string | null | undefined> =>
+      (
+        await database.db
+          .select({ icon: schema.registry.devices.icon })
+          .from(schema.registry.devices)
+          .where(
+            and(
+              eq(schema.registry.devices.packageId, packageId),
+              eq(schema.registry.devices.externalId, 'door'),
+            ),
+          )
+      )[0]?.icon;
+
+    expect(await iconOfDoor()).toBeNull();
+    await sync([{ ...camera('door', 'Reolink Duo'), icon: 'cctv' }, camera('garden', 'Tapo')]);
+    expect(await iconOfDoor()).toBe('cctv');
+    await sync([{ ...camera('door', 'Reolink Duo'), icon: 'camera' }, camera('garden', 'Tapo')]);
+    expect(await iconOfDoor()).toBe('cctv');
+  });
+
   it('removes a device that is gone, with its entities', async () => {
     const reply = await sync([camera('door', 'Reolink Duo')]);
 

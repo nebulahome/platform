@@ -229,7 +229,12 @@ export async function syncPackageDevices(
               .returning({ id: devices.id, name: devices.name })
           : await tx
               .update(devices)
-              .set({ ...facts, updatedAt: new Date() })
+              .set({
+                ...facts,
+                // The owner's icon stays; one the device never had is the package's.
+                icon: sql`coalesce(${devices.icon}, ${wanted.icon ?? null})`,
+                updatedAt: new Date(),
+              })
               .where(eq(devices.id, found.id))
               .returning({ id: devices.id, name: devices.name });
 
