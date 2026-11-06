@@ -91,11 +91,17 @@ export async function restartPlatform(): Promise<void> {
 /**
  * Whether Nebula Home answers: its API's version list, which needs no sign-in.
  *
+ * @param signal - Gives up on it; an answer that never came is no answer.
  * @returns True once it answers.
  */
-export async function isPlatformUp(): Promise<boolean> {
+export async function isPlatformUp(signal?: AbortSignal): Promise<boolean> {
   try {
-    return (await fetch('/api/versions', { cache: 'no-store' })).ok;
+    return (
+      await fetch('/api/versions', {
+        cache: 'no-store',
+        ...(signal === undefined ? {} : { signal }),
+      })
+    ).ok;
   } catch {
     return false;
   }

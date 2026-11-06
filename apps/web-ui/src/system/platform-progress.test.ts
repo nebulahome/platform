@@ -66,6 +66,23 @@ describe('a restart', () => {
     expect(percentOf(watched())).toBeNull();
   });
 
+  it('goes back to stopping when the server says so after a dropped socket, timing it right', () => {
+    const { follow, reach } = usePlatform.getState();
+    const restart = operation({ kind: 'restart', phase: 'stopping', toVersion: null });
+
+    follow(restart, STARTED + 400);
+    reach('away', STARTED + 1500);
+    reach('back', STARTED + 1600);
+    follow(restart, STARTED + 1700);
+
+    expect(watched().stage).toBe('stopping');
+    expect(watched().seenAt).toEqual({ stopping: STARTED + 400 });
+
+    reach('away', STARTED + 5000);
+
+    expect(stepsOf(watched())[1]).toMatchObject({ id: 'saved', status: 'done', ms: 4600 });
+  });
+
   it('is let go when the version still running gives it up, not once it has gone away', () => {
     const { follow, reach } = usePlatform.getState();
     const restart = operation({ kind: 'restart', phase: 'stopping', toVersion: null });

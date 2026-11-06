@@ -424,6 +424,9 @@ export function SoftwareSettings() {
    */
   const rowsOf = (kind: Kind): readonly SystemUpdateRow[] =>
     rows.filter((row) => row.item.kind === kind);
+  // What Update all installs: Nebula Home only when it can update itself here, as the server
+  // decides it.
+  const installable = rows.filter((row) => row.item.kind !== 'core' || core?.refusal == null);
   const names: Readonly<Record<Kind, string>> = {
     core: t('settingsMaintenance.core', 'Core'),
     package: t('settingsMaintenance.packages', 'Packages'),
@@ -530,7 +533,7 @@ export function SoftwareSettings() {
               <Button
                 variant="ghost"
                 size="compact"
-                disabled={isRoundRunning || refusal !== null}
+                disabled={run.isPending || isRoundRunning || refusal !== null}
                 onClick={() => {
                   startRound([row.item]);
                 }}
@@ -579,7 +582,7 @@ export function SoftwareSettings() {
               </Button>
               <Button
                 isBusy={run.isPending}
-                disabled={rows.length === 0 || isRoundRunning}
+                disabled={installable.length === 0 || isRoundRunning}
                 onClick={() => {
                   startRound();
                 }}
@@ -735,6 +738,15 @@ export function SoftwareSettings() {
         </SettingsCard>
       ) : null}
 
+      {check.isError ? (
+        <SettingsCard>
+          <SettingsRow
+            title={t('settingsMaintenance.checkFailed', 'The check for updates did not run')}
+            note={<span className="text-danger">{toMessage(check.error)}</span>}
+          />
+        </SettingsCard>
+      ) : null}
+
       <SettingsSection label={t('settingsMaintenance.components', 'Components')} isBare>
         <div className="flex flex-col gap-4">
           {COMPONENTS.map((each) => {
@@ -792,7 +804,11 @@ export function SoftwareSettings() {
                         aria-label={t('settingsMaintenance.updateAllOf', 'Update all {{name}}', {
                           name,
                         })}
-                        disabled={isRoundRunning || (isCore && (core?.refusal ?? null) !== null)}
+                        disabled={
+                          run.isPending ||
+                          isRoundRunning ||
+                          (isCore && (core?.refusal ?? null) !== null)
+                        }
                         onClick={() => {
                           startRound(inKind.map((row) => row.item));
                         }}

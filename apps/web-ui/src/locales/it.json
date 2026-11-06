@@ -6102,6 +6102,7 @@
     "backupRecent": "Bastava un backup di pochi minuti fa",
     "backupTaken": "Backup fatto prima",
     "beta": "Beta",
+    "checkFailed": "Il controllo degli aggiornamenti non è partito",
     "checkNow": "Controlla ora",
     "checked": "Controllato {{when}}",
     "didNotStart": "Gli aggiornamenti non sono partiti",

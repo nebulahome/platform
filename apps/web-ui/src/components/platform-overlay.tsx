@@ -10,9 +10,7 @@
  * again first, since the interface itself is new. An update that did not finish says so, with the
  * updater's log, and the old version is running again.
  *
- * The page watches for itself while the server is away: whether it answers (`/api/versions`, no
- * sign-in), then what it says of itself (`GET /system/platform`), then - for a restart - the live
- * channel coming back.
+ * The page watches for itself while the server is away (`system/platform-look.ts`).
  */
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -26,12 +24,8 @@ import { numberFormat } from '@/i18n/formatters';
 import { formatBytes } from '@/lib/format-bytes';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { useLive } from '@/live/live-store';
-import {
-  fetchPlatformState,
-  isPlatformUp,
-  releaseNotesUrl,
-  runSystemUpdates,
-} from '@/settings/updates-api';
+import { releaseNotesUrl, runSystemUpdates } from '@/settings/updates-api';
+import { look, POLL_MS } from '@/system/platform-look';
 import {
   percentOf,
   stepsOf,
@@ -45,9 +39,6 @@ import {
   type PlatformWatch,
   type PlatformWelcome,
 } from '@/system/platform-store';
-
-/** How often the page looks for the server while it is away. */
-const POLL_MS = 1500;
 
 /** How long the screen takes to go once Nebula Home is back. */
 const LEAVE_MS = 600;
@@ -93,62 +84,6 @@ function takeWelcome(): PlatformWelcome | null {
       : null;
   } catch {
     return null;
-  }
-}
-
-/** Looks once at where Nebula Home is, and moves the watch on. */
-async function look(): Promise<void> {
-  const { watch, reach, fail, setMachine } = usePlatform.getState();
-
-  if (watch === null || isEnded(watch.stage)) {
-    return;
-  }
-
-  if (!(await isPlatformUp())) {
-    reach('away');
-
-    return;
-  }
-
-  if (watch.stage === 'away') {
-    reach('back');
-  }
-
-  // Still the version that was running, before it went away: nothing to read yet.
-  if (stageRank(usePlatform.getState().watch?.stage ?? 'stopping') < stageRank('back')) {
-    return;
-  }
-
-  if (watch.operation.kind === 'restart') {
-    if (useLive.getState().status === 'live') {
-      reach('done');
-    }
-
-    return;
-  }
-
-  try {
-    const state = await fetchPlatformState();
-    const last = state.lastUpdate;
-    const startedAt = new Date(watch.operation.startedAt).getTime();
-
-    setMachine(state.machine);
-
-    if (
-      last !== null &&
-      last.toVersion === watch.operation.toVersion &&
-      new Date(last.finishedAt).getTime() >= startedAt
-    ) {
-      if (last.status === 'success') {
-        reach('done');
-      } else {
-        fail(last);
-      }
-    } else {
-      reach('checking');
-    }
-  } catch {
-    // Its services are still coming up.
   }
 }
 
@@ -421,7 +356,12 @@ export function PlatformOverlay() {
   const watch = usePlatform((state) => state.watch);
   const machine = usePlatform((state) => state.machine);
   const canUpdate = useSession((state) => state.can('system:update'));
-  const [retryError, setRetryError] = useState<string | null>(null);
+  // Said of the watch Try again was pressed on: another update's screen does not show it.
+  const [retryError, setRetryError] = useState<{
+    readonly watch: PlatformWatch;
+    readonly message: string;
+  } | null>(null);
+  const [isRetrying, setRetrying] = useState(false);
   const stage = watch?.stage ?? null;
   const kind = watch?.operation.kind ?? null;
 
@@ -441,13 +381,13 @@ export function PlatformOverlay() {
     }
 
     const timer = setInterval(() => {
-      void look();
+      void look(queryClient);
     }, POLL_MS);
 
     return (): void => {
       clearInterval(timer);
     };
-  }, [stage]);
+  }, [stage, queryClient]);
 
   // The live channel dropping is the server going away too, and a restart is over once it is back.
   useEffect(
@@ -462,10 +402,10 @@ export function PlatformOverlay() {
         if (live.status !== 'live' && stageRank(current.stage) < stageRank('away')) {
           usePlatform.getState().reach('away');
         } else if (live.status === 'live' && current.stage === 'back') {
-          void look();
+          void look(queryClient);
         }
       }),
-    [],
+    [queryClient],
   );
 
   // Done: a restart's screen goes and the page reads everything again; an update loads anew.
@@ -644,11 +584,11 @@ export function PlatformOverlay() {
             <pre className="m-0 w-105 rounded-tile border border-border-strong bg-canvas/45 px-3.5 py-3 text-left font-mono text-mono-caption leading-relaxed break-words whitespace-pre-wrap text-foreground-muted backdrop-blur-lg">
               {outcome?.error ?? outcome?.log.at(-1) ?? ''}
             </pre>
-            {retryError === null ? null : (
+            {retryError?.watch === watch ? (
               <p role="alert" className="text-ui text-danger">
-                {retryError}
+                {retryError.message}
               </p>
-            )}
+            ) : null}
             <div className="flex gap-2">
               <Button
                 variant="bare"
@@ -669,13 +609,21 @@ export function PlatformOverlay() {
                 <Button
                   variant="ghost"
                   className="h-11 bg-canvas/45 px-4.5 backdrop-blur-lg"
+                  isBusy={isRetrying}
                   onClick={() => {
                     setRetryError(null);
-                    runSystemUpdates([{ kind: 'core', version: toVersion }]).catch(
-                      (error: unknown) => {
-                        setRetryError(error instanceof Error ? error.message : String(error));
-                      },
-                    );
+                    setRetrying(true);
+                    // The server refuses a version it no longer offers, and says why.
+                    runSystemUpdates([{ kind: 'core', version: toVersion }])
+                      .catch((error: unknown) => {
+                        setRetryError({
+                          watch,
+                          message: error instanceof Error ? error.message : String(error),
+                        });
+                      })
+                      .finally(() => {
+                        setRetrying(false);
+                      });
                   }}
                 >
                   <AppIcon id="refresh-cw" size={15} />

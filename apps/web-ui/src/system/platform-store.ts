@@ -133,6 +133,9 @@ function isSame(a: PlatformOperation, b: PlatformOperation): boolean {
   return a.kind === b.kind && a.toVersion === b.toVersion && a.fromVersion === b.fromVersion;
 }
 
+/** The stages only the page sees, after the server went away; a rewind forgets them. */
+const SEEN_AFTER_AWAY: readonly PlatformStage[] = ['away', 'back', 'checking'];
+
 /** What this page knows of Nebula Home restarting or updating. */
 export const usePlatform = create<PlatformStore>((set) => ({
   watch: null,
@@ -150,8 +153,9 @@ export const usePlatform = create<PlatformStore>((set) => ({
       const watch = current.watch;
 
       if (operation === null) {
-        // Said by the version that was running, before it went away: it gave up. Said after,
-        // it is a new process that knows nothing of it, and the page goes on watching.
+        // Said by the version that was running, before it went away: it gave up. Once the page
+        // took it for gone, the page asks the server itself (`platform-look.ts`) rather than
+        // guess which process said it.
         return watch !== null && stageRank(watch.stage) < stageRank('away') ? { watch: null } : {};
       }
 
@@ -162,6 +166,17 @@ export const usePlatform = create<PlatformStore>((set) => ({
       }
 
       const isLater = stageRank(stage) > stageRank(watch.stage);
+      // The version that was running still works at it although the page took it for gone - a
+      // socket that dropped, an answer that came late: the page goes back to where it is.
+      const isRewound =
+        stageRank(stage) < stageRank('away') && stageRank(watch.stage) >= stageRank('away');
+      const seenAt = isRewound
+        ? Object.fromEntries(
+            Object.entries(watch.seenAt).filter(
+              ([seen]) => !SEEN_AFTER_AWAY.includes(seen as PlatformStage),
+            ),
+          )
+        : watch.seenAt;
 
       return {
         watch: {
@@ -173,7 +188,7 @@ export const usePlatform = create<PlatformStore>((set) => ({
             downloadBytes: operation.downloadBytes ?? watch.operation.downloadBytes,
             startedAt: watch.operation.startedAt,
           },
-          ...(isLater ? { stage, seenAt: { ...watch.seenAt, [stage]: now } } : {}),
+          ...(isLater || isRewound ? { stage, seenAt: { [stage]: now, ...seenAt } } : {}),
         },
       };
     });
