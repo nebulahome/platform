@@ -9,9 +9,12 @@
 import type { BusClient } from '@nebulahome/bus';
 import {
   busSubjects,
+  catalogueReplySchema,
   compareVersions,
   ConflictError,
   DeviceUnavailableError,
+  HUB_CATALOGUE_METHOD,
+  HUB_SERVICE,
   integrationAvailableReplySchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
@@ -28,6 +31,7 @@ import {
   ValidationError,
   type PlatformReleasesReply,
   type PlatformState,
+  type PlatformView,
   type SystemUpdatesView,
   type UpdateChannel,
   type UpdateItem,
@@ -53,6 +57,9 @@ type Requester = { readonly id: string; readonly username: string };
 const READ_TIMEOUT_MS = 10_000;
 const CHECK_TIMEOUT_MS = 30_000;
 const POWER_TIMEOUT_MS = 60_000;
+
+/** Whether the hub is up: under the page's own second and a half for the whole question. */
+const HUB_TIMEOUT_MS = 1000;
 
 /**
  * Asks a service one of its methods.
@@ -391,17 +398,38 @@ export async function dismissLastPlatformUpdate(context: SystemUpdatesContext): 
 
 /**
  * What every page knows of Nebula Home itself: its version, a restart or an update under way,
- * how the last update ended.
+ * how the last update ended, and whether the hub answers.
  *
  * @param context - The request's collaborators.
- * @returns The state, as the supervisor has it.
+ * @returns The state, as the supervisor has it, with the hub's.
  */
-export async function platformState(context: SystemUpdatesContext): Promise<PlatformState> {
-  return ask(
-    context,
-    SUPERVISOR_SERVICE,
-    SUPERVISOR_METHODS.platformState,
-    {},
-    platformStateSchema,
-  );
+export async function platformState(context: SystemUpdatesContext): Promise<PlatformView> {
+  const [state, isHubUp] = await Promise.all([
+    ask<PlatformState>(
+      context,
+      SUPERVISOR_SERVICE,
+      SUPERVISOR_METHODS.platformState,
+      {},
+      platformStateSchema,
+    ),
+    hubAnswers(context),
+  ]);
+
+  return { ...state, isHubUp };
+}
+
+/**
+ * Whether the hub answers: it starts last after a restart, and the devices come back with it.
+ *
+ * @param context - The bus and the trace id.
+ * @returns True once it gave its catalogue in time.
+ */
+async function hubAnswers(context: SystemUpdatesContext): Promise<boolean> {
+  try {
+    await ask(context, HUB_SERVICE, HUB_CATALOGUE_METHOD, {}, catalogueReplySchema, HUB_TIMEOUT_MS);
+
+    return true;
+  } catch {
+    return false;
+  }
 }

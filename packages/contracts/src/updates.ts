@@ -217,8 +217,8 @@ export const platformEventSchema = z.object({ operation: platformOperationSchema
 export type PlatformEvent = z.output<typeof platformEventSchema>;
 
 /**
- * `svc.supervisor.platform_state` and `GET /api/v1/system/platform`: the version running, what
- * is under way and how the last update ended - for every signed-in page, whatever its role.
+ * `svc.supervisor.platform_state`: the version running, what is under way and how the last update
+ * ended - for every signed-in page, whatever its role.
  */
 export const platformStateSchema = z.object({
   version: z.string().max(64),
@@ -232,8 +232,19 @@ export const platformStateSchema = z.object({
   lastUpdate: platformUpdateOutcomeSchema.nullable(),
 });
 
-/** What every page knows of Nebula Home itself. */
+/** What the supervisor knows of Nebula Home itself. */
 export type PlatformState = z.output<typeof platformStateSchema>;
+
+/**
+ * `GET /api/v1/system/platform`: the supervisor's state, and whether the hub answers - the
+ * devices come back with it, so a restart is over for the page once it does.
+ */
+export const platformViewSchema = platformStateSchema.extend({
+  isHubUp: z.boolean(),
+});
+
+/** What every page knows of Nebula Home itself. */
+export type PlatformView = z.output<typeof platformViewSchema>;
 
 /**
  * `/data/updates/current.json`: written by the updater while it replaces the container, so the

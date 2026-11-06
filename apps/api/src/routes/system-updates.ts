@@ -10,11 +10,11 @@ import { z } from 'zod';
 
 import {
   isNebulaError,
-  platformStateSchema,
+  platformViewSchema,
   runSystemUpdatesBodySchema,
   systemUpdatesViewSchema,
   updateRoundSchema,
-  type PlatformState,
+  type PlatformView,
   type SystemUpdatesView,
   type UpdateRound,
 } from '@nebulahome/contracts';
@@ -114,7 +114,7 @@ export function registerSystemUpdateRoutes(
       summary: 'Nebula Home itself: its version, a restart or an update under way, the last update',
       tag: 'System',
       permission: null,
-      response: platformStateSchema,
+      response: platformViewSchema,
     },
 
     /**
@@ -123,7 +123,7 @@ export function registerSystemUpdateRoutes(
      * @param route - Who is asking.
      * @returns The state.
      */
-    async (route): Promise<PlatformState> =>
+    async (route): Promise<PlatformView> =>
       platformState(updatesContext(context, route.request.traceId)),
   );
 
