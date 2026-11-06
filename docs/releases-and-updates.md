@@ -7,7 +7,9 @@ change this file in the same commit as the behaviour it describes.
 Status (2026-10-27, round 3): built and unit-tested; not yet exercised live (a real release, a real update
 of a running container, a restart). Round 3 added the restart and update screens every page shows
 (below, "What every page shows") and the channels section of the page. Section 6 lists what was
-left out.
+left out. 2026-11-06: a review's findings fixed (health check of every service, rollback, the
+marker, the page's screen after a dropped socket, commands during an update, the schedule); unit-
+tested, not tried live.
 
 ## 1. Versions
 
@@ -127,7 +129,11 @@ ETag of the index kept, so an unchanged index costs a 304. The Hub's search and 
 asked with the same channel: a house is shown only what its channel offers, each item with its
 newest release there. A house moved to a narrower channel keeps a newer prerelease it has
 installed until a release of its channel passes it (no downgrade). A dependency range such as
-`^1.0.0` never takes a beta or dev build of the dependency, on any channel.
+`^1.0.0` never takes a beta or dev build of the dependency, on any channel. A package other
+packages need is offered, and updated to, the newest release every one of them accepts - a
+`1.0.1` rather than a `1.1.0-beta.1` or a `2.0.0` they refuse; with only a refused release newer,
+it has no update. An integration is never updated to its own version or an older one: Update on
+one already current answers 409 `up-to-date` (a rebuild of the same version is still installed).
 
 Every `pkg-*` and `integration-*` repository's `release.yml` refuses a version that is not
 `X.Y.Z`, `X.Y.Z-beta.K` or `X.Y.Z-alpha.K` - numbers without leading zeros, exactly as the Hub
@@ -155,8 +161,16 @@ Automatic updates are off by default, Back up first on; a window is `{mode: 'qui
 time}`. **Nebula Home never updates by itself**: only its Update button does. Migration 0006 split
 the old `updates.window` and `updates.backup_first` into these, each kind keeping the house's value.
 
-- **When**: each kind is planned at its own window's time; kinds due at the same time share one
-  round (two rounds at once would refuse the second).
+- **When**: the packet-manager looks at the house's clock every minute (`update-runner.ts`) and
+  starts each kind once a day, at or after its window's time; kinds due at the same time share
+  one round, and a kind that comes due while a round runs starts when it ends. The day is planned
+  again at 00:10, once core has learned the quietest time; a window that moved behind 00:10 still
+  runs that day. A settings change that leaves today's window behind waits for tomorrow. A window
+  in the hour daylight saving skips runs at the first minute after it, one in the hour it repeats
+  runs once. The day each kind last ran by itself is kept in
+  `<packet-manager cache>/updates/automatic-runs.json`: at start, a kind whose window passed while
+  the packet-manager was down runs then (with no record, it waits for tomorrow). A settings read
+  that fails keeps the plan before; an invalid time zone is read as UTC.
 - **Back up first**: a round backs up when any kind in it asks to.
 - **Channel**: for packages and integrations it is also what the Hub shows when you browse (search
   and item pages are asked with `channel=`), not only what updates offer. The page calls it
@@ -207,13 +221,19 @@ While a package or an integration is updated its entities keep their last value 
 **Updating** (the dashboard card's line, the state summary), and a command to one of them - from an
 automation, a scene or the page - **waits** for the update to end instead of failing in the gap.
 
-- The packet-manager announces a package's update around the stop and start of its process; `hub`
-  announces an integration's from the swap of its bundle until every instance runs again
-  (`nebula.v1.event.update`, `{sources, phase}`; sources are what core routes by: the package id,
-  the integration's instance ids).
+- The packet-manager announces a package's update from the stop of its process until the new one
+  runs (it announced its methods, or the announce timeout passed) or fails - not when it is only
+  spawned, which would release the commands before anything serves them; an automatic rollback is
+  announced the same way. `hub` announces an integration's from the swap of its bundle until every
+  instance runs again (`nebula.v1.event.update`, `{sources, phase}`; sources are what core routes
+  by: the package id, the integration's instance ids).
 - Core (`services/updating-sources.ts`, `command-dispatch.ts`) waits at most `CORE_UPDATE_WAIT_MS`
   (120 s) and honours a cancelled run; after that the command fails as for an unreachable device.
   A source whose end never comes is let go after 10 minutes.
+- A command says how long its caller waits (`waitMs`, optional): core drops a command it held for
+  an update once it could no longer be delivered in that time, so a command is never carried out
+  after whoever asked gave up. The API's command endpoint waits `API_BUS_TIMEOUT_MS` + 120 s, so a
+  command from the page during an update waits for it rather than failing.
 - An automation run waiting on a command waits with it, within its own timeout.
 
 ### A round of updates
@@ -223,33 +243,53 @@ all or the schedule:
 
 1. **Back up first** (when on): skipped if the last backup succeeded, finished less than
    5 minutes ago and took every part a backup takes now (`backup.sections`); otherwise a backup is
-   run and waited for - one already running is waited for instead. A failed backup stops the
-   round (`apps/packet-manager/src/domain/backup-first.ts`, `services/update-runner.ts`).
-2. Packages, then integrations.
+   run and waited for - one already running is waited for instead. A `partial` backup (some
+   locations took it) counts as taken, as it does for the backup service; a failed backup stops
+   the round, and so does a restore under way (the house updates nothing while it is restored).
+   (`apps/packet-manager/src/domain/backup-first.ts`, `services/update-runner.ts`).
+2. Packages, then integrations; each kind's index is read again once a round, not once an item.
 3. Nebula Home last, if it is in the round: it restarts everything.
+
+A round that stops before an item - the settings could not be read, say - marks the items it did
+not reach `skipped`, with why. The API takes only items the list offers (`POST
+/system/updates/run`): Nebula Home at the version the list shows, packages and integrations with
+an update, each once; anything else is a 400, Nebula Home where it cannot update itself a 409 with
+the reason. Update all leaves Nebula Home out where it cannot update itself.
 
 ### Updating Nebula Home
 
 The supervisor runs inside the platform's container and cannot replace it, so:
 
-1. The supervisor pulls `nebulahome/platform:<version>` and checks its version label.
+1. The supervisor refuses a version that is not newer than the one running (an older one refuses
+   the migrated database), pulls `nebulahome/platform:<version>` and checks its version label.
 2. It starts a throwaway updater container from the **new** image, with the Docker socket.
 3. The updater (`apps/supervisor/src/updater.ts`, `services/platform-updater.ts`) retags the new
    image with the reference the old container uses (so compose sees no change), stops the old
    container (45 s grace), copies the `/data` and PostgreSQL mounts (volume or host folder) into
-   the volumes `nebulahome-pre-<old version>-data` and `-postgres`, and creates the new container
-   like the old one (`apps/supervisor/src/domain/recreate.ts`), without the `NEBULA_VERSION`
-   variable older images set. Before starting it, it checks that the new container's image says
-   the new version in its label; one still of the old version is an update that did not happen,
-   and is undone like a failure.
-4. It waits up to 5 minutes for Docker's health check to say healthy. On success it removes the
-   old container and the copies. On failure it removes the new container, copies the volumes back,
-   retags the old image and starts the old container again.
+   the volumes `nebulahome-pre-<old version>-<stamp>-data` and `-postgres` (the stamp keeps the
+   copies an earlier failed rollback left), and creates the new container like the old one
+   (`apps/supervisor/src/domain/recreate.ts`), without the `NEBULA_VERSION` variable older images
+   set and with the new image's health check: only the settings the owner changed (a compose
+   `start_period`) are carried over. Before starting it, it checks that the new container's image
+   says the new version in its label; one still of the old version is an update that did not
+   happen, and is undone like a failure.
+4. It waits up to 15 minutes for Docker's health check to say healthy. The image's check
+   (`infra/docker/bin/nebula-healthcheck`) asks the proxy, the API's `/readyz` (it reaches the
+   database) and s6: every service s6 is asked to keep up, `otbr` aside, must have been up for
+   10 seconds - one crashing in a loop never is. A first start has 10 minutes before a failing
+   check counts, for a long migration; a migration that fails halts the container at once. On
+   success it removes the old container and the copies. On failure it removes the new container,
+   copies the volumes back - only if the new container was started: before that nothing wrote to
+   them - retags the old image and starts the old container again. A copy that failed half-way
+   is removed with the others.
 5. The outcome is written to `/data/updates/last.json` - with the updater's steps and, when the new
    version did not start, its last 50 log lines (`log`), and how long putting the old one back took
    (`restoredInMs`); the page shows a failed one. While it works the updater keeps a marker,
-   `/data/updates/current.json` (`{fromVersion, toVersion, startedAt}`), which the outcome removes:
-   the version that comes up reads it and says the update is being checked. When the updater
+   `/data/updates/current.json` (`{fromVersion, toVersion, startedAt}`), which the outcome removes
+   (even when the outcome cannot be written): the version that comes up reads it and says the
+   update is being checked. A marker with no updater container running - the machine or Docker
+   restarted under it - is taken away by the supervisor, which writes a `failed` outcome unless the
+   updater wrote one after the marker. When the updater
    cannot even read the platform's container, nothing is touched and it writes a `failed` outcome.
    A failed or undone outcome is no longer shown once the version running is the one it aimed at
    or newer (a later update, or the image changed by hand), and its X on the page forgets it
@@ -301,6 +341,14 @@ A restart or an update of Nebula Home takes over **every signed-in page**, whoev
   update - backing up / backed up (size), downloaded (size), installing, restarting the services,
   checking every service. The update's bar is 5 % while the backup runs, the download's share
   (10-60 %), then a step at a time.
+- **What decides** (`system/platform-look.ts`): the live channel dropping is only a hint that the
+  server went away - a socket also drops when its token expires. Once the server answers, `GET
+/system/platform` decides: an operation still at an earlier phase is the version that was
+  running, still at work, and the screen goes back to it; none, with no outcome, while the old
+  version runs is an update given up before the updater (the screen goes, the list is read again);
+  none while the new version runs is an update that went in. A restart is over only once the
+  server reports nothing under way and the live channel is back. One look at a time, each
+  question given up after 1.5 s.
 - **The transition.** The page behind blurs, dims and shrinks (`.app-stage-back`), the mark
   appears in the middle out of a blur, turns slowly and its core breathes while the server is away. A
   restart's screen fades out and the page reads everything again; an update reloads the page (the
@@ -345,7 +393,12 @@ For the platform:
   or an integration's notes are a link.
 - The settings tree has no badge with the number of updates, and the rows carry no Failed /
   Degraded pills: the board's, not built.
-- A round lives in the packet-manager's memory: its restart forgets the last round.
+- A round lives in the packet-manager's memory: its restart forgets the last round. As it starts,
+  it takes back the Nebula Home screen a round cut short left on every page.
+- An integration build that hub did not answer for within 60 s is kept, not removed - hub may
+  still be loading it; the install marker names the build before until a later install.
+- Check now's failure shows in its own card on the page; the hero's count of updates includes a
+  Nebula Home update that cannot install here (its card says why).
 - "Updating" reaches the page over the live channel only: a page opened during an update shows the
   entity as usual until the next change.
 - A page loaded while the platform's container is down cannot load at all (the proxy is in the same
@@ -356,5 +409,11 @@ For the platform:
   can fire it again the same day if the quietest time is still ahead.
 - A command sent on the bus without a cause looks like a change by hand and counts as activity.
 - The updater does not check free disk space before copying the volumes.
+- A house whose compose file is older than 2026-11-06 sets `healthcheck.start_period: 180s`; an
+  update keeps it as the owner's setting, so there a migration longer than about four minutes is
+  rolled back. Removing those lines from `infra/production/docker-compose.yml` gives the image's
+  ten minutes.
+- The health check's "up for 10 seconds" misses a service that crashes later than that every
+  time; a readiness signal from each service (s6 `notification-fd`) would catch it.
 - Settings, seeds and grants were added to `0001_initial_schema.sql`: the dev and container
   databases need `db:reset`.
