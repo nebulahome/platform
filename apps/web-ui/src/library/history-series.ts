@@ -143,8 +143,8 @@ export type StateSegment = {
  * Whether a state is the "active" one of its kind, for the band.
  *
  * @param state - The state.
- * @returns True for on, detected, open and unlocked; false for their opposites; null when the
- * state has nothing that reads as either.
+ * @returns True for on, detected, open, unlocked, playing, cleaning, mowing and home; false for
+ * their opposites; null when the state has nothing that reads as either.
  */
 export function isActiveState(state: CapabilityState): boolean | null {
   if (state.on_off !== undefined) {
@@ -165,6 +165,18 @@ export function isActiveState(state: CapabilityState): boolean | null {
 
   if (state.media_player !== undefined) {
     return state.media_player.playback === 'playing';
+  }
+
+  if (state.vacuum !== undefined) {
+    return state.vacuum.activity === 'cleaning';
+  }
+
+  if (state.lawn_mower !== undefined) {
+    return state.lawn_mower.activity === 'mowing';
+  }
+
+  if (state.location !== undefined) {
+    return state.location.zone === null ? null : state.location.zone === 'home';
   }
 
   return null;
@@ -293,6 +305,26 @@ function kelvinOf(state: CapabilityState): number | null {
 }
 
 /**
+ * Reads a fan's speed off a state.
+ *
+ * @param state - The state.
+ * @returns The speed, or null.
+ */
+function fanSpeedOf(state: CapabilityState): number | null {
+  return state.fan?.percentage ?? null;
+}
+
+/**
+ * Reads a number's value off a state.
+ *
+ * @param state - The state.
+ * @returns The value, or null.
+ */
+function numberValueOf(state: CapabilityState): number | null {
+  return state.number?.value ?? null;
+}
+
+/**
  * Reads a player's volume off a state.
  *
  * @param state - The state.
@@ -361,6 +393,22 @@ export function numericFieldsOf(
       label: translate('library.historySeries.volume', 'Volume'),
       unit: '%',
       read: volumeOf,
+    });
+  }
+
+  if (has.has('fan')) {
+    fields.push({
+      label: translate('library.historySeries.speed', 'Speed'),
+      unit: '%',
+      read: fanSpeedOf,
+    });
+  }
+
+  if (has.has('number')) {
+    fields.push({
+      label: translate('library.historySeries.value', 'Value'),
+      unit: '',
+      read: numberValueOf,
     });
   }
 

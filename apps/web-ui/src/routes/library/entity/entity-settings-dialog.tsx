@@ -66,7 +66,10 @@ export type EntitySettingsDialogProps = {
  * @param kind.deviceClass - The class.
  * @returns `light:` or `binary_sensor:presence`.
  */
-function kindKey(kind: { readonly domain: string; readonly deviceClass: string | null }): string {
+export function kindKey(kind: {
+  readonly domain: string;
+  readonly deviceClass: string | null;
+}): string {
   return `${kind.domain}:${kind.deviceClass ?? ''}`;
 }
 
