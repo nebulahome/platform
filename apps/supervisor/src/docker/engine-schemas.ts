@@ -93,6 +93,9 @@ const inspectMountSchema = z.looseObject({
   RW: z.boolean().optional(),
 });
 
+/** A health check, as a container or an image has it: the command, then times and retries. */
+const healthcheckSchema = z.looseObject({ Test: z.array(z.string()).optional() }).nullish();
+
 /** A container's configuration: what it was created with. */
 export const containerConfigSchema = z.looseObject({
   Hostname: z.string().optional(),
@@ -106,6 +109,7 @@ export const containerConfigSchema = z.looseObject({
   Labels: stringMapSchema,
   WorkingDir: z.string().optional(),
   User: z.string().optional(),
+  Healthcheck: healthcheckSchema,
 
   /** Whether it has a terminal, which is whether its logs come multiplexed or raw. */
   Tty: z.boolean().optional(),
@@ -179,6 +183,7 @@ export const inspectedImageSchema = z.looseObject({
       Labels: stringMapSchema,
       WorkingDir: z.string().optional(),
       User: z.string().optional(),
+      Healthcheck: healthcheckSchema,
     })
     .nullish(),
 });

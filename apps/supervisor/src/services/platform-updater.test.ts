@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -32,6 +32,10 @@ const OLD = {
   ],
   NetworkSettings: { Networks: {}, Ports: {} },
 } as unknown as InspectedContainer;
+
+/** The clock of every run, and the copies' names it gives. */
+const NOW = new Date('2026-11-14T03:00:00Z');
+const PRE = `nebulahome-pre-2026.10.1-${NOW.getTime().toString(36)}`;
 
 /**
  * A Docker that records what it is asked, whose new container ends up as said.
@@ -146,7 +150,7 @@ async function run(health: 'healthy' | 'unhealthy', says?: string) {
     toVersion: '2026.11.0',
     dataDir,
     pollMs: 1,
-    now: () => new Date('2026-11-14T03:00:00Z'),
+    now: () => NOW,
   });
   const written: unknown = JSON.parse(
     await readFile(path.join(dataDir, 'updates', 'last.json'), 'utf8'),
@@ -173,18 +177,18 @@ describe('updatePlatform', () => {
     expect(calls).toEqual([
       'tag nebulahome/platform:2026.11.0 nebulahome/platform:latest',
       'stop old-id',
-      'volume nebulahome-pre-2026.10.1-data',
-      'copy nebulahome_nebula-data:/from:ro > nebulahome-pre-2026.10.1-data:/to',
+      `volume ${PRE}-data`,
+      `copy nebulahome_nebula-data:/from:ro > ${PRE}-data:/to`,
       'start copy-1',
-      'volume nebulahome-pre-2026.10.1-postgres',
-      'copy nebulahome_nebula-postgres:/from:ro > nebulahome-pre-2026.10.1-postgres:/to',
+      `volume ${PRE}-postgres`,
+      `copy nebulahome_nebula-postgres:/from:ro > ${PRE}-postgres:/to`,
       'start copy-2',
       'rename old-id nebulahome-nebulahome-1-nebula-old',
       'create nebulahome-nebulahome-1',
       'start new-id',
       'remove old-id',
-      'drop nebulahome-pre-2026.10.1-data',
-      'drop nebulahome-pre-2026.10.1-postgres',
+      `drop ${PRE}-data`,
+      `drop ${PRE}-postgres`,
     ]);
   });
 
@@ -197,15 +201,15 @@ describe('updatePlatform', () => {
     expect(outcome.log).toContain('› migration failed');
     expect(calls.slice(calls.indexOf('start new-id') + 1)).toEqual([
       'remove new-id',
-      'copy nebulahome-pre-2026.10.1-data:/from:ro > nebulahome_nebula-data:/to',
+      `copy ${PRE}-data:/from:ro > nebulahome_nebula-data:/to`,
       'start copy-4',
-      'copy nebulahome-pre-2026.10.1-postgres:/from:ro > nebulahome_nebula-postgres:/to',
+      `copy ${PRE}-postgres:/from:ro > nebulahome_nebula-postgres:/to`,
       'start copy-5',
       'tag sha256:old nebulahome/platform:latest',
       'rename old-id nebulahome-nebulahome-1',
       'start old-id',
-      'drop nebulahome-pre-2026.10.1-data',
-      'drop nebulahome-pre-2026.10.1-postgres',
+      `drop ${PRE}-data`,
+      `drop ${PRE}-postgres`,
     ]);
   });
 
@@ -216,6 +220,59 @@ describe('updatePlatform', () => {
     expect(outcome.error).toBe('The new container is 2026.10.1, not 2026.11.0');
     expect(calls).not.toContain('start new-id');
     expect(calls).toContain('start old-id');
+    // Nothing ran on the volumes: they are not copied back, and the copies go.
+    expect(calls.filter((call) => call.startsWith(`copy ${PRE}`))).toEqual([]);
+    expect(calls.slice(-2)).toEqual([`drop ${PRE}-data`, `drop ${PRE}-postgres`]);
+  });
+
+  it('removes a copy that failed half-way, and copies nothing back', async () => {
+    const dataDir = await mkdtemp(path.join(os.tmpdir(), 'nebula-update-'));
+    const { engine, calls } = engineWith('healthy');
+
+    // The data copies; the database's copy runs out of disk.
+    vi.mocked(engine.wait).mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+    const outcome = await updatePlatform({
+      engine,
+      logger,
+      targetId: 'old-id',
+      image: 'nebulahome/platform:2026.11.0',
+      fromVersion: '2026.10.1',
+      toVersion: '2026.11.0',
+      dataDir,
+      now: () => NOW,
+    });
+
+    expect(outcome.status).toBe('rolled_back');
+    expect(outcome.error).toMatch(/exited with 1$/u);
+    expect(calls.slice(calls.indexOf('start copy-2') + 1)).toEqual([
+      'tag sha256:old nebulahome/platform:latest',
+      'start old-id',
+      `drop ${PRE}-data`,
+      `drop ${PRE}-postgres`,
+    ]);
+  });
+
+  it('takes the marker away although the outcome cannot be written', async () => {
+    const dataDir = await mkdtemp(path.join(os.tmpdir(), 'nebula-update-'));
+    const { engine } = engineWith('healthy');
+
+    // A folder where the outcome goes: writing it fails, as on a full disk.
+    await mkdir(path.join(dataDir, 'updates', 'last.json'), { recursive: true });
+
+    const outcome = await updatePlatform({
+      engine,
+      logger,
+      targetId: 'old-id',
+      image: 'nebulahome/platform:2026.11.0',
+      fromVersion: '2026.10.1',
+      toVersion: '2026.11.0',
+      dataDir,
+      pollMs: 1,
+    });
+
+    expect(outcome.status).toBe('success');
+    await expect(readFile(path.join(dataDir, 'updates', 'current.json'))).rejects.toThrow();
   });
 
   it('changes nothing and says so when the platform cannot be read', async () => {

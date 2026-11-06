@@ -39,6 +39,29 @@ function sameList(left: readonly string[], right: readonly string[]): boolean {
 }
 
 /**
+ * The health check settings the owner gave a container, without those its image set: Docker
+ * fills each one left out from the new image, so a new image's check is not pinned to the old.
+ *
+ * @param own - The container's health check, merged with its image's.
+ * @param image - The old image's.
+ * @returns The owner's settings, or undefined when they are all the image's.
+ */
+function ownHealthcheck(
+  own: Readonly<Record<string, unknown>> | null | undefined,
+  image: Readonly<Record<string, unknown>> | null | undefined,
+): JsonObject | undefined {
+  const kept = Object.entries(own ?? {}).filter(([key, value]) => {
+    const fromImage = image?.[key];
+
+    return Array.isArray(value) && Array.isArray(fromImage)
+      ? !sameList(value as string[], fromImage as string[])
+      : value !== fromImage;
+  });
+
+  return kept.length === 0 ? undefined : (Object.fromEntries(kept) as JsonObject);
+}
+
+/**
  * The aliases the owner gave a container on a network, without the ones Docker added itself.
  *
  * @param aliases - What the inspect answer lists.
@@ -140,6 +163,14 @@ export function planRecreate(
   // image declares its own.
   delete body['Volumes'];
   delete body['ExposedPorts'];
+
+  const healthcheck = ownHealthcheck(config.Healthcheck, defaults?.Healthcheck);
+
+  if (healthcheck === undefined) {
+    delete body['Healthcheck'];
+  } else {
+    body['Healthcheck'] = healthcheck;
+  }
 
   body['HostConfig'] = withAnonymousVolumes(container);
 

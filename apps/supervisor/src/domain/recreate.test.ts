@@ -75,6 +75,32 @@ describe('planRecreate', () => {
     expect(body['HostConfig']).toMatchObject({ RestartPolicy: { Name: 'unless-stopped' } });
   });
 
+  it("leaves the old image's health check to the new image, keeping the owner's own times", () => {
+    const test = ['CMD-SHELL', 'wget -qO- http://127.0.0.1/healthz'];
+    const image = inspectedImageSchema.parse({
+      ...OLD_IMAGE,
+      Config: {
+        ...OLD_IMAGE.Config,
+        Healthcheck: { Test: test, Interval: 30e9, StartPeriod: 120e9, Retries: 3 },
+      },
+    });
+    const container = (startPeriod: number) =>
+      inspectedContainerSchema.parse({
+        ...CONTAINER,
+        Config: {
+          ...CONTAINER.Config,
+          Healthcheck: { Test: test, Interval: 30e9, StartPeriod: startPeriod, Retries: 3 },
+        },
+      });
+
+    expect(planRecreate(container(120e9), image, 'nginx:1.27.4').body).not.toHaveProperty(
+      'Healthcheck',
+    );
+    expect(planRecreate(container(180e9), image, 'nginx:1.27.4').body['Healthcheck']).toEqual({
+      StartPeriod: 180e9,
+    });
+  });
+
   it("starts on its first network under the owner's aliases and joins the rest after", () => {
     const plan = planRecreate(CONTAINER, OLD_IMAGE, 'nginx:1.27.4');
 

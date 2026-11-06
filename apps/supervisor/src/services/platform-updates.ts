@@ -211,6 +211,11 @@ export class PlatformUpdates {
       throw new ValidationError(`${version} is not a release of Nebula Home`);
     }
 
+    // An older version refuses the database this one migrated: it could only be rolled back.
+    if (compareVersions(version, this.#options.version) <= 0) {
+      throw new ValidationError(`${version} is not newer than ${this.#options.version}`);
+    }
+
     const refusal = this.#refusal();
     const self = this.#options.self();
 
@@ -301,7 +306,11 @@ export class PlatformUpdates {
         });
       }
 
-      await engine.control(id, 'start');
+      await engine.control(id, 'start').catch(async (error: unknown) => {
+        // Never started, so Docker does not remove it by itself.
+        await engine.removeContainer(id).catch(() => undefined);
+        throw error;
+      });
       logger.info({ version }, 'The updater runs: Nebula Home stops for the update');
       // An updater that ends while this process still runs gave up before stopping it: nothing
       // was replaced, so the update is over and the pages stop waiting for it. A wait cut short
@@ -416,7 +425,7 @@ export class PlatformUpdates {
       return;
     }
 
-    const outcome: PlatformUpdateOutcome = {
+    await this.#writeOutcome({
       fromVersion: this.#options.version,
       toVersion: version,
       status: 'failed',
@@ -424,7 +433,15 @@ export class PlatformUpdates {
       error: `The updater stopped (exit code ${String(code)}) before replacing anything: ${this.#options.version} still runs, unchanged`,
       log: [],
       restoredInMs: null,
-    };
+    });
+  }
+
+  /**
+   * Writes how an update ended where the page reads it; a failure is logged, never thrown.
+   *
+   * @param outcome - How it ended.
+   */
+  async #writeOutcome(outcome: PlatformUpdateOutcome): Promise<void> {
     const folder = path.join(this.#options.dataRoot, 'updates');
 
     try {
@@ -438,28 +455,76 @@ export class PlatformUpdates {
   /**
    * The update the updater is checking, from the marker it keeps while it works.
    *
+   * A marker with no updater running was left by one that died - the machine or Docker restarted
+   * under it - and would keep every page on the update's screen: it is taken away, and the update
+   * said to have stopped, unless the updater wrote how it ended after all.
+   *
    * @returns It, or null when no update is being checked.
    */
   async #checking(): Promise<PlatformOperation | null> {
-    try {
-      const marker = platformUpdateMarkerSchema.parse(
-        JSON.parse(
-          await readFile(path.join(this.#options.dataRoot, 'updates', 'current.json'), 'utf8'),
-        ),
-      );
+    const markerPath = path.join(this.#options.dataRoot, 'updates', 'current.json');
+    let marker: ReturnType<typeof platformUpdateMarkerSchema.parse>;
 
-      return {
-        kind: 'update',
-        phase: 'checking',
-        fromVersion: marker.fromVersion,
-        toVersion: marker.toVersion,
-        percent: null,
-        backupBytes: null,
-        downloadBytes: null,
-        startedAt: marker.startedAt,
-      };
+    try {
+      marker = platformUpdateMarkerSchema.parse(JSON.parse(await readFile(markerPath, 'utf8')));
     } catch {
       return null;
+    }
+
+    if (await this.#isUpdaterGone()) {
+      const last = await this.#readOutcome();
+
+      if (last === null || last.finishedAt < marker.startedAt) {
+        await this.#writeOutcome({
+          fromVersion: marker.fromVersion,
+          toVersion: marker.toVersion,
+          status: 'failed',
+          finishedAt: new Date(),
+          error: `The updater stopped before it said how the update ended: ${this.#options.version} runs now. The old container and the copies of its volumes may still be on the machine`,
+          log: [],
+          restoredInMs: null,
+        });
+      }
+
+      await rm(markerPath, { force: true }).catch((error: unknown) => {
+        this.#options.logger.error({ err: error }, "Could not take the updater's marker away");
+      });
+
+      return null;
+    }
+
+    return {
+      kind: 'update',
+      phase: 'checking',
+      fromVersion: marker.fromVersion,
+      toVersion: marker.toVersion,
+      percent: null,
+      backupBytes: null,
+      downloadBytes: null,
+      startedAt: marker.startedAt,
+    };
+  }
+
+  /**
+   * Whether no updater container runs. Not known - Docker not reached yet, or not answering - is
+   * not gone: a marker is taken away only on Docker's word.
+   *
+   * @returns True when Docker lists no running updater.
+   */
+  async #isUpdaterGone(): Promise<boolean> {
+    if (!this.#options.isDockerAvailable()) {
+      return false;
+    }
+
+    try {
+      const listed = await this.#options.engine.listContainers();
+
+      return !listed.some(
+        (container) =>
+          container.Labels['io.nebulahome.updater'] === 'true' && container.State === 'running',
+      );
+    } catch {
+      return false;
     }
   }
 
@@ -479,17 +544,28 @@ export class PlatformUpdates {
    * @returns It, or null when there was none.
    */
   async #lastUpdate(): Promise<PlatformUpdateOutcome | null> {
+    const outcome = await this.#readOutcome();
+
+    return outcome !== null &&
+      outcome.status !== 'success' &&
+      compareVersions(this.#options.version, outcome.toVersion) >= 0
+      ? null
+      : outcome;
+  }
+
+  /**
+   * How the last update ended, as written, whatever runs now.
+   *
+   * @returns It, or null when there was none or it cannot be read.
+   */
+  async #readOutcome(): Promise<PlatformUpdateOutcome | null> {
     try {
       const text = await readFile(
         path.join(this.#options.dataRoot, 'updates', 'last.json'),
         'utf8',
       );
-      const outcome = platformUpdateOutcomeSchema.parse(JSON.parse(text));
 
-      return outcome.status !== 'success' &&
-        compareVersions(this.#options.version, outcome.toVersion) >= 0
-        ? null
-        : outcome;
+      return platformUpdateOutcomeSchema.parse(JSON.parse(text));
     } catch {
       return null;
     }

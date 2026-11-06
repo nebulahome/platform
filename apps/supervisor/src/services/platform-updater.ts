@@ -8,9 +8,10 @@
  * one that comes up healthy on the old version is an update that did not happen, and is undone.
  * The old container is stopped and its data and database volumes copied aside, because the new
  * version migrates the database and the old one refuses a database newer than itself. The new
- * container is made like the old (`domain/recreate.ts`) and must turn healthy; if it does not,
- * it is removed, the volumes are copied back, the old image takes its name back and the old
- * container starts again. The outcome is written where the page reads it, with what was done and,
+ * container is made like the old (`domain/recreate.ts`) and must turn healthy - the image's
+ * health check asks every service, not just the proxy; if it does not, it is removed, the volumes
+ * are copied back (only when it started: before that nothing wrote to them), the old image takes
+ * its name back and the old container starts again. The outcome is written where the page reads it, with what was done and,
  * when the new version did not start, its last lines.
  *
  * While it works a marker sits beside the outcome (`updates/current.json`): the version that comes
@@ -80,8 +81,11 @@ export type PlatformUpdateOptions = {
   readonly now?: () => Date;
 };
 
-/** Five minutes: the health check starts after two and runs every thirty seconds. */
-const HEALTH_TIMEOUT_MS = 5 * 60_000;
+/**
+ * Fifteen minutes: the image's health check gives a first start ten minutes, for a long
+ * migration, and then fails after three checks thirty seconds apart.
+ */
+const HEALTH_TIMEOUT_MS = 15 * 60_000;
 
 /** How many of a new version's last lines the outcome keeps when it did not start. */
 const FAILED_LOG_LINES = 50;
@@ -204,9 +208,13 @@ async function record(
 ): Promise<void> {
   const folder = path.join(options.dataDir, 'updates');
 
-  await mkdir(folder, { recursive: true });
-  await writeFile(path.join(folder, 'last.json'), `${JSON.stringify(outcome, null, 2)}\n`);
-  await rm(path.join(folder, 'current.json'), { force: true });
+  try {
+    await mkdir(folder, { recursive: true });
+    await writeFile(path.join(folder, 'last.json'), `${JSON.stringify(outcome, null, 2)}\n`);
+  } finally {
+    // Even on a full disk: a marker left behind would say the update is still being checked.
+    await rm(path.join(folder, 'current.json'), { force: true });
+  }
 }
 
 /**
@@ -242,6 +250,8 @@ export async function updatePlatform(
   let created: string | null = null;
   let aside: string | null = null;
   let restoredInMs: number | null = null;
+  // Until the new version starts nothing writes to the volumes: the copies need not go back.
+  let isStarted = false;
 
   /**
    * Notes one step for the outcome, and logs it.
@@ -305,6 +315,8 @@ export async function updatePlatform(
 
   const reference = old.Config.Image;
   const name = old.Name.replace(/^\//, '');
+  // Copies kept by an update whose rollback failed are never emptied by the next one.
+  const stamp = now().getTime().toString(36);
 
   try {
     await engine.tagImage(options.image, reference);
@@ -325,14 +337,15 @@ export async function updatePlatform(
       const slug = mount.Destination === '/data' ? 'data' : 'postgres';
       const snapshot = {
         source,
-        copy: `nebulahome-pre-${options.fromVersion}-${slug}`.replaceAll(/[^\w.-]/g, '-'),
+        copy: `nebulahome-pre-${options.fromVersion}-${stamp}-${slug}`.replaceAll(/[^\w.-]/g, '-'),
       };
 
       // eslint-disable-next-line no-await-in-loop -- one volume after another
       await engine.createVolume(snapshot.copy, { 'io.nebulahome.platform': 'true' });
+      // Listed before the copy: one that fails half-way is removed with the others.
+      snapshots.push(snapshot);
       // eslint-disable-next-line no-await-in-loop -- see above
       await copy(options, snapshot.source, snapshot.copy);
-      snapshots.push(snapshot);
       step(`Copied ${mount.Destination} aside to ${snapshot.copy}`);
     }
 
@@ -360,6 +373,8 @@ export async function updatePlatform(
         engine.connectNetwork(network.name, id, network.aliases),
       ),
     );
+    // Set before the call: a start that fails half-way may still have run the migrations.
+    isStarted = true;
     await engine.control(id, 'start');
     step(`Started ${options.toVersion}; waiting for it to turn healthy`);
     await waitHealthy(options, id);
@@ -377,7 +392,7 @@ export async function updatePlatform(
         await engine.removeContainer(created);
       }
 
-      for (const snapshot of snapshots) {
+      for (const snapshot of isStarted ? snapshots : []) {
         // eslint-disable-next-line no-await-in-loop -- one volume after another
         await copy(options, snapshot.copy, snapshot.source);
       }
@@ -394,11 +409,21 @@ export async function updatePlatform(
     } catch (rollbackError: unknown) {
       logger.fatal({ err: rollbackError }, 'Could not put the old version back');
 
+      if (!isStarted) {
+        await Promise.all(
+          snapshots.map(async (each) => engine.removeVolume(each.copy).catch(() => undefined)),
+        );
+      }
+
       return done(
         'failed',
         `${reason}; putting the old version back failed too: ${
           rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
-        }. The copies are kept: ${snapshots.map((each) => each.copy).join(', ')}`,
+        }. ${
+          isStarted
+            ? `The copies are kept: ${snapshots.map((each) => each.copy).join(', ')}`
+            : 'Its volumes were not changed'
+        }`,
       );
     }
 
