@@ -595,6 +595,64 @@ describe('the packet-manager', () => {
     await expect(manager.update('weather')).rejects.toThrow(/is the newest release/u);
   });
 
+  it('says a package is updated until its new release runs, not once it is spawned', async () => {
+    const { manager, work, transport } = await setUp();
+    const announced: string[] = [];
+
+    await manager.start();
+    await manager.install('clock');
+    await manager.announce({ packageId: 'clock', version: '1.0.0', rpcMethods: [] });
+    await putLocal(work, { ...CLOCK, version: '1.1.0' });
+    new BusClient({ transport, source: 'core', logger }).subscribe(
+      busSubjects.updateEvent(),
+      updateEventSchema,
+      (event) => {
+        announced.push(`${event.phase} ${event.sources.join(',')}`);
+
+        return Promise.resolve();
+      },
+    );
+
+    expect(await manager.update('clock')).toMatchObject({ version: '1.1.0', state: 'starting' });
+    await vi.waitFor(() => {
+      expect(announced).toEqual(['start clock']);
+    });
+
+    // Commands core held go through once the new release serves them.
+    await manager.announce({ packageId: 'clock', version: '1.1.0', rpcMethods: [] });
+    await vi.waitFor(() => {
+      expect(announced).toEqual(['start clock', 'end clock']);
+    });
+  });
+
+  it('offers and takes the newest release everything needing a package accepts', async () => {
+    const { manager, work } = await setUp();
+
+    await putLocal(work, manifest({ id: 'base' }));
+    await putLocal(
+      work,
+      manifest({ id: 'user', requires: { packages: { base: '^1.0.0' }, services: [] } }),
+    );
+    await manager.start();
+    await manager.install('user');
+    // A beta no `^1.0.0` takes, and a patch it does.
+    await putLocal(work, manifest({ id: 'base', version: '1.1.0-beta.1' }));
+    await putLocal(work, manifest({ id: 'base', version: '1.0.1' }));
+
+    /**
+     * What the store offers of `base`.
+     *
+     * @returns Its item.
+     */
+    const offered = async () =>
+      (await manager.available()).items.find((item) => item.id === 'base');
+
+    expect(await offered()).toMatchObject({ hasUpdate: true, latest: { version: '1.0.1' } });
+    expect(await manager.update('base')).toMatchObject({ version: '1.0.1' });
+    expect(await offered()).toMatchObject({ hasUpdate: false });
+    await expect(manager.update('base')).rejects.toThrow(/user needs base \^1\.0\.0/u);
+  });
+
   it('takes a package down with what it needs, and back up with it', async () => {
     const { manager, work } = await setUp();
 

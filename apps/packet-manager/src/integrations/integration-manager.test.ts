@@ -87,7 +87,7 @@ async function packVendor(
  */
 async function setUp(
   options: {
-    load?: (request: VendorLoadRequest) => VendorLoadReply;
+    load?: (request: VendorLoadRequest) => VendorLoadReply | Promise<VendorLoadReply>;
     hubFetch?: typeof fetch;
   } = {},
 ): Promise<{
@@ -159,6 +159,7 @@ async function setUp(
     downloadTimeoutMs: 10_000,
     reporter: { report: (event) => reported.push(event) },
     ...(options.hubFetch === undefined ? {} : { fetch: options.hubFetch }),
+    loadTimeoutMs: 500,
   });
 
   return { manager, work, integrationsDir, localDir, loads, reported };
@@ -279,6 +280,37 @@ describe('installing integrations', () => {
     expect(again.install.build).not.toBe(first.install.build);
     expect(await buildsOf(integrationsDir, 'acme')).toEqual([again.install.build]);
     expect((await manager.available()).items[0]?.hasNewBuild).toBe(false);
+  });
+
+  it('updates to nothing older than, nor the same as, the release installed', async () => {
+    const { manager, work, integrationsDir, localDir, loads } = await setUp();
+    const beta = path.join(localDir, 'acme-1.1.0-beta.1.tgz');
+
+    await packVendor(work, beta, { id: 'acme', version: '1.1.0-beta.1' });
+
+    const first = await manager.install('acme');
+
+    // The house left the beta channel: only 1.0.0 is offered now.
+    await rm(beta);
+    await packVendor(work, path.join(localDir, 'acme-1.0.0.tgz'), { id: 'acme', version: '1.0.0' });
+
+    await expect(manager.install('acme')).rejects.toThrow(
+      'Acme 1.1.0-beta.1 is the newest release',
+    );
+    expect(loads).toHaveLength(1);
+    expect(await buildsOf(integrationsDir, 'acme')).toEqual([first.install.build]);
+  });
+
+  it('keeps a build hub may still be loading when it does not answer in time', async () => {
+    const { manager, work, integrationsDir, localDir } = await setUp({
+      load: () => new Promise<VendorLoadReply>(() => undefined),
+    });
+
+    await packVendor(work, path.join(localDir, 'acme-1.0.0.tgz'), { id: 'acme', version: '1.0.0' });
+
+    await expect(manager.install('acme')).rejects.toThrow(/No reply/u);
+    expect(await buildsOf(integrationsDir, 'acme')).toHaveLength(1);
+    await expect(stat(path.join(integrationsDir, 'acme', INSTALL_MARKER_FILE))).rejects.toThrow();
   });
 
   it('removes what it installed, and nothing it did not', async () => {

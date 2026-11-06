@@ -147,6 +147,9 @@ type Entry = {
 
   /** The release to go back to if the one just updated to fails, until it has run a while. */
   rollbackTo: { readonly version: string; readonly untilMs: number } | undefined;
+
+  /** Whether its update was announced and its end not yet: it ends once the package runs again. */
+  isUpdating: boolean;
 };
 
 /**
@@ -184,6 +187,19 @@ function isMask(value: unknown): boolean {
  */
 function sourceOf(url: string): 'index' | 'local' {
   return url.startsWith('file:') ? 'local' : 'index';
+}
+
+/**
+ * Says whether everything needing a package takes a version of it: an update out of a dependent's
+ * range is refused ({@link blockedUpdate}), so it is never offered.
+ *
+ * @param packageId - The package.
+ * @param version - The version.
+ * @param dependents - The packages and vendors that could need it.
+ * @returns True when every range takes it.
+ */
+function isAccepted(packageId: string, version: string, dependents: readonly Dependent[]): boolean {
+  return blockedUpdate(packageId, version, dependents, satisfies).length === 0;
 }
 
 /**
@@ -319,6 +335,8 @@ export class PacketManager {
       [...this.#entries.values()].map(async (entry) => {
         clearTimeout(entry.announce);
         await entry.process?.stop();
+        // Nothing here will start it again: core is not left holding its commands.
+        this.#announceUpdate(entry, false);
       }),
     );
   }
@@ -364,11 +382,11 @@ export class PacketManager {
     checkedAt: Date | null;
     error: string | null;
   }> {
-    const read = await this.#options.index.read();
+    const [read, dependents] = await Promise.all([this.#options.index.read(), this.#dependents()]);
 
     return {
       items: (read.index?.packages ?? []).map((entry): AvailablePackage => {
-        const availability = this.#availabilityOf(entry.id, entry, read);
+        const availability = this.#availabilityOf(entry.id, entry, read, dependents);
 
         return {
           id: entry.id,
@@ -400,7 +418,7 @@ export class PacketManager {
    * @returns What was found.
    */
   public async search(request: PackageSearchRequest): Promise<PackageSearchReply> {
-    const [first, asked] = await Promise.all([
+    const [first, asked, dependents] = await Promise.all([
       this.#options.index.read(),
       this.#options.hub
         .search('package', {
@@ -412,6 +430,7 @@ export class PacketManager {
           (page) => ({ page, error: null }),
           (error: unknown) => ({ page: null, error: messageOf(error) }),
         ),
+      this.#dependents(),
     ]);
     let read = first;
     let entries = new Map((read.index?.packages ?? []).map((entry) => [entry.id, entry]));
@@ -444,8 +463,8 @@ export class PacketManager {
 
     return {
       items: [
-        ...local.map((entry) => this.#listingOfLocal(entry, read)),
-        ...listed.map((item) => this.#listingOfHub(item, entries.get(item.id), read)),
+        ...local.map((entry) => this.#listingOfLocal(entry, read, dependents)),
+        ...listed.map((item) => this.#listingOfHub(item, entries.get(item.id), read, dependents)),
       ],
       nextCursor: asked.page?.nextCursor ?? null,
       hubError: asked.error,
@@ -483,14 +502,16 @@ export class PacketManager {
    * @param item - What the Hub says of it.
    * @param entry - What the index says of it, when it has it.
    * @param read - The index, as read.
+   * @param dependents - The packages and vendors whose ranges an update must be in.
    * @returns The listing.
    */
   #listingOfHub(
     item: HubItem,
     entry: PackageIndexEntry | undefined,
     read: IndexRead,
+    dependents: readonly Dependent[],
   ): PackageListing {
-    const availability = this.#availabilityOf(item.id, entry, read);
+    const availability = this.#availabilityOf(item.id, entry, read, dependents);
     const category = PACKAGE_CATEGORIES.find(
       (candidate) => candidate === (item.category ?? entry?.category),
     );
@@ -520,9 +541,14 @@ export class PacketManager {
    *
    * @param entry - The folder's releases of it, as the index holds them.
    * @param read - The index, as read.
+   * @param dependents - The packages and vendors whose ranges an update must be in.
    * @returns The listing.
    */
-  #listingOfLocal(entry: PackageIndexEntry, read: IndexRead): PackageListing {
+  #listingOfLocal(
+    entry: PackageIndexEntry,
+    read: IndexRead,
+    dependents: readonly Dependent[],
+  ): PackageListing {
     return {
       id: entry.id,
       name: entry.name,
@@ -536,28 +562,40 @@ export class PacketManager {
       downloads: 0,
       stars: 0,
       origin: 'local',
-      ...this.#availabilityOf(entry.id, entry, read),
+      ...this.#availabilityOf(entry.id, entry, read, dependents),
     };
   }
 
   /**
    * What installing a package would take here: the newest release of the index's that fits this
-   * platform, whether one is installed and something newer is out, and why it cannot be
+   * platform - for one installed, the newest that everything needing it accepts, which is what
+   * an update takes - whether one is installed and something newer is out, and why it cannot be
    * installed when it cannot.
    *
    * @param id - The package.
    * @param entry - What the index says of it; undefined when it lacks it.
    * @param read - The index, as read.
+   * @param dependents - The packages and vendors whose ranges an update must be in.
    * @returns Its availability.
    */
-  #availabilityOf(id: string, entry: PackageIndexEntry | undefined, read: IndexRead): Availability {
+  #availabilityOf(
+    id: string,
+    entry: PackageIndexEntry | undefined,
+    read: IndexRead,
+    dependents: readonly Dependent[],
+  ): Availability {
     const versions = [...(entry?.versions ?? [])].sort((left, right) =>
       compareVersions(right.version, left.version),
     );
-    const latest = versions.find((release) => this.#fits(release));
+    const fitting = versions.filter((release) => this.#fits(release));
     const newest = versions[0];
     const row = this.#entries.get(id)?.row;
     const installed = row?.version ?? null;
+    const accepted =
+      installed === null
+        ? fitting[0]
+        : fitting.find((release) => isAccepted(id, release.version, dependents));
+    const latest = accepted ?? fitting[0];
 
     return {
       latest:
@@ -575,8 +613,8 @@ export class PacketManager {
       installedVersion: installed,
       hasUpdate:
         installed !== null &&
-        latest !== undefined &&
-        compareVersions(latest.version, installed) > 0,
+        accepted !== undefined &&
+        compareVersions(accepted.version, installed) > 0,
       hasNewBuild: row !== undefined && this.#newBuild(read.index, row) !== undefined,
       unavailableReason:
         installed !== null || latest !== undefined
@@ -673,24 +711,28 @@ export class PacketManager {
   }
 
   /**
-   * Updates a package to the newest release that fits, rolling back if it fails to run.
+   * Updates a package to the newest release that fits and that everything needing it accepts,
+   * rolling back if it fails to run.
    *
    * @param packageId - The package.
+   * @param isIndexReadAgain - Whether to read the index again first; a round of updates reads it
+   *   once for all its packages.
    * @returns It, as it now stands.
    * @throws {ConflictError} When there is no newer release, or a dependent's range excludes it.
    */
-  public async update(packageId: string): Promise<InstalledPackage> {
+  public async update(packageId: string, isIndexReadAgain = true): Promise<InstalledPackage> {
     return this.#serially(async () => {
       const entry = this.#require(packageId);
-      const read = await this.#options.index.read(true);
-      const release = this.#newestRelease(read.index, packageId);
+      const read = await this.#options.index.read(isIndexReadAgain);
+      const dependents = await this.#dependents();
+      const release = this.#newestRelease(read.index, packageId, dependents);
       const rebuilt = this.#newBuild(read.index, entry.row);
 
       if (
         rebuilt !== undefined &&
         (release === undefined || compareVersions(release.version, entry.row.version) <= 0)
       ) {
-        await this.#whileUpdating(packageId, async () => this.#reinstall(entry, rebuilt));
+        await this.#whileUpdating(entry, async () => this.#reinstall(entry, rebuilt));
 
         return this.#viewOf(entry, await this.#vendors());
       }
@@ -698,26 +740,24 @@ export class PacketManager {
       // shortcut: a house moved to a narrower channel keeps a newer prerelease until a release of
       // its channel passes it; offer a downgrade here if owners ask for one.
       if (release === undefined || compareVersions(release.version, entry.row.version) <= 0) {
+        const newest = this.#newestRelease(read.index, packageId);
+
+        // A newer release is out, and something needing this package would not take it.
+        if (newest !== undefined && compareVersions(newest.version, entry.row.version) > 0) {
+          throw new ConflictError(
+            blockedUpdate(packageId, newest.version, dependents, satisfies)
+              .map((problem) => describeDependencyProblem(problem))
+              .join('; '),
+            {
+              details: { reason: 'required-by', packageId },
+            },
+          );
+        }
+
         throw new ConflictError(
           `${entry.files.manifest.name} ${entry.row.version} is the newest release`,
           {
             details: { reason: 'up-to-date', packageId },
-          },
-        );
-      }
-
-      const blocked = blockedUpdate(
-        packageId,
-        release.version,
-        await this.#dependents(),
-        satisfies,
-      );
-
-      if (blocked.length > 0) {
-        throw new ConflictError(
-          blocked.map((problem) => describeDependencyProblem(problem)).join('; '),
-          {
-            details: { reason: 'required-by', packageId },
           },
         );
       }
@@ -732,8 +772,8 @@ export class PacketManager {
       );
       const previous = entry.row.version;
 
-      // From the stop to the start its entities say so, and commands to them wait (core).
-      await this.#whileUpdating(packageId, async () => {
+      // From the stop until it runs again its entities say so, and commands to them wait (core).
+      await this.#whileUpdating(entry, async () => {
         await this.#stopProcess(entry);
         await this.#options.store.update(packageId, {
           version: files.manifest.version,
@@ -769,30 +809,48 @@ export class PacketManager {
   }
 
   /**
-   * Runs work while saying a package is being updated.
+   * Runs work while saying a package is being updated. The update ends once the package runs
+   * again or cannot (`#setState`), not when its process is spawned: until it serves its commands,
+   * those core holds for it would fail.
    *
-   * @param packageId - The package.
+   * @param entry - The package.
    * @param work - What replaces its process.
    * @returns What the work returned.
    */
-  async #whileUpdating<T>(packageId: string, work: () => Promise<T>): Promise<T> {
-    this.#announceUpdate(packageId, 'start');
+  async #whileUpdating<T>(entry: Entry, work: () => Promise<T>): Promise<T> {
+    this.#announceUpdate(entry, true);
 
     try {
-      return await work();
-    } finally {
-      this.#announceUpdate(packageId, 'end');
+      const result = await work();
+
+      if (entry.row.state !== 'starting') {
+        this.#announceUpdate(entry, false);
+      }
+
+      return result;
+    } catch (error: unknown) {
+      this.#announceUpdate(entry, false);
+
+      throw error;
     }
   }
 
   /**
-   * Says a package's update starts or ends (`nebula.v1.event.update`).
+   * Says a package's update starts or ends (`nebula.v1.event.update`), once each.
    *
-   * @param packageId - The package, which is the source core routes its commands by.
-   * @param phase - Which.
+   * @param entry - The package, whose id is the source core routes its commands by.
+   * @param isUpdating - Whether it starts.
    */
-  #announceUpdate(packageId: string, phase: 'start' | 'end'): void {
-    this.#options.client.publish(busSubjects.updateEvent(), { sources: [packageId], phase });
+  #announceUpdate(entry: Entry, isUpdating: boolean): void {
+    if (entry.isUpdating === isUpdating) {
+      return;
+    }
+
+    entry.isUpdating = isUpdating;
+    this.#options.client.publish(busSubjects.updateEvent(), {
+      sources: [entry.row.id],
+      phase: isUpdating ? 'start' : 'end',
+    });
   }
 
   /**
@@ -823,6 +881,8 @@ export class PacketManager {
       }
 
       await this.#stopProcess(entry);
+      // Gone, it will not run again: the commands core held for it fail now.
+      this.#announceUpdate(entry, false);
       await this.#options.store.remove(packageId);
       this.#entries.delete(packageId);
 
@@ -1093,6 +1153,7 @@ export class PacketManager {
       announce: undefined,
       notes: new LogRing(200),
       rollbackTo: undefined,
+      isUpdating: false,
     };
   }
 
@@ -1334,32 +1395,36 @@ export class PacketManager {
     }
 
     const failedVersion = entry.row.version;
-    const files = await readPackageFiles(
-      path.join(this.#options.packagesDir, entry.row.id, target.version),
-    );
 
-    this.#options.logger.warn(
-      { package: entry.row.id, failed: failedVersion, back: target.version, reason },
-      'An updated package failed to run; going back to the release before',
-    );
-    await this.#options.store.update(entry.row.id, {
-      version: target.version,
-      runtime: files.manifest.runtime,
-      manifest: files.manifest,
-      previousVersion: failedVersion,
-      // The archive of the release gone back to is not kept: its build is its version.
-      artifactSha256: null,
-      lastError: `${failedVersion} failed to run (${reason}); went back to ${target.version}`,
+    // Like the update itself: commands wait until the release gone back to runs.
+    await this.#whileUpdating(entry, async () => {
+      const files = await readPackageFiles(
+        path.join(this.#options.packagesDir, entry.row.id, target.version),
+      );
+
+      this.#options.logger.warn(
+        { package: entry.row.id, failed: failedVersion, back: target.version, reason },
+        'An updated package failed to run; going back to the release before',
+      );
+      await this.#options.store.update(entry.row.id, {
+        version: target.version,
+        runtime: files.manifest.runtime,
+        manifest: files.manifest,
+        previousVersion: failedVersion,
+        // The archive of the release gone back to is not kept: its build is its version.
+        artifactSha256: null,
+        lastError: `${failedVersion} failed to run (${reason}); went back to ${target.version}`,
+      });
+      entry.row = {
+        ...entry.row,
+        version: target.version,
+        previousVersion: failedVersion,
+        artifactSha256: null,
+      };
+      entry.files = files;
+      entry.process = undefined;
+      await this.#startOne(entry);
     });
-    entry.row = {
-      ...entry.row,
-      version: target.version,
-      previousVersion: failedVersion,
-      artifactSha256: null,
-    };
-    entry.files = files;
-    entry.process = undefined;
-    await this.#startOne(entry);
   }
 
   /**
@@ -1413,6 +1478,11 @@ export class PacketManager {
 
     entry.row = { ...entry.row, state, lastError, ...extra };
     await this.#options.store.update(entry.row.id, { state, lastError, ...extra });
+
+    // Running again, or not going to: its update ends, and the commands core held go through.
+    if (state !== 'starting') {
+      this.#announceUpdate(entry, false);
+    }
 
     if (state === 'running' && was !== 'running') {
       this.#publish('started', entry);
@@ -1702,16 +1772,26 @@ export class PacketManager {
   }
 
   /**
-   * The newest release of a package that works with this platform and its SDK.
+   * The newest release of a package that works with this platform and its SDK - and, when said,
+   * that everything needing the package accepts.
    *
    * @param index - The index.
    * @param packageId - The package.
+   * @param dependents - The packages and vendors whose ranges it must be in; any when not said.
    * @returns The release, or undefined.
    */
-  #newestRelease(index: PackageIndex | null, packageId: string) {
+  #newestRelease(
+    index: PackageIndex | null,
+    packageId: string,
+    dependents?: readonly Dependent[],
+  ): PackageRelease | undefined {
     return index?.packages
       .find((entry) => entry.id === packageId)
-      ?.versions.filter((release) => this.#fits(release))
+      ?.versions.filter(
+        (release) =>
+          this.#fits(release) &&
+          (dependents === undefined || isAccepted(packageId, release.version, dependents)),
+      )
       .sort((left, right) => compareVersions(right.version, left.version))[0];
   }
 

@@ -25,6 +25,7 @@ import {
   catalogueReplySchema,
   compareVersions,
   ConflictError,
+  DeviceUnavailableError,
   HUB_CATALOGUE_METHOD,
   HUB_SERVICE,
   HUB_VENDOR_LOAD_METHOD,
@@ -93,6 +94,9 @@ export type IntegrationManagerOptions = {
   readonly reporter?: InstallReporter;
   readonly fetch?: typeof fetch;
   readonly now?: () => Date;
+
+  /** How long `hub` has to load a build; a minute when not said. */
+  readonly loadTimeoutMs?: number;
 };
 
 /** What `hub` runs of a vendor, as far as a listing needs it. */
@@ -297,18 +301,22 @@ export class IntegrationManager {
    * @param version - A release; a rebuild of the version installed, else the newest that fits,
    *   when not said.
    * @param requestedBy - The account that asked.
+   * @param isIndexReadAgain - Whether to read the index again first; a round of updates reads it
+   *   once for all its integrations.
    * @returns What was done, and the build `hub` runs.
    * @throws {NotFoundError} When the index and the local folder have no such integration.
-   * @throws {ConflictError} When no release of it fits, or the build did not load.
+   * @throws {ConflictError} When no release of it fits, none is newer than the one installed, or
+   *   the build did not load.
    */
   public async install(
     vendorId: string,
     version?: string,
     requestedBy?: string,
+    isIndexReadAgain = true,
   ): Promise<IntegrationInstallReply> {
     return this.#serially(async () => {
       const { integrationsDir, logger } = this.#options;
-      const read = await this.#options.index.read(true);
+      const read = await this.#options.index.read(isIndexReadAgain);
       const entry = read.index?.integrations.find((each) => each.id === vendorId);
 
       if (entry === undefined) {
@@ -345,7 +353,16 @@ export class IntegrationManager {
       try {
         reply = await this.#load({ vendorId, install });
       } catch (error: unknown) {
-        await rm(folder, { recursive: true, force: true });
+        // Unanswered, `hub` may still be loading the build: its folder stays, with the marker
+        // still naming the build before, and goes with the next install that loads.
+        if (isUnanswered(error)) {
+          logger.warn(
+            { err: error, vendorId, build },
+            'hub did not answer in time; the build it may be loading is kept',
+          );
+        } else {
+          await rm(folder, { recursive: true, force: true });
+        }
 
         throw error;
       }
@@ -522,7 +539,8 @@ export class IntegrationManager {
 
   /**
    * The release an install takes: the one asked for, else a rebuild of the version installed,
-   * else the newest that fits.
+   * else the newest that fits - for one installed, only when it is newer: a house moved to a
+   * narrower channel keeps the newer prerelease it has, and a second Update reloads nothing.
    *
    * @param entry - What the index says of the integration.
    * @param read - The index, as read.
@@ -530,7 +548,8 @@ export class IntegrationManager {
    * @param version - The release asked for, if one was.
    * @returns The release.
    * @throws {NotFoundError} When the release asked for is not in the index.
-   * @throws {ConflictError} When it does not fit this platform, or none does.
+   * @throws {ConflictError} When it does not fit this platform, none does, or none is newer than
+   *   the one installed.
    */
   #releaseToInstall(
     entry: IntegrationIndexEntry,
@@ -567,6 +586,12 @@ export class IntegrationManager {
     if (latest === undefined) {
       throw new ConflictError(this.#whyUnavailable(sortedReleases(entry)[0], read), {
         details: { reason: 'cannot-install', vendorId: entry.id },
+      });
+    }
+
+    if (marker !== undefined && !isNewer(latest.version, marker.version)) {
+      throw new ConflictError(`${entry.name} ${marker.version} is the newest release`, {
+        details: { reason: 'up-to-date', vendorId: entry.id },
       });
     }
 
@@ -611,7 +636,7 @@ export class IntegrationManager {
       busSubjects.service(HUB_SERVICE, HUB_VENDOR_LOAD_METHOD),
       request,
       vendorLoadReplySchema,
-      { timeoutMs: VENDOR_LOAD_TIMEOUT_MS },
+      { timeoutMs: this.#options.loadTimeoutMs ?? VENDOR_LOAD_TIMEOUT_MS },
     );
   }
 
@@ -676,4 +701,15 @@ function sortedReleases(entry: IntegrationIndexEntry | undefined): IntegrationRe
  */
 function isNewer(candidate: string, installed: string): boolean {
   return compareVersions(candidate, installed) > 0;
+}
+
+/**
+ * Says whether a request went unanswered - the bus's own timeout - rather than refused: the far
+ * side may still be doing what it was asked.
+ *
+ * @param error - What the request threw.
+ * @returns True when no reply came.
+ */
+function isUnanswered(error: unknown): boolean {
+  return error instanceof DeviceUnavailableError && error.details['timeoutMs'] !== undefined;
 }
