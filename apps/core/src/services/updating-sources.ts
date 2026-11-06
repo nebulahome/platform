@@ -113,6 +113,11 @@ export class UpdatingSources {
       return true;
     }
 
+    // An abort already past is never announced again: the wait would run its whole length.
+    if (signal?.aborted === true) {
+      return false;
+    }
+
     let timer: NodeJS.Timeout | undefined;
     let onAbort: () => void = noop;
 

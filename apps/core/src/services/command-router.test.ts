@@ -19,6 +19,7 @@ import { entityRecord, createCoreHarness, type CoreHarness } from '../testing/ha
 
 import { AliasEngine } from './alias-engine.js';
 import { startCommandRouter } from './command-router.js';
+import { UpdatingSources } from './updating-sources.js';
 
 const bulb = parseEntityId('light.kitchen_ceiling');
 const thermometer = parseEntityId('sensor.kitchen_temperature');
@@ -255,5 +256,72 @@ describe('startCommandRouter', () => {
     ).rejects.toThrow();
 
     expect(received).toHaveLength(0);
+  });
+});
+
+describe('startCommandRouter while a source updates', () => {
+  it('waits for the update, and drops a command its caller would no longer be waiting for', async () => {
+    const harness = createCoreHarness();
+    const updating = new UpdatingSources({ onChange: () => undefined });
+    const received: AdapterCommand[] = [];
+    const turnOn = { command: { command: 'turn_on' } };
+
+    harness.directory.set(
+      entityRecord(bulb, { source: 'pkg-lights', capabilities: { on_off: {} } }),
+    );
+    harness
+      .clientFor('pkg-lights')
+      .serve(
+        busSubjects.service('pkg-lights', ADAPTER_COMMAND_METHOD),
+        adapterCommandSchema,
+        (command: AdapterCommand): AdapterAck => {
+          received.push(command);
+
+          return { acceptedAt: new Date() };
+        },
+      );
+    startCommandRouter({
+      client: harness.client,
+      directory: harness.directory,
+      aliases: new AliasCatalog(),
+      aliasEngine: undefined as unknown as AliasEngine,
+      commandTimeoutMs: 200,
+      updating,
+      updateWaitMs: 60_000,
+    });
+    updating.start('pkg-lights');
+
+    // The adapter's 200 ms and the reply's margin take all of 700: nothing is left to wait.
+    await expect(
+      harness
+        .clientFor('api')
+        .request(
+          busSubjects.command(bulb, 'on_off'),
+          { ...turnOn, waitMs: 700 },
+          commandAckSchema,
+          {
+            timeoutMs: 5000,
+          },
+        ),
+    ).rejects.toThrow(/still being updated/);
+
+    const sent = harness
+      .clientFor('api')
+      .request(
+        busSubjects.command(bulb, 'on_off'),
+        { ...turnOn, waitMs: 10_000 },
+        commandAckSchema,
+        {
+          timeoutMs: 10_000,
+        },
+      );
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20);
+    });
+    expect(received).toEqual([]);
+    updating.end('pkg-lights');
+    await sent;
+    expect(received).toHaveLength(1);
   });
 });

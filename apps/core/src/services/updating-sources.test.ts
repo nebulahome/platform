@@ -43,6 +43,14 @@ describe('UpdatingSources', () => {
     await expect(cancelled).resolves.toBe(false);
   });
 
+  it('does not wait for a run cancelled before the wait began', async () => {
+    const sources = new UpdatingSources({ onChange: () => undefined });
+
+    sources.start('shelly-1');
+
+    await expect(sources.wait('shelly-1', 60_000, AbortSignal.abort())).resolves.toBe(false);
+  });
+
   it('lets a source go when its end never comes', () => {
     vi.useFakeTimers();
 

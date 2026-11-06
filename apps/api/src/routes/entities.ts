@@ -55,6 +55,13 @@ const commandParamsSchema = entityParamsSchema.extend({
 const COMMAND_ACCEPTED_STATUS = 202;
 
 /**
+ * How long a command may wait while its package or integration is updated: `core`'s
+ * `CORE_UPDATE_WAIT_MS` as it ships. `core` drops a command it held past the caller's wait, so a
+ * shorter value only fails the command sooner.
+ */
+const COMMAND_UPDATE_WAIT_MS = 120_000;
+
+/**
  * Digests a command so a repeated idempotency key can be recognised as the same request.
  *
  * @param entityId - The target.
@@ -313,7 +320,8 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
         command: route.body.command,
         identity: route.identity,
         traceId: route.request.traceId,
-        timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+        // An update in the way is waited for rather than failed: see COMMAND_UPDATE_WAIT_MS.
+        timeoutMs: context.config.API_BUS_TIMEOUT_MS + COMMAND_UPDATE_WAIT_MS,
       });
 
       const body = entityCommandResponseSchema.parse({

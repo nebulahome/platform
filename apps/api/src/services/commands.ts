@@ -72,6 +72,8 @@ export async function sendCommand(options: CommandOptions): Promise<CommandAck> 
     {
       command: options.command,
       context: options.context ?? { type: 'user', id: options.identity.userId },
+      // So that `core` drops a command held for an update once this wait is over.
+      waitMs: options.timeoutMs,
     },
     commandAckSchema,
     { traceId: options.traceId, timeoutMs: options.timeoutMs },

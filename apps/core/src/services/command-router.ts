@@ -31,6 +31,23 @@ export type CommandRouterOptions = CommandDispatchOptions & {
 /** How many commands may be waiting on their devices at once. */
 const COMMAND_CONCURRENCY = 32;
 
+/** What is kept of a caller's wait for the reply to travel back. */
+const REPLY_MARGIN_MS = 500;
+
+/**
+ * Ends a wait for an update while the adapter's own timeout still fits in the caller's: a command
+ * is never sent after whoever asked gave up on it.
+ *
+ * @param waitMs - How long the caller waits; undefined when it did not say.
+ * @param commandTimeoutMs - How long an adapter has to accept a command.
+ * @returns The signal; undefined when the caller did not say.
+ */
+function deadlineOf(waitMs: number | undefined, commandTimeoutMs: number): AbortSignal | undefined {
+  return waitMs === undefined
+    ? undefined
+    : AbortSignal.timeout(Math.max(0, waitMs - commandTimeoutMs - REPLY_MARGIN_MS));
+}
+
 /**
  * Serves every entity command and forwards it to the owning adapter, or applies it on a stored
  * alias.
@@ -72,6 +89,7 @@ export function startCommandRouter(options: CommandRouterOptions): BusSubscripti
         context: request.context,
         traceId: context.header.traceId,
         logger: context.logger,
+        signal: deadlineOf(request.waitMs, options.commandTimeoutMs),
       });
     },
 

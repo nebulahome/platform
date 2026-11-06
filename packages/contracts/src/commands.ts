@@ -40,6 +40,13 @@ export const capabilityCommandRequestSchema = z.object({
    * turn on?" answerable rather than a guess.
    */
   context: changeContextSchema.optional(),
+
+  /**
+   * How long the caller waits for the reply, in milliseconds. A command held while its package or
+   * integration is updated is dropped once it could no longer be delivered in that time, rather
+   * than carried out after the caller gave up. Absent: held for as long as `core` holds any.
+   */
+  waitMs: z.int().positive().max(3_600_000).optional(),
 });
 
 /** What a caller publishes to command an entity. */
