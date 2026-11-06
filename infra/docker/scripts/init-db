@@ -10,15 +10,17 @@ port="${NEBULA_PG_PORT:-5433}"
 socket=/var/run/postgresql
 
 # Over TCP on purpose: while it initialises a new cluster, the image's entrypoint runs a
-# temporary server on the socket only, which must not be mistaken for the real one.
+# temporary server on the socket only, which must not be mistaken for the real one. Asked every
+# fifth of a second, as every service waits on this; 900 tries keep the three minutes a first
+# start or a long recovery may take.
 tries=0
 until pg_isready -q -h 127.0.0.1 -p "$port" -d nebula -U nebula; do
   tries=$((tries + 1))
-  if [ "$tries" -gt 180 ]; then
+  if [ "$tries" -gt 900 ]; then
     echo "init-db: PostgreSQL did not start" >&2
     exit 1
   fi
-  sleep 1
+  sleep 0.2
 done
 
 psql -q -v ON_ERROR_STOP=1 -h "$socket" -p "$port" -U nebula -d nebula \

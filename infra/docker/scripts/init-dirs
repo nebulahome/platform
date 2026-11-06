@@ -29,6 +29,15 @@ for folder in "$data/hub" "$data/proxy" "$data/packages" "$data/cache/maps" \
   chown nebula:nebula "$folder"
 done
 
+# Node's compile cache (nebula-env): in the container, not the data directory, so a new image
+# starts with an empty one; a folder for root and one for `nebula`, as neither can write into
+# what the other made.
+for folder in /var/cache/nebula-node /var/cache/nebula-node/root /var/cache/nebula-node/nebula; do
+  mkdir -p "$folder"
+done
+
+chown nebula:nebula /var/cache/nebula-node/nebula
+
 # Inside those, by `nebula`. `hub/thread` holds the border router's otbr.conf, which the hub writes
 # and the `otbr` service reads.
 s6-setuidgid nebula mkdir -p "$data/hub/integrations" "$data/hub/thread" "$data/proxy/tls"

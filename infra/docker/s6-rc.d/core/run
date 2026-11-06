@@ -3,5 +3,6 @@
 
 DATABASE_URL="$(nebula_database_url nebula_core)"
 export DATABASE_URL
+export NODE_COMPILE_CACHE=/var/cache/nebula-node/nebula
 cd /app/apps/core
 exec s6-setuidgid nebula node dist/main.js

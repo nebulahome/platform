@@ -74,14 +74,18 @@ In order, each once the one before is ready:
    directory itself, `secrets/`, `backups/`, `containers/` and `cache/`; the `nebula` user the
    services run as gets the rest, and makes the folders inside its own. So root never writes
    into a folder it does not own, which a host that gives the container no `CAP_DAC_OVERRIDE`
-   forbids it - NATS's configuration is written the same way.
+   forbids it - NATS's configuration is written the same way. Also Node's compile cache,
+   `/var/cache/nebula-node/root` and `.../nebula` (`NODE_COMPILE_CACHE`, one folder per account):
+   in the container rather than a volume, so it lasts across restarts and a new image starts
+   with an empty one; the Node services load in about two thirds of the time once it is filled.
 2. `init-secrets` - every secret that is missing, generated once into `/data/secrets/` (0600):
    the instance keys `NEBULA_SECRETS_KEY` and `API_TOTP_ENCRYPTION_KEY`, `API_JWT_SECRET`, the
    PostgreSQL and NATS passwords, one password per service role, and the proxy's
    self-signed certificate. A variable set in `infra/.env` wins over its file.
 3. `postgres` - on `127.0.0.1:5433`, passwords required over TCP.
-4. `init-db` - migrates the database and gives each service role its password. An upgrade is
-   "build, start": the new migrations apply here.
+4. `init-db` - waits for PostgreSQL (asked every 0.2 s, for three minutes at most), migrates the
+   database and gives each service role its password. An upgrade is "build, start": the new
+   migrations apply here.
 5. `nats` - on `127.0.0.1:4223`, with a password; its monitor on `8223`.
 6. `core`, `hub`, `api` (`127.0.0.1:4100`), `backup`, `supervisor`, `proxy` (`8080`, `8443`),
    `packet-manager`. Each connects to the database as its own role (DATABASE.md §12); `backup`

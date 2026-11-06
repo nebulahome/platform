@@ -30,6 +30,11 @@ export NEBULA_INSTALLATION_ID
 NATS_URL="nats://nebula:${NEBULA_NATS_PASSWORD}@127.0.0.1:${NEBULA_NATS_PORT:-4223}"
 export NATS_URL
 
+# Where Node keeps the code it compiled, so the next start loads faster (made by init-dirs, emptied
+# by a new image): root's folder; a service that runs as `nebula` names its own, which it can write.
+NODE_COMPILE_CACHE=/var/cache/nebula-node/root
+export NODE_COMPILE_CACHE
+
 # The database roles each service connects as (DATABASE.md 12). `superuser` runs every service as
 # the cluster's superuser instead, as development does - for when a grant is missing.
 NEBULA_DB_ROLES="${NEBULA_DB_ROLES:-per-service}"

@@ -6,5 +6,6 @@
 
 DATABASE_URL="$(nebula_database_url nebula_packet_manager)"
 export DATABASE_URL
+export NODE_COMPILE_CACHE=/var/cache/nebula-node/nebula
 cd /app/apps/packet-manager
 exec s6-setuidgid nebula node dist/main.js
