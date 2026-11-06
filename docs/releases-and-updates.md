@@ -312,7 +312,8 @@ reason.
 
 `docker restart` of the platform's own container, done by the Docker daemon, so it completes even
 though the caller stops. Without the socket: s6's `halt`, and the `unless-stopped` policy starts the
-container again. Shutting down was removed on 2026-11-03 (endpoint, supervisor method and page):
+container again. The stop waits out `S6_KILL_GRACETIME` in full after every service has stopped,
+so it is 3 s (it was 20 s, which made a restart take about 23 s instead of 5). Shutting down was removed on 2026-11-03 (endpoint, supervisor method and page):
 stop the container on the machine instead.
 
 ### What every page shows

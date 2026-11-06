@@ -187,6 +187,9 @@ LABEL org.opencontainers.image.version=$NEBULA_VERSION \
       org.opencontainers.image.source=https://github.com/nebulahome/platform
 RUN printf '%s\n' "$NEBULA_VERSION" > /app/VERSION
 
+# S6_KILL_GRACETIME is waited out in full on every stop, after s6 has already stopped every
+# service in order: it is only for a stray process, and three seconds (s6-overlay's default) keep
+# a restart from sitting idle. S6_SERVICES_GRACETIME is how long each service has to stop.
 ENV PATH=/command:$PATH \
     NODE_ENV=production \
     LOG_LEVEL=info \
@@ -203,7 +206,7 @@ ENV PATH=/command:$PATH \
     PROXY_HTTPS_PORT=8443 \
     PROXY_TLS_MODE=self-signed \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
-    S6_KILL_GRACETIME=20000 \
+    S6_KILL_GRACETIME=3000 \
     S6_SERVICES_GRACETIME=15000 \
     S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
 
