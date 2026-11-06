@@ -10,6 +10,7 @@ import {
   channelIn,
   QUIET_TIME_ENTITY_ID,
   quietTimeFromState,
+  timeZoneSchema,
   updateChannelSchema,
   updateWindowSchema,
   type BackupSection,
@@ -100,7 +101,8 @@ export async function readUpdateSettings(db: Database): Promise<UpdateSettings> 
       ...(sections.packages ? (['packages'] as const) : []),
       ...(sections.containers ? (['containers'] as const) : []),
     ],
-    timezone: z.string().min(1).catch('UTC').parse(value.get('house.timezone')),
+    // A zone the clock cannot read would stop every plan: UTC then.
+    timezone: timeZoneSchema.catch('UTC').parse(value.get('house.timezone')),
   };
 }
 

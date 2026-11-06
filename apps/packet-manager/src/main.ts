@@ -202,6 +202,7 @@ async function start(): Promise<void> {
     packages: service,
     integrations,
     logger,
+    runsFile: `${layout.cache}/updates/automatic-runs.json`,
   });
 
   // Served before the packages start: each announces itself to the service as it comes up.
@@ -209,7 +210,8 @@ async function start(): Promise<void> {
 
   await service.start();
   void reporter.start();
-  await updates.reload().catch((error: unknown) => {
+  // A plan that cannot be made now is tried again every minute.
+  await updates.start().catch((error: unknown) => {
     logger.error({ err: error }, 'Could not plan the automatic updates');
   });
   logger.info(

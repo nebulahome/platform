@@ -30,8 +30,12 @@ describe('isRecentBackupEnough', () => {
     expect(isRecentBackupEnough(finished(5), ALL, NOW)).toBe(false);
   });
 
+  it('takes one some locations did not take: its archive was made', () => {
+    expect(isRecentBackupEnough(finished(1, { status: 'partial' }), ALL, NOW)).toBe(true);
+  });
+
   it('backs up again when the last one failed, or missed a part', () => {
-    expect(isRecentBackupEnough(finished(1, { status: 'partial' }), ALL, NOW)).toBe(false);
+    expect(isRecentBackupEnough(finished(1, { status: 'failure' }), ALL, NOW)).toBe(false);
     expect(
       isRecentBackupEnough(finished(1, { sections: ['configuration', 'history'] }), ALL, NOW),
     ).toBe(false);
