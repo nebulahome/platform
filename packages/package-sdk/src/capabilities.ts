@@ -18,6 +18,7 @@ export type CapabilityName =
   | 'level'
   | 'color_hs'
   | 'color_temp'
+  | 'effect'
   | 'cover'
   | 'lock'
   | 'thermostat'
@@ -32,6 +33,8 @@ export type CapabilityName =
   | 'select'
   | 'number'
   | 'vacuum'
+  | 'fan'
+  | 'location'
   | 'image'
   | 'custom';
 
@@ -42,10 +45,14 @@ export type EntityStateClass = 'measurement' | 'total' | 'total_increasing';
 export type ThermostatMode = 'off' | 'heat' | 'cool' | 'auto' | 'fan_only' | 'dry';
 
 /** What a thermostat is doing, which is not the mode it is set to. */
-export type ThermostatAction = 'off' | 'idle' | 'heating' | 'cooling' | 'drying' | 'fan';
+export type ThermostatAction =
+  'off' | 'idle' | 'heating' | 'cooling' | 'drying' | 'fan' | 'preheating' | 'defrosting';
 
 /** What a player is doing. */
 export type PlaybackState = 'playing' | 'paused' | 'stopped' | 'idle' | 'buffering';
+
+/** How a player repeats what it plays. */
+export type RepeatMode = 'off' | 'all' | 'one';
 
 /** What a robot mower is doing. */
 export type LawnMowerActivity = 'mowing' | 'paused' | 'returning' | 'docked' | 'idle' | 'error';
@@ -53,8 +60,27 @@ export type LawnMowerActivity = 'mowing' | 'paused' | 'returning' | 'docked' | '
 /** What a robot vacuum is doing. */
 export type VacuumActivity = 'cleaning' | 'paused' | 'returning' | 'docked' | 'idle' | 'error';
 
-/** One room of a robot's map. */
-export type VacuumRoom = { readonly id: string; readonly name: string };
+/**
+ * One room of a robot's map; its outline, when the robot shares its map, in percent of the map's
+ * width and height from its top left.
+ */
+export type VacuumRoom = {
+  readonly id: string;
+  readonly name: string;
+  readonly outline?: readonly (readonly [number, number])[];
+};
+
+/** How a robot that can mop cleans. */
+export type VacuumCleanMode = 'vacuum' | 'mop' | 'vacuum_and_mop';
+
+/** Which way a fan's blades turn. */
+export type FanDirection = 'forward' | 'reverse';
+
+/** Where a location comes from. */
+export type LocationSource = 'gps' | 'router' | 'bluetooth' | 'bluetooth_le' | 'event';
+
+/** How a number is set: a slider, a box, or a slider while the steps are few. */
+export type NumberMode = 'auto' | 'slider' | 'box';
 
 /** One choice of a select. */
 export type SelectOption = { readonly value: string; readonly label: string };
@@ -69,20 +95,37 @@ export type CustomValue = string | number | boolean | null;
 export type CapabilityStates = {
   readonly on_off: { readonly isOn: boolean };
   readonly level: { readonly level: number };
-  readonly color_hs: { readonly hue: number; readonly saturation: number };
-  readonly color_temp: { readonly mireds: number };
+  readonly color_hs: {
+    readonly hue: number;
+    readonly saturation: number;
+    readonly white?: number;
+    readonly isActive?: boolean;
+  };
+  readonly color_temp: { readonly mireds: number; readonly isActive?: boolean };
+  readonly effect: { readonly effect: string | null };
   readonly cover: {
     readonly position: number;
     readonly tilt?: number;
     readonly motion: 'opening' | 'closing' | 'stopped';
   };
-  readonly lock: { readonly lockState: 'locked' | 'unlocked' | 'jammed' };
+  readonly lock: {
+    readonly lockState: 'locked' | 'unlocked' | 'jammed';
+    readonly motion?: 'locking' | 'unlocking' | 'opening';
+    readonly isOpen?: boolean;
+  };
   readonly thermostat: {
-    readonly currentTemperature: number;
+    readonly currentTemperature?: number;
     readonly targetTemperature: number;
+    readonly targetTemperatureLow?: number;
+    readonly targetTemperatureHigh?: number;
     readonly mode: ThermostatMode;
     readonly action: ThermostatAction;
     readonly humidity?: number;
+    readonly targetHumidity?: number;
+    readonly preset?: string | null;
+    readonly fanMode?: string;
+    readonly swingMode?: string;
+    readonly swingHorizontalMode?: string;
   };
   readonly sensor_numeric: { readonly value: number };
   readonly sensor_binary: { readonly isOn: boolean };
@@ -92,8 +135,13 @@ export type CapabilityStates = {
     readonly volume: number;
     readonly isMuted: boolean;
     readonly source?: string;
+    readonly soundMode?: string;
+    readonly isShuffled?: boolean;
+    readonly repeat?: RepeatMode;
     readonly mediaTitle?: string;
     readonly mediaArtist?: string;
+    readonly mediaAlbum?: string;
+    readonly mediaImagePath?: string;
     readonly mediaDurationSeconds?: number;
     readonly mediaPositionSeconds?: number;
   };
@@ -101,6 +149,7 @@ export type CapabilityStates = {
     readonly isStreamAvailable: boolean;
     readonly snapshotPath?: string;
     readonly isRecording: boolean;
+    readonly isMotionDetectionOn?: boolean;
   };
   readonly button: Readonly<Record<never, never>>;
   readonly update: {
@@ -108,6 +157,9 @@ export type CapabilityStates = {
     readonly latestVersion: string | null;
     readonly isInstalling: boolean;
     readonly progress: number | null;
+    readonly title?: string;
+    readonly releaseSummary?: string;
+    readonly releaseUrl?: string;
   };
   readonly lawn_mower: { readonly activity: LawnMowerActivity; readonly isResumable: boolean };
   readonly select: { readonly option: string | null };
@@ -116,6 +168,26 @@ export type CapabilityStates = {
     readonly activity: VacuumActivity;
     readonly rooms: readonly VacuumRoom[];
     readonly isResumable: boolean;
+    readonly fanSpeed?: string;
+    readonly cleanMode?: VacuumCleanMode;
+    readonly waterLevel?: string;
+  };
+  readonly fan: {
+    readonly percentage?: number;
+    readonly preset?: string | null;
+    readonly isOscillating?: boolean;
+    readonly direction?: FanDirection;
+  };
+  readonly location: {
+    readonly zone: string | null;
+    readonly latitude?: number;
+    readonly longitude?: number;
+    readonly accuracyMeters?: number;
+    readonly locationName?: string;
+    readonly distanceKm?: number;
+    readonly ipAddress?: string;
+    readonly macAddress?: string;
+    readonly hostName?: string;
   };
   readonly image: {
     readonly contentType: ImageContentType;
@@ -129,8 +201,10 @@ export type CapabilityStates = {
 /** Each capability's state, as a package reports it: what has a default may be left out. */
 export type ReportedStates = Omit<
   CapabilityStates,
-  'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum'
+  'effect' | 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'location'
 > & {
+  readonly effect: Partial<CapabilityStates['effect']>;
+  readonly location: Partial<CapabilityStates['location']>;
   readonly camera: Omit<CapabilityStates['camera'], 'isRecording'> & {
     readonly isRecording?: boolean;
   };
@@ -154,30 +228,50 @@ export type ReportedCapabilityState = {
 
 /** Each capability's params: the device's own limits, as an entity declares them. */
 export type CapabilityParams = {
-  readonly on_off: Readonly<Record<never, never>>;
+  readonly on_off: { readonly hasTransition?: boolean; readonly isAssumed?: boolean };
   readonly level: { readonly hasTransition?: boolean };
-  readonly color_hs: Readonly<Record<never, never>>;
+  readonly color_hs: { readonly hasTransition?: boolean; readonly hasWhiteChannel?: boolean };
   readonly color_temp: { readonly minMireds: number; readonly maxMireds: number };
+  readonly effect: { readonly effects: readonly string[] };
   readonly cover: { readonly hasPosition?: boolean; readonly hasTilt?: boolean };
-  readonly lock: { readonly hasCode?: boolean };
+  readonly lock: {
+    readonly hasCode?: boolean;
+    readonly codeLength?: number;
+    readonly canOpen?: boolean;
+  };
   readonly thermostat: {
     readonly supportedModes: readonly ThermostatMode[];
     readonly minTemperature: number;
     readonly maxTemperature: number;
     readonly temperatureStep?: number;
+    readonly hasTargetRange?: boolean;
+    readonly hasTargetHumidity?: boolean;
+    readonly minHumidity?: number;
+    readonly maxHumidity?: number;
+    readonly presets?: readonly string[];
+    readonly fanModes?: readonly string[];
+    readonly swingModes?: readonly string[];
+    readonly swingHorizontalModes?: readonly string[];
   };
   readonly sensor_numeric: Readonly<Record<never, never>>;
   readonly sensor_binary: Readonly<Record<never, never>>;
-  readonly sensor_text: Readonly<Record<never, never>>;
+  readonly sensor_text: { readonly options?: readonly string[] };
   readonly media_player: {
     readonly supportedSources?: readonly string[];
+    readonly soundModes?: readonly string[];
     readonly hasSeek?: boolean;
     readonly hasVolume?: boolean;
+    readonly hasVolumeStep?: boolean;
+    readonly canStop?: boolean;
+    readonly canSkip?: boolean;
+    readonly hasShuffle?: boolean;
+    readonly hasRepeat?: boolean;
   };
   readonly camera: {
     readonly hasSnapshot?: boolean;
     readonly hasStream?: boolean;
     readonly hasRecording?: boolean;
+    readonly hasMotionDetection?: boolean;
   };
   readonly button: Readonly<Record<never, never>>;
   readonly update: { readonly canInstall?: boolean; readonly hasProgress?: boolean };
@@ -188,7 +282,12 @@ export type CapabilityParams = {
     readonly canResume?: boolean;
   };
   readonly select: { readonly options: readonly SelectOption[] };
-  readonly number: { readonly min: number; readonly max: number; readonly step?: number };
+  readonly number: {
+    readonly min: number;
+    readonly max: number;
+    readonly step?: number;
+    readonly mode?: NumberMode;
+  };
   readonly vacuum: {
     readonly canPause?: boolean;
     readonly canStop?: boolean;
@@ -196,7 +295,18 @@ export type CapabilityParams = {
     readonly canLocate?: boolean;
     readonly canCleanRooms?: boolean;
     readonly canResume?: boolean;
+    readonly canCleanSpot?: boolean;
+    readonly fanSpeeds?: readonly string[];
+    readonly cleanModes?: readonly VacuumCleanMode[];
+    readonly waterLevels?: readonly string[];
   };
+  readonly fan: {
+    readonly speedCount?: number;
+    readonly presets?: readonly string[];
+    readonly canOscillate?: boolean;
+    readonly canReverse?: boolean;
+  };
+  readonly location: { readonly source?: LocationSource };
   readonly image: Readonly<Record<never, never>>;
   readonly custom: { readonly packageId: string; readonly type: string };
 };
@@ -217,17 +327,20 @@ export type CapabilityCommands = {
     readonly level: number;
     readonly transitionMs?: number;
   };
-  readonly color_hs: {
-    readonly command: 'set_color';
-    readonly hue: number;
-    readonly saturation: number;
-    readonly transitionMs?: number;
-  };
+  readonly color_hs:
+    | {
+        readonly command: 'set_color';
+        readonly hue: number;
+        readonly saturation: number;
+        readonly transitionMs?: number;
+      }
+    | { readonly command: 'set_white'; readonly white: number; readonly transitionMs?: number };
   readonly color_temp: {
     readonly command: 'set_color_temp';
     readonly mireds: number;
     readonly transitionMs?: number;
   };
+  readonly effect: { readonly command: 'set_effect'; readonly effect: string | null };
   readonly cover:
     | { readonly command: 'open' }
     | { readonly command: 'close' }
@@ -236,10 +349,17 @@ export type CapabilityCommands = {
     | { readonly command: 'set_tilt'; readonly tilt: number };
   readonly lock:
     | { readonly command: 'lock'; readonly code?: string }
-    | { readonly command: 'unlock'; readonly code?: string };
+    | { readonly command: 'unlock'; readonly code?: string }
+    | { readonly command: 'open'; readonly code?: string };
   readonly thermostat:
     | { readonly command: 'set_target'; readonly temperature: number }
-    | { readonly command: 'set_mode'; readonly mode: ThermostatMode };
+    | { readonly command: 'set_target_range'; readonly low: number; readonly high: number }
+    | { readonly command: 'set_humidity'; readonly humidity: number }
+    | { readonly command: 'set_mode'; readonly mode: ThermostatMode }
+    | { readonly command: 'set_preset'; readonly preset: string | null }
+    | { readonly command: 'set_fan_mode'; readonly fanMode: string }
+    | { readonly command: 'set_swing'; readonly swingMode: string }
+    | { readonly command: 'set_swing_horizontal'; readonly swingMode: string };
   readonly media_player:
     | { readonly command: 'play' }
     | { readonly command: 'pause' }
@@ -248,11 +368,17 @@ export type CapabilityCommands = {
     | { readonly command: 'previous' }
     | { readonly command: 'seek'; readonly positionSeconds: number }
     | { readonly command: 'set_volume'; readonly volume: number }
+    | { readonly command: 'volume_up' }
+    | { readonly command: 'volume_down' }
     | { readonly command: 'set_mute'; readonly isMuted: boolean }
-    | { readonly command: 'set_source'; readonly source: string };
+    | { readonly command: 'set_source'; readonly source: string }
+    | { readonly command: 'set_sound_mode'; readonly soundMode: string }
+    | { readonly command: 'set_shuffle'; readonly isShuffled: boolean }
+    | { readonly command: 'set_repeat'; readonly repeat: RepeatMode };
   readonly camera:
     | { readonly command: 'snapshot' }
-    | { readonly command: 'record'; readonly durationSeconds: number };
+    | { readonly command: 'record'; readonly durationSeconds: number }
+    | { readonly command: 'set_motion_detection'; readonly isOn: boolean };
   readonly button: { readonly command: 'press' };
   readonly update: { readonly command: 'install' };
   readonly lawn_mower:
@@ -270,7 +396,16 @@ export type CapabilityCommands = {
     | { readonly command: 'dock' }
     | { readonly command: 'locate' }
     | { readonly command: 'resume' }
-    | { readonly command: 'clean_rooms'; readonly rooms: readonly string[] };
+    | { readonly command: 'clean_rooms'; readonly rooms: readonly string[] }
+    | { readonly command: 'clean_spot' }
+    | { readonly command: 'set_fan_speed'; readonly fanSpeed: string }
+    | { readonly command: 'set_clean_mode'; readonly cleanMode: VacuumCleanMode }
+    | { readonly command: 'set_water_level'; readonly waterLevel: string };
+  readonly fan:
+    | { readonly command: 'set_percentage'; readonly percentage: number }
+    | { readonly command: 'set_preset'; readonly preset: string }
+    | { readonly command: 'set_oscillating'; readonly isOscillating: boolean }
+    | { readonly command: 'set_direction'; readonly direction: FanDirection };
   readonly custom: {
     readonly command: string;
     readonly args: Readonly<Record<string, CustomValue>>;

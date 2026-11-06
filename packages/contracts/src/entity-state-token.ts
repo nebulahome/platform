@@ -38,17 +38,19 @@ export const LOCK_TOKENS = ['locked', 'unlocked', 'jammed'] as const;
  * The capabilities a token is read from, in the order they are tried.
  *
  * The ones that say what a thing is doing come before the ones that say how much: a dimmable
- * light has both `on_off` and `level`, and its token is `on`.
+ * light has both `on_off` and `level`, and its token is `on`. A player comes before `on_off`: a
+ * television that switches on and off is `playing` while it plays, and `off` only when it is.
  */
 export const STATE_TOKEN_CAPABILITIES = [
   'sensor_binary',
+  'media_player',
   'on_off',
   'lock',
   'cover',
   'thermostat',
-  'media_player',
   'vacuum',
   'lawn_mower',
+  'location',
   'select',
   'sensor_text',
   'number',
@@ -101,6 +103,10 @@ export function stateTokenOf(
     return state.sensor_binary.isOn ? 'on' : 'off';
   }
 
+  if (state.media_player !== undefined) {
+    return state.on_off?.isOn === false ? 'off' : state.media_player.playback;
+  }
+
   if (state.on_off !== undefined) {
     return state.on_off.isOn ? 'on' : 'off';
   }
@@ -121,16 +127,16 @@ export function stateTokenOf(
     return state.thermostat.mode;
   }
 
-  if (state.media_player !== undefined) {
-    return state.media_player.playback;
-  }
-
   if (state.vacuum !== undefined) {
     return state.vacuum.activity;
   }
 
   if (state.lawn_mower !== undefined) {
     return state.lawn_mower.activity;
+  }
+
+  if (state.location !== undefined) {
+    return state.location.zone ?? undefined;
   }
 
   if (state.select !== undefined) {
@@ -228,7 +234,7 @@ export function stateTokenChoices(
         return THERMOSTAT_MODES;
       }
       case 'media_player': {
-        return PLAYBACK_STATES;
+        return capabilities.includes('on_off') ? [...PLAYBACK_STATES, 'off'] : PLAYBACK_STATES;
       }
       case 'vacuum': {
         return VACUUM_ACTIVITIES;
@@ -239,6 +245,7 @@ export function stateTokenChoices(
       case 'select': {
         return selectOptions;
       }
+      case 'location':
       case 'sensor_text':
       case 'number':
       case 'sensor_numeric':

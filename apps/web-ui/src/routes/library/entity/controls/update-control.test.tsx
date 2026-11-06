@@ -5,11 +5,23 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CapabilityState } from '@nebulahome/contracts';
+import type { CapabilityState, JsonObject } from '@nebulahome/contracts';
 
 import { UpdateControl } from '@/routes/library/entity/controls/update-control';
 import type { EntityCommander } from '@/routes/library/entity/use-entity-command';
 import { anEntity } from '@/testing/fixtures';
+
+/**
+ * A state as the API carries it: JSON, so an optional field is absent rather than undefined.
+ *
+ * @param state - The state.
+ * @returns The same, as JSON.
+ */
+function asJson(state: CapabilityState): JsonObject {
+  const json: unknown = JSON.parse(JSON.stringify(state));
+
+  return json as JsonObject;
+}
 
 /**
  * A commander that records what it was asked.
@@ -41,7 +53,7 @@ function show(update: NonNullable<CapabilityState['update']>, given = commander(
       entity={anEntity({
         entityId: 'update.garage_relay_firmware',
         capabilities: [{ capability: 'update', params: { canInstall: true, hasProgress: true } }],
-        state: { update },
+        state: asJson({ update }),
       })}
       state={{ update }}
       reportedAt={null}

@@ -27,10 +27,18 @@ describe('the capability table', () => {
     expect(commandSchemaFor('sensor_text')).toBeNull();
     // A picture is drawn by what it shows, not told anything.
     expect(commandSchemaFor('image')).toBeNull();
+    // Where a phone is, or an earthquake was, is only read.
+    expect(commandSchemaFor('location')).toBeNull();
   });
 
   it('gives every other capability a command schema', () => {
-    const readOnly = new Set(['sensor_numeric', 'sensor_binary', 'sensor_text', 'image']);
+    const readOnly = new Set([
+      'sensor_numeric',
+      'sensor_binary',
+      'sensor_text',
+      'image',
+      'location',
+    ]);
 
     for (const capability of CAPABILITIES) {
       if (!readOnly.has(capability)) {
@@ -156,7 +164,12 @@ describe('a robot mower, a select and a number', () => {
   });
 
   it('keeps a number between a minimum below its maximum, in steps of one unless said', () => {
-    expect(numberParamsSchema.parse({ min: 0, max: 180 })).toEqual({ min: 0, max: 180, step: 1 });
+    expect(numberParamsSchema.parse({ min: 0, max: 180 })).toEqual({
+      min: 0,
+      max: 180,
+      step: 1,
+      mode: 'auto',
+    });
     expect(numberParamsSchema.safeParse({ min: 10, max: 10 }).success).toBe(false);
   });
 

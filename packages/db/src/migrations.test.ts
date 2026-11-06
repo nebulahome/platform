@@ -54,6 +54,7 @@ describe('the migration set', () => {
       '0004_backup_containers_section.sql',
       '0005_bluetooth_proxy_scan_by_hub.sql',
       '0006_software_settings.sql',
+      '0007_entity_capabilities_more.sql',
     ]);
   });
 

@@ -345,7 +345,9 @@ export function describeState(
     const { currentTemperature, targetTemperature, action } = value.thermostat;
 
     parts.push(
-      `${withUnit(currentTemperature, unit)} → ${withUnit(targetTemperature, unit)}`,
+      currentTemperature === undefined
+        ? withUnit(targetTemperature, unit)
+        : `${withUnit(currentTemperature, unit)} → ${withUnit(targetTemperature, unit)}`,
       capitalised(action),
     );
   }

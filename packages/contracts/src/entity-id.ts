@@ -10,6 +10,8 @@
  */
 import { z } from 'zod';
 
+import type { CapabilityName } from './capabilities.js';
+
 /** The kinds of thing an entity can be. The domain is the part before the dot. */
 export const ENTITY_DOMAINS = [
   'light',
@@ -27,6 +29,9 @@ export const ENTITY_DOMAINS = [
   'select',
   'number',
   'vacuum',
+  'fan',
+  'device_tracker',
+  'geo_location',
   'image',
   'custom',
   'alias',
@@ -34,6 +39,57 @@ export const ENTITY_DOMAINS = [
 
 /** The kind of thing an entity is. */
 export type EntityDomain = (typeof ENTITY_DOMAINS)[number];
+
+/** The capabilities an entity of one domain carries: one of these it must have, and those it may add. */
+export type DomainCapabilities = {
+  readonly oneOf: readonly CapabilityName[];
+  readonly may: readonly CapabilityName[];
+};
+
+/**
+ * The capabilities each domain carries, by convention: what an adapter declares for an entity of
+ * that domain, and what the interface draws one from. `core` does not enforce it - the domain is
+ * only the start of the address - but a new domain is a type error here until it says what it
+ * takes, so the interface and its entity lab never meet one they cannot draw.
+ *
+ * A player, a camera and a fan add `on_off` when they can be switched on and off; an alias is
+ * whatever its helper behaves as.
+ */
+export const DOMAIN_CAPABILITIES: Readonly<Record<EntityDomain, DomainCapabilities>> = {
+  light: { oneOf: ['on_off'], may: ['level', 'color_hs', 'color_temp', 'effect'] },
+  switch: { oneOf: ['on_off'], may: [] },
+  sensor: { oneOf: ['sensor_numeric', 'sensor_text'], may: [] },
+  binary_sensor: { oneOf: ['sensor_binary'], may: [] },
+  cover: { oneOf: ['cover'], may: [] },
+  lock: { oneOf: ['lock'], may: [] },
+  climate: { oneOf: ['thermostat'], may: [] },
+  media_player: { oneOf: ['media_player'], may: ['on_off'] },
+  camera: { oneOf: ['camera'], may: ['on_off'] },
+  button: { oneOf: ['button'], may: [] },
+  update: { oneOf: ['update'], may: [] },
+  lawn_mower: { oneOf: ['lawn_mower'], may: [] },
+  select: { oneOf: ['select'], may: [] },
+  number: { oneOf: ['number'], may: [] },
+  vacuum: { oneOf: ['vacuum'], may: [] },
+  fan: { oneOf: ['on_off'], may: ['fan'] },
+  device_tracker: { oneOf: ['location'], may: [] },
+  geo_location: { oneOf: ['location'], may: [] },
+  image: { oneOf: ['image'], may: [] },
+  custom: { oneOf: ['custom'], may: [] },
+  alias: {
+    oneOf: [
+      'on_off',
+      'cover',
+      'lock',
+      'thermostat',
+      'media_player',
+      'sensor_numeric',
+      'sensor_binary',
+      'sensor_text',
+    ],
+    may: ['level', 'color_hs', 'color_temp'],
+  },
+};
 
 /**
  * The shape of a valid identifier.

@@ -3,6 +3,19 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.9.0
+
+- **New capabilities:** `effect` (a lamp's effects, by the device's own names), `fan` (speeds,
+  presets, oscillation, direction; whether it is on stays `on_off`) and `location` (where a tracked
+  thing or an event is, read only), with the domains `fan`, `device_tracker` and `geo_location`.
+- **More of what devices say, all optional:** a lamp's white channel and which of colour or white
+  it shows; a lock that pulls its latch (`open`), its code length and moving states; a thermostat
+  without a room reading, with a low/high range, a humidity target, presets, fan modes and both
+  swings (and the actions `preheating`, `defrosting`); a player's stop/skip flags, volume steps,
+  sound modes, shuffle, repeat, album and artwork; a camera's motion detection; firmware notes and
+  title; a robot's spot clean, suction, clean mode, water level and room outlines; a text sensor's
+  list of values; a number's slider or box. Every new param defaults to what a device meant before.
+
 ## 1.8.0
 
 - **`ctx.entities.command(entityId, capability, command)`**: a package that acts for the house -

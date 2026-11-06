@@ -19,6 +19,7 @@ import {
   containerDeviceId,
   CORE_LINK_SOURCES_METHOD,
   CORE_SERVICE,
+  ENTITY_STATE_CLASSES,
   entityViewSchema,
   isOriginalKind,
   linkSourcesReplySchema,
@@ -31,6 +32,7 @@ import {
   type CapabilityName,
   type EntityLinkView,
   type EntityQuery,
+  type EntityStateClass,
   type EntityUpdate,
   type EntityView,
   type Identity,
@@ -64,6 +66,8 @@ type EntityRow = {
   areaName: string | null;
   unitOfMeasurement: string | null;
   deviceClass: string | null;
+  stateClass: string | null;
+  displayPrecision: number | null;
   isEnabled: boolean;
   isHidden: boolean;
   searchAliases: string[] | null;
@@ -123,6 +127,8 @@ const ENTITY_COLUMNS = {
   areaName: schema.registry.areas.name,
   unitOfMeasurement: schema.registry.entities.unitOfMeasurement,
   deviceClass: schema.registry.entities.deviceClass,
+  stateClass: schema.registry.entities.stateClass,
+  displayPrecision: schema.registry.entities.displayPrecision,
   isEnabled: schema.registry.entities.isEnabled,
   isHidden: schema.registry.entities.isHidden,
   searchAliases: schema.registry.entities.searchAliases,
@@ -219,6 +225,16 @@ export function linkHintOf(config: unknown): {
     key: typeof link?.key === 'string' ? link.key : null,
     matter: parsed.success ? parsed.data : null,
   };
+}
+
+/**
+ * Reads the state class column, which a CHECK constraint keeps to the known ones.
+ *
+ * @param value - The column.
+ * @returns The class, or null.
+ */
+function stateClassOf(value: string | null): EntityStateClass | null {
+  return ENTITY_STATE_CLASSES.find((known) => known === value) ?? null;
 }
 
 /**
@@ -384,6 +400,8 @@ function toView(
       row.shownDomain === null
         ? null
         : { domain: row.domain ?? row.entityId.split('.')[0], deviceClass: row.deviceClass },
+    stateClass: stateClassOf(row.stateClass),
+    displayPrecision: row.displayPrecision,
     isEnabled: row.isEnabled,
     isHidden: row.isHidden,
     capabilities: declared.map((entry) => ({

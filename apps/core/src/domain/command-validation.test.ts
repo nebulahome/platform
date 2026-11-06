@@ -274,3 +274,108 @@ describe('validateCommand', () => {
     ).toThrow(/Stored parameters/);
   });
 });
+
+describe('the commands the entity dialog added', () => {
+  it('opens a door only with a lock that can pull its latch', () => {
+    expect(() =>
+      validateCommand(record({ lock: { canOpen: true } }), 'lock', { command: 'open' }),
+    ).not.toThrow();
+    expect(() => validateCommand(record({ lock: {} }), 'lock', { command: 'open' })).toThrow(
+      'cannot pull its latch',
+    );
+  });
+
+  it('runs only an effect the lamp lists, and stops any with null', () => {
+    const lamp = record({ effect: { effects: ['Candle', 'Rainbow'] } });
+
+    expect(() =>
+      validateCommand(lamp, 'effect', { command: 'set_effect', effect: 'Candle' }),
+    ).not.toThrow();
+    expect(() =>
+      validateCommand(lamp, 'effect', { command: 'set_effect', effect: null }),
+    ).not.toThrow();
+    expect(() =>
+      validateCommand(lamp, 'effect', { command: 'set_effect', effect: 'Disco' }),
+    ).toThrow(/must be one of Candle, Rainbow/);
+  });
+
+  it('keeps a thermostat range in order, inside its limits, and only on one that has it', () => {
+    const limits = { supportedModes: ['auto'], minTemperature: 10, maxTemperature: 30 };
+    const ranged = record({ thermostat: { ...limits, hasTargetRange: true } });
+
+    expect(() =>
+      validateCommand(ranged, 'thermostat', { command: 'set_target_range', low: 19, high: 24 }),
+    ).not.toThrow();
+    expect(() =>
+      validateCommand(ranged, 'thermostat', { command: 'set_target_range', low: 25, high: 20 }),
+    ).toThrow('low end');
+    expect(() =>
+      validateCommand(ranged, 'thermostat', { command: 'set_target_range', low: 5, high: 20 }),
+    ).toThrow('between 10 and 30');
+    expect(() =>
+      validateCommand(record({ thermostat: limits }), 'thermostat', {
+        command: 'set_target_range',
+        low: 19,
+        high: 24,
+      }),
+    ).toThrow('not a range');
+  });
+
+  it('picks a preset or a fan mode only from the thermostat lists', () => {
+    const unit = record({
+      thermostat: {
+        supportedModes: ['cool'],
+        minTemperature: 16,
+        maxTemperature: 30,
+        presets: ['Eco', 'Sleep'],
+      },
+    });
+
+    expect(() =>
+      validateCommand(unit, 'thermostat', { command: 'set_preset', preset: 'Eco' }),
+    ).not.toThrow();
+    expect(() =>
+      validateCommand(unit, 'thermostat', { command: 'set_fan_mode', fanMode: 'High' }),
+    ).toThrow('it has no fan modes');
+  });
+
+  it('sets a fan speed only on a fan with speeds, and reverses only one that can', () => {
+    const fan = record({ fan: { speedCount: 3 } });
+
+    expect(() =>
+      validateCommand(fan, 'fan', { command: 'set_percentage', percentage: 66 }),
+    ).not.toThrow();
+    expect(() =>
+      validateCommand(record({ fan: {} }), 'fan', { command: 'set_percentage', percentage: 50 }),
+    ).toThrow('no speeds');
+    expect(() =>
+      validateCommand(fan, 'fan', { command: 'set_direction', direction: 'reverse' }),
+    ).toThrow('one way only');
+  });
+
+  it('steps a volume, skips and repeats only on a player that says it can', () => {
+    const stepping = record({ media_player: { hasVolume: false, hasVolumeStep: true } });
+
+    expect(() => validateCommand(stepping, 'media_player', { command: 'volume_up' })).not.toThrow();
+    expect(() =>
+      validateCommand(record({ media_player: { canSkip: false } }), 'media_player', {
+        command: 'next',
+      }),
+    ).toThrow('cannot skip');
+    expect(() =>
+      validateCommand(record({ media_player: {} }), 'media_player', {
+        command: 'set_repeat',
+        repeat: 'all',
+      }),
+    ).toThrow('cannot repeat');
+  });
+
+  it('sets suction only from the robot list', () => {
+    expect(() =>
+      validateCommand(record({ vacuum: { fanSpeeds: ['Quiet', 'Max'] } }), 'vacuum', {
+        command: 'set_fan_speed',
+        fanSpeed: 'Turbo',
+      }),
+    ).toThrow(/must be one of Quiet, Max/);
+  });
+});

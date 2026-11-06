@@ -81,7 +81,7 @@ export function ThermostatControl(props: ControlProps) {
             {t('entity.controls.thermostatControl.now', 'Now')}
           </span>
           <span className="font-mono text-mono-reading text-foreground tabular">
-            {thermostat === undefined
+            {thermostat?.currentTemperature === undefined
               ? '—'
               : `${temperature().format(thermostat.currentTemperature)}°`}
           </span>

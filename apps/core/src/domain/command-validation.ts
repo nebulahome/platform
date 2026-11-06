@@ -89,6 +89,23 @@ function checkAgainstParams(
     });
   };
 
+  /**
+   * Rejects a name that is not on the device's list - a preset, a fan mode, a sound mode.
+   *
+   * @param value - The name the command asks for.
+   * @param list - The device's list.
+   * @param what - What the list is, for the explanation.
+   */
+  const requireListed = (value: unknown, list: readonly string[], what: string): void => {
+    if (list.length === 0) {
+      reject(`it has no ${what}`);
+    }
+
+    if (typeof value !== 'string' || !list.includes(value)) {
+      reject(`${what} must be one of ${list.join(', ')}`);
+    }
+  };
+
   if (capability === 'color_temp' && command['command'] === 'set_color_temp') {
     const { minMireds, maxMireds } = params as { minMireds: number; maxMireds: number };
     const mireds = Number(command['mireds']);
@@ -100,12 +117,90 @@ function checkAgainstParams(
     }
   }
 
+  if (capability === 'color_hs' && command['command'] === 'set_white') {
+    if (!(params as { hasWhiteChannel: boolean }).hasWhiteChannel) {
+      reject('this lamp has no white channel');
+    }
+  }
+
+  if (
+    capability === 'effect' &&
+    command['command'] === 'set_effect' &&
+    command['effect'] !== null
+  ) {
+    requireListed(command['effect'], (params as { effects: readonly string[] }).effects, 'effects');
+  }
+
+  if (capability === 'lock' && command['command'] === 'open') {
+    if (!(params as { canOpen: boolean }).canOpen) {
+      reject('this lock cannot pull its latch');
+    }
+  }
+
   if (capability === 'thermostat') {
     const parameters = params as {
       supportedModes: readonly string[];
       minTemperature: number;
       maxTemperature: number;
+      hasTargetRange: boolean;
+      hasTargetHumidity: boolean;
+      minHumidity: number;
+      maxHumidity: number;
+      presets: readonly string[];
+      fanModes: readonly string[];
+      swingModes: readonly string[];
+      swingHorizontalModes: readonly string[];
     };
+    const name = command['command'];
+
+    if (name === 'set_target_range') {
+      const low = Number(command['low']);
+      const high = Number(command['high']);
+
+      if (!parameters.hasTargetRange) {
+        reject('this thermostat keeps one target, not a range');
+      }
+
+      if (low > high) {
+        reject('the low end must not be above the high end');
+      }
+
+      if (low < parameters.minTemperature || high > parameters.maxTemperature) {
+        reject(
+          `range must be between ${String(parameters.minTemperature)} and ${String(parameters.maxTemperature)}`,
+        );
+      }
+    }
+
+    if (name === 'set_humidity') {
+      const humidity = Number(command['humidity']);
+
+      if (!parameters.hasTargetHumidity) {
+        reject('this thermostat has no humidity target');
+      }
+
+      if (humidity < parameters.minHumidity || humidity > parameters.maxHumidity) {
+        reject(
+          `humidity must be between ${String(parameters.minHumidity)} and ${String(parameters.maxHumidity)}`,
+        );
+      }
+    }
+
+    if (name === 'set_preset' && command['preset'] !== null) {
+      requireListed(command['preset'], parameters.presets, 'presets');
+    }
+
+    if (name === 'set_fan_mode') {
+      requireListed(command['fanMode'], parameters.fanModes, 'fan modes');
+    }
+
+    if (name === 'set_swing') {
+      requireListed(command['swingMode'], parameters.swingModes, 'swing modes');
+    }
+
+    if (name === 'set_swing_horizontal') {
+      requireListed(command['swingMode'], parameters.swingHorizontalModes, 'side to side swings');
+    }
 
     if (command['command'] === 'set_target') {
       const temperature = Number(command['temperature']);
@@ -166,15 +261,46 @@ function checkAgainstParams(
   }
 
   if (capability === 'vacuum') {
-    const { canPause, canStop, canDock, canLocate, canCleanRooms, canResume } = params as {
+    const {
+      canPause,
+      canStop,
+      canDock,
+      canLocate,
+      canCleanRooms,
+      canResume,
+      canCleanSpot,
+      fanSpeeds,
+      cleanModes,
+      waterLevels,
+    } = params as {
       canPause: boolean;
       canStop: boolean;
       canDock: boolean;
       canLocate: boolean;
       canCleanRooms: boolean;
       canResume: boolean;
+      canCleanSpot: boolean;
+      fanSpeeds: readonly string[];
+      cleanModes: readonly string[];
+      waterLevels: readonly string[];
     };
     const name = command['command'];
+
+    if (name === 'clean_spot' && !canCleanSpot) {
+      reject('this robot cannot clean a spot');
+    }
+
+    if (name === 'set_fan_speed') {
+      requireListed(command['fanSpeed'], fanSpeeds, 'suction levels');
+    }
+
+    if (name === 'set_clean_mode') {
+      requireListed(command['cleanMode'], cleanModes, 'clean modes');
+    }
+
+    if (name === 'set_water_level') {
+      requireListed(command['waterLevel'], waterLevels, 'water levels');
+    }
 
     if (name === 'pause' && !canPause) {
       reject('this robot cannot be paused');
@@ -226,15 +352,88 @@ function checkAgainstParams(
     }
   }
 
+  if (capability === 'fan') {
+    const { speedCount, presets, canOscillate, canReverse } = params as {
+      speedCount: number;
+      presets: readonly string[];
+      canOscillate: boolean;
+      canReverse: boolean;
+    };
+    const name = command['command'];
+
+    if (name === 'set_percentage' && speedCount === 0) {
+      reject('this fan has no speeds');
+    }
+
+    if (name === 'set_preset') {
+      requireListed(command['preset'], presets, 'presets');
+    }
+
+    if (name === 'set_oscillating' && !canOscillate) {
+      reject('this fan cannot oscillate');
+    }
+
+    if (name === 'set_direction' && !canReverse) {
+      reject('this fan turns one way only');
+    }
+  }
+
+  if (capability === 'camera' && command['command'] === 'set_motion_detection') {
+    if (!(params as { hasMotionDetection: boolean }).hasMotionDetection) {
+      reject('this camera cannot switch its motion detection from here');
+    }
+  }
+
   if (capability === 'media_player') {
-    const { supportedSources, hasSeek, hasVolume } = params as {
+    const {
+      supportedSources,
+      soundModes,
+      hasSeek,
+      hasVolume,
+      hasVolumeStep,
+      canStop,
+      canSkip,
+      hasShuffle,
+      hasRepeat,
+    } = params as {
       supportedSources: readonly string[];
+      soundModes: readonly string[];
       hasSeek: boolean;
       hasVolume: boolean;
+      hasVolumeStep: boolean;
+      canStop: boolean;
+      canSkip: boolean;
+      hasShuffle: boolean;
+      hasRepeat: boolean;
     };
+    const name = command['command'];
 
-    if (command['command'] === 'seek' && !hasSeek) {
+    if (name === 'seek' && !hasSeek) {
       reject('this player cannot seek');
+    }
+
+    if ((name === 'volume_up' || name === 'volume_down') && !hasVolumeStep && !hasVolume) {
+      reject('this player has no volume control');
+    }
+
+    if (name === 'stop' && !canStop) {
+      reject('this player cannot stop, only pause');
+    }
+
+    if ((name === 'next' || name === 'previous') && !canSkip) {
+      reject('this player cannot skip');
+    }
+
+    if (name === 'set_shuffle' && !hasShuffle) {
+      reject('this player cannot shuffle');
+    }
+
+    if (name === 'set_repeat' && !hasRepeat) {
+      reject('this player cannot repeat');
+    }
+
+    if (name === 'set_sound_mode') {
+      requireListed(command['soundMode'], soundModes, 'sound modes');
     }
 
     if ((command['command'] === 'set_volume' || command['command'] === 'set_mute') && !hasVolume) {

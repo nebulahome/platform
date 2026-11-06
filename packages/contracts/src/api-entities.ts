@@ -16,6 +16,7 @@ import { iconIdSchema } from './icons.js';
 import { integrationIdSchema } from './integrations.js';
 import { jsonObjectSchema } from './json.js';
 import { entityLinkViewSchema } from './links.js';
+import { ENTITY_STATE_CLASSES } from './registration.js';
 import { TAGS_PER_ROW_MAXIMUM, tagKeySchema } from './tags.js';
 import { timestampSchema } from './timestamp.js';
 
@@ -67,6 +68,12 @@ export const entityViewSchema = z.object({
 
   /** The narrower kind, e.g. `temperature`, used to pick an icon and a formatter. */
   deviceClass: z.string().nullable(),
+
+  /** How a numeric sensor's history adds up - a line for a measurement, bars for a total. */
+  stateClass: z.enum(ENTITY_STATE_CLASSES).nullable().optional(),
+
+  /** How many decimals a numeric reading is shown with, when the integration says. */
+  displayPrecision: z.int().min(0).max(6).nullable().optional(),
 
   /** Whether the entity is disabled in the registry. A disabled entity reports no state. */
   isEnabled: z.boolean(),

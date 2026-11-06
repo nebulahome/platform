@@ -29,6 +29,7 @@ export const CAPABILITIES = [
   'level',
   'color_hs',
   'color_temp',
+  'effect',
   'cover',
   'lock',
   'thermostat',
@@ -43,6 +44,8 @@ export const CAPABILITIES = [
   'select',
   'number',
   'vacuum',
+  'fan',
+  'location',
   'image',
   'custom',
 ] as const;
@@ -71,9 +74,13 @@ export const onOffStateSchema = z.object({ isOn: z.boolean() });
 
 /**
  * Whether the device can fade in and out rather than switch at once - a dimmable lamp that
- * takes a transition. Nothing else about turning on and off differs from one device to another.
+ * takes a transition - and whether what it is said to be is only assumed: a relay or a 433 MHz
+ * socket that never reports back, so its state is the last command sent, not a reading.
  */
-export const onOffParamsSchema = z.object({ hasTransition: z.boolean().default(false) });
+export const onOffParamsSchema = z.object({
+  hasTransition: z.boolean().default(false),
+  isAssumed: z.boolean().default(false),
+});
 
 /**
  * Turning an entity on, off, or to the opposite of what it is now.
@@ -111,19 +118,29 @@ export const levelCommandSchema = z.discriminatedUnion('command', [
 
 // --- color_hs ----------------------------------------------------------------------------
 
-/** Colour as hue and saturation. */
+/**
+ * Colour as hue and saturation; on a lamp with a separate white channel (RGBW), how bright that
+ * channel is; and, on a lamp that also takes a colour temperature, whether it shows the colour
+ * now rather than the white - the one of the two it last took.
+ */
 export const colorHsStateSchema = z.object({
   hue: z.number().min(0).max(360),
   saturation: z.number().min(0).max(100),
+  white: z.number().min(0).max(100).optional(),
+  isActive: z.boolean().optional(),
 });
 
 /**
- * Whether the lamp can fade from one colour to the next. Every hue and saturation is
- * representable, so there is nothing else to say.
+ * Whether the lamp can fade from one colour to the next, and whether it has a white channel of
+ * its own beside the colour. Every hue and saturation is representable, so there is nothing else
+ * to say.
  */
-export const colorHsParamsSchema = z.object({ hasTransition: z.boolean().default(false) });
+export const colorHsParamsSchema = z.object({
+  hasTransition: z.boolean().default(false),
+  hasWhiteChannel: z.boolean().default(false),
+});
 
-/** Setting the colour, optionally over time. */
+/** Setting the colour, or the white channel, optionally over time. */
 export const colorHsCommandSchema = z.discriminatedUnion('command', [
   z.object({
     command: z.literal('set_color'),
@@ -131,12 +148,23 @@ export const colorHsCommandSchema = z.discriminatedUnion('command', [
     saturation: z.number().min(0).max(100),
     transitionMs: transitionMsSchema,
   }),
+  z.object({
+    command: z.literal('set_white'),
+    white: z.number().min(0).max(100),
+    transitionMs: transitionMsSchema,
+  }),
 ]);
 
 // --- color_temp --------------------------------------------------------------------------
 
-/** Colour temperature in mireds, the reciprocal scale Matter and Zigbee both use. */
-export const colorTempStateSchema = z.object({ mireds: z.int().min(1).max(1000) });
+/**
+ * Colour temperature in mireds, the reciprocal scale Matter and Zigbee both use; and, on a lamp
+ * that also takes a colour, whether it shows this white now rather than the colour.
+ */
+export const colorTempStateSchema = z.object({
+  mireds: z.int().min(1).max(1000),
+  isActive: z.boolean().optional(),
+});
 
 /**
  * The mired range this particular lamp supports.
@@ -163,6 +191,26 @@ export const colorTempCommandSchema = z.discriminatedUnion('command', [
     mireds: z.int().min(1).max(1000),
     transitionMs: transitionMsSchema,
   }),
+]);
+
+// --- effect ------------------------------------------------------------------------------
+
+/** An effect's name as the device calls it: shown as it is, never translated. */
+const effectNameSchema = z.string().min(1).max(64);
+
+/**
+ * The effect a lamp or a strip is running - a colour loop, a candle flicker - or null when none
+ * is. The names are the device's own; Matter has no effects, so this is what the adapters of the
+ * lamps that do (WLED, Hue, Shelly RGBW) map onto.
+ */
+export const effectStateSchema = z.object({ effect: effectNameSchema.nullable().default(null) });
+
+/** The effects this device offers, in the order it lists them. */
+export const effectParamsSchema = z.object({ effects: z.array(effectNameSchema).min(1).max(256) });
+
+/** Starting one of the effects, or stopping the one running with null. */
+export const effectCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('set_effect'), effect: effectNameSchema.nullable() }),
 ]);
 
 // --- cover -------------------------------------------------------------------------------
@@ -197,15 +245,34 @@ export const coverCommandSchema = z.discriminatedUnion('command', [
  * `jammed` is a first-class state rather than an error: a lock that failed to throw is a fact
  * about the house that the interface has to show, not a transient failure to retry.
  */
-export const lockStateSchema = z.object({ lockState: z.enum(['locked', 'unlocked', 'jammed']) });
+export const lockStateSchema = z.object({
+  lockState: z.enum(['locked', 'unlocked', 'jammed']),
 
-/** Whether the lock requires a code to be operated remotely. */
-export const lockParamsSchema = z.object({ hasCode: z.boolean().default(false) });
+  /**
+   * Where the bolt or the latch is going, while it moves: a lock that says so, rather than jumping
+   * from one state to the next. Absent when it stands still.
+   */
+  motion: z.enum(['locking', 'unlocking', 'opening']).optional(),
 
-/** Operating the bolt. */
+  /** On a lock that can pull its latch: whether the door is held open (Matter's Unlatched). */
+  isOpen: z.boolean().optional(),
+});
+
+/**
+ * Whether the lock requires a code to be operated remotely, how many digits that code has when
+ * the lock says, and whether it can also pull the latch to open the door.
+ */
+export const lockParamsSchema = z.object({
+  hasCode: z.boolean().default(false),
+  codeLength: z.int().min(1).max(16).optional(),
+  canOpen: z.boolean().default(false),
+});
+
+/** Operating the bolt, or pulling the latch. */
 export const lockCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('lock'), code: z.string().min(1).max(64).optional() }),
   z.object({ command: z.literal('unlock'), code: z.string().min(1).max(64).optional() }),
+  z.object({ command: z.literal('open'), code: z.string().min(1).max(64).optional() }),
 ]);
 
 // --- thermostat --------------------------------------------------------------------------
@@ -214,38 +281,85 @@ export const lockCommandSchema = z.discriminatedUnion('command', [
 export const THERMOSTAT_MODES = ['off', 'heat', 'cool', 'auto', 'fan_only', 'dry'] as const;
 
 /** What a thermostat is currently doing, which is not the same as the mode it is set to. */
-export const THERMOSTAT_ACTIONS = ['off', 'idle', 'heating', 'cooling', 'drying', 'fan'] as const;
+export const THERMOSTAT_ACTIONS = [
+  'off',
+  'idle',
+  'heating',
+  'cooling',
+  'drying',
+  'fan',
+  'preheating',
+  'defrosting',
+] as const;
+
+/** A name from one of a thermostat's lists - a preset, a fan mode, a swing - as it calls it. */
+const thermostatChoiceSchema = z.string().min(1).max(64);
+
+/** One of a thermostat's lists of names, in the order it offers them; empty when it has none. */
+const thermostatChoicesSchema = z.array(thermostatChoiceSchema).max(64).default([]);
 
 /**
  * Measured and target temperature, the mode it is set to, and what it is doing.
  *
  * `mode` and `action` are distinct: a thermostat set to `auto` that has reached its target is
  * `idle`, and an interface showing only the mode could not explain why nothing is running.
+ *
+ * The measured temperature is absent on a unit that does not measure the room (Matter's
+ * LocalTemperature is nullable). A unit with a range keeps the low and the high apart, beside the
+ * single target it works to now. The preset, fan mode and swings are the names from its lists.
  */
 export const thermostatStateSchema = z.object({
-  currentTemperature: z.number(),
+  currentTemperature: z.number().optional(),
   targetTemperature: z.number(),
+  targetTemperatureLow: z.number().optional(),
+  targetTemperatureHigh: z.number().optional(),
   mode: z.enum(THERMOSTAT_MODES),
   action: z.enum(THERMOSTAT_ACTIONS),
   humidity: z.number().min(0).max(100).optional(),
+  targetHumidity: z.number().min(0).max(100).optional(),
+  preset: thermostatChoiceSchema.nullable().optional(),
+  fanMode: thermostatChoiceSchema.optional(),
+  swingMode: thermostatChoiceSchema.optional(),
+  swingHorizontalMode: thermostatChoiceSchema.optional(),
 });
 
-/** The modes and the range this particular thermostat accepts. */
+/**
+ * The modes and the range this particular thermostat accepts; whether it keeps a low and a high
+ * rather than one target, and a humidity target within its own range; and its lists of presets,
+ * fan modes and swings, up and down and side to side.
+ */
 export const thermostatParamsSchema = z
   .object({
     supportedModes: z.array(z.enum(THERMOSTAT_MODES)).min(1),
     minTemperature: z.number(),
     maxTemperature: z.number(),
     temperatureStep: z.number().gt(0).default(0.5),
+    hasTargetRange: z.boolean().default(false),
+    hasTargetHumidity: z.boolean().default(false),
+    minHumidity: z.number().min(0).max(100).default(30),
+    maxHumidity: z.number().min(0).max(100).default(99),
+    presets: thermostatChoicesSchema,
+    fanModes: thermostatChoicesSchema,
+    swingModes: thermostatChoicesSchema,
+    swingHorizontalModes: thermostatChoicesSchema,
   })
   .refine((params) => params.minTemperature <= params.maxTemperature, {
     message: 'minTemperature must not exceed maxTemperature',
+  })
+  .refine((params) => params.minHumidity <= params.maxHumidity, {
+    message: 'minHumidity must not exceed maxHumidity',
   });
 
-/** Setting the target temperature or the mode. */
+/** Setting the target, the range, the humidity, the mode, or one of the named choices. */
 export const thermostatCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('set_target'), temperature: z.number() }),
+  z.object({ command: z.literal('set_target_range'), low: z.number(), high: z.number() }),
+  z.object({ command: z.literal('set_humidity'), humidity: z.number().min(0).max(100) }),
   z.object({ command: z.literal('set_mode'), mode: z.enum(THERMOSTAT_MODES) }),
+  z.object({ command: z.literal('set_preset'), preset: thermostatChoiceSchema.nullable() }),
+  z.object({ command: z.literal('set_fan_mode'), fanMode: thermostatChoiceSchema }),
+  z.object({ command: z.literal('set_swing'), swingMode: thermostatChoiceSchema }),
+  z.object({ command: z.literal('set_swing_horizontal'), swingMode: thermostatChoiceSchema }),
 ]);
 
 // --- sensor_numeric ----------------------------------------------------------------------
@@ -281,34 +395,64 @@ export const sensorBinaryParamsSchema = z.object({});
  */
 export const sensorTextStateSchema = z.object({ value: z.string().max(512) });
 
-/** `sensor_text` has no commandable limits; its metadata lives on the entity row. */
-export const sensorTextParamsSchema = z.object({});
+/**
+ * The values a text sensor can take, when it is one of a fixed list (a washing machine's phase,
+ * an alarm's state): the order they come in, so its history can be drawn as a band coloured by
+ * value. Empty for free text. Its other metadata lives on the entity row.
+ */
+export const sensorTextParamsSchema = z.object({
+  options: z.array(z.string().min(1).max(128)).max(64).default([]),
+});
 
 // --- media_player ------------------------------------------------------------------------
 
 /** What a player is doing right now. */
 export const PLAYBACK_STATES = ['playing', 'paused', 'stopped', 'idle', 'buffering'] as const;
 
-/** Playback position, volume, input and what is playing. */
+/** How a player repeats what it plays. */
+export const REPEAT_MODES = ['off', 'all', 'one'] as const;
+
+/**
+ * Playback position, volume, input and what is playing; the sound mode, shuffle and repeat of a
+ * player that has them; and where the artwork of what is playing can be fetched - a path, for
+ * the reason the camera's snapshot is one.
+ *
+ * Whether the player is on is not here: a player that can be switched on and off declares
+ * `on_off` beside this, as a lamp does.
+ */
 export const mediaPlayerStateSchema = z.object({
   playback: z.enum(PLAYBACK_STATES),
   volume: z.number().min(0).max(100),
   isMuted: z.boolean(),
   source: z.string().max(128).optional(),
+  soundMode: z.string().max(128).optional(),
+  isShuffled: z.boolean().optional(),
+  repeat: z.enum(REPEAT_MODES).optional(),
   mediaTitle: z.string().max(512).optional(),
   mediaArtist: z.string().max(512).optional(),
+  mediaAlbum: z.string().max(512).optional(),
+  mediaImagePath: z.string().max(1024).optional(),
   mediaDurationSeconds: z.number().min(0).optional(),
   mediaPositionSeconds: z.number().min(0).optional(),
 });
 
-/** The inputs this player exposes and which transport controls it honours. */
+/**
+ * The inputs and sound modes this player exposes, and which controls it honours: stop and
+ * skipping, which most do; volume as a level or only one step up and down; shuffle and repeat.
+ */
 export const mediaPlayerParamsSchema = z.object({
   supportedSources: z.array(z.string().max(128)).default([]),
+  soundModes: z.array(z.string().max(128)).max(64).default([]),
   hasSeek: z.boolean().default(false),
   hasVolume: z.boolean().default(true),
+  hasVolumeStep: z.boolean().default(false),
+  canStop: z.boolean().default(true),
+  canSkip: z.boolean().default(true),
+  hasShuffle: z.boolean().default(false),
+  hasRepeat: z.boolean().default(false),
 });
 
-/** Transport and volume control. */
+/** Transport, volume, input and sound control. */
 export const mediaPlayerCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('play') }),
   z.object({ command: z.literal('pause') }),
@@ -317,8 +461,13 @@ export const mediaPlayerCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('previous') }),
   z.object({ command: z.literal('seek'), positionSeconds: z.number().min(0) }),
   z.object({ command: z.literal('set_volume'), volume: z.number().min(0).max(100) }),
+  z.object({ command: z.literal('volume_up') }),
+  z.object({ command: z.literal('volume_down') }),
   z.object({ command: z.literal('set_mute'), isMuted: z.boolean() }),
   z.object({ command: z.literal('set_source'), source: z.string().min(1).max(128) }),
+  z.object({ command: z.literal('set_sound_mode'), soundMode: z.string().min(1).max(128) }),
+  z.object({ command: z.literal('set_shuffle'), isShuffled: z.boolean() }),
+  z.object({ command: z.literal('set_repeat'), repeat: z.enum(REPEAT_MODES) }),
 ]);
 
 // --- camera ------------------------------------------------------------------------------
@@ -333,19 +482,25 @@ export const cameraStateSchema = z.object({
   isStreamAvailable: z.boolean(),
   snapshotPath: z.string().max(1024).optional(),
   isRecording: z.boolean().default(false),
+  isMotionDetectionOn: z.boolean().optional(),
 });
 
-/** What this camera can produce. */
+/**
+ * What this camera can produce, and whether its own motion detection can be switched from here.
+ * Whether the camera is on is `on_off` beside this, as a media player's is.
+ */
 export const cameraParamsSchema = z.object({
   hasSnapshot: z.boolean().default(true),
   hasStream: z.boolean().default(true),
   hasRecording: z.boolean().default(false),
+  hasMotionDetection: z.boolean().default(false),
 });
 
-/** Taking a still, or recording a clip of bounded length. */
+/** Taking a still, recording a clip of bounded length, or switching motion detection. */
 export const cameraCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('snapshot') }),
   z.object({ command: z.literal('record'), durationSeconds: z.int().min(1).max(3600) }),
+  z.object({ command: z.literal('set_motion_detection'), isOn: z.boolean() }),
 ]);
 
 // --- button ------------------------------------------------------------------------------
@@ -387,6 +542,16 @@ export const updateStateSchema = z.object({
   latestVersion: z.string().min(1).max(64).nullable().default(null),
   isInstalling: z.boolean().default(false),
   progress: z.number().min(0).max(100).nullable().default(null),
+
+  /** What the maker calls this firmware, when it names it. */
+  title: z.string().min(1).max(128).optional(),
+
+  /** The maker's summary of what the version on offer changes, and where the full notes are. */
+  releaseSummary: z.string().min(1).max(4000).optional(),
+  releaseUrl: z
+    .url({ protocol: /^https?$/ })
+    .max(1024)
+    .optional(),
 });
 
 /** Whether the firmware can be installed from here, and whether its progress is reported. */
@@ -480,11 +645,24 @@ export const VACUUM_ACTIVITIES = [
 /** What a robot vacuum is doing. */
 export type VacuumActivity = (typeof VACUUM_ACTIVITIES)[number];
 
-/** One room of a robot's map: its id on the map, and what the app calls it. */
+/** A point of a room's outline, in percent of the map's width and height from its top left. */
+const mapPointSchema = z.tuple([z.number().min(0).max(100), z.number().min(0).max(100)]);
+
+/**
+ * One room of a robot's map: its id on the map, what the app calls it, and - from a robot that
+ * shares its map - the room's outline, so it can be drawn at its real shape.
+ */
 export const vacuumRoomSchema = z.object({
   id: z.string().min(1).max(32),
   name: z.string().min(1).max(64),
+  outline: z.array(mapPointSchema).min(3).max(64).optional(),
 });
+
+/** How a robot that can mop cleans: vacuuming, mopping, or both in one pass. */
+export const VACUUM_CLEAN_MODES = ['vacuum', 'mop', 'vacuum_and_mop'] as const;
+
+/** A name from one of a robot's lists - a suction level, a water level - as it calls it. */
+const vacuumChoiceSchema = z.string().min(1).max(64);
 
 /** One room of a robot's map. */
 export type VacuumRoom = z.output<typeof vacuumRoomSchema>;
@@ -498,9 +676,18 @@ export const vacuumStateSchema = z.object({
   activity: z.enum(VACUUM_ACTIVITIES),
   rooms: z.array(vacuumRoomSchema).max(64).default([]),
   isResumable: z.boolean().default(false),
+
+  /** The suction level, the clean mode and the water level now, from the robot's own lists. */
+  fanSpeed: vacuumChoiceSchema.optional(),
+  cleanMode: z.enum(VACUUM_CLEAN_MODES).optional(),
+  waterLevel: vacuumChoiceSchema.optional(),
 });
 
-/** Which of the commands this robot takes; `canResume` as a mower's. */
+/**
+ * Which of the commands this robot takes - `canResume` as a mower's, `canCleanSpot` a clean of
+ * the floor round where it stands - and its lists: suction levels, the clean modes of a robot
+ * that mops, and its water levels. Empty lists for a robot without them.
+ */
 export const vacuumParamsSchema = z.object({
   canPause: z.boolean().default(true),
   canStop: z.boolean().default(true),
@@ -508,6 +695,10 @@ export const vacuumParamsSchema = z.object({
   canLocate: z.boolean().default(false),
   canCleanRooms: z.boolean().default(false),
   canResume: z.boolean().default(false),
+  canCleanSpot: z.boolean().default(false),
+  fanSpeeds: z.array(vacuumChoiceSchema).max(32).default([]),
+  cleanModes: z.array(z.enum(VACUUM_CLEAN_MODES)).default([]),
+  waterLevels: z.array(vacuumChoiceSchema).max(32).default([]),
 });
 
 /**
@@ -526,6 +717,10 @@ export const vacuumCommandSchema = z.discriminatedUnion('command', [
     command: z.literal('clean_rooms'),
     rooms: z.array(z.string().min(1).max(32)).min(1).max(32),
   }),
+  z.object({ command: z.literal('clean_spot') }),
+  z.object({ command: z.literal('set_fan_speed'), fanSpeed: vacuumChoiceSchema }),
+  z.object({ command: z.literal('set_clean_mode'), cleanMode: z.enum(VACUUM_CLEAN_MODES) }),
+  z.object({ command: z.literal('set_water_level'), waterLevel: vacuumChoiceSchema }),
 ]);
 
 // --- image -------------------------------------------------------------------------------
@@ -632,12 +827,19 @@ export const selectCommandSchema = z.discriminatedUnion('command', [
  */
 export const numberStateSchema = z.object({ value: z.number().nullable().default(null) });
 
-/** How low and how high the setting goes, and in what steps. */
+/**
+ * How a number is set: on a slider, typed in a box, or `auto` - a slider while the steps between
+ * min and max are few enough to drag through, a box beyond.
+ */
+export const NUMBER_MODES = ['auto', 'slider', 'box'] as const;
+
+/** How low and how high the setting goes, in what steps, and how it is set. */
 export const numberParamsSchema = z
   .object({
     min: z.number(),
     max: z.number(),
     step: z.number().positive().default(1),
+    mode: z.enum(NUMBER_MODES).default('auto'),
   })
   .refine((params) => params.min < params.max, {
     message: 'min must be below max',
@@ -648,6 +850,76 @@ export const numberParamsSchema = z
 export const numberCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('set_value'), value: z.number() }),
 ]);
+
+// --- fan ---------------------------------------------------------------------------------
+
+/** Which way a fan's blades turn. */
+export const FAN_DIRECTIONS = ['forward', 'reverse'] as const;
+
+/** A preset's name as the fan calls it. */
+const fanPresetSchema = z.string().min(1).max(64);
+
+/**
+ * A fan's speed as a percentage, the preset it runs, whether its head swings side to side, and
+ * which way its blades turn. Whether it is on is `on_off` beside this, as a lamp's is; each value
+ * here is absent on a fan that does not have it.
+ */
+export const fanStateSchema = z.object({
+  percentage: z.number().min(0).max(100).optional(),
+  preset: fanPresetSchema.nullable().optional(),
+  isOscillating: z.boolean().optional(),
+  direction: z.enum(FAN_DIRECTIONS).optional(),
+});
+
+/**
+ * How many speeds the fan has (0: none, it only switches; a percentage then moves in steps of
+ * 100 / speedCount, as Matter's SpeedMax), its presets, and whether it can oscillate or reverse.
+ */
+export const fanParamsSchema = z.object({
+  speedCount: z.int().min(0).max(100).default(0),
+  presets: z.array(fanPresetSchema).max(32).default([]),
+  canOscillate: z.boolean().default(false),
+  canReverse: z.boolean().default(false),
+});
+
+/** Setting the speed, a preset, the swing or the direction. */
+export const fanCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('set_percentage'), percentage: z.number().min(0).max(100) }),
+  z.object({ command: z.literal('set_preset'), preset: fanPresetSchema }),
+  z.object({ command: z.literal('set_oscillating'), isOscillating: z.boolean() }),
+  z.object({ command: z.literal('set_direction'), direction: z.enum(FAN_DIRECTIONS) }),
+]);
+
+// --- location ----------------------------------------------------------------------------
+
+/**
+ * Where a location comes from: a GPS fix, or only seen on the network or over Bluetooth - which
+ * says home or away and no position - or an event with a place of its own (an earthquake, a
+ * fire), placed by its distance from the house.
+ */
+export const LOCATION_SOURCES = ['gps', 'router', 'bluetooth', 'bluetooth_le', 'event'] as const;
+
+/**
+ * Where a tracked thing is (a phone, a car, a tag), or where an event happened.
+ *
+ * `zone` is `home`, `away`, or the name of the zone it is in; null until there is a fix. Only a
+ * GPS source has a position; a router or Bluetooth source has the network facts instead; an
+ * event has its distance from the house.
+ */
+export const locationStateSchema = z.object({
+  zone: z.string().min(1).max(64).nullable().default(null),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  accuracyMeters: z.number().min(0).optional(),
+  locationName: z.string().min(1).max(128).optional(),
+  distanceKm: z.number().min(0).optional(),
+  ipAddress: z.string().min(1).max(64).optional(),
+  macAddress: z.string().min(1).max(32).optional(),
+  hostName: z.string().min(1).max(128).optional(),
+});
+
+/** Where this location comes from, which decides what it can say. */
+export const locationParamsSchema = z.object({ source: z.enum(LOCATION_SOURCES).default('gps') });
 
 // --- the capability table ----------------------------------------------------------------
 
@@ -682,6 +954,7 @@ export const CAPABILITY_DEFINITIONS = {
     params: colorTempParamsSchema,
     commands: colorTempCommandSchema,
   },
+  effect: { state: effectStateSchema, params: effectParamsSchema, commands: effectCommandSchema },
   cover: { state: coverStateSchema, params: coverParamsSchema, commands: coverCommandSchema },
   lock: { state: lockStateSchema, params: lockParamsSchema, commands: lockCommandSchema },
   thermostat: {
@@ -720,6 +993,8 @@ export const CAPABILITY_DEFINITIONS = {
   select: { state: selectStateSchema, params: selectParamsSchema, commands: selectCommandSchema },
   number: { state: numberStateSchema, params: numberParamsSchema, commands: numberCommandSchema },
   vacuum: { state: vacuumStateSchema, params: vacuumParamsSchema, commands: vacuumCommandSchema },
+  fan: { state: fanStateSchema, params: fanParamsSchema, commands: fanCommandSchema },
+  location: { state: locationStateSchema, params: locationParamsSchema, commands: NO_COMMANDS },
   image: { state: imageStateSchema, params: imageParamsSchema, commands: NO_COMMANDS },
   custom: { state: customStateSchema, params: customParamsSchema, commands: customCommandSchema },
 } as const satisfies Record<CapabilityName, CapabilityDefinition>;
@@ -736,6 +1011,7 @@ export const capabilityStateSchema = z.object({
   level: levelStateSchema.optional(),
   color_hs: colorHsStateSchema.optional(),
   color_temp: colorTempStateSchema.optional(),
+  effect: effectStateSchema.optional(),
   cover: coverStateSchema.optional(),
   lock: lockStateSchema.optional(),
   thermostat: thermostatStateSchema.optional(),
@@ -750,6 +1026,8 @@ export const capabilityStateSchema = z.object({
   select: selectStateSchema.optional(),
   number: numberStateSchema.optional(),
   vacuum: vacuumStateSchema.optional(),
+  fan: fanStateSchema.optional(),
+  location: locationStateSchema.optional(),
   image: imageStateSchema.optional(),
   custom: customStateSchema.optional(),
 });

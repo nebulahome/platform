@@ -148,6 +148,20 @@ export function entityKindOf(
     return { label: translate('library.entityKind.cover', 'Cover'), icon: 'blinds', tone: 'cover' };
   }
 
+  if (has.has('fan') || entity.domain === 'fan') {
+    return { label: translate('library.entityKind.fan', 'Fan'), icon: 'fan', tone: 'climate' };
+  }
+
+  if (has.has('location')) {
+    return entity.domain === 'geo_location'
+      ? { label: translate('library.entityKind.event', 'Event'), icon: 'map-pin', tone: 'sensor' }
+      : {
+          label: translate('library.entityKind.tracker', 'Tracker'),
+          icon: 'map-pin',
+          tone: 'sensor',
+        };
+  }
+
   if (has.has('color_hs')) {
     return {
       label: translate('library.entityKind.colourLight', 'Colour light'),
@@ -263,6 +277,8 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return translate('library.entityKind.colour', 'Colour');
     case 'color_temp':
       return translate('library.entityKind.colourTemperature', 'Colour temperature');
+    case 'effect':
+      return translate('library.entityKind.effect', 'Effect');
     case 'cover':
       return translate('library.entityKind.position', 'Position');
     case 'lock':
@@ -291,6 +307,10 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return translate('library.entityKind.value', 'Value');
     case 'vacuum':
       return translate('library.entityKind.cleaning', 'Cleaning');
+    case 'fan':
+      return translate('library.entityKind.speed', 'Speed');
+    case 'location':
+      return translate('library.entityKind.location', 'Location');
     case 'image':
       return translate('library.entityKind.picture', 'Picture');
     case 'custom':

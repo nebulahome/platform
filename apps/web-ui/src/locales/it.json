@@ -4096,7 +4096,13 @@
       "textSensor": "Sensore di testo",
       "thermostat": "Termostato",
       "tunableWhiteLight": "Luce bianca regolabile",
-      "value": "Valore"
+      "value": "Valore",
+      "fan": "Ventilatore",
+      "event": "Evento",
+      "tracker": "Localizzatore",
+      "effect": "Effetto",
+      "speed": "Velocità",
+      "location": "Posizione"
     },
     "entityReading": {
       "away": "Assente",
