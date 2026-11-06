@@ -1,0 +1,23 @@
+#!/bin/sh
+# The container's health check (Dockerfile HEALTHCHECK), which an update waits on before it keeps
+# a new version (docs/releases-and-updates.md 4): the page answers, the API reaches the database,
+# and every service s6 is asked to keep up has been up for a while - one crashing in a loop never
+# is. A service taken down on purpose (nebula-reset-db) is left out, and so is `otbr`, which needs
+# a Thread radio the house may not have.
+# shortcut: "up for 10 s" misses a service that crashes later than that, every time; a readiness
+# signal from each service (s6 notification-fd) would catch it.
+set -u
+
+wget -qO- "http://127.0.0.1:${PROXY_HTTP_PORT:-8080}/healthz" >/dev/null || exit 1
+wget -qO- "http://127.0.0.1:${API_PORT:-4100}/readyz" >/dev/null || exit 1
+
+for service in postgres nats api core hub packet-manager backup supervisor proxy; do
+  # Wanted up, up, and the seconds since it last went up or down.
+  state="$(/command/s6-svstat -o wantedup,up,updownfor "/run/service/$service")" || exit 1
+  # shellcheck disable=SC2086 # three words, split on purpose
+  set -- $state
+
+  if [ "$1" = true ] && { [ "$2" != true ] || [ "$3" -lt 10 ]; }; then
+    exit 1
+  fi
+done

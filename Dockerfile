@@ -211,8 +211,10 @@ VOLUME ["/data", "/var/lib/postgresql/data", "/var/lib/nats"]
 # The page, and the house's MQTT broker (the hub's own) for the devices on the network.
 EXPOSE 8080 8443 1883
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
-  CMD wget -qO- "http://127.0.0.1:${PROXY_HTTP_PORT}/healthz" >/dev/null || exit 1
+# Every service, not just the proxy (infra/docker/bin/nebula-healthcheck); ten minutes on a first
+# start, for a long migration - a check that passes ends them early.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=600s --retries=3 \
+  CMD ["/usr/local/bin/nebula-healthcheck"]
 
 ENTRYPOINT ["/init"]
 # The TimescaleDB image's own command would be run by s6 as the container's program.

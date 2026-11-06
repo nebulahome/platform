@@ -87,10 +87,9 @@ services:
       - NET_ADMIN
     security_opt:
       - apparmor:unconfined
-    healthcheck:
-      # The image's own check - proxy's /healthz - with more time on the first start, when the
-      # keys are made and the database is created and migrated.
-      start_period: 180s
+    # No healthcheck here: the image's own (every service, ten minutes on a first start for the
+    # keys and a long migration) is the one an update waits on. A start_period set here would
+    # stay with the container across updates and cut a long migration short.
 
 volumes:
   nebula-data:
