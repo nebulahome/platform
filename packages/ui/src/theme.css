@@ -51,6 +51,15 @@
   /** The off track of a switch. Nothing else. */
   --color-control: #23273d;
 
+  /**
+   * The recessed box inside a dialog, one step below its card: an entity's history chart, its
+   * list of facts. Darker than the card it sits in, so it reads as a well rather than a tile.
+   */
+  --color-well: #0a0c16;
+
+  /** A sheet that rises over a dialog's own card: an entity's settings. One step above it. */
+  --color-sheet: #10121f;
+
   /* --- lines --------------------------------------------------------------------------- */
 
   /** Edges of cards and panels, dividers between rows, the rail's edge. It separates. */
@@ -115,6 +124,9 @@
 
   /** Sensors, charts, live scanning; the When lane of an automation. Wi-Fi on a network map. */
   --color-cyan: #4fd0ee;
+
+  /** A media player: a speaker, a television. */
+  --color-media: #ff5c9d;
 
   /** Thread, on a network map: its links, its routers. */
   --color-thread: #e879f9;

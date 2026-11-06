@@ -94,6 +94,8 @@
     --color-surface-raised: #f0f2f7;
     --color-surface-high: #e6e9f2;
     --color-control: #dbdee5;
+    --color-well: #f7f8fc;
+    --color-sheet: #fbfcfe;
 
     --color-border: #e3e6ee;
     --color-border-strong: #d2d5de;
@@ -115,6 +117,7 @@
     --color-heat: #c4551a;
     --color-violet: #6f3fd6;
     --color-cyan: #006b80;
+    --color-media: #b8236a;
     --color-thread: #a3249f;
 
     --color-success: #007840;
@@ -185,6 +188,8 @@
       --color-surface-raised: #f0f2f7;
       --color-surface-high: #e6e9f2;
       --color-control: #dbdee5;
+      --color-well: #f7f8fc;
+      --color-sheet: #fbfcfe;
 
       --color-border: #e3e6ee;
       --color-border-strong: #d2d5de;
@@ -206,6 +211,7 @@
       --color-heat: #c4551a;
       --color-violet: #6f3fd6;
       --color-cyan: #006b80;
+      --color-media: #b8236a;
       --color-thread: #a3249f;
 
       --color-success: #007840;
@@ -1133,4 +1139,147 @@
   box-shadow:
     0 0 0 1px var(--color-primary),
     var(--shadow-focus);
+}
+
+/*
+ * The entity dialog (apps/web-ui …/entity/sheet): a spinner while a command waits for the device
+ * to confirm it, a fan's blades turning at its speed (`--spin`) and its head swinging side to
+ * side, a ring turning round firmware being written, a dot blinking on a live picture, a glow
+ * breathing behind something at work, a mower or a robot swaying on its way, a flow along a path.
+ * All of it stops where less motion was asked for, and what it showed stays where it was.
+ */
+@keyframes entity-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes entity-swing {
+  from {
+    transform: rotate(-24deg);
+  }
+  to {
+    transform: rotate(24deg);
+  }
+}
+
+@keyframes entity-yaw {
+  from {
+    transform: rotateY(-32deg);
+  }
+  to {
+    transform: rotateY(32deg);
+  }
+}
+
+@keyframes entity-sway {
+  from {
+    transform: rotate(-7deg);
+  }
+  to {
+    transform: rotate(7deg);
+  }
+}
+
+@keyframes entity-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes entity-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes entity-dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@keyframes entity-flow {
+  to {
+    stroke-dashoffset: -140;
+  }
+}
+
+.entity-spin {
+  animation: entity-spin 0.9s linear infinite;
+}
+
+.entity-fan {
+  animation: entity-spin var(--spin, 1s) linear infinite;
+}
+
+.entity-ring {
+  animation: entity-spin 7s linear infinite;
+}
+
+.entity-swing {
+  animation: entity-swing 3.2s ease-in-out infinite alternate;
+}
+
+.entity-yaw {
+  animation: entity-yaw 3.6s ease-in-out infinite alternate;
+}
+
+.entity-sway {
+  transform-origin: 0% 50%;
+  animation: entity-sway 4s ease-in-out infinite alternate;
+}
+
+.entity-breathe {
+  animation: entity-breathe 3.4s ease-in-out infinite;
+}
+
+.entity-blink {
+  animation: entity-blink 1.4s ease-in-out infinite;
+}
+
+.entity-dash {
+  animation: entity-dash 1.1s linear infinite;
+}
+
+.entity-flow {
+  animation: entity-flow var(--flow, 1.6s) linear infinite;
+}
+
+[data-motion='reduced']
+  :is(
+    .entity-spin,
+    .entity-fan,
+    .entity-ring,
+    .entity-swing,
+    .entity-yaw,
+    .entity-sway,
+    .entity-breathe,
+    .entity-blink,
+    .entity-dash,
+    .entity-flow
+  ) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full'])
+    :is(
+      .entity-spin,
+      .entity-fan,
+      .entity-ring,
+      .entity-swing,
+      .entity-yaw,
+      .entity-sway,
+      .entity-breathe,
+      .entity-blink,
+      .entity-dash,
+      .entity-flow
+    ) {
+    animation: none;
+  }
 }
