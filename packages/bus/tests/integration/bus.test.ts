@@ -212,6 +212,27 @@ describe('the bus against a real broker', () => {
       expect(batch.deliveries).toHaveLength(0);
     });
 
+    it('ends a pull at once when it is stopped, not when it expires', async () => {
+      // core stops last of the services, and PostgreSQL waits for it: a pull that sat out its
+      // expiry held every restart back by as much.
+      const consumer = await createTelemetryConsumer({
+        connection: bus.connection,
+        durableName,
+        logger: silentLogger(),
+      });
+      const stopping = new AbortController();
+      const started = Date.now();
+
+      setTimeout(() => {
+        stopping.abort();
+      }, 100);
+
+      const batch = await consumer.pull(10, 10_000, stopping.signal);
+
+      expect(Date.now() - started).toBeLessThan(2000);
+      expect(batch.deliveries).toHaveLength(0);
+    });
+
     it('accepts a reading that has been through JSON', () => {
       // What the durable consumer reads back is text, so the timestamp arrives as a string. The
       // schema has to accept that or every stored reading is rejected on the way back in.

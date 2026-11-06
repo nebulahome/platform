@@ -75,9 +75,11 @@ export async function runTelemetryCycle(
   consumer: TelemetryConsumer,
   options: TelemetryIngestOptions,
 ): Promise<TelemetryIngestCycle> {
+  // Stopping ends the wait: core stops last of the services, and PostgreSQL only after it.
   const batch = await consumer.pull(
     options.batchSize ?? DEFAULT_BATCH_SIZE,
     options.pullTimeoutMs ?? DEFAULT_PULL_TIMEOUT_MS,
+    options.signal,
   );
 
   if (batch.deliveries.length === 0) {

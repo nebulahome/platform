@@ -160,9 +160,15 @@ export type TelemetryConsumer = {
    * @param maxMessages - Largest batch to return.
    * @param expiresMs - How long to wait when fewer than that are available. Raised to
    * {@link MIN_PULL_EXPIRY_MS} when it is below what the server accepts.
+   * @param signal - Ends the wait at once, with what arrived so far: a service stopping does not
+   * sit out the rest of `expiresMs`.
    * @returns The batch, possibly empty when nothing arrived in time.
    */
-  readonly pull: (maxMessages: number, expiresMs: number) => Promise<TelemetryBatch>;
+  readonly pull: (
+    maxMessages: number,
+    expiresMs: number,
+    signal?: AbortSignal,
+  ) => Promise<TelemetryBatch>;
 };
 
 /**
@@ -226,24 +232,46 @@ export async function createTelemetryConsumer(
      *
      * @param maxMessages - Largest batch to return.
      * @param expiresMs - How long to wait for it.
+     * @param signal - Ends the wait with what arrived so far.
      * @returns The batch, possibly empty.
      */
-    pull: async (maxMessages: number, expiresMs: number): Promise<TelemetryBatch> => {
+    pull: async (
+      maxMessages: number,
+      expiresMs: number,
+      signal?: AbortSignal,
+    ): Promise<TelemetryBatch> => {
       const messages = await consumer.fetch({
         max_messages: maxMessages,
         expires: Math.max(expiresMs, MIN_PULL_EXPIRY_MS),
       });
+      /**
+       * Ends the wait. A reading the server sends after it is not lost: unacknowledged, it comes
+       * again once the acknowledgement window has passed.
+       */
+      const stop = (): void => {
+        messages.stop();
+      };
+
+      signal?.addEventListener('abort', stop, { once: true });
+
+      if (signal?.aborted === true) {
+        stop();
+      }
 
       const accepted: JsMsg[] = [];
       const deliveries: TelemetryDelivery[] = [];
 
-      for await (const message of messages) {
-        const delivery = decodeDelivery(message, options.logger);
+      try {
+        for await (const message of messages) {
+          const delivery = decodeDelivery(message, options.logger);
 
-        if (delivery !== null) {
-          accepted.push(message);
-          deliveries.push(delivery);
+          if (delivery !== null) {
+            accepted.push(message);
+            deliveries.push(delivery);
+          }
         }
+      } finally {
+        signal?.removeEventListener('abort', stop);
       }
 
       return {
