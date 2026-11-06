@@ -10,6 +10,7 @@ import type { BusClient } from '@nebulahome/bus';
 import {
   busSubjects,
   compareVersions,
+  ConflictError,
   DeviceUnavailableError,
   integrationAvailableReplySchema,
   PACKET_MANAGER_METHODS,
@@ -24,6 +25,7 @@ import {
   channelIn,
   updateChannelSchema,
   updateStatusReplySchema,
+  ValidationError,
   type PlatformReleasesReply,
   type PlatformState,
   type SystemUpdatesView,
@@ -251,19 +253,80 @@ export async function checkSystemUpdates(context: SystemUpdatesContext): Promise
 }
 
 /**
+ * The key an item is told apart by: one Nebula Home, one row per package or integration.
+ *
+ * @param item - The item.
+ * @returns Its key.
+ */
+function keyOf(item: UpdateItem): string {
+  return item.kind === 'core' ? 'core' : `${item.kind}:${item.id}`;
+}
+
+/**
+ * What a round may update, out of what the list offers: an update is only ever to the release
+ * offered, so a round never installs what the list does not show - another version of Nebula
+ * Home, one off its channel, an integration not installed.
+ *
+ * @param view - The list.
+ * @param items - What was asked for; every row when absent, Nebula Home left out when it cannot
+ *   update itself here.
+ * @returns The items, each once.
+ * @throws {ValidationError} For an item the list does not offer.
+ * @throws {ConflictError} For Nebula Home asked for where it cannot update itself, saying why.
+ */
+export function offeredItems(
+  view: Pick<SystemUpdatesView, 'core' | 'rows'>,
+  items: readonly UpdateItem[] | undefined,
+): UpdateItem[] {
+  const refusal = view.core?.refusal ?? null;
+
+  if (items === undefined) {
+    return view.rows
+      .map((row) => row.item)
+      .filter((item) => item.kind !== 'core' || refusal === null);
+  }
+
+  const offered = new Map(view.rows.map((row) => [keyOf(row.item), row]));
+  const wanted = new Map<string, UpdateItem>();
+
+  for (const item of items) {
+    const row = offered.get(keyOf(item));
+
+    if (row === undefined || (item.kind === 'core' && item.version !== row.latestVersion)) {
+      throw new ValidationError(
+        item.kind === 'core'
+          ? `Nebula Home ${item.version} is not the update offered`
+          : `${item.id} has no update to install`,
+        { details: { item } },
+      );
+    }
+
+    if (item.kind === 'core' && refusal !== null) {
+      throw new ConflictError(refusal, { details: { reason: 'cannot-update' } });
+    }
+
+    wanted.set(keyOf(item), item);
+  }
+
+  return [...wanted.values()];
+}
+
+/**
  * Starts a round of updates: the items asked for, or every row of the list.
  *
  * @param context - The request's collaborators.
  * @param items - What to update; every row when absent.
  * @param requestedBy - Who asked.
  * @returns The round as it starts, or null when there was nothing to update.
+ * @throws {ValidationError} For an item the list does not offer.
+ * @throws {ConflictError} For Nebula Home asked for where it cannot update itself.
  */
 export async function runSystemUpdates(
   context: SystemUpdatesContext,
   items: readonly UpdateItem[] | undefined,
   requestedBy: Requester,
 ): Promise<UpdateRound | null> {
-  const wanted = items ?? (await systemUpdates(context)).rows.map((row) => row.item);
+  const wanted = offeredItems(await systemUpdates(context), items);
 
   if (wanted.length === 0) {
     return null;
