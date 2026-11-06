@@ -330,13 +330,16 @@ A restart or an update of Nebula Home takes over **every signed-in page**, whoev
   it gave up. The percentage never goes back: Docker says a layer's size only once it starts
   downloading it, so a layer still waiting counts as one of average size. `api` forwards it as `platform_event` on the WebSocket topic `system`, to every socket
   without a permission. `GET /api/v1/system/platform` (any signed-in user) answers
-  `{version, machine, operation, lastUpdate}` from the supervisor's `platform_state`; the page reads it
+  `{version, machine, operation, lastUpdate}` from the supervisor's `platform_state`, and
+  `isHubUp`, whether the hub gave its catalogue within a second; the page reads it
   each time the live channel connects, so one opened mid-way still shows the screen. The packet-manager
   passes the size of the backup the round took or reused (`backupBytes`).
 - **What the page sees for itself** (`system/platform-store.ts`, `platform-progress.ts`): the server
-  not answering (`/api/versions`, every 1.5 s, or the live channel dropping), answering again, then
-  for an update the outcome in `lastUpdate` (success, or rolled back / failed) and for a restart the
-  live channel back. The steps and their durations are those moments: restart - automations paused,
+  not answering (`/api/versions`, every 1.5 s, every 0.5 s once it went away, or the live channel
+  dropping), answering again, then for an update the outcome in `lastUpdate` (success, or rolled
+  back / failed) and for a restart the live channel back and the hub up. As the server answers
+  again the live channel opens at once (`reconnectsNow`), instead of when its back-off says - by
+  then up to ten seconds away. The steps and their durations are those moments: restart - automations paused,
   state saved (server gone), services starting (server back), devices reconnecting (live channel);
   update - backing up / backed up (size), downloaded (size), installing, restarting the services,
   checking every service. The update's bar is 5 % while the backup runs, the download's share
@@ -347,8 +350,10 @@ A restart or an update of Nebula Home takes over **every signed-in page**, whoev
   running, still at work, and the screen goes back to it; none, with no outcome, while the old
   version runs is an update given up before the updater (the screen goes, the list is read again);
   none while the new version runs is an update that went in. A restart is over only once the
-  server reports nothing under way and the live channel is back. One look at a time, each
-  question given up after 1.5 s.
+  server reports nothing under way, the live channel is back and the hub answers - the devices
+  come back with it, and the page reads everything again as the screen goes - or 20 s after the
+  server came back without it (`HUB_WAIT_MS`). One look at a time, each question given up after
+  1.5 s.
 - **The transition.** The page behind blurs, dims and shrinks (`.app-stage-back`), the mark
   appears in the middle out of a blur, turns slowly and its core breathes while the server is away. A
   restart's screen fades out and the page reads everything again; an update reloads the page (the

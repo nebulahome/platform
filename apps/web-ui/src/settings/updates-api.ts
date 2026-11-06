@@ -5,10 +5,10 @@
 import { z } from 'zod';
 
 import {
-  platformStateSchema,
+  platformViewSchema,
   systemUpdatesViewSchema,
   updateRoundSchema,
-  type PlatformState,
+  type PlatformView,
   type SystemUpdatesView,
   type UpdateItem,
   type UpdateRound,
@@ -41,8 +41,8 @@ export async function fetchSystemUpdates(signal?: AbortSignal): Promise<SystemUp
  * @param signal - Cancels the request.
  * @returns The state.
  */
-export async function fetchPlatformState(signal?: AbortSignal): Promise<PlatformState> {
-  return apiRequest('/system/platform', platformStateSchema, {
+export async function fetchPlatformState(signal?: AbortSignal): Promise<PlatformView> {
+  return apiRequest('/system/platform', platformViewSchema, {
     ...(signal === undefined ? {} : { signal }),
   });
 }

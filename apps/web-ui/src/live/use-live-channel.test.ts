@@ -1,5 +1,6 @@
 /**
- * Which lists a message from the live channel has read again.
+ * Which lists a message from the live channel has read again, and when the channel opens again
+ * without waiting.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -9,7 +10,7 @@ import { BACKUP_QUERY_KEYS } from '@/backup/api';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { LINK_QUERY_KEYS } from '@/library/links-api';
 
-import { KEPT_FRESH, staleAfter } from './use-live-channel';
+import { KEPT_FRESH, reconnectsNow, staleAfter } from './use-live-channel';
 
 /**
  * A device event, as the server sends it.
@@ -110,5 +111,25 @@ describe('staleAfter', () => {
         expect(kept, JSON.stringify(key)).toContain(JSON.stringify(key));
       }
     }
+  });
+});
+
+describe('reconnectsNow', () => {
+  it('opens the channel at once as Nebula Home answers again', () => {
+    expect(reconnectsNow('back', 'away', 'offline')).toBe(true);
+  });
+
+  it('opens it once, not on every look while the server is back', () => {
+    expect(reconnectsNow('back', 'back', 'offline')).toBe(false);
+  });
+
+  it('leaves a socket already opening, or open, alone', () => {
+    expect(reconnectsNow('back', 'away', 'connecting')).toBe(false);
+    expect(reconnectsNow('back', 'away', 'live')).toBe(false);
+  });
+
+  it('waits while the server is still away', () => {
+    expect(reconnectsNow('away', 'stopping', 'offline')).toBe(false);
+    expect(reconnectsNow(undefined, undefined, 'offline')).toBe(false);
   });
 });

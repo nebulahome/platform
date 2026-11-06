@@ -2,7 +2,7 @@
  * How the page looks for Nebula Home while it restarts or updates itself
  * (docs/releases-and-updates.md 4, What every page shows): whether it answers (`/api/versions`, no
  * sign-in), then what it says of itself (`GET /system/platform`), then - for a restart - the live
- * channel coming back.
+ * channel coming back and the hub answering, which the devices come back with.
  *
  * The live channel dropping is only a fast hint that the server went away: a socket also drops
  * when its token expires. Once the server answers, what it says decides: an operation still at an
@@ -14,8 +14,17 @@ import { useLive } from '@/live/live-store';
 import { fetchPlatformState, isPlatformUp, UPDATES_QUERY_KEY } from '@/settings/updates-api';
 import { isEnded, stageRank, usePlatform } from '@/system/platform-store';
 
-/** How often the page looks for the server while it is away, and how long one question may take. */
+/** How often the page looks while the server still works at it, and how long one question may take. */
 export const POLL_MS = 1500;
+
+/** How often it looks once the server went away: the screen goes as soon as it is back. */
+export const AWAY_POLL_MS = 500;
+
+/**
+ * How long a restart waits for the hub once the server answers again: one that does not come up
+ * keeps nobody on the screen.
+ */
+export const HUB_WAIT_MS = 20_000;
 
 /** The look under way, which a second one waits for instead of asking again. */
 let looking: Promise<void> | null = null;
@@ -70,10 +79,13 @@ async function lookOnce(queryClient: QueryClient): Promise<void> {
 
     if (kind === 'restart') {
       // Still stopping: the page took a dropped socket for the restart. Over once the server says
-      // nothing is under way and the live channel is back.
+      // nothing is under way, the live channel is back and the hub answers - or has had its time.
+      const backAt = usePlatform.getState().watch?.seenAt.back ?? Date.now();
+      const isHubDone = state.isHubUp || Date.now() - backAt >= HUB_WAIT_MS;
+
       if (state.operation !== null) {
         follow(state.operation);
-      } else if (useLive.getState().status === 'live') {
+      } else if (useLive.getState().status === 'live' && isHubDone) {
         reach('done');
       }
 

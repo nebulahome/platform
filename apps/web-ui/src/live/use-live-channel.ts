@@ -13,7 +13,9 @@
  *
  * A channel that comes back after a drop forgets what it had said and has every list it keeps
  * fresh read again: nothing replays the changes made while it was down, and a reading kept from
- * before the drop would stand over the fresh one until the entity happened to change again.
+ * before the drop would stand over the fresh one until the entity happened to change again. After
+ * a restart or an update it comes back as soon as the page sees Nebula Home answer, not when its
+ * back-off says ({@link reconnectsNow}).
  */
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useEffect } from 'react';
@@ -28,13 +30,13 @@ import { refreshAccessToken } from '@/lib/api-client';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { INTEGRATION_CATALOGUE_KEYS } from '@/library/integration-catalogue-api';
 import { LINK_QUERY_KEYS } from '@/library/links-api';
-import { LiveClient } from '@/live/live-client';
+import { LiveClient, type LiveStatus } from '@/live/live-client';
 import { useLive } from '@/live/live-store';
 import { packageLive } from '@/live/package-live';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { SETTINGS_QUERY_KEYS } from '@/settings/api';
 import { fetchPlatformState, UPDATES_QUERY_KEY } from '@/settings/updates-api';
-import { usePlatform } from '@/system/platform-store';
+import { usePlatform, type PlatformStage } from '@/system/platform-store';
 
 /**
  * How long stale lists wait to be read again, in milliseconds: a hub starting thirty devices says
@@ -183,6 +185,26 @@ export function staleAfter(message: WsServerMessage): readonly QueryKey[] {
 }
 
 /**
+ * Whether the channel opens again at once rather than when its back-off says.
+ *
+ * Nebula Home answering again after a restart or an update is the moment it can: by then the
+ * back-off may have grown to ten seconds. Once, as the page sees it come back, and only while the
+ * channel waits - a socket already opening would be thrown away.
+ *
+ * @param stage - Where the page has seen the operation get to.
+ * @param before - Where it had got to before.
+ * @param status - Where the channel stands.
+ * @returns True to open it now.
+ */
+export function reconnectsNow(
+  stage: PlatformStage | undefined,
+  before: PlatformStage | undefined,
+  status: LiveStatus,
+): boolean {
+  return stage === 'back' && before !== 'back' && status === 'offline';
+}
+
+/**
  * Where the channel is, next to wherever the page was served from.
  *
  * @returns The socket URL.
@@ -323,7 +345,14 @@ export function useLiveChannel(): void {
 
     client.start();
 
+    const unwatch = usePlatform.subscribe((platform, before) => {
+      if (reconnectsNow(platform.watch?.stage, before.watch?.stage, useLive.getState().status)) {
+        client.reconnect();
+      }
+    });
+
     return (): void => {
+      unwatch();
       clearTimeout(pending);
       client.stop();
       useLive.getState().reset();

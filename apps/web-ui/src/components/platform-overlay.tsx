@@ -25,7 +25,7 @@ import { formatBytes } from '@/lib/format-bytes';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { useLive } from '@/live/live-store';
 import { releaseNotesUrl, runSystemUpdates } from '@/settings/updates-api';
-import { look, POLL_MS } from '@/system/platform-look';
+import { AWAY_POLL_MS, look, POLL_MS } from '@/system/platform-look';
 import {
   percentOf,
   stepsOf,
@@ -374,15 +374,18 @@ export function PlatformOverlay() {
     }
   }, []);
 
-  // While it runs, the page looks for the server itself.
+  // While it runs, the page looks for the server itself: more often once the server went away.
   useEffect(() => {
     if (stage === null || isEnded(stage)) {
       return undefined;
     }
 
-    const timer = setInterval(() => {
-      void look(queryClient);
-    }, POLL_MS);
+    const timer = setInterval(
+      () => {
+        void look(queryClient);
+      },
+      stageRank(stage) >= stageRank('away') ? AWAY_POLL_MS : POLL_MS,
+    );
 
     return (): void => {
       clearInterval(timer);

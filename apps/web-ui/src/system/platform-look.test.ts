@@ -1,11 +1,11 @@
 import { QueryClient } from '@tanstack/react-query';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { PlatformOperation, PlatformState } from '@nebulahome/contracts';
+import type { PlatformOperation, PlatformView } from '@nebulahome/contracts';
 
 import { useLive } from '@/live/live-store';
 import { fetchPlatformState, isPlatformUp, UPDATES_QUERY_KEY } from '@/settings/updates-api';
-import { look } from '@/system/platform-look';
+import { HUB_WAIT_MS, look } from '@/system/platform-look';
 import { usePlatform } from '@/system/platform-store';
 
 vi.mock('@/settings/updates-api', async (importOriginal) => ({
@@ -44,7 +44,7 @@ const RESTART = operation({ kind: 'restart', phase: 'stopping', toVersion: null,
  *
  * @param state - What differs from the version that was running, with nothing under way.
  */
-function answers(state: Partial<PlatformState> = {}): void {
+function answers(state: Partial<PlatformView> = {}): void {
   vi.mocked(isPlatformUp).mockResolvedValue(true);
   vi.mocked(fetchPlatformState).mockResolvedValue({
     version: '2026.10.1',
@@ -52,6 +52,7 @@ function answers(state: Partial<PlatformState> = {}): void {
     startedAt: STARTED,
     operation: null,
     lastUpdate: null,
+    isHubUp: true,
     ...state,
   });
 }
@@ -75,6 +76,10 @@ describe('looking for Nebula Home', () => {
     usePlatform.getState().dismiss();
     useLive.getState().setStatus('live');
     queryClient = new QueryClient();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('takes the server not answering for it gone', async () => {
@@ -172,6 +177,37 @@ describe('looking for Nebula Home', () => {
     expect(usePlatform.getState().watch?.stage).toBe('back');
 
     useLive.getState().setStatus('live');
+    await look(queryClient);
+
+    expect(usePlatform.getState().watch?.stage).toBe('done');
+  });
+
+  it('keeps a restart on the screen until the hub answers too', async () => {
+    usePlatform.getState().follow(RESTART);
+    answers({ isHubUp: false });
+
+    await lookAfterADrop(queryClient);
+
+    // The server and the live channel are back, the devices not yet.
+    expect(usePlatform.getState().watch?.stage).toBe('back');
+
+    answers();
+    await look(queryClient);
+
+    expect(usePlatform.getState().watch?.stage).toBe('done');
+  });
+
+  it('ends a restart whose hub does not come up once it has had its time', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(STARTED);
+    usePlatform.getState().follow(RESTART);
+    answers({ isHubUp: false });
+
+    await lookAfterADrop(queryClient);
+
+    expect(usePlatform.getState().watch?.stage).toBe('back');
+
+    vi.setSystemTime(STARTED.getTime() + HUB_WAIT_MS);
     await look(queryClient);
 
     expect(usePlatform.getState().watch?.stage).toBe('done');
