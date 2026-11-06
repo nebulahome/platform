@@ -203,6 +203,22 @@ function newestIn(
 }
 
 /**
+ * A version's numbers and its prerelease, without its build: split at the first dash only, since
+ * a prerelease may hold dashes of its own (`1.0.0-dev-2`).
+ *
+ * @param version - The version.
+ * @returns Its numbers, and its prerelease when it has one.
+ */
+function splitPrerelease(version: string): [string, string | undefined] {
+  const [withoutBuild = ''] = version.split('+');
+  const dash = withoutBuild.indexOf('-');
+
+  return dash === -1
+    ? [withoutBuild, undefined]
+    : [withoutBuild.slice(0, dash), withoutBuild.slice(dash + 1)];
+}
+
+/**
  * Compares two versions by their numbers, a prerelease below its release.
  *
  * @param left - One version.
@@ -210,8 +226,8 @@ function newestIn(
  * @returns Negative, zero or positive, as `left` is older, the same, or newer.
  */
 export function compareVersions(left: string, right: string): number {
-  const [leftCore = '', leftPre] = left.split('+')[0]?.split('-', 2) ?? [];
-  const [rightCore = '', rightPre] = right.split('+')[0]?.split('-', 2) ?? [];
+  const [leftCore, leftPre] = splitPrerelease(left);
+  const [rightCore, rightPre] = splitPrerelease(right);
   const leftParts = leftCore.split('.').map(Number);
   const rightParts = rightCore.split('.').map(Number);
 

@@ -305,4 +305,10 @@ describe('comparing versions', () => {
     expect(compareVersions('1.0.0-alpha', '1.0.0-alpha.1')).toBeLessThan(0);
     expect(compareVersions('1.0.0-alpha.1', '1.0.0-alpha.beta')).toBeLessThan(0);
   });
+
+  it('keeps every dash of a prerelease', () => {
+    expect(compareVersions('1.0.0-dev-2', '1.0.0-dev-3')).toBeLessThan(0);
+    expect(compareVersions('1.0.0-dev-3', '1.0.0-dev-3+build-1')).toBe(0);
+    expect(compareVersions('1.0.0-dev-3', '1.0.0')).toBeLessThan(0);
+  });
 });
