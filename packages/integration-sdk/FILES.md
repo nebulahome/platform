@@ -359,16 +359,9 @@ A command's request carries values out of the command as **references** -
 `{ "$": "command.level" }`. A device that counts in other units says so: `scale`
 multiplies a number, `decimals` rounds it, `min` and `max` clamp it, in that order, and
 `"optional": true` leaves the key out of the request when the command does not carry the value,
-instead of sending `null`. That is how a fade reaches a Shelly dimmer, which takes seconds:
-`"transition_duration": { "$": "command.transitionMs", "scale": 0.001, "decimals": 1,
-"optional": true }`. A reference is still a path and nothing more; anything it does not name is a
-literal.
-
-A light that can **fade** says so on each capability that can: `"on_off": { "hasTransition":
-true }`, and the same on `level`, `color_hs` and `color_temp`. The
-platform drops `transitionMs` from a command to a capability that does not say so, and the editor
-offers no Transition field for it, so a lamp that changes at once is never promised a fade. A
-device added before its driver said so keeps what it was added with until it is added again.
+instead of sending `null`. That is how a level reaches a lamp that counts brightness from 0 to 255:
+`"brightness": { "$": "command.level", "scale": 2.55, "decimals": 0, "max": 255 }`. A reference
+is still a path and nothing more; anything it does not name is a literal.
 
 ### Firmware updates
 
