@@ -76,6 +76,9 @@ export type PowerTargetProps = {
 
   /** Its glyph: power, or a plug for a socket. */
   readonly icon?: UiIconId;
+
+  /** Whether a command is on its way: the glyph turns into a spinner, so no word moves. */
+  readonly isSending?: boolean;
 };
 
 /**
@@ -86,6 +89,7 @@ export type PowerTargetProps = {
  * @returns The target.
  */
 export function PowerTarget(props: PowerTargetProps) {
+  const { t } = useTranslation();
   const { label, isOn, onChange, tone, disabled = false } = props;
   // Each switching on sends out one ring; its count keys it, so the next one plays again.
   const [rings, setRings] = useState(0);
@@ -127,7 +131,17 @@ export function PowerTarget(props: PowerTargetProps) {
           )}
         />
       )}
-      <AppIcon id={props.icon ?? 'power'} size={48} strokeWidth={1.6} />
+      {props.isSending === true ? (
+        <span
+          role="status"
+          aria-label={t('entity.sheet.sending', 'Sending')}
+          className="entity-spin flex"
+        >
+          <AppIcon id="loader-circle" size={48} strokeWidth={1.6} />
+        </span>
+      ) : (
+        <AppIcon id={props.icon ?? 'power'} size={48} strokeWidth={1.6} />
+      )}
     </button>
   );
 }
@@ -428,6 +442,9 @@ export type RoundActionProps = {
   /** Its size: 52 beside a main button, 44 in a row. */
   readonly size?: 'large' | 'medium';
 
+  /** Whether it is lit in the interface's colour: Stop while a cover moves. */
+  readonly isLit?: boolean;
+
   /** Whether it cannot be used now. */
   readonly disabled?: boolean;
 };
@@ -449,8 +466,12 @@ export function RoundAction(props: RoundActionProps) {
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'press-scale flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-border-strong bg-surface-raised p-0 text-foreground',
-        'hover:border-foreground-subtle disabled:cursor-not-allowed disabled:opacity-50',
+        'press-scale flex shrink-0 cursor-pointer items-center justify-center rounded-full border p-0',
+        'transition-colors duration-300 hover:border-foreground-subtle disabled:cursor-not-allowed disabled:opacity-50',
+        props.isLit === true
+          ? 'border-primary/50 bg-primary/12 text-primary'
+          : 'border-border-strong bg-surface-raised text-foreground',
+
         size === 'large' ? 'size-13' : 'size-11',
       )}
     >
@@ -556,6 +577,9 @@ export type ThinSliderProps = {
   /** The colour of the track up to the knob: a class, `bg-…`. */
   readonly fill?: string;
 
+  /** What its two ends say; 0% and 100% when not given. */
+  readonly ends?: readonly [string, string];
+
   /** Whether it cannot be used now. */
   readonly disabled?: boolean;
 };
@@ -605,8 +629,8 @@ export function ThinSlider(props: ThinSliderProps) {
         />
       </div>
       <div className="flex justify-between font-mono text-[10px] text-foreground-subtle">
-        <span>{t('entity.sheet.percent', '{{value}}%', { value: 0 })}</span>
-        <span>{t('entity.sheet.percent', '{{value}}%', { value: 100 })}</span>
+        <span>{props.ends?.[0] ?? t('entity.sheet.percent', '{{value}}%', { value: 0 })}</span>
+        <span>{props.ends?.[1] ?? t('entity.sheet.percent', '{{value}}%', { value: 100 })}</span>
       </div>
     </div>
   );

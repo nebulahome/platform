@@ -50,12 +50,15 @@ export function OnOffBody(props: OnOffBodyProps) {
       <div className="flex grow flex-col justify-center gap-5">
         <div className="flex items-center gap-4">
           <span className="flex size-16 items-center justify-center rounded-full border border-dashed border-border-strong text-foreground-muted">
-            <AppIcon id="toggle-right" size={26} />
+            {isSending ? (
+              <SendingSpinner tone={tone} size={26} />
+            ) : (
+              <AppIcon id="toggle-right" size={26} />
+            )}
           </span>
           <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-2 text-[22px] font-medium">
+            <span key={word} className="entity-tick text-[22px] font-medium">
               {t('entity.sheet.switch.lastSent', 'Last sent: {{state}}', { state: word })}
-              {isSending ? <SendingSpinner tone={tone} size={18} /> : null}
             </span>
             <span className="text-ui-sm text-foreground-subtle">{since}</span>
           </div>
@@ -96,12 +99,12 @@ export function OnOffBody(props: OnOffBodyProps) {
         onChange={turn}
         tone={tone}
         disabled={disabled}
+        isSending={isSending}
         {...(entity.deviceClass === 'outlet' ? { icon: 'plug' as const } : {})}
       />
       <div className="flex flex-col items-center gap-1.5 text-center">
-        <span className="flex items-center gap-2 text-[28px] font-medium tracking-[-0.02em]">
+        <span key={word} className="entity-tick text-[28px] font-medium tracking-[-0.02em]">
           {word}
-          {isSending ? <SendingSpinner tone={tone} size={20} /> : null}
         </span>
         <span className="text-ui-sm leading-[1.45] text-foreground-subtle">{since}</span>
       </div>

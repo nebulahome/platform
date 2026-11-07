@@ -3413,9 +3413,7 @@
         "opening": "Si apre",
         "position": "Posizione",
         "slatAngle": "Angolo delle lamelle",
-        "slatsAt": "lamelle a {{value}}°",
-        "stop": "Ferma",
-        "tiltOnly": "Lamelle a {{value}}° · solo inclinazione"
+        "stop": "Ferma"
       },
       "disabled": "Disattivata. Nascosta dalle scelte, gli stati non vengono registrati.",
       "enable": "Attiva",

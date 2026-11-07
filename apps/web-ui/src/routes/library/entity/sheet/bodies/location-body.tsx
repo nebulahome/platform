@@ -138,10 +138,14 @@ function LocationMap(props: MapProps) {
         </span>
       ) : (
         <span
-          className="absolute size-4.5 rounded-full border-3 border-surface bg-cyan shadow-[0_0_0_1px_var(--color-cyan),0_0_0_7px_color-mix(in_oklab,var(--color-cyan)_18%,transparent)]"
+          className="entity-track absolute size-4.5"
           // eslint-disable-next-line react/forbid-dom-props -- where the thing is
           style={{ left: dot.x - 9, top: dot.y - 9 }}
-        />
+        >
+          {/* A ring going out from it, now and again: this is where it is now. */}
+          <span className="entity-ping absolute -inset-1.5 rounded-full border border-cyan" />
+          <span className="absolute inset-0 rounded-full border-3 border-surface bg-cyan shadow-[0_0_0_1px_var(--color-cyan),0_0_0_7px_color-mix(in_oklab,var(--color-cyan)_18%,transparent)]" />
+        </span>
       )}
       {label === null || isHome ? null : (
         <span
@@ -254,7 +258,7 @@ export function LocationBody(props: SheetBodyProps) {
   const isNetwork = source !== 'gps';
 
   return (
-    <div className="flex grow flex-col gap-4.5 pt-1">
+    <div className="flex grow flex-col justify-center gap-4.5 pt-1">
       {hasPosition && !isNetwork ? (
         <LocationMap
           isHome={isHome}
@@ -280,7 +284,9 @@ export function LocationBody(props: SheetBodyProps) {
           <BatteryRing level={battery} tone="cyan" icon="map-pin" />
         )}
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-[24px] font-medium tracking-[-0.02em]">{word}</span>
+          <span key={word} className="entity-tick text-[24px] font-medium tracking-[-0.02em]">
+            {word}
+          </span>
           <span className="text-ui-sm text-foreground-subtle">
             {isNetwork && isHome
               ? t('entity.sheet.location.connectedSince', 'Connected {{since}}', {

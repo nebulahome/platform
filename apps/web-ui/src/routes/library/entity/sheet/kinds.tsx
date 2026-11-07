@@ -22,13 +22,13 @@ import { hasCapability, paramsOf } from '@/library/entity-control';
 import { entityKindOf } from '@/library/entity-kind';
 import { BINARY_WORDS } from '@/library/entity-reading';
 import { ENTITY_CONTROLS } from '@/routes/library/entity/controls/control-panel';
-import { ClimateBody } from '@/routes/library/entity/sheet/bodies/climate-body';
+import { ClimateBody, climateLookOf } from '@/routes/library/entity/sheet/bodies/climate-body';
 import { CoverBody } from '@/routes/library/entity/sheet/bodies/cover-body';
 import { FanBody } from '@/routes/library/entity/sheet/bodies/fan-body';
 import { ImageBody } from '@/routes/library/entity/sheet/bodies/image-body';
 import { LightBody } from '@/routes/library/entity/sheet/bodies/light-body';
 import { LocationBody } from '@/routes/library/entity/sheet/bodies/location-body';
-import { LockBody } from '@/routes/library/entity/sheet/bodies/lock-body';
+import { LockBody, lockToneOf } from '@/routes/library/entity/sheet/bodies/lock-body';
 import { MediaBody } from '@/routes/library/entity/sheet/bodies/media-body';
 import { MowerBody, VacuumBody } from '@/routes/library/entity/sheet/bodies/robot-body';
 import { BinaryBody, SensorBody } from '@/routes/library/entity/sheet/bodies/sensor-body';
@@ -110,9 +110,10 @@ const ALARMS = ['moisture', 'smoke', 'gas', 'problem', 'battery'];
  *
  * @param id - The kind.
  * @param entity - The entity: a binary sensor's colour is its class's, a restart button's red.
+ * @param state - Its state now: a lock's and a thermostat's colour is the one their body shows.
  * @returns The colour.
  */
-function toneOf(id: KindId, entity: EntityView): SheetTone {
+function toneOf(id: KindId, entity: EntityView, state: CapabilityState): SheetTone {
   const deviceClass = entity.deviceClass ?? '';
 
   switch (id) {
@@ -122,12 +123,14 @@ function toneOf(id: KindId, entity: EntityView): SheetTone {
     case 'media': {
       return 'media';
     }
-    case 'mower':
-    case 'lock': {
+    case 'mower': {
       return 'success';
     }
+    case 'lock': {
+      return state.lock === undefined ? 'success' : lockToneOf(state.lock);
+    }
     case 'climate': {
-      return 'heat';
+      return state.thermostat === undefined ? 'heat' : climateLookOf(state.thermostat).tone;
     }
     case 'light': {
       return 'lamp';
@@ -392,7 +395,8 @@ export function sheetKindOf(entity: EntityView, state: CapabilityState): SheetKi
   }
 
   return {
-    tone: toneOf(rule.id, entity),
+    tone: toneOf(rule.id, entity, state),
+
     icon: iconOf(rule.id, entity),
     words: wordsOf(rule.id, entity),
     isLit: isLitOf(rule.id, state),

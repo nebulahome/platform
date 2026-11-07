@@ -10,9 +10,10 @@
  * - presets as a list; the fan as a bar of levels with Auto apart, or chips; each swing as a
  *   segmented row; a humidity target as a thin slider.
  */
+import type { PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { THERMOSTAT_ACTIONS, THERMOSTAT_MODES } from '@nebulahome/contracts';
+import type { CapabilityState, THERMOSTAT_ACTIONS, THERMOSTAT_MODES } from '@nebulahome/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import { defineMessage, text, type Message } from '@/i18n/messages';
@@ -96,7 +97,7 @@ const ACTIONS: Readonly<Record<Action, { icon: UiIconId; tone: SheetTone; word: 
   },
   drying: {
     icon: 'droplet',
-    tone: 'cyan',
+    tone: 'primary',
     word: defineMessage('entity.sheet.climate.drying', 'Drying'),
   },
   fan: { icon: 'wind', tone: 'cyan', word: defineMessage('entity.sheet.climate.fanning', 'Fan') },
@@ -139,6 +140,54 @@ const FAN_LEVELS = ['quiet', 'silent', 'low', 'mid', 'medium', 'middle', 'high',
 /** The dial's box, its centre and its ticks. */
 const DIAL = 248;
 const CENTRE = DIAL / 2;
+
+/** What a thermostat shows itself as: its word, its glyph and its colour. */
+type ClimateLook = { readonly icon: UiIconId; readonly tone: SheetTone; readonly word: Message };
+
+/**
+ * What a thermostat is doing, in one look that agrees with its mode: heating in heat, cooling in
+ * cool, either in auto. An action its mode cannot have - heating while set to cool, a device
+ * still reporting what it did before - gives way to the mode, so the word, the glyph and the
+ * colour never contradict the mode chosen under them.
+ *
+ * @param climate - Its state.
+ * @returns The look; the dialog's header tile takes its colour too.
+ */
+export function climateLookOf(climate: NonNullable<CapabilityState['thermostat']>): ClimateLook {
+  const mode = MODES[climate.mode];
+  const action = ACTIONS[climate.action];
+
+  if (climate.mode === 'off' || climate.action === 'off') {
+    return mode;
+  }
+
+  if (climate.action === 'idle') {
+    return { ...action, tone: climate.mode === 'auto' ? 'success' : mode.tone };
+  }
+
+  return climate.mode === 'auto' || action.tone === mode.tone ? action : mode;
+}
+
+/**
+ * The value under a point of the dial, for a target dragged round it: the angle from the
+ * centre, measured along the dial's 270° from its start at the bottom left; the gap at the
+ * bottom gives the nearer end.
+ *
+ * @param x - The point, across the dial, in its own pixels.
+ * @param y - The point, down the dial.
+ * @param min - The dial's lowest.
+ * @param max - Its highest.
+ * @param step - The unit's step.
+ * @returns The value, on a step and within the dial.
+ */
+function valueAtPoint(x: number, y: number, min: number, max: number, step: number): number {
+  const degrees = (Math.atan2(y - CENTRE, x - CENTRE) * 180) / Math.PI;
+  const along = (degrees - 135 + 720) % 360;
+  const clamped = along <= 270 ? along : along > 315 ? 0 : 270;
+  const value = min + (clamped / 270) * (max - min);
+
+  return Math.min(max, Math.max(min, Math.round((value - min) / step) * step + min));
+}
 const TICKS = 61;
 
 /**
@@ -330,13 +379,9 @@ export function ClimateBody(props: SheetBodyProps) {
     climate.targetTemperatureHigh !== undefined;
   const now = climate.currentTemperature ?? null;
   const mode = climate.mode;
-  const action = ACTIONS[climate.action];
+  const action = climateLookOf(climate);
   const isOff = mode === 'off';
-  const tone: SheetTone = isOff
-    ? 'muted'
-    : action.tone === 'muted'
-      ? MODES[mode].tone
-      : action.tone;
+  const tone: SheetTone = isOff ? 'muted' : action.tone;
   const decimals = step < 1 ? 1 : 0;
   const [whole, fraction] = target.shown.toFixed(decimals).split('.');
   const isSending = commander.busy.has('thermostat');
@@ -394,6 +439,26 @@ export function ClimateBody(props: SheetBodyProps) {
     send({ command: 'set_target_range', ...next });
   };
 
+  /**
+   * Reads where the pointer is on the dial as a target.
+   *
+   * @param event - The pointer.
+   * @returns The target there.
+   */
+  const targetAt = (event: PointerEvent<HTMLDivElement>): number => {
+    const box = event.currentTarget.getBoundingClientRect();
+
+    return valueAtPoint(
+      event.clientX - box.left,
+      event.clientY - box.top,
+      params.minTemperature,
+      params.maxTemperature,
+      step,
+    );
+  };
+  // The target can be dragged round the dial, unless the dial shows a range or cannot be used.
+  const canDrag = !isRange && !disabled;
+
   const nowLine =
     now === null
       ? t('entity.sheet.climate.noRoomTemperature', 'No room temperature')
@@ -407,7 +472,31 @@ export function ClimateBody(props: SheetBodyProps) {
 
   return (
     <div className="flex grow flex-col justify-center gap-4.5">
-      <div className="relative h-54 w-62 self-center">
+      <div
+        className={cn(
+          'relative h-54 w-62 self-center',
+          canDrag && 'cursor-grab touch-none active:cursor-grabbing',
+        )}
+        onPointerDown={(event) => {
+          if (canDrag) {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            target.hold(targetAt(event));
+          }
+        }}
+        onPointerMove={(event) => {
+          if (canDrag && event.currentTarget.hasPointerCapture(event.pointerId)) {
+            target.hold(targetAt(event));
+          }
+        }}
+        onPointerUp={(event) => {
+          if (canDrag && event.currentTarget.hasPointerCapture(event.pointerId)) {
+            const next = targetAt(event);
+
+            target.sent(next);
+            send({ command: 'set_target', temperature: next });
+          }
+        }}
+      >
         {isOff || isRange ? null : (
           <span
             aria-hidden="true"
@@ -441,9 +530,12 @@ export function ClimateBody(props: SheetBodyProps) {
               TONE_TEXT[isRange && climate.action === 'idle' ? 'success' : tone],
             )}
           >
-            <AppIcon id={isOff ? 'power' : action.icon} size={14} />
+            {isSending ? (
+              <SendingSpinner tone={tone} size={14} />
+            ) : (
+              <AppIcon id={isOff ? 'power' : action.icon} size={14} />
+            )}
             {isOff ? text(MODES.off.word) : actionWord}
-            {isSending ? <SendingSpinner tone={tone} size={14} /> : null}
           </span>
           {isRange ? (
             <span className="flex items-baseline gap-2">

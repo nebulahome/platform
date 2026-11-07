@@ -25,6 +25,9 @@ export type HoldActionProps = {
   /** Whether it is the main action, filled in a colour: a class, `bg-success text-canvas`. */
   readonly fill?: string;
 
+  /** The colour it fills with while held, as a class: the thing's own colour now. */
+  readonly progress?: string;
+
   /** Its height: 56 alone, 52 in a pair. */
   readonly size?: 'large' | 'medium';
 
@@ -49,6 +52,7 @@ export function HoldAction(props: HoldActionProps) {
     onConfirm,
     durationMs = 1000,
     fill,
+    progress: progressColour = 'bg-warning/25',
     size = 'medium',
     disabled = false,
     isStacked = false,
@@ -134,7 +138,12 @@ export function HoldAction(props: HoldActionProps) {
     >
       <span
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 bg-warning/25"
+        className={cn(
+          'absolute inset-y-0 left-0',
+          progressColour,
+          // Filled frame by frame while held; let go, it drains back rather than vanishing.
+          progress === 0 && 'transition-[width] duration-300 ease-out',
+        )}
         // eslint-disable-next-line react/forbid-dom-props -- the fill is how long it has been held
         style={{ width: `${String(progress * 100)}%` }}
       />

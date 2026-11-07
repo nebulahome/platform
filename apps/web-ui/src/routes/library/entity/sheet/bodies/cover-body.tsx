@@ -46,99 +46,136 @@ type PictureProps = {
 function CoverPicture(props: PictureProps) {
   const { position, tilt, deviceClass, isTiltOnly } = props;
   const closed = 100 - position;
+  const isDoor = DOORS.has(deviceClass ?? '');
+  const isCurtain = deviceClass === 'curtain';
+  // How far the slats let light through, from shut (0) to edge on (1).
+  const slats = tilt === null ? 0 : Math.min(82, tilt) / 90;
+  // How much light comes through: the part uncovered, and between the slats of the part covered.
+  const light = isTiltOnly ? slats : position / 100 + (closed / 100) * slats * 0.7;
+  // The light it lets into the room glows round it, from where it comes in: under the blind or
+  // the door, between the curtains, or the whole window through open slats.
+  const glow = (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'entity-track pointer-events-none absolute rounded-[48px] blur-2xl',
+        isDoor ? 'bg-lamp' : 'bg-[#ffb36b]',
+        isCurtain ? '-inset-y-5' : '-inset-x-5 -bottom-7',
+      )}
+      // eslint-disable-next-line react/forbid-dom-props -- the glow is where the light comes in, as strong as it is
+      style={
+        isCurtain
+          ? {
+              left: `${String(closed / 2)}%`,
+              right: `${String(closed / 2)}%`,
+              opacity: 0.06 + light * 0.42,
+            }
+          : {
+              top: `${String(isTiltOnly ? 0 : closed * (1 - slats))}%`,
+              opacity: 0.06 + light * 0.42,
+            }
+      }
+    />
+  );
 
-  if (DOORS.has(deviceClass ?? '')) {
+  if (isDoor) {
     return (
-      <div
-        aria-hidden="true"
-        className="relative h-58 w-42 shrink-0 overflow-hidden rounded-card border-3 border-[#2d3352] bg-linear-to-b from-[#151a30] to-[#10142a] shadow-[0_24px_60px_-16px_color-mix(in_oklab,var(--color-lamp)_20%,transparent)]"
-      >
-        <span className="absolute inset-x-3.5 top-6.5 bottom-0 bg-linear-to-b from-[#0a0c16] via-[#2a2210] via-78% to-[#4a3814]" />
-        <span className="absolute inset-x-8.5 bottom-2.5 h-6.5 rounded-t-[10px] rounded-b-[4px] bg-[#1b2038]" />
-        <span
-          className="entity-track absolute inset-x-3.5 top-6.5 bg-[repeating-linear-gradient(180deg,#4a5287_0_2px,#3a4170_2px_22px,#262b45_22px_24px)] shadow-[0_8px_16px_rgb(0_0_0/0.5)]"
-          // eslint-disable-next-line react/forbid-dom-props -- the door comes down as far as it is closed
-          style={{ height: `calc(${String(closed)}% - ${String((closed / 100) * 26)}px)` }}
-        />
-        <span className="absolute inset-x-2 top-4 h-2.5 rounded-[4px] bg-[#2d3352]" />
+      <div className="relative shrink-0">
+        {glow}
+        <div
+          aria-hidden="true"
+          className="relative h-58 w-42 overflow-hidden rounded-card border-3 border-[#2d3352] bg-linear-to-b from-[#151a30] to-[#10142a] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.8)]"
+        >
+          <span className="absolute inset-x-3.5 top-6.5 bottom-0 bg-linear-to-b from-[#0a0c16] via-[#2a2210] via-78% to-[#4a3814]" />
+          <span className="absolute inset-x-8.5 bottom-2.5 h-6.5 rounded-t-[10px] rounded-b-[4px] bg-[#1b2038]" />
+          <span
+            className="entity-track absolute inset-x-3.5 top-6.5 bg-[repeating-linear-gradient(180deg,#4a5287_0_2px,#3a4170_2px_22px,#262b45_22px_24px)] shadow-[0_8px_16px_rgb(0_0_0/0.5)]"
+            // eslint-disable-next-line react/forbid-dom-props -- the door comes down as far as it is closed
+            style={{ height: `calc(${String(closed)}% - ${String((closed / 100) * 26)}px)` }}
+          />
+          <span className="absolute inset-x-2 top-4 h-2.5 rounded-[4px] bg-[#2d3352]" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      aria-hidden="true"
-      className="relative h-58 w-42 shrink-0 overflow-hidden rounded-card border-3 border-[#2d3352] bg-linear-to-b from-[#24306b] via-[#5a4aa8] via-48% to-[#ffb36b] shadow-[0_24px_60px_-14px_rgb(255_150_110/0.32),inset_0_0_0_1px_rgb(255_255_255/0.05)]"
-    >
-      <span className="absolute top-[70%] left-[58%] size-11.5 rounded-full bg-[radial-gradient(circle,#ffe0a8_0%,rgb(255_179_107/0.6)_45%,rgb(255_179_107/0)_72%)]" />
-      <span className="absolute inset-x-[-10%] -bottom-4 h-11 rounded-t-[50%] bg-[#1a1d3a]" />
-      {deviceClass === 'curtain' ? (
-        <>
-          {(['left-0', 'right-0'] as const).map((side) => (
+    <div className="relative shrink-0">
+      {glow}
+      <div
+        aria-hidden="true"
+        className="relative h-58 w-42 overflow-hidden rounded-card border-3 border-[#2d3352] bg-linear-to-b from-[#24306b] via-[#5a4aa8] via-48% to-[#ffb36b] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.8),inset_0_0_0_1px_rgb(255_255_255/0.05)]"
+      >
+        <span className="absolute top-[70%] left-[58%] size-11.5 rounded-full bg-[radial-gradient(circle,#ffe0a8_0%,rgb(255_179_107/0.6)_45%,rgb(255_179_107/0)_72%)]" />
+        <span className="absolute inset-x-[-10%] -bottom-4 h-11 rounded-t-[50%] bg-[#1a1d3a]" />
+        {deviceClass === 'curtain' ? (
+          <>
+            {(['left-0', 'right-0'] as const).map((side) => (
+              <span
+                key={side}
+                className={cn(
+                  'entity-track absolute inset-y-0 bg-[repeating-linear-gradient(90deg,#6b4a8f_0_8px,#563a78_8px_16px)]',
+                  side,
+                  side === 'left-0'
+                    ? 'shadow-[6px_0_12px_rgb(0_0_0/0.4)]'
+                    : 'shadow-[-6px_0_12px_rgb(0_0_0/0.4)]',
+                )}
+                // eslint-disable-next-line react/forbid-dom-props -- each half covers half of what is closed
+                style={{ width: `${String(closed / 2)}%` }}
+              />
+            ))}
+            <span className="absolute inset-x-0 top-0 h-1.5 bg-[#2d3352]" />
+          </>
+        ) : isTiltOnly ? (
+          [...Array.from({ length: 12 }).keys()].map((index) => (
             <span
-              key={side}
-              className={cn(
-                'entity-track absolute inset-y-0 bg-[repeating-linear-gradient(90deg,#6b4a8f_0_8px,#563a78_8px_16px)]',
-                side,
-                side === 'left-0'
-                  ? 'shadow-[6px_0_12px_rgb(0_0_0/0.4)]'
-                  : 'shadow-[-6px_0_12px_rgb(0_0_0/0.4)]',
-              )}
-              // eslint-disable-next-line react/forbid-dom-props -- each half covers half of what is closed
-              style={{ width: `${String(closed / 2)}%` }}
+              key={index}
+              className="entity-track absolute inset-x-1.5 h-2.25 rounded-[2px] bg-linear-to-b from-[#5a63a0] to-[#343b6a] shadow-[0_3px_4px_rgb(0_0_0/0.35)]"
+              // eslint-disable-next-line react/forbid-dom-props -- the slats turn to the cover's angle
+              style={{
+                top: `${String(8 + index * 18)}px`,
+                transform: `perspective(200px) rotateX(${String(tilt ?? 0)}deg)`,
+              }}
             />
-          ))}
-          <span className="absolute inset-x-0 top-0 h-1.5 bg-[#2d3352]" />
-        </>
-      ) : isTiltOnly ? (
-        [...Array.from({ length: 12 }).keys()].map((index) => (
-          <span
-            key={index}
-            className="entity-track absolute inset-x-1.5 h-2.25 rounded-[2px] bg-linear-to-b from-[#5a63a0] to-[#343b6a] shadow-[0_3px_4px_rgb(0_0_0/0.35)]"
-            // eslint-disable-next-line react/forbid-dom-props -- the slats turn to the cover's angle
-            style={{
-              top: `${String(8 + index * 18)}px`,
-              transform: `perspective(200px) rotateX(${String(tilt ?? 0)}deg)`,
-            }}
-          />
-        ))
-      ) : (
-        <>
-          <span className="absolute inset-y-0 left-1/2 -ml-px w-0.5 bg-[rgb(12_14_25/0.5)]" />
-          <span className="absolute inset-x-0 top-1/2 -mt-px h-0.5 bg-[rgb(12_14_25/0.5)]" />
-          <div
-            className={cn(
-              'entity-track absolute inset-x-0 top-0 overflow-hidden',
-              tilt === null
-                ? 'bg-[repeating-linear-gradient(180deg,#4a5287_0_2px,#343b6a_2px_10px,#1b1f35_10px_12px)] shadow-[0_6px_14px_rgb(0_0_0/0.45)]'
-                : 'shadow-[0_6px_14px_rgb(0_0_0/0.3)]',
-            )}
-            // eslint-disable-next-line react/forbid-dom-props -- the blind comes down as far as it is closed
-            style={{ height: `${String(closed)}%` }}
-          >
-            {tilt === null
-              ? null
-              : // The slats, turned to the tilt: flat and shut at 0°, edge on and letting the sky
-                // through towards 90°.
-                [...Array.from({ length: 20 }).keys()].map((index) => (
-                  <span
-                    key={index}
-                    className="entity-track absolute inset-x-0 h-2.75 bg-linear-to-b from-[#5a63a0] to-[#2c3260] shadow-[0_2px_3px_rgb(0_0_0/0.35)]"
-                    // eslint-disable-next-line react/forbid-dom-props -- each slat at the cover's angle
-                    style={{
-                      top: `${String(index * 12)}px`,
-                      transform: `perspective(240px) rotateX(${String(Math.min(82, tilt))}deg)`,
-                    }}
-                  />
-                ))}
-          </div>
-          <div
-            className="entity-track absolute -inset-x-0.5 h-2 rounded-[3px] bg-linear-to-b from-[#6b74b0] to-[#3a4170] shadow-[0_3px_8px_rgb(0_0_0/0.5)]"
-            // eslint-disable-next-line react/forbid-dom-props -- the bar at the foot of the blind
-            style={{ top: `calc(${String(closed)}% - 4px)` }}
-          />
-        </>
-      )}
+          ))
+        ) : (
+          <>
+            <span className="absolute inset-y-0 left-1/2 -ml-px w-0.5 bg-[rgb(12_14_25/0.5)]" />
+            <span className="absolute inset-x-0 top-1/2 -mt-px h-0.5 bg-[rgb(12_14_25/0.5)]" />
+            <div
+              className={cn(
+                'entity-track absolute inset-x-0 top-0 overflow-hidden',
+                tilt === null
+                  ? 'bg-[repeating-linear-gradient(180deg,#4a5287_0_2px,#343b6a_2px_10px,#1b1f35_10px_12px)] shadow-[0_6px_14px_rgb(0_0_0/0.45)]'
+                  : 'shadow-[0_6px_14px_rgb(0_0_0/0.3)]',
+              )}
+              // eslint-disable-next-line react/forbid-dom-props -- the blind comes down as far as it is closed
+              style={{ height: `${String(closed)}%` }}
+            >
+              {tilt === null
+                ? null
+                : // The slats, turned to the tilt: flat and shut at 0°, edge on and letting the sky
+                  // through towards 90°.
+                  [...Array.from({ length: 20 }).keys()].map((index) => (
+                    <span
+                      key={index}
+                      className="entity-track absolute inset-x-0 h-2.75 bg-linear-to-b from-[#5a63a0] to-[#2c3260] shadow-[0_2px_3px_rgb(0_0_0/0.35)]"
+                      // eslint-disable-next-line react/forbid-dom-props -- each slat at the cover's angle
+                      style={{
+                        top: `${String(index * 12)}px`,
+                        transform: `perspective(240px) rotateX(${String(Math.min(82, tilt))}deg)`,
+                      }}
+                    />
+                  ))}
+            </div>
+            <div
+              className="entity-track absolute -inset-x-0.5 h-2 rounded-[3px] bg-linear-to-b from-[#6b74b0] to-[#3a4170] shadow-[0_3px_8px_rgb(0_0_0/0.5)]"
+              // eslint-disable-next-line react/forbid-dom-props -- the bar at the foot of the blind
+              style={{ top: `calc(${String(closed)}% - 4px)` }}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -319,10 +356,7 @@ export function CoverBody(props: SheetBodyProps) {
         : t('entity.sheet.cover.closeAction', 'Close'),
     },
   ];
-  // While it moves, the way to stop it is the first thing under the finger.
-  const ordered = isMoving
-    ? [actions[1], actions[0], actions[2]].filter((action) => action !== undefined)
-    : actions;
+
   const picture = (
     <CoverPicture
       position={isTiltOnly ? 100 : shown}
@@ -343,7 +377,7 @@ export function CoverBody(props: SheetBodyProps) {
               <span className="text-ui-sm leading-[1.45] text-foreground-subtle">{since}</span>
             </div>
             <div className="flex flex-col gap-2">
-              {ordered.map((action) => (
+              {actions.map((action) => (
                 <button
                   key={action.key}
                   type="button"
@@ -352,7 +386,13 @@ export function CoverBody(props: SheetBodyProps) {
                   onClick={() => {
                     perform(action.key);
                   }}
-                  className="press inline-flex h-12 cursor-pointer items-center gap-2.5 rounded-card border border-border-strong bg-surface-raised px-3.5 text-ui font-medium text-foreground disabled:cursor-not-allowed"
+                  className={cn(
+                    'press inline-flex h-12 cursor-pointer items-center gap-2.5 rounded-card border px-3.5 text-ui font-medium transition-colors duration-300 disabled:cursor-not-allowed',
+                    // While it moves, Stop is lit: the way to halt it, where it always is.
+                    isMoving && action.key === 'stop'
+                      ? 'border-primary/50 bg-primary/12 text-primary'
+                      : 'border-border-strong bg-surface-raised text-foreground',
+                  )}
                 >
                   <AppIcon id={action.icon} size={17} />
                   {action.label}
@@ -415,31 +455,21 @@ export function CoverBody(props: SheetBodyProps) {
                   : word}
             </span>
             <span className="text-ui-sm leading-[1.45] text-foreground-subtle">
-              {isTiltOnly
-                ? t('entity.sheet.cover.tiltOnly', 'Slats at {{value}}° · tilt only', {
-                    value: degrees,
-                  })
-                : isMoving && !hasPosition
-                  ? since
-                  : [
-                      word,
-                      hasTilt
-                        ? t('entity.sheet.cover.slatsAt', 'slats at {{value}}°', { value: degrees })
-                        : isCurtain
-                          ? t('entity.sheet.cover.curtain', 'curtain')
-                          : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
+              {isTiltOnly || (isMoving && !hasPosition)
+                ? since
+                : [word, isCurtain ? t('entity.sheet.cover.curtain', 'curtain') : null]
+                    .filter(Boolean)
+                    .join(' · ')}
             </span>
           </div>
           <div className="flex flex-col gap-2">
-            {ordered.map((action) => (
+            {actions.map((action) => (
               <RoundAction
                 key={action.key}
                 icon={action.icon}
                 label={action.label}
                 size="medium"
+                isLit={isMoving && action.key === 'stop'}
                 disabled={disabled}
                 onClick={() => {
                   perform(action.key);

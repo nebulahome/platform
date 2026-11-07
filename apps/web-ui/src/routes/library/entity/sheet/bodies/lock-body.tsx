@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { CapabilityState } from '@nebulahome/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
@@ -15,26 +16,49 @@ import { clockText } from '@/routes/library/entity/sheet/history';
 import { HoldAction } from '@/routes/library/entity/sheet/parts/hold-action';
 import { useSinceLine } from '@/routes/library/entity/sheet/parts/sheet-controls';
 import type { SheetBodyProps } from '@/routes/library/entity/sheet/sheet-types';
+import type { SheetTone } from '@/routes/library/entity/sheet/tones';
 
 /** How the ring is drawn for each standing of the bolt. */
 const LOOKS = {
   locked: {
     icon: 'lock',
+    tone: 'success',
+    hold: 'bg-success/25',
     ring: 'border-success/34 text-success bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,var(--color-success)_14%,transparent),color-mix(in_oklab,var(--color-success)_5%,transparent)_72%)] shadow-[0_0_60px_color-mix(in_oklab,var(--color-success)_18%,transparent)]',
   },
   unlocked: {
     icon: 'lock-open',
+    tone: 'lamp',
+    hold: 'bg-lamp/25',
     ring: 'border-lamp/50 text-lamp bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-lamp)_16%,transparent),color-mix(in_oklab,var(--color-lamp)_2%,transparent)_70%)]',
   },
   jammed: {
     icon: 'lock-keyhole',
+    tone: 'danger',
+    hold: 'bg-danger/25',
     ring: 'border-danger/50 text-danger bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-danger)_16%,transparent),color-mix(in_oklab,var(--color-danger)_2%,transparent)_70%)]',
   },
   moving: {
     icon: 'loader-circle',
+    tone: 'lamp',
+    hold: 'bg-lamp/25',
     ring: 'border-dashed border-lamp/50 text-lamp bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-lamp)_16%,transparent),color-mix(in_oklab,var(--color-lamp)_2%,transparent)_70%)]',
   },
-} as const satisfies Record<string, { icon: UiIconId; ring: string }>;
+} as const satisfies Record<
+  string,
+  { icon: UiIconId; tone: SheetTone; hold: string; ring: string }
+>;
+
+/**
+ * The colour of a lock as it stands - green locked, amber unlocked or moving, red jammed - which
+ * its ring, its hold buttons and the dialog's header tile all share.
+ *
+ * @param lock - Its state.
+ * @returns The colour.
+ */
+export function lockToneOf(lock: NonNullable<CapabilityState['lock']>): SheetTone {
+  return LOOKS[lock.motion === undefined ? lock.lockState : 'moving'].tone;
+}
 
 /**
  * The body of a lock.
@@ -246,6 +270,7 @@ export function LockBody(props: SheetBodyProps) {
             key={action.command}
             icon={action.icon}
             size={actions.length === 1 ? 'large' : 'medium'}
+            progress={look.hold}
             disabled={disabled || motion !== undefined}
             onConfirm={() => {
               act(action.command);

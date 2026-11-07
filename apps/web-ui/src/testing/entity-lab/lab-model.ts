@@ -325,6 +325,19 @@ function applyVerb(name: string, values: LabValues, args: LabValues): LabValues 
     case 'set_target': {
       return { ...values, targetTemperature: args['temperature'] };
     }
+    case 'set_mode': {
+      // A thermostat set to a mode reports doing what that mode does.
+      const mode = String(args['mode']);
+      const doing: Readonly<Record<string, string>> = {
+        heat: 'heating',
+        cool: 'cooling',
+        dry: 'drying',
+        fan_only: 'fan',
+        off: 'off',
+      };
+
+      return { ...values, mode, action: doing[mode] ?? 'idle' };
+    }
     case 'set_target_range': {
       return { ...values, targetTemperatureLow: args['low'], targetTemperatureHigh: args['high'] };
     }

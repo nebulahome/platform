@@ -74,6 +74,29 @@ function swatchOf(hue: number, saturation: number): (typeof SWATCHES)[number] | 
   });
 }
 
+/** The colour-temperature bar's stops, warm to cool, as its gradient draws them. */
+const WHITES = [
+  [255, 159, 67],
+  [255, 241, 220],
+  [201, 220, 255],
+] as const;
+
+/**
+ * The colour of the bar at a point, so its knob takes the white it stands on.
+ *
+ * @param at - Where along the bar, from 0 (warm) to 1 (cool).
+ * @returns The colour, `rgb(…)`.
+ */
+function whiteAt(at: number): string {
+  const [from, to] = at < 0.5 ? [WHITES[0], WHITES[1]] : [WHITES[1], WHITES[2]];
+  const part = at < 0.5 ? at * 2 : (at - 0.5) * 2;
+  const channels = from.map((channel, index) =>
+    Math.round(channel + ((to[index] ?? channel) - channel) * part),
+  );
+
+  return `rgb(${channels.join(' ')})`;
+}
+
 /**
  * Says how warm a white is.
  *
@@ -138,6 +161,11 @@ export function LightBody(props: SheetBodyProps) {
   const kelvin = miredsToKelvin(Math.round(mireds.shown));
   const minKelvin = temp === null ? 2200 : miredsToKelvin(temp.maxMireds);
   const maxKelvin = temp === null ? 6500 : miredsToKelvin(temp.minMireds);
+  // How far along the bar the temperature is, from warm (0) to cool (1).
+  const warmth = Math.min(
+    1,
+    Math.max(0, (kelvin - minKelvin) / Math.max(1, maxKelvin - minKelvin)),
+  );
   const isOnlyLevel = temp === null && hs === null && effects === null;
   const isSending = (['on_off', 'level', 'color_temp', 'color_hs', 'effect'] as const).some(
     (capability) => isBusy(props, capability),
@@ -182,11 +210,11 @@ export function LightBody(props: SheetBodyProps) {
               : t('common.on', 'On')
         }
         line={line}
-        sending={isSending ? 'lamp' : null}
         trail={
           <BigSwitch
             label={entity.name}
             isOn={isOn}
+            isSending={isSending}
             tone="lamp"
             disabled={disabled}
             onChange={(next) => {
@@ -260,10 +288,11 @@ export function LightBody(props: SheetBodyProps) {
           </div>
           <div className="entity-slider relative h-11 rounded-inner border border-border-strong bg-linear-to-r from-[#ff9f43] via-[#fff1dc] to-[#c9dcff]">
             <span
-              className="entity-track pointer-events-none absolute top-1/2 size-7 -translate-y-1/2 rounded-full border-3 border-surface bg-[#ffc98a] shadow-[0_0_0_2px_var(--color-foreground)]"
-              // eslint-disable-next-line react/forbid-dom-props -- the knob sits at the lamp's temperature
+              className="entity-track pointer-events-none absolute -inset-y-1.5 w-2.5 rounded-pill shadow-[0_0_0_2px_var(--color-surface),0_0_0_3.5px_var(--color-foreground),0_4px_12px_rgb(0_0_0/0.45)]"
+              // eslint-disable-next-line react/forbid-dom-props -- the bar sits at the lamp's temperature, in its colour
               style={{
-                left: `calc(${String(((kelvin - minKelvin) / Math.max(1, maxKelvin - minKelvin)) * 100)}% - 14px)`,
+                left: `calc(${String(warmth * 100)}% - 5px)`,
+                background: whiteAt(warmth),
               }}
             />
             <input

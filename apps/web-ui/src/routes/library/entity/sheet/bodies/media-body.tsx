@@ -351,10 +351,20 @@ export function MediaBody(props: SheetBodyProps) {
           }}
           className="press-scale flex size-16 cursor-pointer items-center justify-center rounded-full bg-foreground p-0 text-canvas shadow-[0_0_0_6px_color-mix(in_oklab,var(--color-foreground)_6%,transparent),0_12px_40px_-8px_color-mix(in_oklab,var(--color-media)_60%,transparent)]"
         >
-          <AppIcon
-            id={isPlaying ? (isLive && params.canStop ? 'square' : 'pause') : 'play'}
-            size={24}
-          />
+          {isSending ? (
+            <span
+              role="status"
+              aria-label={t('entity.sheet.sending', 'Sending')}
+              className="entity-spin flex"
+            >
+              <AppIcon id="loader-circle" size={24} />
+            </span>
+          ) : (
+            <AppIcon
+              id={isPlaying ? (isLive && params.canStop ? 'square' : 'pause') : 'play'}
+              size={24}
+            />
+          )}
         </button>
         {params.canSkip && !isCompact ? (
           <button
@@ -607,7 +617,6 @@ export function MediaBody(props: SheetBodyProps) {
               </span>
             ) : null}
             {player.mediaTitle}
-            {isSending ? <SendingSpinner tone="media" size={16} /> : null}
           </span>
           <span className="text-ui-sm text-foreground-muted">
             {isLive

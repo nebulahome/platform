@@ -29,9 +29,8 @@ import {
   RoundAction,
   useSinceLine,
 } from '@/routes/library/entity/sheet/parts/sheet-controls';
-import { SendingSpinner } from '@/routes/library/entity/sheet/parts/sheet-parts';
 import type { SheetBodyProps } from '@/routes/library/entity/sheet/sheet-types';
-import type { SheetTone } from '@/routes/library/entity/sheet/tones';
+import { TONE_TEXT, type SheetTone } from '@/routes/library/entity/sheet/tones';
 
 /** The words of a robot's activities. */
 const ACTIVITIES: Readonly<Record<string, Message>> = {
@@ -106,6 +105,8 @@ type RobotFrameProps = {
 function RobotStatus(props: RobotFrameProps) {
   const { t } = useTranslation();
   const { body, tone, icon, activity, line, main, rounds, isSending } = props;
+  // At work - cleaning, mowing, on its way home - a ring turns round it.
+  const isWorking = ['cleaning', 'mowing', 'returning'].includes(activity);
 
   return (
     <>
@@ -120,15 +121,35 @@ function RobotStatus(props: RobotFrameProps) {
         </div>
       ) : null}
       <div className="flex items-center gap-4">
-        <BatteryRing level={body.battery} tone={tone} icon={icon} />
+        <span className="relative flex shrink-0">
+          {isWorking ? (
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 76 76"
+              className={cn('entity-ring absolute -inset-2 size-19', TONE_TEXT[tone])}
+            >
+              <circle
+                cx={38}
+                cy={38}
+                r={36}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeDasharray="3 7"
+                strokeLinecap="round"
+                opacity={0.6}
+              />
+            </svg>
+          ) : null}
+          <BatteryRing level={body.battery} tone={tone} icon={icon} />
+        </span>
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="flex items-center gap-2 text-[22px] font-medium tracking-[-0.02em]">
+          <span key={activity} className="entity-tick text-[22px] font-medium tracking-[-0.02em]">
             {text(
               ACTIVITIES[activity] ??
                 ACTIVITIES['idle'] ??
                 defineMessage('entity.sheet.robot.idle', 'Idle'),
             )}
-            {isSending ? <SendingSpinner tone={tone} size={18} /> : null}
           </span>
           <span className="text-ui-sm text-foreground-subtle">{line}</span>
         </div>
@@ -148,8 +169,16 @@ function RobotStatus(props: RobotFrameProps) {
               : 'border border-border-strong bg-surface-raised text-foreground',
           )}
         >
-          <AppIcon id={main.icon} size={18} />
-          <span className="truncate">{main.label}</span>
+          {isSending ? (
+            <span className="entity-spin flex">
+              <AppIcon id="loader-circle" size={18} />
+            </span>
+          ) : (
+            <AppIcon key={main.icon} id={main.icon} size={18} className="entity-pop" />
+          )}
+          <span key={main.label} className="entity-tick truncate">
+            {main.label}
+          </span>
         </button>
         {rounds.map((round) => (
           <RoundAction

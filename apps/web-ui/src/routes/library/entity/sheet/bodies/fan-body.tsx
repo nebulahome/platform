@@ -56,11 +56,9 @@ function FanPicture(props: FanPictureProps) {
       className="relative h-59 overflow-hidden rounded-panel border border-border-strong bg-linear-to-b from-[#10142a] to-[#0b0e1c]"
     >
       <span
-        className="absolute inset-0"
+        className="absolute inset-0 bg-[radial-gradient(80%_70%_at_50%_40%,color-mix(in_oklab,var(--color-cyan)_18%,transparent),transparent_70%)] transition-opacity duration-700"
         // eslint-disable-next-line react/forbid-dom-props -- the glow grows with the speed
-        style={{
-          background: `radial-gradient(80% 70% at 50% 40%, color-mix(in oklab, var(--color-cyan) ${String(isOn ? Math.round((0.06 + 0.12 * speed) * 100) : 0)}%, transparent), transparent 70%)`,
-        }}
+        style={{ opacity: isOn ? 0.33 + 0.67 * speed : 0 }}
       />
       <span className="absolute top-42.5 left-[calc(50%-7px)] h-11.5 w-3.5 rounded-[4px] bg-linear-to-r from-border-strong via-[#343b62] to-border-strong" />
       <span className="absolute top-52 left-[calc(50%-58px)] h-4 w-29 rounded-[50%] bg-[radial-gradient(ellipse_at_50%_30%,#3a4170,#1b1f35)]" />
@@ -80,14 +78,14 @@ function FanPicture(props: FanPictureProps) {
             )}
           />
           <div
-            className={cn(
-              'absolute inset-1 overflow-hidden rounded-full',
-              isOn ? 'entity-fan' : 'rotate-12',
-            )}
+            // Always turning, held still while off: switched on, the blades go on from where
+            // they stopped instead of jumping back to the start.
+            className="entity-fan absolute inset-1 overflow-hidden rounded-full transition-[filter] duration-700"
             // eslint-disable-next-line react/forbid-dom-props -- the blades turn and blur with the speed
             style={{
               ['--spin' as string]: `${turn.toFixed(2)}s`,
               animationDirection: isReverse ? 'reverse' : 'normal',
+              animationPlayState: isOn ? 'running' : 'paused',
               filter: `blur(${isOn ? (speed * 1.4).toFixed(2) : '0'}px)`,
             }}
           >
@@ -114,8 +112,8 @@ function FanPicture(props: FanPictureProps) {
           <span className="absolute top-17.5 left-17.5 size-9 rounded-full bg-[radial-gradient(circle_at_40%_35%,#3a4170,#161a2e)] shadow-[0_2px_6px_rgb(0_0_0/0.5)]" />
           <span
             className={cn(
-              'absolute top-21 left-21 size-2 rounded-full',
-              isOn ? 'bg-cyan' : 'bg-[#3a4170]',
+              'absolute top-21 left-21 size-2 rounded-full transition-colors duration-500',
+              isOn ? 'bg-cyan shadow-[0_0_8px_var(--color-cyan)]' : 'bg-[#3a4170]',
             )}
           />
         </div>
@@ -209,11 +207,12 @@ export function FanBody(props: SheetBodyProps) {
         value={big}
         unit={unit}
         line={status}
-        sending={commander.busy.has('fan') || commander.busy.has('on_off') ? 'cyan' : null}
+
         trail={
           <BigSwitch
             label={t('entity.sheet.fan.fan', 'Fan')}
             isOn={isOn}
+            isSending={commander.busy.has('fan') || commander.busy.has('on_off')}
             tone="cyan"
             disabled={disabled}
             onChange={(next) => {

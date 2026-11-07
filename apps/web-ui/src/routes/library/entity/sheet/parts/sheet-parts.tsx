@@ -101,9 +101,6 @@ export type ValueHeadProps = {
   /** Whether it is greyed: a value read from a device that no longer answers. */
   readonly isStale?: boolean;
 
-  /** Whether a command is on its way, and in which colour to say so. */
-  readonly sending?: SheetTone | null;
-
   /** What stands at its right, level with its foot: the switch. */
   readonly trail?: ReactNode;
 };
@@ -115,7 +112,7 @@ export type ValueHeadProps = {
  * @returns The head.
  */
 export function ValueHead(props: ValueHeadProps) {
-  const { value, unit, line, size = 'level', isStale = false, sending = null, trail } = props;
+  const { value, unit, line, size = 'level', isStale = false, trail } = props;
 
   return (
     <div className="flex items-end justify-between gap-3">
@@ -148,7 +145,6 @@ export function ValueHead(props: ValueHeadProps) {
               </span>
             )}
           </span>
-          {sending === null ? null : <SendingSpinner tone={sending} />}
         </span>
         {line === undefined ? null : (
           <span className="text-ui-sm leading-[1.45] text-foreground-subtle">{line}</span>
@@ -178,6 +174,9 @@ export type BigSwitchProps = {
 
   /** Its size: 52 by 30 beside a big value, 40 by 24 on a row of settings. */
   readonly size?: 'large' | 'small';
+
+  /** Whether a command is on its way: the knob turns into a spinner, so no word moves. */
+  readonly isSending?: boolean;
 };
 
 /**
@@ -187,7 +186,15 @@ export type BigSwitchProps = {
  * @returns The switch.
  */
 export function BigSwitch(props: BigSwitchProps) {
-  const { label, isOn, onChange, tone, disabled = false, size = 'large' } = props;
+  const {
+    label,
+    isOn,
+    onChange,
+    tone,
+    disabled = false,
+    size = 'large',
+    isSending = false,
+  } = props;
 
   return (
     <button
@@ -195,6 +202,7 @@ export function BigSwitch(props: BigSwitchProps) {
       role="switch"
       aria-checked={isOn}
       aria-label={label}
+      aria-busy={isSending}
       disabled={disabled}
       onClick={() => {
         onChange(!isOn);
@@ -210,12 +218,19 @@ export function BigSwitch(props: BigSwitchProps) {
         aria-hidden="true"
         className={cn(
           'absolute top-0.75 rounded-full transition-[left,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'flex items-center justify-center',
           size === 'large' ? 'size-6' : 'size-4.5',
           isOn
-            ? cn('bg-canvas', size === 'large' ? 'left-6.25' : 'left-4.75')
-            : 'left-0.75 bg-foreground-muted',
+            ? cn('bg-canvas', size === 'large' ? 'left-6.25' : 'left-4.75', TONE_TEXT[tone])
+            : 'left-0.75 bg-foreground-muted text-canvas',
         )}
-      />
+      >
+        {isSending ? (
+          <span className="entity-spin flex">
+            <AppIcon id="loader-circle" size={size === 'large' ? 15 : 12} strokeWidth={2.4} />
+          </span>
+        ) : null}
+      </span>
     </button>
   );
 }

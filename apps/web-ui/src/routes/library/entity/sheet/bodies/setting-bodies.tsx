@@ -178,7 +178,8 @@ export function SelectBody(props: SheetBodyProps) {
               {t('entity.sheet.select.count', '{{count}} options', { count: options.length })}
             </span>
           </div>
-          <div className="flex flex-col">
+          {/* The option now arrives here as it is picked, so the change can be seen. */}
+          <div key={current.value} className="flex animate-arrive flex-col">
             <RadioRow
               label={current.label}
               isChosen
@@ -196,20 +197,18 @@ export function SelectBody(props: SheetBodyProps) {
           aria-label={entity.name}
           className="entity-stagger -mr-2 flex max-h-80 flex-col gap-1.5 overflow-auto pr-2"
         >
-          {found
-            .filter((option) => search !== '' || option.value !== chosen)
-            .map((option) => (
-              <RadioRow
-                key={option.value}
-                label={option.label}
-                isChosen={option.value === chosen}
-                isTall={false}
-                disabled={disabled}
-                onPick={() => {
-                  pick(option.value);
-                }}
-              />
-            ))}
+          {found.map((option) => (
+            <RadioRow
+              key={option.value}
+              label={option.label}
+              isChosen={option.value === chosen}
+              isTall={false}
+              disabled={disabled}
+              onPick={() => {
+                pick(option.value);
+              }}
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -332,6 +331,7 @@ export function NumberBody(props: SheetBodyProps) {
             label={entity.name}
             value={Math.round(((value.shown - min) / Math.max(1e-9, max - min)) * 100)}
             fill="bg-primary"
+            ends={[`${String(min)} ${unit}`.trim(), `${String(max)} ${unit}`.trim()]}
             disabled={disabled}
             onChange={(next) => {
               value.hold(min + (next / 100) * (max - min));

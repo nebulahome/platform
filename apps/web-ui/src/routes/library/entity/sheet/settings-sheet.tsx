@@ -97,11 +97,17 @@ export function SettingsSheet(props: SettingsSheetProps) {
 
   return (
     <>
-      <span
+      <div
+        data-sheet-grip
         aria-hidden="true"
-        className="mt-2.5 h-1 w-10 shrink-0 self-center rounded-pill bg-border-strong"
-      />
-      <div className="flex items-center gap-2.5 pt-3 pr-3.5 pb-3.5 pl-5">
+        className="group flex h-4.5 shrink-0 cursor-grab touch-none items-end justify-center active:cursor-grabbing"
+      >
+        <span className="h-1 w-10 rounded-pill bg-border-strong transition-[width,background-color] duration-200 group-hover:w-12 group-hover:bg-foreground-subtle" />
+      </div>
+      <div
+        data-sheet-grip
+        className="flex cursor-grab touch-none items-center gap-2.5 pt-3 pr-3.5 pb-3.5 pl-5 active:cursor-grabbing"
+      >
         <div className="flex min-w-0 grow flex-col gap-0.75">
           <span className="text-[17px] font-medium">
             {t('entity.sheet.settings.title', 'Settings')}
