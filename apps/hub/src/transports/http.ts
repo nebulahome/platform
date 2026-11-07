@@ -44,7 +44,7 @@ const MIN_POLL_MS = 250;
 
 /**
  * How long after a command the device is read again. Long enough for a relay to have switched and
- * a lamp to have started its fade, short enough that the row follows the tap.
+ * a lamp to have taken its new level, short enough that the row follows the tap.
  */
 const COMMAND_FOLLOW_UP_MS = 300;
 
