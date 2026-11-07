@@ -159,7 +159,7 @@ const EVENING: AutomationView = anAutomation('e1', 'Evening lights', {
         type: 'command',
         entityId: entity('light.living_room'),
         capability: 'level',
-        params: { command: 'set_level', level: 60, transitionMs: 2_000 },
+        params: { command: 'set_level', level: 60 },
         name: 'Warm the room',
       },
       {
@@ -363,7 +363,6 @@ const EVENING_SCENE: SceneView = {
   name: 'Evening',
   icon: null,
   areaKey: 'living_room',
-  transitionMs: 2_000,
   rollbackOnPartialFailure: false,
   unresolvedMembers: [],
   members: [],
@@ -409,7 +408,7 @@ function automationCache(automations: readonly AutomationView[]): QueryClient {
       name: 'Living room ceiling',
       capabilities: [
         { capability: 'on_off', params: {} },
-        { capability: 'level', params: { hasTransition: true } },
+        { capability: 'level', params: {} },
       ],
       state: { on_off: { isOn: true }, level: { level: 60 } },
     }),
@@ -528,25 +527,21 @@ function automationCache(automations: readonly AutomationView[]): QueryClient {
 /** The board's Evening scene: one member of every kind, and one waiting for an entity. */
 const SCENE_PAGE: SceneView = {
   ...EVENING_SCENE,
-  transitionMs: 2_000,
   members: [
     {
       entityId: entity('light.living_room'),
       entityName: 'Living room ceiling',
       targetState: { on_off: { isOn: true }, level: { level: 40 } },
-      transitionMs: 4_000,
     },
     {
       entityId: entity('light.lr_strip'),
       entityName: 'Living room strip',
       targetState: { on_off: { isOn: true }, color_hs: { hue: 235, saturation: 80 } },
-      transitionMs: null,
     },
     {
       entityId: entity('cover.lr_blinds'),
       entityName: 'Blinds',
       targetState: { cover: { position: 0, tilt: 30, motion: 'stopped' } },
-      transitionMs: null,
     },
     {
       entityId: entity('climate.hall'),
@@ -554,26 +549,22 @@ const SCENE_PAGE: SceneView = {
       targetState: {
         thermostat: { currentTemperature: 20, targetTemperature: 21, mode: 'heat', action: 'idle' },
       },
-      transitionMs: null,
     },
     {
       entityId: entity('media_player.speaker'),
       entityName: 'Speaker',
       targetState: { media_player: { playback: 'playing', volume: 30, isMuted: false } },
-      transitionMs: null,
     },
     {
       entityId: entity('lock.front_door'),
       entityName: 'Front door',
       targetState: { lock: { lockState: 'locked' } },
-      transitionMs: null,
     },
   ],
   unresolvedMembers: [
     {
       entityId: entity('light.garden'),
       targetState: { on_off: { isOn: true } },
-      transitionMs: null,
     },
   ],
 };

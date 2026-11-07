@@ -56,7 +56,7 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
   binary: { sizes: [TILE, CARD], preferred: TILE },
   text: { sizes: [TILE, STRIP], preferred: TILE },
 
-  // A robot, a choice, a number, a button, a firmware update, a picture: the entity page's own
+  // A robot, a choice, a number, a button, a firmware update, a picture: the platform's own
   // control for it, on a card tall or square enough to hold it.
   control: { sizes: [CARD, SQUARE, LARGE], preferred: SQUARE },
   thermostat: { sizes: [CARD, SQUARE], preferred: CARD },

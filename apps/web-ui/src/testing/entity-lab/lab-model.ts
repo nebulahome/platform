@@ -389,8 +389,6 @@ export function applyCommand(values: LabValues, command: JsonObject): LabValues 
 
   return {
     ...values,
-    ...Object.fromEntries(
-      Object.entries(args).filter(([key]) => key !== 'transitionMs' && key !== 'code'),
-    ),
+    ...Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'code')),
   };
 }

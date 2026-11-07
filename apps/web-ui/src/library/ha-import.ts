@@ -31,7 +31,6 @@ export type ImportedAutomation = {
 export type ImportedSceneMember = {
   readonly entityId: string;
   readonly targetState: JsonObject;
-  readonly transitionMs: number | null;
 };
 
 /** A scene as a file brings it in. */
@@ -40,7 +39,6 @@ export type ImportedScene = {
   readonly name: string;
   readonly icon: string | null;
   readonly areaKey: string | null;
-  readonly transitionMs: number;
   readonly rollbackOnPartialFailure: boolean;
   readonly members: readonly ImportedSceneMember[];
 };
@@ -1525,29 +1523,26 @@ function commands(
  * @returns The commands' capability and body, in order.
  */
 function lightCommands(data: Raw): [string, JsonObject][] {
-  const transition = durationMsOf(data['transition']);
-  const fade =
-    transition === null || transition <= 0 ? {} : { transitionMs: Math.min(transition, 600_000) };
   const level = levelOf(data);
   const colour = colourOf(data);
   const mireds = miredsOf(data);
   const sent: [string, JsonObject][] = [];
 
   if (level === 0) {
-    return [['on_off', { command: 'turn_off', ...fade }]];
+    return [['on_off', { command: 'turn_off' }]];
   }
 
   if (level !== null) {
-    sent.push(['level', { command: 'set_level', level, ...fade }]);
+    sent.push(['level', { command: 'set_level', level }]);
   }
 
   if (colour !== null) {
-    sent.push(['color_hs', { command: 'set_color', ...colour, ...fade }]);
+    sent.push(['color_hs', { command: 'set_color', ...colour }]);
   } else if (mireds !== null) {
-    sent.push(['color_temp', { command: 'set_color_temp', mireds, ...fade }]);
+    sent.push(['color_temp', { command: 'set_color_temp', mireds }]);
   }
 
-  return sent.length === 0 ? [['on_off', { command: 'turn_on', ...fade }]] : sent;
+  return sent.length === 0 ? [['on_off', { command: 'turn_on' }]] : sent;
 }
 
 /** A thermostat mode as this format names it. */
@@ -1791,12 +1786,6 @@ function convertService(raw: Raw, service: string, notes: Notebook): JsonObject[
       );
     }
 
-    const transition = domain === 'light' ? durationMsOf(data['transition']) : null;
-    const fade =
-      transition === null || transition <= 0 || name === 'toggle'
-        ? {}
-        : { transitionMs: Math.min(transition, 600_000) };
-
     if (domain === 'automation' || domain === 'script') {
       notes.add(
         translate(
@@ -1809,7 +1798,7 @@ function convertService(raw: Raw, service: string, notes: Notebook): JsonObject[
       return [];
     }
 
-    return commands(entityIds, 'on_off', { command: name, ...fade }, meta);
+    return commands(entityIds, 'on_off', { command: name }, meta);
   }
 
   notes.add(
@@ -2324,7 +2313,7 @@ export function convertHaScenes(
         continue;
       }
 
-      members.push({ entityId, targetState, transitionMs: null });
+      members.push({ entityId, targetState });
     }
 
     items.push({
@@ -2332,7 +2321,6 @@ export function convertHaScenes(
       name,
       icon: null,
       areaKey: null,
-      transitionMs: 0,
       rollbackOnPartialFailure: false,
       members: members.slice(0, 200),
     });

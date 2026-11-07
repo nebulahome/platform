@@ -38,7 +38,7 @@ import {
   dotOf,
 } from '@/routes/containers/container-parts';
 import { DetailPlaceholder } from '@/routes/library/detail-page';
-import { Fact } from '@/routes/library/entity/details-panel';
+import { Fact } from '@/routes/library/entity/fact';
 import { LibraryPage } from '@/routes/library/library-page';
 import { MetaLine, Stat } from '@/routes/library/meta-line';
 

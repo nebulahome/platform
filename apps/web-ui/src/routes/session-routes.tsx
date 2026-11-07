@@ -61,7 +61,6 @@ import { ThreadBrokerPage } from '@/routes/library/broker-thread-page';
 import { BrokersPage } from '@/routes/library/brokers-page';
 import { DevicePage } from '@/routes/library/device/device-page';
 import { DevicesPage } from '@/routes/library/devices-page';
-import { EntityPage } from '@/routes/library/entity/entity-page';
 import { IntegrationsPage } from '@/routes/library/integrations-page';
 import { ScenePage } from '@/routes/library/scene-page';
 import { ScenesPage } from '@/routes/library/scenes-page';
@@ -309,7 +308,6 @@ export function SessionRoutes() {
         <Route path="/scenes/new" element={<ScenePage />} />
         <Route path="/scenes/:sceneId" element={<ScenePage />} />
         <Route path="/devices" element={<DevicesPage />} />
-        <Route path="/devices/entities/:entityId" element={<EntityPage />} />
         <Route path="/devices/:deviceId" element={<DevicePage />} />
         <Route path="/aliases" element={<AliasesPage />} />
         <Route path="/aliases/new" element={<AliasEditor />} />

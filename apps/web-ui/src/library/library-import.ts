@@ -155,16 +155,8 @@ export function renameAutomations(
 
 /** A scene ready to save: members on entities that exist, and the ones still waiting. */
 export type ResolvedScene = Omit<ImportedScene, 'members'> & {
-  readonly members: readonly {
-    entityId: string;
-    targetState: JsonObject;
-    transitionMs: number | null;
-  }[];
-  readonly unresolvedMembers: readonly {
-    entityId: string;
-    targetState: JsonObject;
-    transitionMs: number | null;
-  }[];
+  readonly members: readonly { entityId: string; targetState: JsonObject }[];
+  readonly unresolvedMembers: readonly { entityId: string; targetState: JsonObject }[];
 };
 
 /**
@@ -203,7 +195,6 @@ export function resolveScenes(
         members.push({
           entityId,
           targetState: resolveTargetState(member.targetState, entity) as JsonObject,
-          transitionMs: member.transitionMs,
         });
       }
     }

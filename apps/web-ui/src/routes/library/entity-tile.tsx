@@ -1,7 +1,7 @@
 /**
  * The square an entity is drawn in: its icon, tinted by what kind of thing it is.
  *
- * The same tile on the devices row, at the top of the entity's page and in the picker, so a lamp
+ * The same tile on the devices row, on dashboard cards and in the picker, so a lamp
  * is recognised by one shape wherever it is chosen or looked at. The tint says what family it is
  * - a light warm, a lock green - and it is lit only while the thing is on, open or playing: a row
  * of switched-off relays is a row of grey tiles, and the one that is on is found at a glance.

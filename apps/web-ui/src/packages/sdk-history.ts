@@ -2,7 +2,7 @@
  * The interface's implementation of `useStateHistory` and `useTelemetry` (package SDK 1.2): the
  * past of some entities, as a package's page, card or view reads it.
  *
- * The same reads the entity pages make - the API's history endpoints, with the viewer's session,
+ * The same reads the entity dialog makes - the API's history endpoints, with the viewer's session,
  * so an entity the viewer may not read has no points - one query per entity, each following the
  * pages of its window up to the cap a chart has use for. A window of "the last hour" is resolved
  * when it is read, so its key stays the same as it moves and a refetch reads the hour that ends

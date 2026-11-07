@@ -6,8 +6,7 @@
  * controls: a light's level is a warm slider, a colour a hue and a saturation - or a HEX code - a
  * white its temperature in kelvin, a thermostat its modes, a cover its position. The commands
  * offered are the chosen entity's own, read from the capabilities it declares
- * (`command-choices.ts`). A fade is offered only where the device said it can fade; elsewhere the
- * engine would drop it, so the field would promise what never happens.
+ * (`command-choices.ts`).
  *
  * Scenes and automations are picked from the ones there are, packages from the ones installed.
  * Notify is kept as written and says it cannot run yet. An HTTP request has fields of its own
@@ -76,9 +75,6 @@ export type ActionFieldsProps = {
   readonly onChange: (action: AutomationAction) => void;
 };
 
-/** A transition's longest: the format's ten minutes. */
-const TEN_MINUTES = 600_000;
-
 /** The longest a wait may be: the format's week. */
 const WEEK_MS = 604_800_000;
 
@@ -93,28 +89,6 @@ function commandableCapabilities(entity: EntityView | undefined): CapabilityName
     entity === undefined ? CAPABILITIES : entity.capabilities.map((entry) => entry.capability);
 
   return declared.filter((capability) => commandSchemaFor(capability) !== null);
-}
-
-/**
- * Whether a device can fade what one of its capabilities does.
- *
- * @param entity - The entity, or undefined while none is chosen.
- * @param capability - The capability of the command.
- * @returns True when the device declared it can; a fade it cannot do is dropped by the engine.
- */
-function canFade(entity: EntityView | undefined, capability: CapabilityName): boolean {
-  if (entity === undefined) {
-    return false;
-  }
-
-  const params: unknown = paramsOf(entity, capability);
-
-  return (
-    params !== null &&
-    typeof params === 'object' &&
-    'hasTransition' in params &&
-    params.hasTransition === true
-  );
 }
 
 /**
@@ -297,10 +271,7 @@ function CommandFields(props: {
   const entity = house.entityOf(action.entityId);
   const choices = commandChoicesFor(commandableCapabilities(entity));
   const chosen = choiceOf(choices, action.capability, action.params);
-  const fades = chosen !== undefined && canFade(entity, chosen.capability);
-  const fields = chosen?.fields.filter((field) => fades || field.key !== 'transitionMs') ?? [];
-  const isInstant =
-    chosen !== undefined && !fades && chosen.fields.some((field) => field.key === 'transitionMs');
+  const fields = chosen?.fields ?? [];
   const hue = typeof action.params['hue'] === 'number' ? action.params['hue'] : 0;
   const saturation =
     typeof action.params['saturation'] === 'number' ? action.params['saturation'] : 0;
@@ -447,14 +418,6 @@ function CommandFields(props: {
           ) : null}
         </div>
       )}
-      {isInstant ? (
-        <p className="text-caption text-foreground-subtle">
-          {t(
-            'library.actionFields.thisLightChangesAt',
-            'This light changes at once: it cannot fade.',
-          )}
-        </p>
-      ) : null}
     </>
   );
 }
@@ -740,19 +703,6 @@ function CommandFieldControl(props: {
           icon={field.key === 'level' ? <AppIcon id="sun" size={14} /> : undefined}
           onChange={(next) => {
             onChange(Math.round(next));
-          }}
-        />
-      );
-    }
-    case 'duration': {
-      return (
-        <DurationField
-          label={field.label}
-          isOptional={field.isOptional}
-          maxMs={TEN_MINUTES}
-          value={typeof value === 'number' ? value : null}
-          onChange={(ms) => {
-            onChange(ms === null || ms === 0 ? undefined : ms);
           }}
         />
       );

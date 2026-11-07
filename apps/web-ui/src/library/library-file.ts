@@ -56,17 +56,8 @@ const fileSceneSchema = z.object({
   name: z.string().trim().min(1).max(120),
   icon: z.string().nullable().default(null),
   areaKey: z.string().nullable().default(null),
-  transitionMs: z.int().min(0).max(600_000).default(0),
   rollbackOnPartialFailure: z.boolean().default(false),
-  members: z
-    .array(
-      z.object({
-        entityId: entityIdSchema,
-        targetState: jsonObjectSchema,
-        transitionMs: z.int().min(0).max(600_000).nullable().default(null),
-      }),
-    )
-    .max(200),
+  members: z.array(z.object({ entityId: entityIdSchema, targetState: jsonObjectSchema })).max(200),
 });
 
 /** What a file brought in. */
@@ -349,13 +340,11 @@ export function scenesFile(scenes: readonly SceneView[]): Record<string, unknown
       name: scene.name,
       icon: scene.icon,
       areaKey: scene.areaKey,
-      transitionMs: scene.transitionMs,
       rollbackOnPartialFailure: scene.rollbackOnPartialFailure,
       members: [
         ...scene.members.map((member) => ({
           entityId: member.entityId,
           targetState: member.targetState,
-          transitionMs: member.transitionMs,
         })),
         ...scene.unresolvedMembers,
       ],

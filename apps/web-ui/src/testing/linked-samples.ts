@@ -1,6 +1,6 @@
 /**
  * The Dryer plug of the boards, reached through Shelly and Matter: its readings, those linked and
- * those read one way, for the gallery and the device and entity pages' tests. Built on the Matter
+ * those read one way, for the gallery, the entity lab and the device page's and dialog's tests. Built on the Matter
  * broker's samples, whose house it is.
  */
 import type { QueryClient } from '@tanstack/react-query';

@@ -14,10 +14,7 @@ describe('commandChoicesOf', () => {
 
     expect(setLevel).toMatchObject({
       label: 'Set level',
-      fields: [
-        { key: 'level', kind: 'percent', label: 'Level', isOptional: false },
-        { key: 'transitionMs', kind: 'duration', label: 'Transition', isOptional: true },
-      ],
+      fields: [{ key: 'level', kind: 'percent', label: 'Level', isOptional: false }],
     });
   });
 
@@ -36,7 +33,7 @@ describe('commandChoicesOf', () => {
 });
 
 describe('defaultParams', () => {
-  it('fills what the command needs and leaves what it may go without', () => {
+  it('fills what the command needs', () => {
     const choices = commandChoicesFor(['on_off', 'level']);
     const setLevel = choiceOf(choices, 'level', { command: 'set_level' });
 

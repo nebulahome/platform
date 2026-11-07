@@ -1,7 +1,9 @@
 /**
  * The entity lab (`pnpm dev:entity`, development only): one domain at a time, picked from every
  * domain the contracts define, with the capabilities, params and state of each way its entity may
- * be as switches and fields on the left, and the entity dialog drawn from them on the right.
+ * be as switches and fields on the left, and the entity dialog drawn from them on the right - the
+ * same `EntitySheet` the platform opens over its pages (`entity-dialog.tsx`), with the same props,
+ * so what is seen here is what the app shows.
  *
  * Nothing on this page lists a domain, a capability or a field: the domains are
  * `ENTITY_DOMAINS`, what each carries is `DOMAIN_CAPABILITIES`, each capability's fields are its
@@ -781,6 +783,15 @@ function Variant(props: VariantProps) {
               onEnable={() => {
                 onChange({ ...row, isEnabled: true });
               }}
+              // The app asks first (its Unlink dialog); the lab unlinks at once.
+              {...(row.isLinked
+                ? {
+                    /** Unlinks at once. */
+                    onUnlink: () => {
+                      onChange({ ...row, isLinked: false });
+                    },
+                  }
+                : {})}
             />
           )}
         </div>

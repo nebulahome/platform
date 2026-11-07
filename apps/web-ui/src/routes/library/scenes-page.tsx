@@ -218,12 +218,10 @@ export function ScenesPage() {
           name: item.name,
           icon: item.icon,
           areaId: item.areaKey === null ? null : (areaByKey.get(item.areaKey)?.id ?? null),
-          transitionMs: item.transitionMs,
           rollbackOnPartialFailure: item.rollbackOnPartialFailure,
           members: item.members.map((member) => ({
             entityId: member.entityId as EntityId,
             targetState: member.targetState,
-            transitionMs: member.transitionMs,
           })),
           unresolvedMembers: item.unresolvedMembers.map((member) => ({
             ...member,

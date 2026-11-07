@@ -16,7 +16,7 @@
  *
  * The address - `sensor.shelly_bench_relay_current` - is not printed. It is what automations and
  * history name an entity by, not what a person recognises it by; it is still what the search
- * finds, it sits on the name as a tooltip, and the entity's page shows it as a fact.
+ * finds, it sits on the name as a tooltip, and the entity's dialog shows it in its settings.
  *
  * On a device reached two ways a row says which way it reads through: a linked entity has the
  * small linked tag after its name, one read one way has that way's mark after what it is -

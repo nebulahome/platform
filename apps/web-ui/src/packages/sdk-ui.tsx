@@ -46,6 +46,7 @@ import type {
   Locale,
   Mutation,
   MutationOptions,
+  OpenEntityCard,
   PackageCall,
   PackageInfo,
   PackageLinkProps,
@@ -697,6 +698,29 @@ function usePlatformNavigate(): PlatformNavigate {
 }
 
 /**
+ * Opens entities' cards: an entity's dialog over the page that is open, as a tap on an entity
+ * anywhere in the interface does.
+ *
+ * @returns What opens one.
+ */
+function useEntityCard(): OpenEntityCard {
+  const navigate = useNavigate();
+
+  return useCallback(
+    (entityId, options) => {
+      void navigate(
+        platformPath({
+          kind: 'entity',
+          entityId,
+          ...(options?.view === undefined ? {} : { view: options.view }),
+        }),
+      );
+    },
+    [navigate],
+  );
+}
+
+/**
  * A link to a path of the drawn package's page.
  *
  * @param props - Where it goes, and an anchor's attributes.
@@ -840,6 +864,7 @@ export const UI_HOST = {
   usePackageRoute,
   usePackageNavigate,
   usePlatformNavigate,
+  useEntityCard,
   PackageLink,
   PlatformLink,
   PageActions,

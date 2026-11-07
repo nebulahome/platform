@@ -1,8 +1,8 @@
 /**
  * What an entity can be told to do, and whether this person may tell it.
  *
- * The controls on an entity's page are drawn from three facts that are all here: the state it is
- * in now (the live channel's when it has spoken, the page's otherwise), the limits its device
+ * An entity's controls - in its dialog and on cards - are drawn from three facts that are all here: the state it is
+ * in now (the live channel's when it has spoken, the one read otherwise), the limits its device
  * declared (`params` - a lamp's warmest and coolest white, a thermostat's range), and whether a
  * command would be accepted at all.
  *

@@ -16,8 +16,8 @@ import { Button, Modal } from '@nebulahome/ui';
 import { dateTimeFormat } from '@/i18n/formatters';
 import { defineMessage, type Message, text } from '@/i18n/messages';
 import type { ActivityLine } from '@/library/device-activity';
-import { Fact } from '@/routes/library/entity/details-panel';
 import { entityPath } from '@/routes/library/entity/entity-path';
+import { Fact } from '@/routes/library/entity/fact';
 
 /** The words for each cause of a change, as the entity's recent changes say them. */
 const CAUSES: Readonly<Record<string, Message>> = {

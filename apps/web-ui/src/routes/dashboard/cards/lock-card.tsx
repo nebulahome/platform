@@ -4,7 +4,7 @@
  *
  * Locked is green, unlocked amber and jammed red - and each is also a word and its own glyph,
  * never the colour alone. A lock that asks for a code cannot take one from a card; its button opens
- * the entity's page, where the code is asked for.
+ * the entity's dialog, where the code is asked for.
  */
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';

@@ -91,9 +91,9 @@ describe('describeAction', () => {
         type: 'command',
         entityId: entity('light.hallway_ceiling'),
         capability: 'level',
-        params: { command: 'set_level', level: 60, transitionMs: 2_000 },
+        params: { command: 'set_level', level: 60 },
       }),
-    ).toBe('Hallway ceiling · level 60% over 2 s');
+    ).toBe('Hallway ceiling · level 60%');
   });
 
   it('reads a wait the way people say one, not in milliseconds', () => {

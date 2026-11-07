@@ -7,7 +7,7 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { entityIdSchema } from '@nebulahome/contracts';
@@ -61,6 +61,15 @@ vi.mock('@/library/api', () => ({
 }));
 
 /**
+ * Shows the address's query, for what the page asks to open over itself.
+ *
+ * @returns The query.
+ */
+function Query() {
+  return <output aria-label="Query">{useLocation().search}</output>;
+}
+
+/**
  * Renders a device's page with an owner signed in.
  *
  * @param deviceId - Whose page.
@@ -91,7 +100,15 @@ function renderPage(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter initialEntries={[`/devices/${deviceId}`]}>
         <Routes>
-          <Route path="/devices/:deviceId" element={<DevicePage />} />
+          <Route
+            path="/devices/:deviceId"
+            element={
+              <>
+                <DevicePage />
+                <Query />
+              </>
+            }
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -140,24 +157,23 @@ describe('DevicePage', () => {
     });
   });
 
-  it('leads from each entity to its own page', async () => {
+  it('opens each entity in its dialog over the page', async () => {
     renderPage();
 
     expect(
       (await screen.findByRole('link', { name: 'Nozzle temperature' })).getAttribute('href'),
-    ).toBe(`/devices/entities/${encodeURIComponent(NOZZLE_ID)}`);
+    ).toBe(`/devices/${PRINTER.id}?entity=${encodeURIComponent(NOZZLE_ID)}`);
   });
 
-  it('opens an entity settings over the list from its spanner, without leaving the page', async () => {
-    // The spanner used to be a link to the entity's page, which opened the settings there: the
-    // dialog appeared and the list it was opened from was gone.
+  it('opens an entity on its settings from its spanner, without leaving the page', async () => {
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Configure Nozzle temperature' }));
 
-    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.getByRole('status', { name: 'Query' }).textContent).toBe(
+      `?entity=${encodeURIComponent(NOZZLE_ID)}&entity-view=settings`,
+    );
     expect(screen.getByRole('region', { name: 'Sensors' })).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'Configure Nozzle temperature' })).toBeNull();
   });
 
   it('lists what can be operated apart from what only reports, each under a heading', async () => {

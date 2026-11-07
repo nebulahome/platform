@@ -2,8 +2,8 @@
  * A card for what is told rather than switched: a robot vacuum or mower, a choice from a list, a
  * number, a button, a firmware update, a picture.
  *
- * Each is drawn by the same control its entity page draws - the robot's Start, Pause and Dock,
- * the list's choices, the update's Install - so a card and a page never disagree about what can
+ * Each is drawn by the same control the entity's dialog draws - the robot's Start, Pause and Dock,
+ * the list's choices, the update's Install - so a card and the dialog never disagree about what can
  * be done, under the card's heading.
  */
 import type { CapabilityName } from '@nebulahome/contracts';
@@ -13,7 +13,7 @@ import { hasCapability } from '@/library/entity-control';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 import type { EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import type { LightColour } from '@/routes/library/entity/controls/control-block';
-import { ENTITY_CONTROLS } from '@/routes/library/entity/controls/control-panel';
+import { ENTITY_CONTROLS } from '@/routes/library/entity/controls/entity-controls';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
 import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 

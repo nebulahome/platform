@@ -9,6 +9,7 @@ import { Sidebar } from '@/components/sidebar';
 import { useLiveChannel } from '@/live/use-live-channel';
 import { FloatingLayer } from '@/packages/floating/floating-layer';
 import { PackageBackgrounds } from '@/packages/package-backgrounds';
+import { EntityDialogHost } from '@/routes/library/entity/entity-dialog';
 
 /**
  * Renders the page for an address no page answers.
@@ -55,6 +56,9 @@ export function PagePlaceholder() {
  * over that box: a window is held to the page and never covers the rail, however wide the rail is
  * or is becoming.
  *
+ * An entity opens in a dialog over any page, named in the address (`?entity=`): its host is here,
+ * so every page, card and package opens it the same way.
+ *
  * @returns The shell.
  */
 export function Shell() {
@@ -69,6 +73,7 @@ export function Shell() {
           <PackageBackgrounds />
         </FloatingLayer>
       </div>
+      <EntityDialogHost />
     </div>
   );
 }

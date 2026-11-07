@@ -8,7 +8,9 @@
  * answers says how long it has been silent, and shows its last value greyed.
  *
  * It draws the platform's own shapes and fetches nothing: whatever opens it passes the entity,
- * its state, its commander and its history.
+ * its state, its commander and its history - the platform's `EntityDialog`, in a dialog over any
+ * page, and the entity lab, beside its fields. Being a dialog is the frame's part: the card here
+ * is only what is in it.
  */
 import { useState, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +54,18 @@ export type EntitySheetProps = SheetBodyProps & {
 
   /** Called when the device's row of the settings is pressed. */
   readonly onOpenDevice?: () => void;
+
+  /** The sheet raised when the dialog opens, if any: its settings, or its history. */
+  readonly initialView?: 'settings' | 'history';
+
+  /** Whether the person may change its settings; false shows them read-only. Default true. */
+  readonly canEdit?: boolean;
+
+  /** Whether the person may make a tag from its settings. Default true. */
+  readonly canCreateTags?: boolean;
+
+  /** Called when Unlink is pressed in its settings, for a linked reading; none, no Unlink. */
+  readonly onUnlink?: () => void;
 };
 
 /** Where the dialog is: on its controls, with its history open, or in its settings. */
@@ -72,25 +86,28 @@ type Pull = { readonly from: number; readonly by: number; readonly height: numbe
 export function EntitySheet(props: EntitySheetProps) {
   const { t } = useTranslation();
   const { entity, state, history, now, icon, deviceName, onClose, onSave, onEnable } = props;
-  const [view, setView] = useState<SheetView>('control');
+  const kind = sheetKindOf(entity, state);
+  const drawer =
+    kind.history === 'drawer'
+      ? drawerContentOf(entity, state, history.states, history.window)
+      : null;
+  // History is asked for only where there is one to raise.
+  const opening =
+    props.initialView === 'history' && drawer === null ? undefined : props.initialView;
+  const [view, setView] = useState<SheetView>(opening ?? 'control');
   // Each opening of the settings starts from the entity as it is now.
   const [openings, setOpenings] = useState(0);
   // A list too long for its chips, open in place of the body.
   const [list, setList] = useState<ListView | null>(null);
   // The sheet raised over the controls - the settings or the history - kept after it is lowered,
   // so it is still there as it slides away; and a pull on its handle.
-  const [raised, setRaised] = useState<'settings' | 'history'>('settings');
+  const [raised, setRaised] = useState<'settings' | 'history'>(opening ?? 'settings');
   const [pull, setPull] = useState<Pull | null>(null);
-  const kind = sheetKindOf(entity, state);
   const Body = kind.Body;
   const tone = kind.tone;
   const glyph = kind.icon;
   const isRaised = view !== 'control';
   const isEnabled = entity.isEnabled;
-  const drawer =
-    kind.history === 'drawer'
-      ? drawerContentOf(entity, state, history.states, history.window)
-      : null;
   const silentFor =
     entity.lastUpdated === null ? null : Math.max(0, now - entity.lastUpdated.getTime());
   const sub = [kind.words, entity.areaName].filter(Boolean).join(' · ');
@@ -157,8 +174,6 @@ export function EntitySheet(props: EntitySheetProps) {
 
   return (
     <div
-      role="dialog"
-      aria-label={entity.name}
       className={cn(
         'entity-arrive relative flex w-[400px] max-w-full flex-col overflow-hidden rounded-[24px] border',
         'border-border-strong bg-surface shadow-dialog select-none',
@@ -345,6 +360,9 @@ export function EntitySheet(props: EntitySheetProps) {
             onSave={onSave}
             onClose={lower}
             {...(props.onOpenDevice === undefined ? {} : { onOpenDevice: props.onOpenDevice })}
+            {...(props.canEdit === undefined ? {} : { canEdit: props.canEdit })}
+            {...(props.canCreateTags === undefined ? {} : { canCreateTags: props.canCreateTags })}
+            {...(props.onUnlink === undefined ? {} : { onUnlink: props.onUnlink })}
           />
         )}
       </div>

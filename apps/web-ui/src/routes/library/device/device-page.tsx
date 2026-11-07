@@ -1,7 +1,7 @@
 /**
  * One device's own page: what it is, how it is doing, and every entity it exposes.
  *
- * The page the devices list leads to, and every link to a device - from an entity's page, a tag,
+ * The page the devices list leads to, and every link to a device - from an entity's dialog, a tag,
  * a vendor, the system monitor - lands here. As the board draws a detail page: the way back, the
  * device's glyph, its name with its model and room, how it stands as a Pill with its room and
  * tags, its actions - its own web page, for a device whose driver serves one, and Settings - then
@@ -74,7 +74,6 @@ import { useDevicePage, type DevicePageView } from '@/routes/library/device/use-
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { DeviceIcon } from '@/routes/library/device-icon';
 import { entityPath } from '@/routes/library/entity/entity-path';
-import { EntitySettingsDialog } from '@/routes/library/entity/entity-settings-dialog';
 import { EntityRow, type EntityLine } from '@/routes/library/entity-row';
 import {
   TransportMark,
@@ -441,7 +440,6 @@ export function DevicePage() {
   const queryClient = useQueryClient();
   const { view, isPending, error, isMissing } = useDevicePage(deviceId);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
-  const [configuring, setConfiguring] = useState<EntityView | null>(null);
   const [tab, setTab] = useTab<DeviceTab>(TABS);
   const [linking, setLinking] = useState<LinkRequest | null>(null);
   const [search, setSearch] = useSearchParams();
@@ -762,7 +760,13 @@ export function DevicePage() {
             ) : (
               <EntityGroups
                 view={view}
-                onConfigure={view.canEditEntities ? setConfiguring : undefined}
+                onConfigure={
+                  view.canEditEntities
+                    ? (entity) => {
+                        void navigate(entityPath(entity.entityId, 'settings'));
+                      }
+                    : undefined
+                }
                 onLink={view.canWrite ? setLinking : undefined}
               />
             )}
@@ -805,20 +809,6 @@ export function DevicePage() {
           onDone={() => {
             closeLinking();
             refresh();
-          }}
-        />
-      )}
-
-      {view === undefined || configuring === null ? null : (
-        <EntitySettingsDialog
-          // Keyed on the entity, so each opening starts from the entity as it now is.
-          key={configuring.entityId}
-          entity={configuring}
-          isOpen
-          canEdit={view.canEditEntities}
-          canCreateTags={view.canCreateTags}
-          onClose={() => {
-            setConfiguring(null);
           }}
         />
       )}

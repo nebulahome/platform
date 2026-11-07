@@ -75,8 +75,6 @@ import { CONTAINER_QUERY_KEYS } from '@/containers/api';
 import { BrokerGallery } from '@/gallery-brokers';
 import { FloatingSample } from '@/gallery-floating';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
-import { capabilityStateOf } from '@/library/entity-control';
-import { readingOf } from '@/library/entity-reading';
 import { AuthLayout } from '@/routes/auth-layout';
 import { EnergyCard } from '@/routes/dashboard/cards/energy/energy-card';
 import {
@@ -95,7 +93,6 @@ import { ModbusTemplatePage } from '@/routes/library/broker-modbus/template-edit
 import { ModbusBrokerPage } from '@/routes/library/broker-modbus-page';
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
-import { ControlPanel } from '@/routes/library/entity/controls/control-panel';
 import { EntityField } from '@/routes/library/entity-field';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
@@ -125,103 +122,6 @@ import {
 } from './gallery-automations';
 
 import './styles/globals.css';
-
-/**
- * One of every kind of entity the contract describes, for the controls section: the bundles in
- * the repository ship only some of them, and a control nobody can open is a control nobody checks.
- */
-const CONTROL_SPECIMENS = [
-  anEntity({
-    entityId: 'light.strip',
-    name: 'Colour strip',
-    capabilities: [
-      { capability: 'on_off', params: {} },
-      { capability: 'level', params: { hasTransition: true } },
-      { capability: 'color_hs', params: {} },
-      { capability: 'color_temp', params: { minMireds: 153, maxMireds: 500 } },
-    ],
-    state: {
-      on_off: { isOn: true },
-      level: { level: 70 },
-      color_hs: { hue: 275, saturation: 80 },
-      color_temp: { mireds: 300 },
-    },
-  }),
-  anEntity({
-    entityId: 'cover.study_blind',
-    name: 'Study blind',
-    capabilities: [{ capability: 'cover', params: { hasPosition: true, hasTilt: true } }],
-    state: { cover: { position: 40, tilt: 20, motion: 'opening' } },
-  }),
-  anEntity({
-    entityId: 'lock.front_door',
-    name: 'Front door',
-    capabilities: [{ capability: 'lock', params: { hasCode: true } }],
-    state: { lock: { lockState: 'jammed' } },
-  }),
-  anEntity({
-    entityId: 'climate.hall',
-    name: 'Hall thermostat',
-    capabilities: [
-      {
-        capability: 'thermostat',
-        params: {
-          supportedModes: ['off', 'heat', 'cool', 'auto'],
-          minTemperature: 7,
-          maxTemperature: 30,
-          temperatureStep: 0.5,
-        },
-      },
-    ],
-    state: {
-      thermostat: {
-        currentTemperature: 19.4,
-        targetTemperature: 21,
-        mode: 'heat',
-        action: 'heating',
-        humidity: 48,
-      },
-    },
-  }),
-  anEntity({
-    entityId: 'media_player.lounge',
-    name: 'Lounge speaker',
-    capabilities: [
-      {
-        capability: 'media_player',
-        params: { supportedSources: ['Radio', 'Line in'], hasSeek: true, hasVolume: true },
-      },
-    ],
-    state: {
-      media_player: {
-        playback: 'playing',
-        volume: 35,
-        isMuted: false,
-        source: 'Radio',
-        mediaTitle: 'Morning news',
-        mediaArtist: 'Radio 3',
-        mediaDurationSeconds: 1800,
-        mediaPositionSeconds: 420,
-      },
-    },
-  }),
-  anEntity({
-    entityId: 'camera.porch',
-    name: 'Porch camera',
-    capabilities: [
-      { capability: 'camera', params: { hasSnapshot: true, hasStream: true, hasRecording: true } },
-    ],
-    state: { camera: { isStreamAvailable: true, isRecording: false } },
-  }),
-  anEntity({
-    entityId: 'sensor.plug_power',
-    name: 'Plug power',
-    deviceClass: 'power',
-    unitOfMeasurement: 'W',
-    capabilities: [{ capability: 'sensor_numeric', params: {} }],
-    state: { sensor_numeric: { value: 42.5 } },
-  }),
-];
 
 /**
  * A house to pick from, for the picker section: two floors, three rooms, a device with many
@@ -1252,26 +1152,6 @@ function Gallery() {
             format={(value) => `${value.toFixed(1)}°`}
             onChange={setTarget}
           />
-        </Section>
-
-        <Section
-          title="Entity controls"
-          note="The Control panel of an entity's page, for every capability the contract describes. Commands fail here: there is no session."
-        >
-          <QueryClientProvider client={new QueryClient()}>
-            <div className="grid w-full gap-4 md:grid-cols-2">
-              {CONTROL_SPECIMENS.map((specimen) => (
-                <ControlPanel
-                  key={specimen.entityId}
-                  entity={specimen}
-                  state={capabilityStateOf(specimen, undefined)}
-                  reportedAt={null}
-                  reading={readingOf(specimen, undefined)}
-                  canControl
-                />
-              ))}
-            </div>
-          </QueryClientProvider>
         </Section>
 
         <Section

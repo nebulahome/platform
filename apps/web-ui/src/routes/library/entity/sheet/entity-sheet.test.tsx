@@ -1,7 +1,9 @@
 /**
  * The entity dialog's frame: History folds its drawer open, Settings lifts its sheet over the
  * controls and hides them from a screen reader, a feature the entity does not have is not drawn
- * at all, and a capability with no body of its own still gets the entity page's control.
+ * at all, and a capability with no body of its own still gets the platform's control. Settings
+ * send only what changed, stay read-only for someone who may not change them, and offer Unlink
+ * for a linked reading when the dialog is given a way to.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -11,8 +13,9 @@ import type { EntityView, StateHistoryPoint } from '@nebulahome/contracts';
 
 import type * as LibraryApi from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
-import { EntitySheet } from '@/routes/library/entity/sheet/entity-sheet';
+import { EntitySheet, type EntitySheetProps } from '@/routes/library/entity/sheet/entity-sheet';
 import { anEntity } from '@/testing/fixtures';
+import { LINKED_SAMPLE_ENTITIES } from '@/testing/linked-samples';
 
 vi.mock('@/library/api', async (original) => ({
   ...(await original<typeof LibraryApi>()),
@@ -30,8 +33,13 @@ const NOW = Date.parse('2026-11-06T12:00:00Z');
  *
  * @param entity - The entity.
  * @param states - Its history.
+ * @param extra - Props besides the usual.
  */
-function show(entity: EntityView, states: StateHistoryPoint[] = []): void {
+function show(
+  entity: EntityView,
+  states: StateHistoryPoint[] = [],
+  extra: Partial<EntitySheetProps> = {},
+): void {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   render(
@@ -55,6 +63,7 @@ function show(entity: EntityView, states: StateHistoryPoint[] = []): void {
         onClose={vi.fn()}
         onSave={vi.fn()}
         onEnable={vi.fn()}
+        {...extra}
       />
     </QueryClientProvider>,
   );
@@ -124,7 +133,7 @@ describe('the entity dialog', () => {
     expect(screen.getByText('21.8')).toBeTruthy();
   });
 
-  it('gives a capability with no body of its own the entity page’s control', () => {
+  it('gives a capability with no body of its own the platform’s control', () => {
     show(
       anEntity({
         entityId: 'custom.lab_item',
@@ -136,6 +145,42 @@ describe('the entity dialog', () => {
       }),
     );
 
-    expect(screen.getByRole('dialog', { name: 'Recording' })).toBeTruthy();
+    expect(screen.getAllByText('Recording').length).toBeGreaterThan(0);
+  });
+
+  it('opens on its settings when asked, and saves only what changed', () => {
+    const onSave = vi.fn();
+
+    show(LAMP, [], { initialView: 'settings', onSave });
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Icon and name' }), {
+      target: { value: 'Island' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onSave).toHaveBeenCalledWith({ update: { name: 'Island' } });
+  });
+
+  it('shows the settings read-only, with no Save, to someone who may not change them', () => {
+    show(LAMP, [], { initialView: 'settings', canEdit: false });
+
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(
+      screen.getByRole('textbox', { name: 'Icon and name' }).closest('fieldset')?.disabled,
+    ).toBe(true);
+  });
+
+  it('offers Unlink in the settings of a linked reading', () => {
+    const onUnlink = vi.fn();
+    const [linked] = LINKED_SAMPLE_ENTITIES;
+
+    if (linked === undefined) {
+      throw new Error('No linked sample');
+    }
+
+    show(linked, [], { initialView: 'settings', onUnlink });
+    fireEvent.click(screen.getByRole('button', { name: 'Unlink…' }));
+
+    expect(onUnlink).toHaveBeenCalledOnce();
   });
 });

@@ -4,7 +4,7 @@
  * that switches is a fan, not a switch.
  *
  * A capability no body is drawn for yet - a package's own entity type, one added after
- * this was written - still gets its controls: the entity page's own, one block per capability.
+ * this was written - still gets its controls: the platform's own, one block per capability.
  * The dialog never opens empty.
  */
 import type { ComponentType } from 'react';
@@ -21,7 +21,7 @@ import { translate } from '@/i18n/messages';
 import { hasCapability, paramsOf } from '@/library/entity-control';
 import { entityKindOf } from '@/library/entity-kind';
 import { BINARY_WORDS } from '@/library/entity-reading';
-import { ENTITY_CONTROLS } from '@/routes/library/entity/controls/control-panel';
+import { ENTITY_CONTROLS } from '@/routes/library/entity/controls/entity-controls';
 import { ClimateBody, climateLookOf } from '@/routes/library/entity/sheet/bodies/climate-body';
 import { CoverBody } from '@/routes/library/entity/sheet/bodies/cover-body';
 import { FanBody } from '@/routes/library/entity/sheet/bodies/fan-body';
@@ -329,7 +329,7 @@ function isLitOf(id: KindId, state: CapabilityState): boolean {
 }
 
 /**
- * The body of an entity no other body draws: its controls from the entity page, one per
+ * The body of an entity no other body draws: the platform's own controls (`ENTITY_CONTROLS`), one per
  * capability it declares.
  *
  * @param props - See {@link SheetBodyProps}.

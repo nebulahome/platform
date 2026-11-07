@@ -1,7 +1,7 @@
 /**
  * The last day of a calculated alias that may not be saved yet, for the editor's Preview.
  *
- * Reads each source's hourly history once - the same buckets the entity pages chart - and runs
+ * Reads each source's hourly history once - the same buckets an entity's history charts - and runs
  * the formula over them in the browser ({@link previewSeries}). The histories are cached for five
  * minutes by entity, so typing in the formula costs nothing but the arithmetic; choosing another
  * entity for a source reads that one.

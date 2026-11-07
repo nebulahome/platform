@@ -1,5 +1,5 @@
 /**
- * State history becoming the band and the line on an entity's page.
+ * State history becoming the band and the line a chart of an entity draws.
  */
 import { describe, expect, it } from 'vitest';
 

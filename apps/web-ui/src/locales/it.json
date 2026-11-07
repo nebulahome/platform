@@ -343,7 +343,6 @@
       "notifyUnavailable": "{{channel}} · \"{{message}}\" - non ancora disponibile",
       "offsetAfter": "{{said}}, {{duration}} dopo",
       "offsetBefore": "{{said}}, {{duration}} prima",
-      "over": "{{said}} in {{duration}}",
       "repeat": "Ripeti {{times}} · {{blocks}}",
       "sequence": "{{blocks}}, uno dopo l'altro",
       "stop": "Fermati qui",
@@ -2128,7 +2127,6 @@
       "source": "Sorgente",
       "temperature": "Temperatura obiettivo",
       "tilt": "Inclinazione",
-      "transitionMs": "Transizione",
       "value": "Valore",
       "volume": "Volume"
     },
@@ -3056,14 +3054,6 @@
         "thisLightHasNot": "Questa luce non ha detto quali bianchi sa fare, quindi non si può impostare da qui.",
         "warm": "Calda"
       },
-      "controlPanel": {
-        "aliasIsWorkedOut": "Un alias è calcolato da altre entità; cambia quelle.",
-        "control": "Controllo",
-        "deviceCannotBeReached": "Il dispositivo ora non è raggiungibile. I controlli tornano quando risponde.",
-        "thisEntityIsDisabled": "Questa entità è disattivata, quindi non accetta comandi.",
-        "thisReadingComesFrom": "Questa lettura arriva dalla macchina su cui gira la piattaforma e non accetta comandi.",
-        "youCanSeeThis": "Puoi vedere questa entità, ma il tuo ruolo non ti lascia controllarla."
-      },
       "coverControl": {
         "closed": "Chiusa",
         "closing": "In chiusura",
@@ -3101,12 +3091,6 @@
         "startMowing": "Inizia a tagliare",
         "stoppedByAFault": "Fermo per un guasto"
       },
-      "levelControl": {
-        "fade": "Dissolvenza",
-        "instant": "Istantaneo",
-        "n1S": "1 s",
-        "n3S": "3 s"
-      },
       "lockControl": {
         "code": "Codice",
         "holdToUnlock": "Tieni premuto per sbloccare",
@@ -3134,11 +3118,6 @@
       "powerControl": {
         "namePower": "Accensione di {{name}}",
         "power": "Accensione"
-      },
-      "readingControl": {
-        "reading": "Lettura",
-        "state": "Stato",
-        "text": "Testo"
       },
       "selectControl": {
         "thisSettingHasNot": "Questa impostazione non ha detto le sue scelte, quindi non si può impostare da qui."
@@ -3183,155 +3162,15 @@
         "whereAreYou": "Dove sei?"
       }
     },
-    "correlationsPanel": {
-      "aliases": "Alias",
-      "automations": "Automazioni",
-      "checked": "Controllata",
-      "commanded": "Comandata",
-      "notUsedByAny": "Non è usata da nessuna automazione, scena o alias.",
-      "reading": "Lettura…",
-      "readsIt": "La legge",
-      "scenes": "Scene",
-      "startsIt": "La avvia",
-      "thisEntity": "Questa entità",
-      "usedBy": "Usata da",
-      "usedByCount": "Usata da · {{count}}"
-    },
-    "detailsPanel": {
-      "address": "Indirizzo",
-      "calculated": "Calcolata",
-      "can": "Può",
-      "changed": "Cambiata",
-      "copyTheAddress": "Copia l'indirizzo",
-      "details": "Dettagli",
-      "device": "Dispositivo",
-      "firstThenFallback": "Prima {{first}}, {{second}} come riserva",
-      "hiddenByDefault": "Nascosta per impostazione predefinita",
-      "kind": "Tipo",
-      "lists": "Elenchi",
-      "measures": "Misura",
-      "never": "Mai",
-      "none": "Nessuna",
-      "notInARoom": "Non è in una stanza",
-      "positionAndTilt": "posizione e inclinazione",
-      "rangeNotDeclared": "intervallo non dichiarato",
-      "reported": "Riferita",
-      "room": "Stanza",
-      "tags": "Tag",
-      "transport": "Transport"
-    },
-    "entity": {
-      "availability": "Disponibilità",
-      "changed": "Cambiata",
-      "configureName": "Configura {{name}}",
-      "device": "Dispositivo",
-      "devices": "Dispositivi",
-      "integration": "Integrazione",
-      "itIsWorkedOut": "È calcolata, non è un dispositivo",
-      "lastChange": "Ultimo cambiamento",
-      "lastValue": "Ultimo valore {{seen}}",
-      "linked": "collegato",
-      "moreFor": "Altro per {{name}}",
-      "neither": "Nessuno",
-      "noneYet": "Ancora nessuno",
-      "nothingChangedToday": "Oggi non è cambiato niente",
-      "onEveryChange": "A ogni cambiamento",
-      "reporting": "In linea",
-      "settings": "Impostazioni",
-      "throughSeen": "Tramite {{way}} · {{seen}}",
-      "transport": "Transport",
-      "unlink": "Scollega…",
-      "unreachable": "Irraggiungibile",
-      "wentAway": "Sparita"
-    },
     "entitySettingsDialog": {
       "asItIs": "{{kind}}, come dice la sua integrazione",
-      "configureName": "Configura {{name}}",
-      "forThisEntityOnly": "Solo per questa entità: prima {{first}}, {{second}} quando {{first}} non risponde. Il dispositivo preferisce {{device}}.",
       "fromTheDevice": "Dal dispositivo",
-      "kindLinked": "{{kind}} · collegata",
-      "likeTheDevice": "Come il dispositivo: prima {{first}}, {{second}} quando {{first}} non risponde.",
-      "nameCannotBeBlank": "Il nome non può essere vuoto.",
       "shownAs": "Mostrato come",
-      "shownAsHint": "Tutta la casa lo tratta così: schede, automazioni, storico. Il suo indirizzo resta {{address}}.",
-      "transport": "Transport",
-      "yourRoleLetsYou": "Il tuo ruolo ti lascia vedere queste impostazioni ma non cambiarle."
-    },
-    "historyPanel": {
-      "activeFor": "{{word}} per",
-      "average": "Media",
-      "highest": "Massimo",
-      "history": "Cronologia",
-      "inThisWindow": "in questo intervallo",
-      "keptWithWay": "Ogni lettura è conservata con la via da cui è arrivata.",
-      "lastAt": "l'ultima alle {{time}}",
-      "line": "Linea",
-      "longest": "La più lunga",
-      "lowest": "Minimo",
-      "n1H": "1 h",
-      "n24H": "24 h",
-      "n30D": "30 g",
-      "n6H": "6 h",
-      "n7D": "7 g",
-      "notInWindow": "non in questo intervallo",
-      "nothingRecordedInThis": "Niente di registrato in questo intervallo.",
-      "now": "Ora",
-      "open": "Aperta",
-      "playing": "In riproduzione",
-      "reading": "Lettura…",
-      "reading2": "Lettura",
-      "recentChanges": "Cambiamenti recenti",
-      "showAsAChart": "Mostra come grafico",
-      "showAsATable": "Mostra come tabella",
-      "state": "Stato",
-      "through": "Tramite {{way}}",
-      "timesAreLocal": "Gli orari sono locali ({{zone}}).",
-      "times_many": "{{count}} volte",
-      "times_one": "{{count}} volta",
-      "times_other": "{{count}} volte",
-      "turned": "Diventata {{word}}",
-      "unlocked": "Sbloccata",
-      "unreachable": "Irraggiungibile",
-      "value": "Valore",
-      "when": "Quando",
-      "window": "Intervallo"
+      "transport": "Transport"
     },
     "recentChanges": {
-      "backOn": "Di nuovo su {{way}} · ancora {{state}}",
       "noChangeInThis": "Nessun cambiamento in questo intervallo.",
-      "throughStill": "Tramite {{way}} · ancora {{state}}",
-      "throughWay": "{{state}} · tramite {{way}}",
-      "unreachable": "Irraggiungibile",
-      "wayBack": "{{way}} tornato",
-      "waySilent": "{{way}} non risponde"
-    },
-    "stateBand": {
-      "activewordForActivemsIn": "{{activeWord}} per {{activeMs}} in questo intervallo.",
-      "labelDurationtext": "{{label}}, {{durationText}}",
-      "notInThisWindow": "Mai {{word}} in questo intervallo."
-    },
-    "transport": {
-      "bothSay": "Entrambi dicono {{value}}.",
-      "choice": "{{choice}} · {{second}} come riserva",
-      "forThisEntity": "Per questa entità",
-      "fromTheDevice": "Dal dispositivo",
-      "inUse": "In uso",
-      "lastCarried": "L'ultima volta {{second}} l'ha portato {{when}}, per {{for}}, mentre {{first}} non rispondeva.",
-      "neitherAnswers": "Nessuna delle due vie risponde",
-      "noFallbackToday": "Oggi {{second}} non ha dovuto subentrare.",
-      "nothingYet": "Ancora niente",
-      "onlyOneSays": "{{second}} non ha ancora detto niente.",
-      "silent": "Non risponde",
-      "standingBy": "In attesa",
-      "theySayApart": "{{first}} dice {{a}}, {{second}} dice {{b}}.",
-      "throughFallback": "Tramite {{way}}, mentre {{first}} non risponde",
-      "throughFirst": "Tramite {{way}}, la via preferita",
-      "transport": "Transport",
       "unreachable": "Irraggiungibile"
-    },
-    "transportBand": {
-      "transport": "Transport",
-      "wayFor": "{{way}} · {{for}}"
     },
     "sheet": {
       "binary": {
@@ -3696,7 +3535,8 @@
         "entityId": "Id entità",
         "iconAndName": "Icona e nome",
         "tags": "Tag",
-        "title": "Impostazioni"
+        "title": "Impostazioni",
+        "unlink": "Scollega…"
       },
       "since": "Dalle {{time}}",
       "switch": {
@@ -3726,6 +3566,10 @@
         "drawnAt": "Disegnata alle {{time}}",
         "fullScreen": "Schermo intero"
       }
+    },
+    "dialog": {
+      "notFound": "Impossibile aprire {{entityId}}",
+      "notSaved": "Impossibile salvare {{name}}"
     }
   },
   "entityPicker": {
@@ -3954,7 +3798,6 @@
       "service": "Servizio",
       "sixHexDigitsAs": "Sei cifre esadecimali, come #ff8800",
       "telegram": "telegram",
-      "thisLightChangesAt": "Questa luce cambia subito: non sa fare dissolvenze.",
       "whatItIsGiven": "Cosa riceve",
       "do": "Azione",
       "commandId": "Comando",
@@ -4741,8 +4584,6 @@
       "rollBackWhenOne": "Annulla tutto: quando un'entità rifiuta, le altre tornano com'erano.",
       "savedSetOfStates": "Un insieme di stati salvati. Ogni entità che aggiungi parte da quello che legge ora.",
       "scenes": "Scene",
-      "seconds0MeansImmediate": "Secondi. 0 vuol dire subito. Le luci che non sanno fare dissolvenze cambiano subito.",
-      "transition": "Transizione",
       "whatItIs": "Cos'è",
       "whatTheApiAnd": "Come la chiamano l'API e le automazioni. Non cambia più dopo questo.",
       "created": "{{name}} creata",
@@ -4752,8 +4593,6 @@
       "notRemoved": "La scena non è stata eliminata",
       "notInTheHouse": "Non è in questa casa. Scegli l'entità che rappresenta; fino ad allora la scena non si può applicare.",
       "standsFor": "Rappresenta",
-      "transitionAsTheScene": "Transizione come la scena",
-      "transitionSeconds": "Transizione {{seconds}} s",
       "removeFromTheScene": "Togli dalla scena",
       "closeTitle": "Chiudi {{title}}",
       "openTitle": "Apri {{title}}",
@@ -4765,9 +4604,6 @@
       "fileNote": "Come un unico file .json, da conservare o da portare in un'altra casa. Importa legge anche le scene di Home Assistant.",
       "export": "Esporta",
       "import": "Importa",
-      "transitionForTitle": "Transizione di {{title}}, in secondi",
-      "asTheScene": "Come la scena",
-      "changeTransition": "Cambia la sua transizione",
       "membersNote_one": "{{count}} entità · aggiunta con lo stato attuale, poi modificata qui.",
       "membersNote_many": "{{count}} entità · ognuna aggiunta con lo stato attuale, poi modificata qui.",
       "membersNote_other": "{{count}} entità · ognuna aggiunta con lo stato attuale, poi modificata qui."

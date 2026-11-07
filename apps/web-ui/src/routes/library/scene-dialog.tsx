@@ -1,6 +1,7 @@
 /**
- * Making a scene or changing one: what to call it, which area it belongs to, how it transitions,
- * and which entities it sets — with the states themselves editable, not just the addresses.
+ * Making a scene or changing one: what to call it, which area it belongs to, what a partial
+ * failure does, and which entities it sets — with the states themselves editable, not just the
+ * addresses.
  *
  * Keyed from the outside the way AreaDialog is, so opening Create or Edit always starts from a
  * fresh form rather than whatever the last visit left behind.
@@ -74,8 +75,6 @@ export type SceneDialogTarget =
 export type SceneMemberDraft = {
   readonly entityId: EntityId;
   readonly targetState: CapabilityState;
-  /** Seconds; null means the scene's own transition. */
-  readonly transitionSeconds: number | null;
 };
 
 /** What the dialog needs. */
@@ -103,26 +102,6 @@ export type SceneDialogProps = {
 const KEY_PATTERN = /^[a-z][a-z0-9_]{1,62}$/u;
 
 /**
- * Turns seconds typed in the form into milliseconds for the API.
- *
- * @param seconds - What was typed, already clamped.
- * @returns Milliseconds.
- */
-function toMs(seconds: number): number {
-  return Math.round(seconds * 1000);
-}
-
-/**
- * Turns a stored transition into seconds for the form.
- *
- * @param ms - Milliseconds from the scene or member.
- * @returns Seconds.
- */
-function toSeconds(ms: number): number {
-  return Math.round(ms / 100) / 10;
-}
-
-/**
  * Builds the member drafts from a saved scene.
  *
  * @param scene - The scene being edited.
@@ -132,7 +111,6 @@ function draftsFromScene(scene: SceneView): SceneMemberDraft[] {
   return scene.members.map((member) => ({
     entityId: member.entityId,
     targetState: narrowTargetState(member.targetState),
-    transitionSeconds: member.transitionMs === null ? null : toSeconds(member.transitionMs),
   }));
 }
 
@@ -186,9 +164,6 @@ export function SceneDialog(props: SceneDialogProps) {
 
     return areas.find((area) => area.key === existing.areaKey)?.id ?? '';
   });
-  const [transitionSeconds, setTransitionSeconds] = useState(
-    existing === undefined ? 0 : toSeconds(existing.transitionMs),
-  );
   const [rollback, setRollback] = useState(existing?.rollbackOnPartialFailure ?? false);
   const [members, setMembers] = useState<SceneMemberDraft[]>(() =>
     existing === undefined ? [] : draftsFromScene(existing),
@@ -197,7 +172,6 @@ export function SceneDialog(props: SceneDialogProps) {
     existing?.unresolvedMembers ?? [],
   );
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
-  const [timing, setTiming] = useState<string | null>(null);
   const [isAdding, setAdding] = useState(false);
   const [isConfirming, setConfirming] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -216,12 +190,9 @@ export function SceneDialog(props: SceneDialogProps) {
     mutationFn: async (): Promise<SceneView> => {
       const trimmedName = name.trim();
       const trimmedKey = key.trim();
-      const seconds = clampSeconds(transitionSeconds);
       const payloadMembers = members.map((member) => ({
         entityId: member.entityId,
         targetState: member.targetState,
-        transitionMs:
-          member.transitionSeconds === null ? null : toMs(clampSeconds(member.transitionSeconds)),
       }));
 
       if (target?.mode === 'create') {
@@ -230,7 +201,6 @@ export function SceneDialog(props: SceneDialogProps) {
           name: trimmedName,
           icon,
           areaId: areaId === '' ? null : areaId,
-          transitionMs: toMs(seconds),
           rollbackOnPartialFailure: rollback,
           members: payloadMembers,
           unresolvedMembers: [...unresolved],
@@ -247,7 +217,6 @@ export function SceneDialog(props: SceneDialogProps) {
         name: trimmedName,
         icon,
         areaId: areaId === '' ? null : areaId,
-        transitionMs: toMs(seconds),
         rollbackOnPartialFailure: rollback,
         members: payloadMembers,
         unresolvedMembers: [...unresolved],
@@ -343,7 +312,6 @@ export function SceneDialog(props: SceneDialogProps) {
       {
         entityId: entity.entityId,
         targetState: resolveTargetState(waiting.targetState, entity),
-        transitionSeconds: waiting.transitionMs === null ? null : toSeconds(waiting.transitionMs),
       },
     ]);
   };
@@ -382,7 +350,6 @@ export function SceneDialog(props: SceneDialogProps) {
       ...chosen.map((entity) => ({
         entityId: entity.entityId,
         targetState: seedTargetState(entity),
-        transitionSeconds: null,
       })),
     ]);
   };
@@ -438,54 +405,33 @@ export function SceneDialog(props: SceneDialogProps) {
   );
 
   const applying = (
-    <>
-      <TextField
-        label={t('library.sceneDialog.transition', 'Transition')}
-        size="medium"
-        type="number"
-        min={0}
-        max={600}
-        step={0.1}
-        value={String(transitionSeconds)}
-        hint={t(
-          'library.sceneDialog.seconds0MeansImmediate',
-          'Seconds. 0 means immediate. Lights that cannot fade change at once.',
-        )}
-        onChange={(event) => {
-          const next = Number(event.target.value);
-
-          setTransitionSeconds(Number.isFinite(next) ? next : 0);
+    <div className="flex flex-col gap-2">
+      <span className="text-caption font-medium text-foreground-muted">
+        {t('library.sceneDialog.onPartialFailure', 'On partial failure')}
+      </span>
+      <Segmented
+        label={t('library.sceneDialog.onPartialFailure', 'On partial failure')}
+        options={[
+          { value: 'leave', label: t('library.sceneDialog.leavePartial', 'Leave partial') },
+          { value: 'rollback', label: t('library.sceneDialog.rollBack', 'Roll back') },
+        ]}
+        value={rollback ? 'rollback' : 'leave'}
+        onChange={(value) => {
+          setRollback(value === 'rollback');
         }}
       />
-
-      <div className="flex flex-col gap-2">
-        <span className="text-caption font-medium text-foreground-muted">
-          {t('library.sceneDialog.onPartialFailure', 'On partial failure')}
-        </span>
-        <Segmented
-          label={t('library.sceneDialog.onPartialFailure', 'On partial failure')}
-          options={[
-            { value: 'leave', label: t('library.sceneDialog.leavePartial', 'Leave partial') },
-            { value: 'rollback', label: t('library.sceneDialog.rollBack', 'Roll back') },
-          ]}
-          value={rollback ? 'rollback' : 'leave'}
-          onChange={(value) => {
-            setRollback(value === 'rollback');
-          }}
-        />
-        <span className="text-caption text-foreground-subtle">
-          {rollback
-            ? t(
-                'library.sceneDialog.rollBackWhenOne',
-                'Roll back: when one entity refuses, the others go back to how they were.',
-              )
-            : t(
-                'library.sceneDialog.leavePartialWhatCould',
-                'Leave partial: what could be set stays set.',
-              )}
-        </span>
-      </div>
-    </>
+      <span className="text-caption text-foreground-subtle">
+        {rollback
+          ? t(
+              'library.sceneDialog.rollBackWhenOne',
+              'Roll back: when one entity refuses, the others go back to how they were.',
+            )
+          : t(
+              'library.sceneDialog.leavePartialWhatCould',
+              'Leave partial: what could be set stays set.',
+            )}
+      </span>
+    </div>
   );
 
   const addButton = (
@@ -585,70 +531,6 @@ export function SceneDialog(props: SceneDialogProps) {
                       <span className="font-mono">{member.entityId}</span>
                     </p>
                   </div>
-                  {timing === member.entityId ? (
-                    <input
-                      type="number"
-                      min={0}
-                      max={600}
-                      step={0.1}
-                      // The field it opens is the next thing the person types in.
-                      // eslint-disable-next-line jsx-a11y/no-autofocus
-                      autoFocus
-                      aria-label={t(
-                        'library.sceneDialog.transitionForTitle',
-                        'Transition of {{title}}, in seconds',
-                        { title },
-                      )}
-                      placeholder={t('library.sceneDialog.asTheScene', 'As the scene')}
-                      className="h-7 w-28 rounded-field border border-border-strong bg-surface-raised px-2 font-mono text-mono-ui text-foreground outline-none focus-visible:ring-3 focus-visible:ring-primary/25"
-                      defaultValue={
-                        member.transitionSeconds === null ? '' : String(member.transitionSeconds)
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === 'Escape') {
-                          event.currentTarget.blur();
-                        }
-                      }}
-                      onBlur={(event) => {
-                        const raw = event.target.value.trim();
-                        const next = Number(raw);
-
-                        setTiming(null);
-                        setMembers(
-                          members.map((entry, i) =>
-                            i === index
-                              ? {
-                                  ...entry,
-                                  transitionSeconds:
-                                    raw === '' || !Number.isFinite(next)
-                                      ? null
-                                      : clampSeconds(next),
-                                }
-                              : entry,
-                          ),
-                        );
-                      }}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      title={t('library.sceneDialog.changeTransition', 'Change its transition')}
-                      className={
-                        member.transitionSeconds === null
-                          ? 'hidden rounded-field px-1.5 text-caption text-foreground-subtle hover:text-foreground sm:inline'
-                          : 'hidden rounded-field px-1.5 text-caption text-foreground-muted hover:text-foreground sm:inline'
-                      }
-                      onClick={() => {
-                        setTiming(member.entityId);
-                      }}
-                    >
-                      {member.transitionSeconds === null
-                        ? t('library.sceneDialog.transitionAsTheScene', 'Transition as the scene')
-                        : t('library.sceneDialog.transitionSeconds', 'Transition {{seconds}} s', {
-                            seconds: String(member.transitionSeconds),
-                          })}
-                    </button>
-                  )}
                   <IconButton
                     label={t('library.sceneDialog.removeFromTheScene', 'Remove from the scene')}
                     size="small"
@@ -740,16 +622,11 @@ export function SceneDialog(props: SceneDialogProps) {
           name: name.trim(),
           icon,
           areaKey: areas.find((area) => area.id === areaId)?.key ?? null,
-          transitionMs: toMs(clampSeconds(transitionSeconds)),
           rollbackOnPartialFailure: rollback,
           members: members.map((member) => ({
             entityId: member.entityId,
             entityName: entityById.get(member.entityId)?.name ?? member.entityId,
             targetState: member.targetState as JsonObject,
-            transitionMs:
-              member.transitionSeconds === null
-                ? null
-                : toMs(clampSeconds(member.transitionSeconds)),
           })),
           unresolvedMembers: [...unresolved],
         },
@@ -782,13 +659,11 @@ export function SceneDialog(props: SceneDialogProps) {
     setAreaId(
       item.areaKey === null ? '' : (areas.find((area) => area.key === item.areaKey)?.id ?? ''),
     );
-    setTransitionSeconds(toSeconds(item.transitionMs));
     setRollback(item.rollbackOnPartialFailure);
     setMembers(
       item.members.map((member) => ({
         entityId: member.entityId as EntityId,
         targetState: narrowTargetState(member.targetState),
-        transitionSeconds: member.transitionMs === null ? null : toSeconds(member.transitionMs),
       })),
     );
     setUnresolved(
@@ -1004,14 +879,4 @@ export function SceneDialog(props: SceneDialogProps) {
       </div>
     </Modal>
   );
-}
-
-/**
- * Clamps a transition into the 0–600 second range the form accepts.
- *
- * @param seconds - What was typed.
- * @returns The clamped figure.
- */
-function clampSeconds(seconds: number): number {
-  return Math.min(600, Math.max(0, seconds));
 }

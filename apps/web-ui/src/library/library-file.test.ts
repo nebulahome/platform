@@ -157,7 +157,7 @@ describe('readLibraryFile with Home Assistant automations', () => {
       type: 'command',
       entityId: 'light.living',
       capability: 'level',
-      params: { command: 'set_level', level: 60, transitionMs: 2000 },
+      params: { command: 'set_level', level: 60 },
     });
     expect(then[1]).toMatchObject({ capability: 'color_temp', params: { mireds: 370 } });
     // The area it was also aimed at stands in as an entity of its own, to be pointed on import.
@@ -402,7 +402,6 @@ describe('readLibraryFile with Home Assistant scenes', () => {
       name: 'Romantic',
       icon: null,
       areaKey: null,
-      transitionMs: 0,
       rollbackOnPartialFailure: false,
       members: [
         {
@@ -412,14 +411,12 @@ describe('readLibraryFile with Home Assistant scenes', () => {
             level: { level: 50 },
             color_hs: { hue: 0, saturation: 100 },
           },
-          transitionMs: null,
         },
-        { entityId: 'switch.fan', targetState: { on_off: { isOn: false } }, transitionMs: null },
-        { entityId: 'cover.blind', targetState: { cover: { position: 0 } }, transitionMs: null },
+        { entityId: 'switch.fan', targetState: { on_off: { isOn: false } } },
+        { entityId: 'cover.blind', targetState: { cover: { position: 0 } } },
         {
           entityId: 'media_player.kitchen',
           targetState: { media_player: { playback: 'playing', volume: 25, isMuted: false } },
-          transitionMs: null,
         },
       ],
     });
@@ -461,19 +458,16 @@ describe('our own files', () => {
         name: 'Evening',
         icon: null,
         areaKey: null,
-        transitionMs: 0,
         rollbackOnPartialFailure: false,
         members: [],
-        unresolvedMembers: [
-          { entityId: 'light.gone' as never, targetState: {}, transitionMs: null },
-        ],
+        unresolvedMembers: [{ entityId: 'light.gone' as never, targetState: {} }],
       },
     ]);
     const reading = readLibraryFile(JSON.stringify(file), NONE);
 
     expect(
       reading.ok && reading.file.kind === 'scenes' ? reading.file.items[0]?.members : [],
-    ).toEqual([{ entityId: 'light.gone', targetState: {}, transitionMs: null }]);
+    ).toEqual([{ entityId: 'light.gone', targetState: {} }]);
   });
 
   it('refuses a file from a newer platform, and one that is something else', () => {

@@ -2,7 +2,7 @@
  * Where a device's own page lives.
  *
  * One function rather than a template in every link, so the address can change in one place: the
- * devices list, an entity's page, a tag's row, a vendor's list and the system monitor all lead
+ * devices list, an entity's dialog, a tag's row, a vendor's list and the system monitor all lead
  * here.
  */
 

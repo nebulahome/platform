@@ -23,7 +23,6 @@ const EVENING = {
   name: 'Evening',
   icon: null,
   areaKey: 'lounge',
-  transitionMs: 0,
   rollbackOnPartialFailure: false,
   members: [],
 } as unknown as SceneView;

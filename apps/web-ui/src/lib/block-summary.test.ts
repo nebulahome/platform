@@ -156,7 +156,6 @@ describe('the sentence a closed block reads', () => {
   it('writes a colour as HEX and a white in kelvin', () => {
     expect(commandPhrase({ command: 'set_color', hue: 0, saturation: 100 })).toBe('colour #FF0000');
     expect(commandPhrase({ command: 'set_color_temp', mireds: 370 })).toBe('white 2700 K');
-    expect(commandPhrase({ command: 'turn_on', transitionMs: 2_000 })).toBe('turn on over 2 s');
   });
 
   it('names days and months in as few words as say them', () => {

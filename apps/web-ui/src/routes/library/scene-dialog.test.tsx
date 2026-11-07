@@ -69,7 +69,6 @@ const SAVED: SceneView = {
   name: 'Evening',
   icon: null,
   areaKey: null,
-  transitionMs: 0,
   rollbackOnPartialFailure: false,
   unresolvedMembers: [],
   members: [
@@ -77,7 +76,6 @@ const SAVED: SceneView = {
       entityId: LAMP.entityId,
       entityName: LAMP.name,
       targetState: { on_off: { isOn: true }, level: { level: 55 } },
-      transitionMs: null,
     },
   ],
 };

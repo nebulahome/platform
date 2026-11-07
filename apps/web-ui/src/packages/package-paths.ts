@@ -56,7 +56,8 @@ export function packagePathOf(packageId: string, pathname: string): string {
 export function platformPath(target: PlatformTarget): string {
   switch (target.kind) {
     case 'entity':
-      return entityPath(target.entityId);
+      // Its card, over the page that is open.
+      return entityPath(target.entityId, target.view);
     case 'device':
       return devicePath(target.deviceId);
     case 'package':

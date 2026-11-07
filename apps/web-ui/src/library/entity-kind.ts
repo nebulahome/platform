@@ -4,7 +4,7 @@
  * An entity declares capabilities - `on_off`, `level`, `color_temp` - and those are the platform's
  * words, not the household's. A row that printed them was a row written for the adapter. The
  * mapping from a set of capabilities to one name is made here, once, so the devices row, the
- * entity page and the picker call the same lamp the same thing.
+ * entity dialog and the picker call the same lamp the same thing.
  *
  * The strongest capability decides: a thermostat that also reports humidity is a thermostat, and
  * a light that can take a colour is a colour light whatever else it can do. A calculated alias

@@ -825,41 +825,25 @@ export function conditionsPhrase(
 }
 
 /**
- * What a command body does, in a few words: "turn on", "level 60% over 2 s".
+ * What a command body does, in a few words: "turn on", "level 60%".
  *
  * @param params - The command body.
  * @returns The phrase.
  */
 export function commandPhrase(params: Readonly<Record<string, unknown>>): string {
   const command = typeof params['command'] === 'string' ? params['command'] : '';
-  const transitionMs = typeof params['transitionMs'] === 'number' ? params['transitionMs'] : 0;
-  /**
-   * A phrase with how long the change takes, when it takes any time.
-   *
-   * @param said - The phrase.
-   * @returns It, with the transition.
-   */
-  const over = (said: string): string =>
-    transitionMs > 0
-      ? translate('automations.summary.over', '{{said}} over {{duration}}', {
-          said,
-          duration: formatDuration(transitionMs),
-        })
-      : said;
 
   switch (command) {
     case 'turn_on': {
-      return over(translate('automations.summary.commands.turnOn', 'turn on'));
+      return translate('automations.summary.commands.turnOn', 'turn on');
     }
     case 'turn_off': {
-      return over(translate('automations.summary.commands.turnOff', 'turn off'));
+      return translate('automations.summary.commands.turnOff', 'turn off');
     }
     case 'set_level': {
-      return over(
-        translate('automations.summary.commands.level', 'level {{level}}%', {
-          level: String(params['level']),
-        }),
-      );
+      return translate('automations.summary.commands.level', 'level {{level}}%', {
+        level: String(params['level']),
+      });
     }
     case 'set_position': {
       return translate('automations.summary.commands.position', 'position {{position}}%', {
@@ -890,20 +874,16 @@ export function commandPhrase(params: Readonly<Record<string, unknown>>): string
       const hue = typeof params['hue'] === 'number' ? params['hue'] : 0;
       const saturation = typeof params['saturation'] === 'number' ? params['saturation'] : 0;
 
-      return over(
-        translate('automations.summary.commands.colour', 'colour {{hex}}', {
-          hex: hsToHex(hue, saturation).toUpperCase(),
-        }),
-      );
+      return translate('automations.summary.commands.colour', 'colour {{hex}}', {
+        hex: hsToHex(hue, saturation).toUpperCase(),
+      });
     }
     case 'set_color_temp': {
       const mireds = typeof params['mireds'] === 'number' ? params['mireds'] : 0;
 
-      return over(
-        translate('automations.summary.commands.white', 'white {{kelvin}}', {
-          kelvin: mireds > 0 ? `${String(miredsToKelvin(mireds))} K` : '…',
-        }),
-      );
+      return translate('automations.summary.commands.white', 'white {{kelvin}}', {
+        kelvin: mireds > 0 ? `${String(miredsToKelvin(mireds))} K` : '…',
+      });
     }
     case 'select_option': {
       return translate('automations.summary.commands.option', 'option {{option}}', {

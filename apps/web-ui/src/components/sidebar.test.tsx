@@ -80,7 +80,6 @@ function aScene(key: string): SceneView {
     name: key,
     icon: null,
     areaKey: null,
-    transitionMs: 0,
     rollbackOnPartialFailure: false,
     unresolvedMembers: [],
     members: [],
@@ -289,8 +288,8 @@ describe('Sidebar', () => {
     );
   });
 
-  it('opens House on the page of a device and of an entity', () => {
-    renderAt('/devices/entities/light.kitchen', EVERYTHING);
+  it('opens House on the page of a device, and with an entity open over it', () => {
+    renderAt('/devices/shelly-kitchen?entity=light.kitchen', EVERYTHING);
 
     expect(screen.getByRole('button', { name: /House/ }).getAttribute('aria-expanded')).toBe(
       'true',

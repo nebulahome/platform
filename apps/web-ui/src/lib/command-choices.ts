@@ -2,7 +2,7 @@
  * What a "Set entity" block can tell an entity to do, read from the capabilities it declares.
  *
  * Each capability's command schema is a union of commands, each with its own fields: `set_level`
- * takes a level and a fade, `set_mode` one of the thermostat's modes. Reading the choices and their
+ * takes a level, `set_mode` one of the thermostat's modes. Reading the choices and their
  * fields from the schema - rather than keeping a second list here - means a capability that grows
  * a command grows a choice in the editor, and the fields asked for are exactly the ones `core`
  * checks the command against.
@@ -19,8 +19,7 @@ import {
 import { defineMessage, text, type Message } from '@/i18n/messages';
 
 /** How a command's field is asked for. */
-export type CommandFieldKind =
-  'number' | 'percent' | 'duration' | 'enum' | 'boolean' | 'text' | 'list';
+export type CommandFieldKind = 'number' | 'percent' | 'enum' | 'boolean' | 'text' | 'list';
 
 /** One field of a command. */
 export type CommandField = {
@@ -57,7 +56,6 @@ export type CommandChoice = {
 /** Field names as a person reads them. */
 const FIELD_LABELS: Readonly<Record<string, Message>> = {
   level: defineMessage('commands.fields.level', 'Level'),
-  transitionMs: defineMessage('commands.fields.transitionMs', 'Transition'),
   hue: defineMessage('commands.fields.hue', 'Hue'),
   saturation: defineMessage('commands.fields.saturation', 'Saturation'),
   mireds: defineMessage('commands.fields.mireds', 'Colour temperature'),
@@ -196,10 +194,6 @@ function fieldOf(key: string, schema: z.ZodType): CommandField {
       const min = inner.minValue ?? undefined;
       const max = inner.maxValue ?? undefined;
 
-      if (key.endsWith('Ms')) {
-        return { key, kind: 'duration', label, isOptional };
-      }
-
       return {
         key,
         kind: min === 0 && max === 100 ? 'percent' : 'number',
@@ -298,9 +292,6 @@ function defaultValue(field: CommandField): JsonValue {
     }
     case 'number': {
       return field.min ?? 0;
-    }
-    case 'duration': {
-      return 0;
     }
     case 'enum': {
       return field.options?.[0] ?? '';
