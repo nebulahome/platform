@@ -73,7 +73,7 @@ describe('what an entity is registered as', () => {
       ).capabilities,
     ).toEqual({
       on_off: {},
-      level: { hasTransition: false },
+      level: {},
       color_temp: { minMireds: 153, maxMireds: 500 },
     });
   });

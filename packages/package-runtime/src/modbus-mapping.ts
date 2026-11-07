@@ -397,10 +397,6 @@ export function modbusObjectIdOf(entity: ModbusEntity): string {
  */
 function paramsOf(capability: ModbusCapability, map: ModbusCapabilityMap): JsonObject {
   switch (capability) {
-    case 'level':
-      return { hasTransition: false };
-    case 'on_off':
-      return { hasTransition: false };
     case 'number':
       return { min: map.write?.min ?? 0, max: map.write?.max ?? 1, step: map.write?.step ?? 1 };
     case 'select':

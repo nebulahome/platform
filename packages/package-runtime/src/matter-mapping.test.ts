@@ -205,10 +205,10 @@ describe('the Matter mapping', () => {
         objectId: 'light',
         domain: 'light',
         capabilities: {
-          on_off: { hasTransition: false },
-          level: { hasTransition: true },
-          color_hs: { hasTransition: true },
-          color_temp: { minMireds: 153, maxMireds: 500, hasTransition: true },
+          on_off: {},
+          level: {},
+          color_hs: {},
+          color_temp: { minMireds: 153, maxMireds: 500 },
         },
       }),
       expect.objectContaining({ objectId: 'firmware', domain: 'update' }),
@@ -327,7 +327,7 @@ describe('the Matter driver', () => {
         {
           entityId: 'light.dev_light' as EntityId,
           capability: 'level',
-          command: { command: 'set_level', level: 50, transitionMs: 1000 },
+          command: { command: 'set_level', level: 50 },
         },
         context,
       ),
@@ -338,7 +338,7 @@ describe('the Matter driver', () => {
         endpoint: 1,
         cluster: 8,
         command: 'moveToLevelWithOnOff',
-        payload: { level: 127, transitionTime: 10, optionsMask: 0, optionsOverride: 0 },
+        payload: { level: 127, transitionTime: 0, optionsMask: 0, optionsOverride: 0 },
       },
     });
     expect(

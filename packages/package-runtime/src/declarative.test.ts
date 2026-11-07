@@ -479,7 +479,7 @@ describe('toCommand', () => {
     expect(request.args).toEqual({ path: '/relay/dim', query: { v: 70 } });
   });
 
-  it("converts a fade into the device's units, and leaves it out when there is none", () => {
+  it("converts a value into the device's units, and leaves out an optional one that is missing", () => {
     const dimmer = createDeclarativeIntegration(
       manifest(),
       integrationProfileSchema.parse({
@@ -493,14 +493,8 @@ describe('toCommand', () => {
                 args: {
                   method: 'Light.Set',
                   params: {
-                    brightness: { $: 'command.level' },
-                    transition_duration: {
-                      $: 'command.transitionMs',
-                      scale: 0.001,
-                      decimals: 1,
-                      max: 10,
-                      optional: true,
-                    },
+                    brightness: { $: 'command.level', scale: 0.01, decimals: 1, max: 0.8 },
+                    effect: { $: 'command.effect', optional: true },
                   },
                   steps: [{ $: 'command.level' }, { $: 'command.nothing', optional: true }],
                 },
@@ -511,38 +505,21 @@ describe('toCommand', () => {
       }),
     );
     /**
-     * The request for a level, with or without a fade.
+     * The request for a level.
      *
-     * @param transitionMs - The fade, if any.
+     * @param level - The level.
      * @returns The request's arguments.
      */
-    const argsFor = (transitionMs?: number) =>
+    const argsFor = (level: number) =>
       dimmer.toCommand(
-        {
-          entityId: RELAY,
-          capability: 'level',
-          command: {
-            command: 'set_level',
-            level: 40,
-            ...(transitionMs === undefined ? {} : { transitionMs }),
-          },
-        },
+        { entityId: RELAY, capability: 'level', command: { command: 'set_level', level } },
         context(),
       ).args;
 
-    expect(argsFor(2_345)).toEqual({
-      method: 'Light.Set',
-      params: { brightness: 40, transition_duration: 2.3 },
-      steps: [40],
-    });
+    // Nothing named `effect`: the key is not there at all, rather than null.
+    expect(argsFor(43)).toEqual({ method: 'Light.Set', params: { brightness: 0.4 }, steps: [43] });
     // Clamped to what the device takes.
-    expect(argsFor(60_000)).toMatchObject({ params: { transition_duration: 10 } });
-    // No fade asked for: the key is not there at all, rather than null.
-    expect(argsFor()).toEqual({
-      method: 'Light.Set',
-      params: { brightness: 40 },
-      steps: [40],
-    });
+    expect(argsFor(95)).toMatchObject({ params: { brightness: 0.8 } });
   });
 
   it('refuses a command the profile does not describe', () => {

@@ -203,16 +203,6 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * A fade in Matter's tenths of a second.
- *
- * @param transitionMs - The fade the command asks for, if any.
- * @returns Tenths of a second; 0 for at once.
- */
-function tenthsOf(transitionMs: unknown): number {
-  return typeof transitionMs === 'number' ? Math.round(transitionMs / 100) : 0;
-}
-
-/**
  * A command invoked on a cluster.
  *
  * @param endpoint - The endpoint.
@@ -235,8 +225,11 @@ function invoke(
   };
 }
 
-/** What every fade-capable command of the lighting clusters carries besides its own fields. */
-const NO_OPTIONS = { optionsMask: 0, optionsOverride: 0 } as const;
+/**
+ * What every move command of the lighting clusters carries besides its own fields: Matter
+ * requires a transition time, and 0 is at once.
+ */
+const AT_ONCE = { transitionTime: 0, optionsMask: 0, optionsOverride: 0 } as const;
 
 /**
  * The light, or switch, an endpoint with On/Off is.
@@ -274,10 +267,10 @@ function onOffEntity(attributes: MatterAttributes, endpoint: number): Draft {
     1000,
   );
   const capabilities: Partial<Record<CapabilityName, JsonObject>> = {
-    on_off: { hasTransition: false },
-    ...(hasLevel ? { level: { hasTransition: true } } : {}),
-    ...(hasHs ? { color_hs: { hasTransition: true } } : {}),
-    ...(hasTemperature ? { color_temp: { minMireds, maxMireds, hasTransition: true } } : {}),
+    on_off: {},
+    ...(hasLevel ? { level: {} } : {}),
+    ...(hasHs ? { color_hs: {} } : {}),
+    ...(hasTemperature ? { color_temp: { minMireds, maxMireds } } : {}),
   };
 
   return {
@@ -349,8 +342,7 @@ function onOffEntity(attributes: MatterAttributes, endpoint: number): Draft {
             ? invoke(endpoint, CLUSTER.onOff, 'off')
             : invoke(endpoint, CLUSTER.levelControl, 'moveToLevelWithOnOff', {
                 level: clamp(Math.round((level / 100) * 254), 1, 254),
-                transitionTime: tenthsOf(command['transitionMs']),
-                ...NO_OPTIONS,
+                ...AT_ONCE,
               });
         }
         case 'set_color':
@@ -361,8 +353,7 @@ function onOffEntity(attributes: MatterAttributes, endpoint: number): Draft {
               0,
               254,
             ),
-            transitionTime: tenthsOf(command['transitionMs']),
-            ...NO_OPTIONS,
+            ...AT_ONCE,
           });
         case 'set_color_temp':
           return invoke(endpoint, CLUSTER.colorControl, 'moveToColorTemperature', {
@@ -371,8 +362,7 @@ function onOffEntity(attributes: MatterAttributes, endpoint: number): Draft {
               minMireds,
               maxMireds,
             ),
-            transitionTime: tenthsOf(command['transitionMs']),
-            ...NO_OPTIONS,
+            ...AT_ONCE,
           });
         default:
           return undefined;

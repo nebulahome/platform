@@ -270,7 +270,7 @@ export function mqttShapeOf(entity: MqttEntitySnapshot): MqttEntityShape {
         domain: 'light',
         capabilities: {
           on_off: {},
-          ...(hasLevel ? { level: { hasTransition: false } } : {}),
+          ...(hasLevel ? { level: {} } : {}),
           ...(hasWhite
             ? {
                 color_temp: {
