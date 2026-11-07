@@ -844,7 +844,6 @@ export const scenes = registrySchema.table(
     name: text('name').notNull(),
     icon: text('icon'),
     areaId: uuid('area_id').references(() => areas.id, { onDelete: 'set null' }),
-    transitionMs: integer('transition_ms').notNull().default(0),
     rollbackOnPartialFailure: boolean('rollback_on_partial_failure').notNull().default(false),
 
     /**
@@ -872,9 +871,6 @@ export const sceneEntities = registrySchema.table(
 
     /** Validated against `capabilityStateSchema` in `@nebulahome/contracts`. */
     targetState: jsonb('target_state').notNull(),
-
-    /** Overrides the scene default for this entity only. */
-    transitionMs: integer('transition_ms'),
   },
   (table) => [index('scene_entities_entity_id_idx').on(table.entityId)],
 );
