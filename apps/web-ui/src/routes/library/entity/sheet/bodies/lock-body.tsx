@@ -68,8 +68,8 @@ export function lockToneOf(lock: NonNullable<CapabilityState['lock']>): SheetTon
  */
 export function LockBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, disabled, history } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, commander, disabled } = props;
+  const since = useSinceLine(entity);
   const params = paramsOf(entity, 'lock');
   const lock = state.lock;
   const [code, setCode] = useState('');

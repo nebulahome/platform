@@ -29,9 +29,9 @@ export type OnOffBodyProps = SheetBodyProps & {
  */
 export function OnOffBody(props: OnOffBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, disabled, history, tone } = props;
+  const { entity, state, commander, disabled, tone } = props;
   const isOn = state.on_off?.isOn === true;
-  const since = useSinceLine(entity, history);
+  const since = useSinceLine(entity);
   const isAssumed = paramsOf(entity, 'on_off')?.isAssumed === true;
   const isSending = isBusy(props, 'on_off');
   const word = isOn ? t('common.on', 'On') : t('common.off', 'Off');

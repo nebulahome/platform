@@ -10,9 +10,8 @@ import { useTranslation } from 'react-i18next';
 import type { EntityView } from '@nebulahome/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
-import { useCauseNames } from '@/library/use-cause-names';
 import { clockText } from '@/routes/library/entity/sheet/history';
-import type { SheetHistory } from '@/routes/library/entity/sheet/sheet-types';
+import { usePicked } from '@/routes/library/entity/sheet/parts/option-list';
 import {
   TONE_BAR,
   TONE_CHOSEN,
@@ -23,38 +22,19 @@ import {
 } from '@/routes/library/entity/sheet/tones';
 
 /**
- * The line under a big value: since when the state is what it is, and what made it so.
+ * The line under a big value: since when the state is what it is. Who or what changed it is not
+ * said here: that belongs to the entity's activity.
  *
  * @param entity - The entity, for when it last changed.
- * @param history - Its history, for what caused the last change.
- * @returns "Since 21:48 · by Evening lights", or "Since 21:48" when the cause is not known.
+ * @returns "Since 21:48", or nothing when it never changed.
  */
-export function useSinceLine(entity: EntityView, history: SheetHistory): string {
+export function useSinceLine(entity: EntityView): string {
   const { t } = useTranslation();
-  const nameOf = useCauseNames();
   const changed = entity.lastChanged?.getTime();
-  const last = history.states.at(-1);
 
-  if (changed === undefined) {
-    return '';
-  }
-
-  const since = t('entity.sheet.since', 'Since {{time}}', { time: clockText(changed) });
-
-  if (last?.context === undefined) {
-    return since;
-  }
-
-  const named = nameOf(last.context).label;
-  // Without a name, the cause is already a phrase of its own: "By an automation".
-  const phrase = nameOf({ type: last.context.type }).label;
-
-  return named === phrase
-    ? t('entity.sheet.sinceCause', '{{since}} · {{cause}}', {
-        since,
-        cause: phrase.charAt(0).toLowerCase() + phrase.slice(1),
-      })
-    : t('entity.sheet.sinceBy', '{{since}} · by {{cause}}', { since, cause: named });
+  return changed === undefined
+    ? ''
+    : t('entity.sheet.since', 'Since {{time}}', { time: clockText(changed) });
 }
 
 /** What the power target needs. */
@@ -115,7 +95,7 @@ export function PowerTarget(props: PowerTargetProps) {
           ? cn(
               TONE_TEXT[tone],
               'border-current/50 bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,currentColor_34%,transparent),color-mix(in_oklab,currentColor_8%,transparent)_72%)]',
-              'shadow-[0_0_70px_color-mix(in_oklab,currentColor_28%,transparent),inset_0_1px_0_rgb(255_255_255/0.08)]',
+              'shadow-[0_0_44px_color-mix(in_oklab,currentColor_14%,transparent),inset_0_1px_0_rgb(255_255_255/0.08)]',
             )
           : 'border-border-strong bg-surface-raised text-foreground-subtle shadow-edge',
       )}
@@ -188,10 +168,15 @@ export function LevelBar(props: LevelBarProps) {
   const { label, value, onChange, onCommit, isOn, tone, colour } = props;
 
   return (
-    <div className="entity-slider relative h-18 overflow-hidden rounded-[22px] border border-border-strong bg-surface-raised">
+    <div
+      className={cn(
+        'entity-slider group relative h-18 overflow-hidden rounded-[22px] border border-border-strong bg-surface-raised',
+        'transition-[border-color] duration-200 hover:border-foreground-subtle',
+      )}
+    >
       <div
         className={cn(
-          'entity-track absolute inset-y-0 left-0',
+          'entity-track absolute inset-y-0 left-0 transition-[filter] group-hover:brightness-110',
           isOn ? (colour === undefined ? TONE_BAR[tone] : '') : TONE_BAR.muted,
         )}
         // eslint-disable-next-line react/forbid-dom-props -- the fill is the level, and a lamp's colour its own
@@ -212,6 +197,18 @@ export function LevelBar(props: LevelBarProps) {
       >
         <AppIcon id={props.icon ?? 'sun'} size={22} />
       </span>
+      {/* The handle at the edge of the fill: it grows under the pointer and while held. */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          'entity-track pointer-events-none absolute top-1/2 h-8 w-1.5 -translate-y-1/2 rounded-pill',
+          'shadow-[0_0_0_1px_rgb(0_0_0/0.12),0_2px_10px_rgb(0_0_0/0.35)]',
+          'group-hover:h-10 group-has-[input:active]:h-12 group-has-[input:active]:w-2',
+          isOn ? 'bg-knob' : 'bg-foreground-subtle',
+        )}
+        // eslint-disable-next-line react/forbid-dom-props -- the handle rides the edge of the level
+        style={{ left: `max(6px, calc(${String(value)}% - 14px))` }}
+      />
       <input
         type="range"
         min={1}
@@ -229,7 +226,7 @@ export function LevelBar(props: LevelBarProps) {
         onKeyUp={(event) => {
           onCommit(Number(event.currentTarget.value));
         }}
-        className="absolute inset-0 m-0 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing disabled:cursor-not-allowed"
       />
     </div>
   );
@@ -354,8 +351,18 @@ export type LevelStepsProps = {
  */
 export function LevelSteps(props: LevelStepsProps) {
   const { t } = useTranslation();
-  const { title, levels, value, onPick, tone, unit = '', disabled = false } = props;
+  const { title, levels, value: reported, onPick: send, tone, unit = '', disabled = false } = props;
+  const [value, pick] = usePicked(reported);
   const chosen = levels.findIndex((level) => level.value === value);
+  /**
+   * Picks a level: shown at once, sent to the device.
+   *
+   * @param next - The level.
+   */
+  const onPick = (next: string): void => {
+    pick(next);
+    send(next);
+  };
 
   if (levels.length > 10) {
     const index = Math.max(0, chosen);
@@ -625,7 +632,7 @@ export function ThinSlider(props: ThinSliderProps) {
           onKeyUp={(event) => {
             onCommit(Number(event.currentTarget.value));
           }}
-          className="absolute inset-0 m-0 size-full cursor-pointer opacity-0"
+          className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
         />
       </div>
       <div className="flex justify-between font-mono text-[10px] text-foreground-subtle">

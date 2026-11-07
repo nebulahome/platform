@@ -130,8 +130,8 @@ function FanPicture(props: FanPictureProps) {
  */
 export function FanBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, disabled, reportedAt, history } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, commander, disabled, reportedAt } = props;
+  const since = useSinceLine(entity);
   const params = paramsOf(entity, 'fan');
   const percentage = usePendingValue(
     state.fan?.percentage ?? 0,

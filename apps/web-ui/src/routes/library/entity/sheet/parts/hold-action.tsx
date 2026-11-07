@@ -58,6 +58,8 @@ export function HoldAction(props: HoldActionProps) {
     isStacked = false,
   } = props;
   const [progress, setProgress] = useState(0);
+  // How many times it went through: each one flashes the button once.
+  const [confirmed, setConfirmed] = useState(0);
   const started = useRef<number | null>(null);
   const frame = useRef<number | null>(null);
 
@@ -93,6 +95,12 @@ export function HoldAction(props: HoldActionProps) {
 
       if (done >= 1) {
         cancel();
+        setConfirmed((count) => count + 1);
+        // A short buzz on a phone: the hold went through.
+        if ('vibrate' in navigator) {
+          navigator.vibrate(30);
+        }
+
         onConfirm();
 
         return;
@@ -130,7 +138,9 @@ export function HoldAction(props: HoldActionProps) {
       onKeyUp={cancel}
       className={cn(
         'press relative inline-flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden border font-medium select-none',
-        'disabled:cursor-not-allowed disabled:text-foreground-disabled',
+        'transition-[scale,border-color] duration-200 ease-out disabled:cursor-not-allowed disabled:text-foreground-disabled',
+        // Held, it sinks a little further for as long as it is held.
+        progress > 0 && 'scale-[0.985] border-foreground-subtle',
         size === 'large' ? 'h-14 rounded-panel text-title' : 'h-13 rounded-card text-ui',
         fill ?? 'border-border-strong bg-surface-raised text-foreground',
         fill !== undefined && 'border-transparent',
@@ -146,18 +156,36 @@ export function HoldAction(props: HoldActionProps) {
         )}
         // eslint-disable-next-line react/forbid-dom-props -- the fill is how long it has been held
         style={{ width: `${String(progress * 100)}%` }}
-      />
+      >
+        {progress > 0 ? (
+          // A brighter edge where the fill is growing.
+          <span className="absolute inset-y-0 right-0 w-8 bg-linear-to-r from-transparent to-white/22" />
+        ) : null}
+      </span>
+      {confirmed === 0 ? null : (
+        <span
+          key={confirmed}
+          aria-hidden="true"
+          className={cn('entity-flash pointer-events-none absolute inset-0', progressColour)}
+        />
+      )}
       <span
         className={cn(
           'relative inline-flex items-center',
           isStacked ? 'flex-col gap-2 text-ui' : 'gap-2',
         )}
       >
-        <AppIcon
-          id={icon}
-          size={isStacked ? 36 : 16}
-          className={isStacked ? 'text-current' : undefined}
-        />
+        <span
+          className={cn('flex', progress === 0 && 'transition-[rotate] duration-300 ease-out')}
+          // eslint-disable-next-line react/forbid-dom-props -- the glyph turns as the hold fills, a key in a lock
+          style={{ rotate: `${String(progress * -14)}deg` }}
+        >
+          <AppIcon
+            id={icon}
+            size={isStacked ? 36 : 16}
+            className={isStacked ? 'text-current' : undefined}
+          />
+        </span>
         {children}
         <span
           className={cn(
@@ -165,7 +193,10 @@ export function HoldAction(props: HoldActionProps) {
             fill === undefined ? 'text-foreground-subtle' : 'text-current',
           )}
         >
-          {t('entity.sheet.seconds', '{{count}} s', { count: durationMs / 1000 })}
+          {t('entity.sheet.seconds', '{{count}} s', {
+            // Counting down while held.
+            count: Number((((1 - progress) * durationMs) / 1000).toFixed(progress > 0 ? 1 : 0)),
+          })}
         </span>
       </span>
     </button>

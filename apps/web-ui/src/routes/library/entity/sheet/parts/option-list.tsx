@@ -9,7 +9,7 @@
  *
  * Names are shown as the device sends them; a few known ones get an icon, the others a dot.
  */
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
@@ -52,6 +52,47 @@ export type ListView = {
 
 /** Opens a whole list in place of the dialog's body. */
 export const ListViewContext = createContext<(view: ListView) => void>(() => undefined);
+
+/** How long a pick is shown without the device confirming it. */
+const PICK_HOLD_MS = 8000;
+
+/**
+ * Shows a pick at once, before the device confirms it: the option chosen lights the moment it is
+ * pressed, and gives way to whatever the device reports next - or, if it never does, after a
+ * few seconds.
+ *
+ * @param reported - The option the device reports.
+ * @returns The option to show, and what to call when one is picked.
+ */
+export function usePicked(
+  reported: string | null,
+): readonly [string | null, (next: string) => void] {
+  const [picked, setPicked] = useState<{ value: string; was: string | null } | null>(null);
+  // Waiting while the device still reports what it did before the pick.
+  const isWaiting = picked !== null && picked.was === reported;
+
+  // A timer is something outside React to synchronise with (RULES.md 15.2).
+  useEffect(() => {
+    if (!isWaiting) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setPicked(null);
+    }, PICK_HOLD_MS);
+
+    return (): void => {
+      clearTimeout(timer);
+    };
+  }, [isWaiting]);
+
+  return [
+    isWaiting ? picked.value : reported,
+    (next) => {
+      setPicked({ value: next, was: reported });
+    },
+  ] as const;
+}
 
 /** The glyphs of the names devices commonly send, by the name in lower case. */
 const KNOWN: Readonly<Record<string, UiIconId>> = {
@@ -152,14 +193,24 @@ export function OptionList(props: OptionListProps) {
   const {
     title,
     options,
-    value,
-    onPick,
+    value: reported,
+    onPick: send,
     tone,
     disabled = false,
     hasIcons = true,
     isTinted = false,
   } = props;
   const openList = useContext(ListViewContext);
+  const [value, pick] = usePicked(reported);
+  /**
+   * Picks an option: shown at once, sent to the device.
+   *
+   * @param next - The option.
+   */
+  const onPick = (next: string): void => {
+    pick(next);
+    send(next);
+  };
   /**
    * What an option is called.
    *

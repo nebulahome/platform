@@ -352,8 +352,8 @@ function Dial(props: DialProps) {
  */
 export function ClimateBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, disabled, reportedAt, history } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, commander, disabled, reportedAt } = props;
+  const since = useSinceLine(entity);
   const params = paramsOf(entity, 'thermostat');
   const target = usePendingValue(
     state.thermostat?.targetTemperature ?? 20,

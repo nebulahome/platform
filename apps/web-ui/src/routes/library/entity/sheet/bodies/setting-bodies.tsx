@@ -3,7 +3,7 @@
  * (`N-Entity-Number-Slider`, `-More`), a button (`N-Entity-Button-Basic`, `-More`) and a camera
  * (`N-Entity-Camera-Live`, `-More`). One value, one action, or one picture.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
@@ -12,7 +12,7 @@ import { hasCapability, paramsOf } from '@/library/entity-control';
 import { useCameraStill } from '@/routes/dashboard/cards/use-camera-still';
 import { clockText } from '@/routes/library/entity/sheet/history';
 import { HoldAction } from '@/routes/library/entity/sheet/parts/hold-action';
-import { OptionList } from '@/routes/library/entity/sheet/parts/option-list';
+import { OptionList, usePicked } from '@/routes/library/entity/sheet/parts/option-list';
 import {
   RoundAction,
   ThinSlider,
@@ -83,13 +83,20 @@ function RadioRow(props: {
  */
 export function SelectBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, disabled, history } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, commander, disabled } = props;
+  const since = useSinceLine(entity);
   const [search, setSearch] = useState('');
   const options = paramsOf(entity, 'select')?.options ?? [];
-  const chosen = state.select?.option ?? null;
+  // The option picked shows at once, before the device confirms it.
+  const [chosen, show] = usePicked(state.select?.option ?? null);
   const chosenLabel = options.find((option) => option.value === chosen)?.label ?? chosen;
   const isSending = commander.busy.has('select');
+  const list = useRef<HTMLDivElement>(null);
+
+  // A long list opens scrolled to the option chosen, so it is in sight.
+  useEffect(() => {
+    list.current?.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, []);
 
   /**
    * Picks an option.
@@ -97,6 +104,7 @@ export function SelectBody(props: SheetBodyProps) {
    * @param option - Its value.
    */
   const pick = (option: string): void => {
+    show(option);
     commander.send('select', { command: 'select_option', option });
   };
 
@@ -155,7 +163,6 @@ export function SelectBody(props: SheetBodyProps) {
   const found = options.filter((option) =>
     option.label.toLowerCase().includes(search.trim().toLowerCase()),
   );
-  const current = options.find((option) => option.value === chosen);
 
   return (
     <div className="flex grow flex-col gap-4">
@@ -170,32 +177,19 @@ export function SelectBody(props: SheetBodyProps) {
           className="min-w-0 grow bg-transparent text-foreground outline-none placeholder:text-foreground-subtle"
         />
       </label>
-      {current === undefined || search !== '' ? null : (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex h-4.5 items-center justify-between gap-3">
-            <MonoLabel>{t('entity.sheet.select.now', 'Now')}</MonoLabel>
-            <span className="text-ui-sm text-foreground-muted">
-              {t('entity.sheet.select.count', '{{count}} options', { count: options.length })}
-            </span>
-          </div>
-          {/* The option now arrives here as it is picked, so the change can be seen. */}
-          <div key={current.value} className="flex animate-arrive flex-col">
-            <RadioRow
-              label={current.label}
-              isChosen
-              isTall={false}
-              disabled={disabled}
-              onPick={() => undefined}
-            />
-          </div>
-        </div>
-      )}
       <div className="flex flex-col gap-2">
-        <MonoLabel>{t('entity.sheet.select.all', 'All')}</MonoLabel>
+        <div className="flex h-4.5 items-center justify-between gap-3">
+          <MonoLabel>{t('entity.sheet.select.all', 'All')}</MonoLabel>
+          <span className="text-ui-sm text-foreground-muted">
+            {t('entity.sheet.select.count', '{{count}} options', { count: options.length })}
+          </span>
+        </div>
+        {/* One list, the option chosen lit where it stands: never shown twice. */}
         <div
+          ref={list}
           role="radiogroup"
           aria-label={entity.name}
-          className="entity-stagger -mr-2 flex max-h-80 flex-col gap-1.5 overflow-auto pr-2"
+          className="entity-stagger -mr-2 flex max-h-96 flex-col gap-1.5 overflow-auto pr-2"
         >
           {found.map((option) => (
             <RadioRow
@@ -256,17 +250,6 @@ export function NumberBody(props: SheetBodyProps) {
     commander.send('number', { command: 'set_value', value: rounded });
   };
 
-  const range = t(
-    'entity.sheet.number.range',
-    'From {{min}} to {{max}}{{unit}}, in steps of {{step}}.',
-    {
-      min,
-      max,
-      unit: unit === '' ? '' : ` ${unit}`,
-      step,
-    },
-  );
-
   return (
     <div className="flex grow flex-col justify-center gap-5">
       <div className="flex items-center justify-between gap-2.5">
@@ -279,34 +262,39 @@ export function NumberBody(props: SheetBodyProps) {
           }}
         />
         {isBox ? (
-          <label className="flex h-16 grow items-baseline justify-center gap-1.5 rounded-card border border-primary/60 bg-surface-raised pt-2.5 shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-primary)_15%,transparent)]">
-            <input
-              inputMode="decimal"
-              value={typed ?? shown}
-              aria-label={entity.name}
-              disabled={disabled}
-              onChange={(event) => {
-                setTyped(event.target.value);
-              }}
-              onBlur={() => {
-                if (typed !== null) {
-                  const parsed = Number(typed.replace('−', '-').replace(',', '.'));
+          <label className="flex h-16 min-w-0 grow cursor-text items-center justify-center gap-1.5 rounded-card border border-border-strong bg-surface-raised px-3 transition-[border-color,box-shadow] duration-200 focus-within:border-primary/60 focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-primary)_15%,transparent)] hover:border-foreground-subtle">
+            {/* The value and its unit on one baseline, centred in the box together. */}
+            <span className="flex min-w-0 items-baseline gap-1.5">
+              <input
+                inputMode="decimal"
+                value={typed ?? shown}
+                aria-label={entity.name}
+                disabled={disabled}
+                onChange={(event) => {
+                  setTyped(event.target.value);
+                }}
+                onBlur={() => {
+                  if (typed !== null) {
+                    const parsed = Number(typed.replace('−', '-').replace(',', '.'));
 
-                  if (!Number.isNaN(parsed)) {
-                    set(parsed);
+                    if (!Number.isNaN(parsed)) {
+                      set(parsed);
+                    }
+
+                    setTyped(null);
                   }
-
-                  setTyped(null);
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.currentTarget.blur();
-                }
-              }}
-              className="w-28 bg-transparent text-right text-[36px] font-medium tracking-[-0.03em] text-foreground tabular outline-none"
-            />
-            <span className="text-subhead text-foreground-muted">{unit}</span>
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.currentTarget.blur();
+                  }
+                }}
+                className="field-sizing-content max-w-40 min-w-[1ch] bg-transparent text-center text-[36px] leading-none font-medium tracking-[-0.03em] text-foreground tabular outline-none"
+              />
+              {unit === '' ? null : (
+                <span className="text-subhead text-foreground-muted">{unit}</span>
+              )}
+            </span>
           </label>
         ) : (
           <span className="flex items-baseline gap-1.5">
@@ -342,7 +330,6 @@ export function NumberBody(props: SheetBodyProps) {
           />
         </div>
       )}
-      <span className="text-ui-sm leading-[1.45] text-foreground-subtle">{range}</span>
     </div>
   );
 }

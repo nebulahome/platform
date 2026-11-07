@@ -3613,8 +3613,7 @@
       "notAnswering": "Non risponde da {{duration}}. Mostra l'ultimo valore.",
       "number": {
         "less": "Meno",
-        "more": "Più",
-        "range": "Da {{min}} a {{max}}{{unit}}, a passi di {{step}}."
+        "more": "Più"
       },
       "percent": "{{value}}%",
       "range": "Intervallo",
@@ -3662,7 +3661,6 @@
         "all": "Tutte",
         "count": "{{count}} opzioni",
         "find": "Cerca un'opzione",
-        "now": "Ora",
         "oneOf": "Una delle opzioni che offre il dispositivo."
       },
       "sending": "Invio",
@@ -3699,8 +3697,6 @@
         "title": "Impostazioni"
       },
       "since": "Dalle {{time}}",
-      "sinceBy": "{{since}} · da {{cause}}",
-      "sinceCause": "{{since}} · {{cause}}",
       "switch": {
         "lastSent": "Ultimo invio: {{state}}",
         "turnOff": "Spegni",

@@ -115,9 +115,10 @@ export function ValueHead(props: ValueHeadProps) {
   const { value, unit, line, size = 'level', isStale = false, trail } = props;
 
   return (
-    <div className="flex items-end justify-between gap-3">
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <span className="flex items-center gap-3">
+    <div className="flex min-w-0 flex-col gap-1.5">
+      {/* The switch stands level with the value, centred on it, not with the line under it. */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-3">
           <span className="flex items-baseline gap-1.5">
             <span
               // A new reading or word rises into place: keyed by what it reads, so each change plays
@@ -146,11 +147,11 @@ export function ValueHead(props: ValueHeadProps) {
             )}
           </span>
         </span>
-        {line === undefined ? null : (
-          <span className="text-ui-sm leading-[1.45] text-foreground-subtle">{line}</span>
-        )}
+        {trail}
       </div>
-      {trail}
+      {line === undefined ? null : (
+        <span className="text-ui-sm leading-[1.45] text-foreground-subtle">{line}</span>
+      )}
     </div>
   );
 }

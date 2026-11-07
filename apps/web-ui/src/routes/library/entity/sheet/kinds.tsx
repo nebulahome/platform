@@ -31,7 +31,11 @@ import { LocationBody } from '@/routes/library/entity/sheet/bodies/location-body
 import { LockBody, lockToneOf } from '@/routes/library/entity/sheet/bodies/lock-body';
 import { MediaBody } from '@/routes/library/entity/sheet/bodies/media-body';
 import { MowerBody, VacuumBody } from '@/routes/library/entity/sheet/bodies/robot-body';
-import { BinaryBody, SensorBody } from '@/routes/library/entity/sheet/bodies/sensor-body';
+import {
+  BinaryBody,
+  binaryLookOf,
+  SensorBody,
+} from '@/routes/library/entity/sheet/bodies/sensor-body';
 import {
   ButtonBody,
   CameraBody,
@@ -96,15 +100,6 @@ const KINDS: readonly KindRule[] = [
   { id: 'sensor', anyOf: ['sensor_numeric', 'sensor_text'], history: 'body', Body: SensorBody },
 ];
 
-/** The binary classes drawn as something that opens. */
-const OPENINGS = ['door', 'window', 'opening', 'garage_door'];
-
-/** The binary classes drawn as someone being there. */
-const PRESENCES = ['motion', 'occupancy', 'presence'];
-
-/** The binary classes drawn as an alarm. */
-const ALARMS = ['moisture', 'smoke', 'gas', 'problem', 'battery'];
-
 /**
  * A kind's colour, for an entity of it.
  *
@@ -143,15 +138,7 @@ function toneOf(id: KindId, entity: EntityView, state: CapabilityState): SheetTo
       return deviceClass === 'restart' ? 'danger' : 'violet';
     }
     case 'binary': {
-      if (PRESENCES.includes(deviceClass)) {
-        return 'lamp';
-      }
-
-      if (ALARMS.includes(deviceClass)) {
-        return 'danger';
-      }
-
-      return deviceClass === 'connectivity' ? 'cyan' : 'violet';
+      return binaryLookOf(entity.deviceClass).tone;
     }
     case 'cover':
     case 'switch':
@@ -173,9 +160,10 @@ function toneOf(id: KindId, entity: EntityView, state: CapabilityState): SheetTo
  *
  * @param id - The kind.
  * @param entity - The entity: a sensor's glyph follows its class.
+ * @param state - Its state now: a binary sensor's glyph is the one of its state.
  * @returns The glyph.
  */
-function iconOf(id: KindId, entity: EntityView): UiIconId {
+function iconOf(id: KindId, entity: EntityView, state: CapabilityState): UiIconId {
   const deviceClass = entity.deviceClass ?? '';
   const glyphs: Readonly<Record<KindId, UiIconId>> = {
     camera: 'camera',
@@ -199,15 +187,10 @@ function iconOf(id: KindId, entity: EntityView): UiIconId {
         : deviceClass === 'identify'
           ? 'scan-eye'
           : 'circle-dot',
-    binary: OPENINGS.includes(deviceClass)
-      ? 'door-closed'
-      : PRESENCES.includes(deviceClass)
-        ? 'person-standing'
-        : deviceClass === 'moisture'
-          ? 'droplets'
-          : deviceClass === 'connectivity'
-            ? 'wifi'
-            : 'activity',
+    binary:
+      state.sensor_binary?.isOn === true
+        ? binaryLookOf(entity.deviceClass).on
+        : binaryLookOf(entity.deviceClass).off,
     sensor:
       deviceClass === 'temperature'
         ? 'thermometer'
@@ -397,7 +380,7 @@ export function sheetKindOf(entity: EntityView, state: CapabilityState): SheetKi
   return {
     tone: toneOf(rule.id, entity, state),
 
-    icon: iconOf(rule.id, entity),
+    icon: iconOf(rule.id, entity, state),
     words: wordsOf(rule.id, entity),
     isLit: isLitOf(rule.id, state),
     history: rule.history,

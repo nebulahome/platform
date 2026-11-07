@@ -47,7 +47,12 @@ import {
   type SheetBodyProps,
   type SheetRange,
 } from '@/routes/library/entity/sheet/sheet-types';
-import { TILE_LIT, type SheetTone } from '@/routes/library/entity/sheet/tones';
+import {
+  TILE_LIT,
+  TILE_REST,
+  TONE_TEXT,
+  type SheetTone,
+} from '@/routes/library/entity/sheet/tones';
 
 /** What the history card needs. */
 type HistoryCardProps = {
@@ -191,7 +196,7 @@ function figure(value: number, entity: Pick<EntityView, 'displayPrecision'>): st
 export function SensorBody(props: SheetBodyProps) {
   const { t } = useTranslation();
   const { entity, state, history, now } = props;
-  const since = useSinceLine(entity, history);
+  const since = useSinceLine(entity);
   const isStale = !entity.isAvailable;
   const unit = entity.unitOfMeasurement ?? '';
   const numeric = state.sensor_numeric?.value;
@@ -545,26 +550,60 @@ function LastValues(props: { points: readonly StateHistoryPoint[]; now: number; 
   );
 }
 
-/** How a binary sensor's class is drawn: its colour and its glyphs, on and off. */
-const BINARY_LOOKS: Readonly<Record<string, { tone: SheetTone; on: UiIconId; off: UiIconId }>> = {
-  door: { tone: 'violet', on: 'door-open', off: 'door-closed' },
-  window: { tone: 'violet', on: 'door-open', off: 'door-closed' },
-  opening: { tone: 'violet', on: 'door-open', off: 'door-closed' },
-  garage_door: { tone: 'violet', on: 'warehouse', off: 'warehouse' },
-  motion: { tone: 'lamp', on: 'person-standing', off: 'person-standing' },
-  occupancy: { tone: 'lamp', on: 'person-standing', off: 'person-standing' },
-  presence: { tone: 'lamp', on: 'person-standing', off: 'person-standing' },
-  moisture: { tone: 'danger', on: 'droplets', off: 'droplets' },
-  smoke: { tone: 'danger', on: 'flame', off: 'flame' },
-  gas: { tone: 'danger', on: 'triangle-alert', off: 'triangle-alert' },
+/** How a binary sensor's class is drawn: its colour while on, and its glyph on and off. */
+export type BinaryLook = {
+  readonly tone: SheetTone;
+  readonly on: UiIconId;
+  readonly off: UiIconId;
+};
+
+/** The look of each class. */
+const BINARY_LOOKS: Readonly<Record<string, BinaryLook>> = {
+  door: { tone: 'lamp', on: 'door-open', off: 'door-closed' },
+  window: { tone: 'lamp', on: 'app-window', off: 'app-window' },
+  opening: { tone: 'lamp', on: 'door-open', off: 'door-closed' },
+  garage_door: { tone: 'lamp', on: 'warehouse', off: 'warehouse' },
+  motion: { tone: 'lamp', on: 'footprints', off: 'footprints' },
+  occupancy: { tone: 'lamp', on: 'user-round', off: 'user-round' },
+  presence: { tone: 'lamp', on: 'user-round-check', off: 'user-round' },
+  running: { tone: 'success', on: 'circle-play', off: 'circle-pause' },
+  connectivity: { tone: 'success', on: 'wifi', off: 'wifi-off' },
+  battery: { tone: 'danger', on: 'battery-warning', off: 'battery-full' },
+  battery_charging: { tone: 'success', on: 'battery-charging', off: 'battery-full' },
+  moisture: { tone: 'danger', on: 'droplets', off: 'droplet' },
+  smoke: { tone: 'danger', on: 'cloud-fog', off: 'cloud' },
+  gas: { tone: 'danger', on: 'cloud-alert', off: 'cloud-check' },
   problem: { tone: 'danger', on: 'triangle-alert', off: 'circle-check' },
-  connectivity: { tone: 'cyan', on: 'wifi', off: 'wifi-off' },
-  battery: { tone: 'danger', on: 'zap', off: 'zap' },
-  battery_charging: { tone: 'success', on: 'zap', off: 'zap' },
-  plug: { tone: 'primary', on: 'plug', off: 'plug' },
-  power: { tone: 'primary', on: 'zap', off: 'zap' },
-  running: { tone: 'success', on: 'activity', off: 'activity' },
+  plug: { tone: 'primary', on: 'plug-zap', off: 'plug' },
+  power: { tone: 'primary', on: 'zap', off: 'zap-off' },
   update: { tone: 'violet', on: 'circle-arrow-up', off: 'circle-check' },
+};
+
+/** A binary sensor of no class, or of one not drawn yet. */
+const PLAIN_BINARY: BinaryLook = { tone: 'violet', on: 'circle-dot', off: 'circle' };
+
+/**
+ * How a binary sensor of a class is drawn: its colour while on - the alarms red, the openings
+ * and the people amber - and its glyph on and off. Off, it is grey, as the dialog's header is.
+ *
+ * @param deviceClass - Its class.
+ * @returns The look.
+ */
+export function binaryLookOf(deviceClass: string | null): BinaryLook {
+  return BINARY_LOOKS[deviceClass ?? ''] ?? PLAIN_BINARY;
+}
+
+/** A binary sensor's tile while on: tinted in its colour, its glyph in the same colour. */
+const BINARY_TILE: Readonly<Record<SheetTone, string>> = {
+  lamp: 'border-lamp/40 bg-lamp/16 text-lamp',
+  primary: 'border-primary/40 bg-primary/16 text-primary',
+  success: 'border-success/40 bg-success/16 text-success',
+  heat: 'border-heat/40 bg-heat/16 text-heat',
+  cyan: 'border-cyan/40 bg-cyan/16 text-cyan',
+  media: 'border-media/40 bg-media/16 text-media',
+  violet: 'border-violet/40 bg-violet/16 text-violet',
+  danger: 'border-danger/40 bg-danger/16 text-danger',
+  muted: TILE_REST,
 };
 
 /**
@@ -576,15 +615,12 @@ const BINARY_LOOKS: Readonly<Record<string, { tone: SheetTone; on: UiIconId; off
 export function BinaryBody(props: SheetBodyProps) {
   const { t } = useTranslation();
   const { entity, state, history } = props;
-  const since = useSinceLine(entity, history);
+  const since = useSinceLine(entity);
   const isOn = state.sensor_binary?.isOn === true;
   const isStale = !entity.isAvailable;
   const deviceClass = entity.deviceClass ?? '';
-  const look = BINARY_LOOKS[deviceClass] ?? {
-    tone: 'violet' as const,
-    on: 'activity' as const,
-    off: 'activity' as const,
-  };
+  const look = binaryLookOf(deviceClass);
+  const isLit = isOn && !isStale;
   const [onWord, offWord] = BINARY_WORDS[deviceClass] ?? ON_OFF_WORDS;
   const segments = stateSegments(
     history.states,
@@ -624,18 +660,26 @@ export function BinaryBody(props: SheetBodyProps) {
       <div className="flex items-center gap-4">
         <span
           className={cn(
-            'relative flex size-16 shrink-0 items-center justify-center rounded-full border transition-colors duration-500',
-            TILE_LIT[isStale ? 'muted' : look.tone],
+            'relative grid size-16 shrink-0 place-items-center',
+            isLit && TONE_TEXT[look.tone],
           )}
         >
-          {isOn && !isStale ? (
+          {isLit ? (
+            // A soft halo breathing round it while on, centred on the tile.
             <span
               aria-hidden="true"
-              className="entity-breathe absolute -inset-1.5 rounded-full border border-current opacity-40"
+              className="entity-breathe absolute -inset-2 rounded-full bg-current/16 blur-md"
             />
           ) : null}
-          <span key={String(isOn)} className="entity-pop flex">
-            <AppIcon id={isOn ? look.on : look.off} size={26} />
+          <span
+            className={cn(
+              'relative flex size-16 items-center justify-center rounded-full border transition-colors duration-500',
+              isLit ? BINARY_TILE[look.tone] : TILE_REST,
+            )}
+          >
+            <span key={String(isOn)} className="entity-pop flex">
+              <AppIcon id={isOn ? look.on : look.off} size={26} />
+            </span>
           </span>
         </span>
         <div className="flex min-w-0 flex-col gap-1">

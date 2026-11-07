@@ -74,6 +74,23 @@ describe('a list of names', () => {
   });
 });
 
+describe('a pick', () => {
+  it('shows at once, before the device says so', () => {
+    const send = vi.fn();
+
+    render(
+      <OptionList title="Preset" options={names(6)} value="Option 1" onPick={send} tone="cyan" />,
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: /Option 3/u }));
+
+    expect(send).toHaveBeenCalledWith('Option 3');
+    expect(screen.getByRole('radio', { name: /Option 3/u }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+  });
+});
+
 describe('a bar of levels', () => {
   it('names up to five, numbers up to ten, and slides beyond', () => {
     const levels = (count: number) =>

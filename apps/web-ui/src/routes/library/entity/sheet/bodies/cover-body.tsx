@@ -58,7 +58,7 @@ function CoverPicture(props: PictureProps) {
     <span
       aria-hidden="true"
       className={cn(
-        'entity-track pointer-events-none absolute rounded-[48px] blur-2xl',
+        'entity-track pointer-events-none absolute rounded-[48px] blur-3xl',
         isDoor ? 'bg-lamp' : 'bg-[#ffb36b]',
         isCurtain ? '-inset-y-5' : '-inset-x-5 -bottom-7',
       )}
@@ -68,11 +68,11 @@ function CoverPicture(props: PictureProps) {
           ? {
               left: `${String(closed / 2)}%`,
               right: `${String(closed / 2)}%`,
-              opacity: 0.06 + light * 0.42,
+              opacity: 0.03 + light * 0.18,
             }
           : {
               top: `${String(isTiltOnly ? 0 : closed * (1 - slats))}%`,
-              opacity: 0.06 + light * 0.42,
+              opacity: 0.03 + light * 0.18,
             }
       }
     />
@@ -106,7 +106,7 @@ function CoverPicture(props: PictureProps) {
         aria-hidden="true"
         className="relative h-58 w-42 overflow-hidden rounded-card border-3 border-[#2d3352] bg-linear-to-b from-[#24306b] via-[#5a4aa8] via-48% to-[#ffb36b] shadow-[0_18px_40px_-18px_rgb(0_0_0/0.8),inset_0_0_0_1px_rgb(255_255_255/0.05)]"
       >
-        <span className="absolute top-[70%] left-[58%] size-11.5 rounded-full bg-[radial-gradient(circle,#ffe0a8_0%,rgb(255_179_107/0.6)_45%,rgb(255_179_107/0)_72%)]" />
+        <span className="absolute top-[72%] left-[60%] size-9 rounded-full bg-[radial-gradient(circle,rgb(255_224_168/0.7)_0%,rgb(255_179_107/0.18)_45%,rgb(255_179_107/0)_70%)]" />
         <span className="absolute inset-x-[-10%] -bottom-4 h-11 rounded-t-[50%] bg-[#1a1d3a]" />
         {deviceClass === 'curtain' ? (
           <>
@@ -247,7 +247,7 @@ function SlatAngle(props: SlatsProps) {
           onPointerUp={(event) => {
             onCommit(Number(event.currentTarget.value));
           }}
-          className="absolute inset-0 m-0 size-full cursor-pointer opacity-0"
+          className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
         />
       </div>
       <div className="flex justify-between font-mono text-[10px] text-foreground-subtle">
@@ -267,8 +267,8 @@ function SlatAngle(props: SlatsProps) {
  */
 export function CoverBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, disabled, reportedAt, history } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, commander, disabled, reportedAt } = props;
+  const since = useSinceLine(entity);
   const params = paramsOf(entity, 'cover');
   const position = usePendingValue(
     state.cover?.position ?? 0,
@@ -441,7 +441,7 @@ export function CoverBody(props: SheetBodyProps) {
               onPointerUp={(event) => {
                 moveTo(Number(event.currentTarget.value));
               }}
-              className="absolute inset-0 m-0 size-full cursor-pointer opacity-0 [direction:rtl] [writing-mode:vertical-lr]"
+              className="absolute inset-0 m-0 size-full cursor-grab opacity-0 [direction:rtl] [writing-mode:vertical-lr] active:cursor-grabbing"
             />
           </div>
         ) : null}
@@ -505,7 +505,7 @@ export function CoverBody(props: SheetBodyProps) {
             onPointerUp={(event) => {
               moveTo(Number(event.currentTarget.value));
             }}
-            className="absolute inset-0 m-0 size-full cursor-pointer opacity-0"
+            className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
           />
         </div>
       ) : null}

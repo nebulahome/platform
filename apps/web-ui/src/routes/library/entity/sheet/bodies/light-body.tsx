@@ -121,8 +121,8 @@ function whiteWord(kelvin: number): string {
  */
 export function LightBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, disabled, reportedAt, history } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, commander, disabled, reportedAt } = props;
+  const since = useSinceLine(entity);
   const hasLevel = hasCapability(entity, 'level');
   const temp = paramsOf(entity, 'color_temp');
   const hs = paramsOf(entity, 'color_hs');
@@ -286,12 +286,29 @@ export function LightBody(props: SheetBodyProps) {
               {t('entity.sheet.light.kelvin', '{{kelvin}} K', { kelvin })}
             </span>
           </div>
-          <div className="entity-slider relative h-11 rounded-inner border border-border-strong bg-linear-to-r from-[#ff9f43] via-[#fff1dc] to-[#c9dcff]">
+          <div className="entity-slider group relative h-12">
             <span
-              className="entity-track pointer-events-none absolute -inset-y-1.5 w-2.5 rounded-pill shadow-[0_0_0_2px_var(--color-surface),0_0_0_3.5px_var(--color-foreground),0_4px_12px_rgb(0_0_0/0.45)]"
+              aria-hidden="true"
+              className="absolute inset-0 rounded-[16px] bg-linear-to-r from-[#ff9f43] via-[#fff1dc] to-[#c9dcff] shadow-[inset_0_1px_0_rgb(255_255_255/0.35),inset_0_0_0_1px_rgb(0_0_0/0.18)] transition-[filter] duration-200 group-hover:brightness-105"
+            />
+            {(['left-1/4', 'left-1/2', 'left-3/4'] as const).map((place) => (
+              <span
+                key={place}
+                aria-hidden="true"
+                className={cn('absolute top-1/2 h-3 w-px -translate-y-1/2 bg-black/12', place)}
+              />
+            ))}
+            {/* An upright bar in the white it stands on: it grows under the pointer and while held. */}
+            <span
+              aria-hidden="true"
+              className={cn(
+                'entity-track pointer-events-none absolute top-1/2 h-[calc(100%+6px)] w-3.5 -translate-1/2 rounded-pill border-[3px] border-white',
+                'shadow-[0_0_0_1px_rgb(0_0_0/0.22),0_6px_16px_rgb(0_0_0/0.4)]',
+                'group-hover:h-[calc(100%+12px)] group-has-[input:active]:h-[calc(100%+16px)] group-has-[input:active]:w-4.5',
+              )}
               // eslint-disable-next-line react/forbid-dom-props -- the bar sits at the lamp's temperature, in its colour
               style={{
-                left: `calc(${String(warmth * 100)}% - 5px)`,
+                left: `calc(9px + (100% - 18px) * ${String(warmth)})`,
                 background: whiteAt(warmth),
               }}
             />
@@ -312,7 +329,7 @@ export function LightBody(props: SheetBodyProps) {
                 mireds.sent(next);
                 commander.send('color_temp', { command: 'set_color_temp', mireds: next });
               }}
-              className="absolute inset-0 m-0 size-full cursor-pointer opacity-0"
+              className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
             />
           </div>
           <div className="flex justify-between font-mono text-[10px] text-foreground-subtle">

@@ -180,7 +180,7 @@ export function EntitySheet(props: EntitySheetProps) {
             className={cn(
               'relative flex size-11 shrink-0 items-center justify-center rounded-[13px] border',
               'transition-[color,background-color,border-color,box-shadow] duration-500',
-              isLit ? cn(TILE_LIT[tone], 'shadow-[0_0_24px_-6px_currentColor]') : TILE_REST,
+              isLit ? cn(TILE_LIT[tone], 'shadow-[0_0_10px_-7px_currentColor]') : TILE_REST,
             )}
           >
             {icon === undefined ? (

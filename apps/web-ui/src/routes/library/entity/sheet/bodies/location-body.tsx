@@ -185,8 +185,8 @@ function Fact(props: { label: string; value: string }) {
  */
 export function LocationBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, history, battery, now } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, battery, now } = props;
+  const since = useSinceLine(entity);
   const source = paramsOf(entity, 'location')?.source ?? 'gps';
   const location = state.location;
 

@@ -326,8 +326,8 @@ function RoomMap(props: RoomMapProps) {
  */
 export function VacuumBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, disabled, history, battery } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, commander, disabled, battery } = props;
+  const since = useSinceLine(entity);
   const params = paramsOf(entity, 'vacuum');
   const [picked, setPicked] = useState<readonly string[]>([]);
   const vacuum = state.vacuum;
@@ -604,8 +604,8 @@ const MOWER_SPOTS: Readonly<Record<string, string>> = {
  */
 export function MowerBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, history, battery } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, commander, battery } = props;
+  const since = useSinceLine(entity);
   const params = paramsOf(entity, 'lawn_mower');
   const mower = state.lawn_mower;
 

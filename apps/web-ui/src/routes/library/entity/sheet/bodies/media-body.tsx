@@ -78,7 +78,7 @@ function LineSlider(props: LineSliderProps) {
         onPointerUp={(event) => {
           onCommit(Number(event.currentTarget.value));
         }}
-        className="absolute inset-0 m-0 size-full cursor-pointer opacity-0"
+        className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
       />
     </div>
   );
@@ -140,8 +140,8 @@ function usePlayClock(isTicking: boolean): number {
  */
 export function MediaBody(props: SheetBodyProps) {
   const { t } = useTranslation();
-  const { entity, state, commander, disabled, reportedAt, history } = props;
-  const since = useSinceLine(entity, history);
+  const { entity, state, commander, disabled, reportedAt } = props;
+  const since = useSinceLine(entity);
   const openList = useContext(ListViewContext);
   const params = paramsOf(entity, 'media_player');
   const volume = usePendingValue(
