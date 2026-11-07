@@ -1142,11 +1142,27 @@
 }
 
 /*
- * The entity dialog (apps/web-ui …/entity/sheet): a spinner while a command waits for the device
- * to confirm it, a fan's blades turning at its speed (`--spin`) and its head swinging side to
- * side, a ring turning round firmware being written, a dot blinking on a live picture, a glow
- * breathing behind something at work, a mower or a robot swaying on its way, a flow along a path.
- * All of it stops where less motion was asked for, and what it showed stays where it was.
+ * The entity dialog's motion (apps/web-ui …/entity/sheet).
+ *
+ * Two eases, both the canvas's: `cubic-bezier(0.2, 0.8, 0.2, 1)` for things that travel - the
+ * dialog arriving, a sheet rising, a fill reaching its level - and `cubic-bezier(0.16, 1, 0.3, 1)`
+ * for things that answer a finger, which must land inside 200 ms to read as an answer.
+ *
+ * - Arriving: the card rises in, its body's blocks follow one after another, a whole list or a
+ *   picker slides in from the side, a tooltip pops beside the pointer.
+ * - Changing: a value that changes ticks up into place; a fill, a knob, a dial's arc or a cover's
+ *   blind glides to where the device now is - but follows the finger exactly while a slider is
+ *   held (`entity-slider` around it, `entity-track` on what moves), so nothing trails or springs
+ *   back under it; a chosen chip, swatch or segment pops; a lamp switched on sends out a ring.
+ * - Drawing: a chart's line is revealed from the left, bars grow from the floor one after
+ *   another, a band's stretches grow from where they began.
+ * - Working: a spinner while a command waits, a fan's blades at its speed (`--spin`) and its head
+ *   swinging, a ring round firmware being written, a dot blinking on a live picture, a glow
+ *   breathing behind something at work, a robot swaying on its way, a flow along a path, bars
+ *   dancing while music plays.
+ *
+ * Where less motion was asked for, nothing travels: animations stop on their last frame and
+ * glides land at once. Colours still change, so a press is still answered.
  */
 @keyframes entity-spin {
   to {
@@ -1209,6 +1225,96 @@
   }
 }
 
+@keyframes entity-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+
+@keyframes entity-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes entity-tick {
+  from {
+    opacity: 0;
+    transform: translateY(0.3em);
+    filter: blur(2px);
+  }
+}
+
+@keyframes entity-slide {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@keyframes entity-pop {
+  0% {
+    transform: scale(0.9);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes entity-tip {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+}
+
+@keyframes entity-ripple {
+  from {
+    opacity: 0.7;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+@keyframes entity-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes entity-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes entity-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes entity-eq {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
 .entity-spin {
   animation: entity-spin 0.9s linear infinite;
 }
@@ -1250,6 +1356,103 @@
   animation: entity-flow var(--flow, 1.6s) linear infinite;
 }
 
+/* The card, as it opens. */
+.entity-arrive {
+  animation: entity-arrive 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/*
+ * Blocks arriving one after another, each 45 ms behind the one above it: the children of
+ * `entity-stagger`, or the grandchildren of `entity-stagger-deep` - a dialog's body, whose own
+ * root sits between.
+ */
+:is(.entity-stagger > *, .entity-stagger-deep > * > *) {
+  animation: entity-rise 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+:is(.entity-stagger > :nth-child(2), .entity-stagger-deep > * > :nth-child(2)) {
+  animation-delay: 45ms;
+}
+
+:is(.entity-stagger > :nth-child(3), .entity-stagger-deep > * > :nth-child(3)) {
+  animation-delay: 90ms;
+}
+
+:is(.entity-stagger > :nth-child(4), .entity-stagger-deep > * > :nth-child(4)) {
+  animation-delay: 135ms;
+}
+
+:is(.entity-stagger > :nth-child(5), .entity-stagger-deep > * > :nth-child(5)) {
+  animation-delay: 180ms;
+}
+
+:is(.entity-stagger > :nth-child(n + 6), .entity-stagger-deep > * > :nth-child(n + 6)) {
+  animation-delay: 220ms;
+}
+
+/* A value that changed, rising into place: keyed by the value, so each change plays it. */
+.entity-tick {
+  display: inline-block;
+  animation: entity-tick 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* A whole list, or the colour picker, in place of what was there. */
+.entity-slide {
+  animation: entity-slide 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* A chip, a swatch or a segment just chosen. */
+.entity-pop {
+  animation: entity-pop 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* A chart's tooltip. */
+.entity-tip {
+  animation: entity-tip 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The ring a power target sends out as it is switched on. */
+.entity-ripple {
+  animation: entity-ripple 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* A chart drawn from the left. */
+.entity-reveal {
+  animation: entity-reveal 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* A chart's bars, grown from the floor one after another (`--i` is the bar's place). */
+.entity-grow-y {
+  transform-origin: 50% 100%;
+  animation: entity-grow-y 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 16ms);
+}
+
+/* A band's stretches, grown from where each began. */
+.entity-grow-x {
+  transform-origin: 0% 50%;
+  animation: entity-grow-x 640ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* Music playing: bars of different lengths. */
+.entity-eq {
+  transform-origin: 50% 100%;
+  animation: entity-eq 0.9s ease-in-out infinite;
+}
+
+/* A fill, a knob, an arc or a blind gliding to where the device now is... */
+.entity-track {
+  transition-property: width, height, left, top, right, transform, stroke-dasharray, background;
+  transition-duration: 380ms;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ...but following the finger exactly while its slider is held. */
+.entity-slider:has(input:active) .entity-track {
+  transition-duration: 0ms;
+}
+
 [data-motion='reduced']
   :is(
     .entity-spin,
@@ -1261,9 +1464,25 @@
     .entity-breathe,
     .entity-blink,
     .entity-dash,
-    .entity-flow
+    .entity-flow,
+    .entity-arrive,
+    .entity-stagger > *,
+    .entity-stagger-deep > * > *,
+    .entity-tick,
+    .entity-slide,
+    .entity-pop,
+    .entity-tip,
+    .entity-ripple,
+    .entity-reveal,
+    .entity-grow-y,
+    .entity-grow-x,
+    .entity-eq
   ) {
   animation: none;
+}
+
+[data-motion='reduced'] .entity-track {
+  transition-duration: 0ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1278,8 +1497,24 @@
       .entity-breathe,
       .entity-blink,
       .entity-dash,
-      .entity-flow
+      .entity-flow,
+      .entity-arrive,
+      .entity-stagger > *,
+      .entity-stagger-deep > * > *,
+      .entity-tick,
+      .entity-slide,
+      .entity-pop,
+      .entity-tip,
+      .entity-ripple,
+      .entity-reveal,
+      .entity-grow-y,
+      .entity-grow-x,
+      .entity-eq
     ) {
     animation: none;
+  }
+
+  :root:not([data-motion='full']) .entity-track {
+    transition-duration: 0ms;
   }
 }
