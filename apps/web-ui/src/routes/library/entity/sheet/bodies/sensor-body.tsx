@@ -22,10 +22,16 @@ import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 import { text } from '@/i18n/messages';
 import { shortTime } from '@/lib/format-time';
 import { paramsOf } from '@/library/entity-control';
-import { BINARY_WORDS, ON_OFF_WORDS } from '@/library/entity-reading';
+import { BINARY_WORDS, describeState, ON_OFF_WORDS } from '@/library/entity-reading';
 import { stateSegments, type TimeWindow } from '@/library/history-series';
 import { durationText } from '@/library/history-stats';
-import { AxisRow, BandChart, LineChart, TotalBars } from '@/routes/library/entity/sheet/charts';
+import {
+  AxisRow,
+  BandChart,
+  LineChart,
+  StretchChart,
+  TotalBars,
+} from '@/routes/library/entity/sheet/charts';
 import { axisLabels, clockText, timesText } from '@/routes/library/entity/sheet/history';
 import { useSinceLine } from '@/routes/library/entity/sheet/parts/sheet-controls';
 import {
@@ -320,7 +326,10 @@ export function SensorBody(props: SheetBodyProps) {
           {isTotal ? (
             <>
               <TotalBars
+                key={history.range}
                 bars={bars}
+                window={history.window}
+                format={(value) => `${figure(value, entity)} ${unit}`.trim()}
                 tone={isStale ? 'muted' : 'success'}
                 label={t('entity.sheet.sensor.perSlot', 'How much each slot added')}
               />
@@ -328,11 +337,13 @@ export function SensorBody(props: SheetBodyProps) {
             </>
           ) : (
             <LineChart
+              key={history.range}
               points={points}
               window={history.window}
               tone="cyan"
               height={128}
               isStale={isStale}
+              format={(value) => `${figure(value, entity)} ${unit}`.trim()}
               label={t('entity.sheet.sensor.overTime', '{{name}} over the last {{range}}', {
                 name: entity.name,
                 range: history.range,
@@ -419,21 +430,13 @@ export function SensorBody(props: SheetBodyProps) {
           </div>
         </div>
         <HistoryCard range={history.range} ranges={SHEET_RANGES} onRange={history.onRange}>
-          <div
-            role="img"
-            aria-label={t('entity.sheet.sensor.byValue', 'Its values over the window')}
-            className="flex h-9 gap-0.5 overflow-hidden rounded-chip"
-          >
-            {stretches.map((stretch) => (
-              <span
-                key={stretch.from}
-                title={stretch.value}
-                className={colourOf(stretch.value)}
-                // eslint-disable-next-line react/forbid-dom-props -- each stretch as long as it lasted
-                style={{ flex: `${String(stretch.to - stretch.from)} 1 0` }}
-              />
-            ))}
-          </div>
+          <StretchChart
+            key={history.range}
+            stretches={stretches}
+            window={history.window}
+            colourOf={colourOf}
+            label={t('entity.sheet.sensor.byValue', 'Its values over the window')}
+          />
           <AxisRow
             labels={axisLabels(history.window, history.range).filter((label, index) => index !== 1)}
           />
@@ -587,7 +590,7 @@ export function BinaryBody(props: SheetBodyProps) {
     history.states,
     history.window,
     { state: entity.state, isAvailable: entity.isAvailable },
-    () => '',
+    (each) => describeState(each, entity),
   );
   const active = segments.filter((segment) => segment.isActive);
   const lastOn = active.at(-1);
@@ -621,16 +624,25 @@ export function BinaryBody(props: SheetBodyProps) {
       <div className="flex items-center gap-4">
         <span
           className={cn(
-            'flex size-16 shrink-0 items-center justify-center rounded-full border',
+            'relative flex size-16 shrink-0 items-center justify-center rounded-full border transition-colors duration-500',
             TILE_LIT[isStale ? 'muted' : look.tone],
           )}
         >
-          <AppIcon id={isOn ? look.on : look.off} size={26} />
+          {isOn && !isStale ? (
+            <span
+              aria-hidden="true"
+              className="entity-breathe absolute -inset-1.5 rounded-full border border-current opacity-40"
+            />
+          ) : null}
+          <span key={String(isOn)} className="entity-pop flex">
+            <AppIcon id={isOn ? look.on : look.off} size={26} />
+          </span>
         </span>
         <div className="flex min-w-0 flex-col gap-1">
           <span
+            key={String(isOn)}
             className={cn(
-              'text-[28px] font-medium tracking-[-0.02em]',
+              'entity-tick text-[28px] font-medium tracking-[-0.02em]',
               isStale && 'text-foreground-subtle',
             )}
           >
@@ -648,8 +660,10 @@ export function BinaryBody(props: SheetBodyProps) {
       </div>
       <HistoryCard range={history.range} ranges={SHEET_RANGES} onRange={history.onRange}>
         <BandChart
+          key={history.range}
           segments={segments}
           window={history.window}
+          words={[text(onWord), text(offWord)]}
           tone={isStale ? 'muted' : look.tone}
           label={t('entity.sheet.history.whenOn', 'When it was on, over the last {{range}}', {
             range: history.range,

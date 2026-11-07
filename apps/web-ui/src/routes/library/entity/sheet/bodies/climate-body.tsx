@@ -226,29 +226,34 @@ function Dial(props: DialProps) {
             y2={to.y}
             strokeWidth={isLit ? 2.5 : 2}
             strokeLinecap="round"
-            className={
+            className={cn(
+              'transition-colors duration-300',
               isLit
                 ? low !== null
                   ? 'stroke-success/55'
                   : TONE_SVG[tone].stroke
                 : isMajor
                   ? 'stroke-[#2d3352]'
-                  : 'stroke-border'
-            }
+                  : 'stroke-border',
+            )}
           />
         );
       })}
       {target !== null && low === null ? (
+        // The knob is drawn at the start of the dial and turned to the target, so it glides there.
         <line
-          {...(() => {
-            const from = at(120, toAngle(target));
-            const to = at(96, toAngle(target));
-
-            return { x1: from.x, y1: from.y, x2: to.x, y2: to.y };
-          })()}
+          x1={at(120, 135).x}
+          y1={at(120, 135).y}
+          x2={at(96, 135).x}
+          y2={at(96, 135).y}
           strokeWidth={4}
           strokeLinecap="round"
-          className="stroke-knob"
+          className="entity-track stroke-knob"
+          // eslint-disable-next-line react/forbid-dom-props -- turned to the target, about the centre
+          style={{
+            transformOrigin: `${String(CENTRE)}px ${String(CENTRE)}px`,
+            transform: `rotate(${String(toAngle(target) - 135)}deg)`,
+          }}
         />
       ) : null}
       {low !== null && high !== null
@@ -301,8 +306,16 @@ export function ClimateBody(props: SheetBodyProps) {
   const { entity, state, commander, disabled, reportedAt, history } = props;
   const since = useSinceLine(entity, history);
   const params = paramsOf(entity, 'thermostat');
-  const target = usePendingValue(state.thermostat?.targetTemperature ?? 20, reportedAt);
-  const humidityTarget = usePendingValue(state.thermostat?.targetHumidity ?? 50, reportedAt);
+  const target = usePendingValue(
+    state.thermostat?.targetTemperature ?? 20,
+    reportedAt,
+    commander.busy.has('thermostat'),
+  );
+  const humidityTarget = usePendingValue(
+    state.thermostat?.targetHumidity ?? 50,
+    reportedAt,
+    commander.busy.has('thermostat'),
+  );
   const climate = state.thermostat;
 
   if (climate === undefined || params === null) {
@@ -570,10 +583,10 @@ export function ClimateBody(props: SheetBodyProps) {
                 send({ command: 'set_mode', mode: each });
               }}
               className={cn(
-                'flex h-15 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-inner border p-0',
-                'disabled:cursor-not-allowed',
+                'press flex h-15 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-inner border p-0',
+                'transition-colors duration-300 disabled:cursor-not-allowed',
                 isChosen
-                  ? MODE_CHOSEN[lookTone]
+                  ? cn('entity-pop', MODE_CHOSEN[lookTone])
                   : 'border-border bg-surface-raised/60 text-foreground-muted',
               )}
             >
@@ -671,7 +684,7 @@ export function ClimateBody(props: SheetBodyProps) {
                     });
                   }}
                   className={cn(
-                    'inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-tile border px-3.5 text-caption font-medium',
+                    'press inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-tile border px-3.5 text-caption font-medium transition-colors duration-200',
                     climate.fanMode?.toLowerCase() === 'auto'
                       ? 'border-cyan/50 bg-cyan/12 text-cyan'
                       : 'border-border-strong bg-surface-raised text-foreground-muted',

@@ -141,7 +141,7 @@ function RobotStatus(props: RobotFrameProps) {
             props.onCommand(main.command);
           }}
           className={cn(
-            'inline-flex h-13 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2.25 rounded-card px-4.5 text-title font-medium',
+            'press inline-flex h-13 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2.25 rounded-card px-4.5 text-title font-medium transition-colors duration-200',
             'disabled:cursor-not-allowed disabled:opacity-50',
             main.isFilled
               ? MAIN_FILL[tone]
@@ -246,7 +246,7 @@ function RoomMap(props: RoomMapProps) {
                 onToggle(room.id);
               }}
               className={cn(
-                'absolute cursor-pointer rounded-chip border p-0 text-left',
+                'press absolute cursor-pointer rounded-chip border p-0 text-left transition-colors duration-200',
                 isPicked ? 'border-cyan/60 bg-cyan/16' : 'border-[#20243c] bg-[#121528]',
               )}
               // eslint-disable-next-line react/forbid-dom-props -- each room where the map has it, a gap between

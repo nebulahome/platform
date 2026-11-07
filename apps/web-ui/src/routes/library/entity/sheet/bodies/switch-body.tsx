@@ -70,7 +70,7 @@ export function OnOffBody(props: OnOffBodyProps) {
                 turn(next);
               }}
               className={cn(
-                'inline-flex h-14 flex-1 cursor-pointer items-center justify-center gap-2 rounded-card border text-title font-medium text-foreground',
+                'press inline-flex h-14 flex-1 cursor-pointer items-center justify-center gap-2 rounded-card border text-title font-medium text-foreground transition-colors duration-300',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 isOn === next
                   ? cn(TONE_CHOSEN[tone], 'text-foreground')

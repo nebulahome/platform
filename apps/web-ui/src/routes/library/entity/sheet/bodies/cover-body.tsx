@@ -56,7 +56,7 @@ function CoverPicture(props: PictureProps) {
         <span className="absolute inset-x-3.5 top-6.5 bottom-0 bg-linear-to-b from-[#0a0c16] via-[#2a2210] via-78% to-[#4a3814]" />
         <span className="absolute inset-x-8.5 bottom-2.5 h-6.5 rounded-t-[10px] rounded-b-[4px] bg-[#1b2038]" />
         <span
-          className="absolute inset-x-3.5 top-6.5 bg-[repeating-linear-gradient(180deg,#4a5287_0_2px,#3a4170_2px_22px,#262b45_22px_24px)] shadow-[0_8px_16px_rgb(0_0_0/0.5)] transition-[height] duration-500"
+          className="entity-track absolute inset-x-3.5 top-6.5 bg-[repeating-linear-gradient(180deg,#4a5287_0_2px,#3a4170_2px_22px,#262b45_22px_24px)] shadow-[0_8px_16px_rgb(0_0_0/0.5)]"
           // eslint-disable-next-line react/forbid-dom-props -- the door comes down as far as it is closed
           style={{ height: `calc(${String(closed)}% - ${String((closed / 100) * 26)}px)` }}
         />
@@ -78,7 +78,7 @@ function CoverPicture(props: PictureProps) {
             <span
               key={side}
               className={cn(
-                'absolute inset-y-0 bg-[repeating-linear-gradient(90deg,#6b4a8f_0_8px,#563a78_8px_16px)] transition-[width] duration-500',
+                'entity-track absolute inset-y-0 bg-[repeating-linear-gradient(90deg,#6b4a8f_0_8px,#563a78_8px_16px)]',
                 side,
                 side === 'left-0'
                   ? 'shadow-[6px_0_12px_rgb(0_0_0/0.4)]'
@@ -94,7 +94,7 @@ function CoverPicture(props: PictureProps) {
         [...Array.from({ length: 12 }).keys()].map((index) => (
           <span
             key={index}
-            className="absolute inset-x-1.5 h-2.25 rounded-[2px] bg-linear-to-b from-[#5a63a0] to-[#343b6a] shadow-[0_3px_4px_rgb(0_0_0/0.35)] transition-transform duration-500"
+            className="entity-track absolute inset-x-1.5 h-2.25 rounded-[2px] bg-linear-to-b from-[#5a63a0] to-[#343b6a] shadow-[0_3px_4px_rgb(0_0_0/0.35)]"
             // eslint-disable-next-line react/forbid-dom-props -- the slats turn to the cover's angle
             style={{
               top: `${String(8 + index * 18)}px`,
@@ -108,16 +108,32 @@ function CoverPicture(props: PictureProps) {
           <span className="absolute inset-x-0 top-1/2 -mt-px h-0.5 bg-[rgb(12_14_25/0.5)]" />
           <div
             className={cn(
-              'absolute inset-x-0 top-0 transition-[height] duration-500',
+              'entity-track absolute inset-x-0 top-0 overflow-hidden',
               tilt === null
                 ? 'bg-[repeating-linear-gradient(180deg,#4a5287_0_2px,#343b6a_2px_10px,#1b1f35_10px_12px)] shadow-[0_6px_14px_rgb(0_0_0/0.45)]'
-                : 'bg-[repeating-linear-gradient(180deg,#4a5287_0_2px,#343b6a_2px_6px,transparent_6px_12px)] shadow-[0_6px_14px_rgb(0_0_0/0.35)]',
+                : 'shadow-[0_6px_14px_rgb(0_0_0/0.3)]',
             )}
             // eslint-disable-next-line react/forbid-dom-props -- the blind comes down as far as it is closed
             style={{ height: `${String(closed)}%` }}
-          />
+          >
+            {tilt === null
+              ? null
+              : // The slats, turned to the tilt: flat and shut at 0°, edge on and letting the sky
+                // through towards 90°.
+                [...Array.from({ length: 20 }).keys()].map((index) => (
+                  <span
+                    key={index}
+                    className="entity-track absolute inset-x-0 h-2.75 bg-linear-to-b from-[#5a63a0] to-[#2c3260] shadow-[0_2px_3px_rgb(0_0_0/0.35)]"
+                    // eslint-disable-next-line react/forbid-dom-props -- each slat at the cover's angle
+                    style={{
+                      top: `${String(index * 12)}px`,
+                      transform: `perspective(240px) rotateX(${String(Math.min(82, tilt))}deg)`,
+                    }}
+                  />
+                ))}
+          </div>
           <div
-            className="absolute -inset-x-0.5 h-2 rounded-[3px] bg-linear-to-b from-[#6b74b0] to-[#3a4170] shadow-[0_3px_8px_rgb(0_0_0/0.5)] transition-[top] duration-500"
+            className="entity-track absolute -inset-x-0.5 h-2 rounded-[3px] bg-linear-to-b from-[#6b74b0] to-[#3a4170] shadow-[0_3px_8px_rgb(0_0_0/0.5)]"
             // eslint-disable-next-line react/forbid-dom-props -- the bar at the foot of the blind
             style={{ top: `calc(${String(closed)}% - 4px)` }}
           />
@@ -171,7 +187,10 @@ function SlatAngle(props: SlatsProps) {
             return (
               <span
                 key={index}
-                className={cn('h-6.5 w-0.75 rounded-[2px]', isLit ? 'bg-primary' : 'bg-[#2d3352]')}
+                className={cn(
+                  'h-6.5 w-0.75 rounded-[2px] transition-colors duration-200',
+                  isLit ? 'bg-primary' : 'bg-[#2d3352]',
+                )}
                 // eslint-disable-next-line react/forbid-dom-props -- each slat at its own angle
                 style={{ transform: `rotate(${String(angle)}deg)` }}
               />
@@ -214,8 +233,12 @@ export function CoverBody(props: SheetBodyProps) {
   const { entity, state, commander, disabled, reportedAt, history } = props;
   const since = useSinceLine(entity, history);
   const params = paramsOf(entity, 'cover');
-  const position = usePendingValue(state.cover?.position ?? 0, reportedAt);
-  const tilt = usePendingValue(state.cover?.tilt ?? 0, reportedAt);
+  const position = usePendingValue(
+    state.cover?.position ?? 0,
+    reportedAt,
+    commander.busy.has('cover'),
+  );
+  const tilt = usePendingValue(state.cover?.tilt ?? 0, reportedAt, commander.busy.has('cover'));
   const cover = state.cover;
 
   if (cover === undefined || params === null) {
@@ -329,7 +352,7 @@ export function CoverBody(props: SheetBodyProps) {
                   onClick={() => {
                     perform(action.key);
                   }}
-                  className="inline-flex h-12 cursor-pointer items-center gap-2.5 rounded-card border border-border-strong bg-surface-raised px-3.5 text-ui font-medium text-foreground disabled:cursor-not-allowed"
+                  className="press inline-flex h-12 cursor-pointer items-center gap-2.5 rounded-card border border-border-strong bg-surface-raised px-3.5 text-ui font-medium text-foreground disabled:cursor-not-allowed"
                 >
                   <AppIcon id={action.icon} size={17} />
                   {action.label}
@@ -353,14 +376,14 @@ export function CoverBody(props: SheetBodyProps) {
       <div className="flex items-stretch gap-4">
         {picture}
         {hasPosition && !isCurtain ? (
-          <div className="relative w-11 shrink-0 overflow-hidden rounded-card border border-border-strong bg-surface-raised">
+          <div className="entity-slider relative w-11 shrink-0 overflow-hidden rounded-card border border-border-strong bg-surface-raised">
             <div
-              className="absolute inset-x-0 top-0 bg-linear-to-b from-primary/25 to-primary/60"
+              className="entity-track absolute inset-x-0 top-0 bg-linear-to-b from-primary/25 to-primary/60"
               // eslint-disable-next-line react/forbid-dom-props -- the bar fills from the top as far as it is closed
               style={{ height: `${String(100 - shown)}%` }}
             />
             <span
-              className="absolute inset-x-2.25 h-1.5 rounded-pill bg-knob shadow-[0_0_12px_color-mix(in_oklab,var(--color-primary)_80%,transparent)]"
+              className="entity-track absolute inset-x-2.25 h-1.5 rounded-pill bg-knob shadow-[0_0_12px_color-mix(in_oklab,var(--color-primary)_80%,transparent)]"
               // eslint-disable-next-line react/forbid-dom-props -- the handle at the foot of the blind
               style={{ top: `calc(${String(100 - shown)}% - 3px)` }}
             />
@@ -428,14 +451,14 @@ export function CoverBody(props: SheetBodyProps) {
       </div>
 
       {hasPosition && isCurtain ? (
-        <div className="relative h-11 overflow-hidden rounded-inner border border-border-strong bg-surface-raised">
+        <div className="entity-slider relative h-11 overflow-hidden rounded-inner border border-border-strong bg-surface-raised">
           <span
-            className="absolute inset-y-0 left-0 bg-linear-to-r from-primary/20 to-primary/60"
+            className="entity-track absolute inset-y-0 left-0 bg-linear-to-r from-primary/20 to-primary/60"
             // eslint-disable-next-line react/forbid-dom-props -- the bar fills as far as it is open
             style={{ width: `${String(shown)}%` }}
           />
           <span
-            className="absolute inset-y-2.5 w-1.5 rounded-pill bg-knob"
+            className="entity-track absolute inset-y-2.5 w-1.5 rounded-pill bg-knob"
             // eslint-disable-next-line react/forbid-dom-props -- the handle at the curtain's edge
             style={{ left: `calc(${String(shown)}% - 3px)` }}
           />
@@ -486,10 +509,10 @@ export function CoverBody(props: SheetBodyProps) {
                 moveTo(each);
               }}
               className={cn(
-                'h-9 cursor-pointer rounded-tile border px-3 text-ui-sm font-medium tabular disabled:cursor-not-allowed',
+                'press h-9 cursor-pointer rounded-tile border px-3 text-ui-sm font-medium tabular transition-colors duration-200 disabled:cursor-not-allowed',
                 shown === each
-                  ? 'border-primary/50 bg-primary/12 text-primary'
-                  : 'border-border-strong bg-surface-raised text-foreground',
+                  ? 'entity-pop border-primary/50 bg-primary/12 text-primary'
+                  : 'border-border-strong bg-surface-raised text-foreground hover:border-foreground-subtle',
               )}
             >
               {each === 0

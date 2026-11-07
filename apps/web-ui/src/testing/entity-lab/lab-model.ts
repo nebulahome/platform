@@ -234,8 +234,6 @@ export function buildRow(row: LabRow, now: number): LabBuild {
     entityId: entityIdSchema.parse(`${row.domain}.lab_${row.id.replaceAll('-', '_')}`),
     domain: row.domain,
     name: labName(row),
-    areaKey: 'living_room',
-    areaName: 'Living room',
     capabilities,
     state: json,
     deviceClass: row.deviceClass,

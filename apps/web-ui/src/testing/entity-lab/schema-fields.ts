@@ -11,7 +11,7 @@ import { CAPABILITY_DEFINITIONS, type CapabilityName } from '@nebulahome/contrac
 
 /** A JSON schema node, as `z.toJSONSchema` writes one. */
 type Node = {
-  readonly type?: string;
+  readonly type?: string | readonly string[];
   readonly enum?: readonly unknown[];
   readonly anyOf?: readonly Node[];
   readonly items?: Node | false;
@@ -132,9 +132,18 @@ function fieldsOf(schema: z.ZodType): SchemaField[] {
   const required = new Set(root.required ?? []);
 
   return Object.entries(root.properties ?? {}).map(([key, node]) => {
+    // Nullable either way zod writes it: `anyOf` with a null branch, or `type: [x, "null"]`.
+    const types = typeof node.type === 'string' ? undefined : node.type;
     const nonNull = node.anyOf?.filter((branch) => branch.type !== 'null');
-    const isNullable = node.anyOf?.some((branch) => branch.type === 'null') ?? false;
-    const inner = nonNull?.length === 1 && nonNull[0] !== undefined ? nonNull[0] : node;
+    const isNullable =
+      (node.anyOf?.some((branch) => branch.type === 'null') ?? false) ||
+      (types?.includes('null') ?? false);
+    const inner =
+      types === undefined
+        ? nonNull?.length === 1 && nonNull[0] !== undefined
+          ? nonNull[0]
+          : node
+        : { ...node, type: types.find((type) => type !== 'null') ?? 'null' };
     const hasDefault = 'default' in node;
 
     return {

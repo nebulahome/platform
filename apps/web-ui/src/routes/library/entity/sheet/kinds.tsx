@@ -3,7 +3,7 @@
  * strongest capability decides - a thermostat that also reports humidity is a thermostat, a fan
  * that switches is a fan, not a switch.
  *
- * A capability no body is drawn for yet - a package's own entity type, a picture, one added after
+ * A capability no body is drawn for yet - a package's own entity type, one added after
  * this was written - still gets its controls: the entity page's own, one block per capability.
  * The dialog never opens empty.
  */
@@ -25,6 +25,7 @@ import { ENTITY_CONTROLS } from '@/routes/library/entity/controls/control-panel'
 import { ClimateBody } from '@/routes/library/entity/sheet/bodies/climate-body';
 import { CoverBody } from '@/routes/library/entity/sheet/bodies/cover-body';
 import { FanBody } from '@/routes/library/entity/sheet/bodies/fan-body';
+import { ImageBody } from '@/routes/library/entity/sheet/bodies/image-body';
 import { LightBody } from '@/routes/library/entity/sheet/bodies/light-body';
 import { LocationBody } from '@/routes/library/entity/sheet/bodies/location-body';
 import { LockBody } from '@/routes/library/entity/sheet/bodies/lock-body';
@@ -59,6 +60,7 @@ type KindId =
   | 'select'
   | 'number'
   | 'button'
+  | 'image'
   | 'binary'
   | 'sensor';
 
@@ -89,6 +91,7 @@ const KINDS: readonly KindRule[] = [
   { id: 'select', anyOf: ['select'], history: 'drawer', Body: SelectBody },
   { id: 'number', anyOf: ['number'], history: 'drawer', Body: NumberBody },
   { id: 'button', anyOf: ['button'], history: 'none', Body: ButtonBody },
+  { id: 'image', anyOf: ['image'], history: 'none', Body: ImageBody },
   { id: 'binary', anyOf: ['sensor_binary'], history: 'body', Body: BinaryBody },
   { id: 'sensor', anyOf: ['sensor_numeric', 'sensor_text'], history: 'body', Body: SensorBody },
 ];
@@ -155,6 +158,7 @@ function toneOf(id: KindId, entity: EntityView): SheetTone {
     case 'location':
     case 'vacuum':
     case 'fan':
+    case 'image':
     case 'sensor': {
       return 'cyan';
     }
@@ -185,6 +189,7 @@ function iconOf(id: KindId, entity: EntityView): UiIconId {
     switch: deviceClass === 'outlet' ? 'plug' : 'power',
     select: 'list',
     number: 'hash',
+    image: 'image',
     button:
       deviceClass === 'restart'
         ? 'rotate-ccw'
@@ -292,6 +297,9 @@ function wordsOf(id: KindId, entity: EntityView): string {
     }
     case 'button': {
       return translate('entity.sheet.kind.button', 'Button');
+    }
+    case 'image': {
+      return translate('entity.sheet.kind.picture', 'Picture');
     }
     case 'binary': {
       return deviceClass === null || BINARY_WORDS[deviceClass] === undefined

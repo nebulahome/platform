@@ -125,7 +125,7 @@ export function HoldAction(props: HoldActionProps) {
       }}
       onKeyUp={cancel}
       className={cn(
-        'relative inline-flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden border font-medium select-none',
+        'press relative inline-flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden border font-medium select-none',
         'disabled:cursor-not-allowed disabled:text-foreground-disabled',
         size === 'large' ? 'h-14 rounded-panel text-title' : 'h-13 rounded-card text-ui',
         fill ?? 'border-border-strong bg-surface-raised text-foreground',

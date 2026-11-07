@@ -3474,7 +3474,10 @@
         "week": "Settimana",
         "weekWord": "settimana",
         "whenOn": "Quando era attiva, nelle ultime {{range}}",
-        "workingFor": "Al lavoro per"
+        "workingFor": "Al lavoro per",
+        "notAnswering": "Non risponde",
+        "span": "{{from}} – {{to}} · {{duration}}",
+        "slotSpan": "{{from}} – {{to}}"
       },
       "kind": {
         "binarySensor": "Sensore binario",
@@ -3500,7 +3503,8 @@
         "tv": "TV",
         "update": "Aggiornamento",
         "vacuum": "Robot aspirapolvere",
-        "white": "bianco"
+        "white": "bianco",
+        "picture": "Immagine"
       },
       "levelNumber": "{{n}}",
       "light": {
@@ -3532,7 +3536,8 @@
         "warmWhite": "Bianco caldo",
         "white": "Bianco",
         "whiteAt": "bianco al {{value}}%",
-        "whiteChannel": "Canale bianco"
+        "whiteChannel": "Canale bianco",
+        "done": "Fatto"
       },
       "list": {
         "back": "Indietro",
@@ -3685,7 +3690,6 @@
         "up": "Su di {{change}} {{unit}} nell'ultima ora · {{read}}"
       },
       "settings": {
-        "area": "Stanza",
         "close": "Chiudi le impostazioni",
         "device": "Dispositivo",
         "disabledHint": "Nascosta quando scegli le entità, e i suoi stati non vengono più registrati.",
@@ -3718,6 +3722,13 @@
         "releaseNotesFor": "Note di rilascio {{version}}",
         "upToDate": "Aggiornato",
         "version": "Versione {{version}}"
+      },
+      "image": {
+        "nothingYet": "Ancora niente da mostrare.",
+        "loading": "Carico l’immagine…",
+        "none": "Ancora nessuna immagine",
+        "drawnAt": "Disegnata alle {{time}}",
+        "fullScreen": "Schermo intero"
       }
     }
   },

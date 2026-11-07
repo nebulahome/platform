@@ -45,7 +45,7 @@ export function SheetIconButton(props: SheetIconButtonProps) {
       title={label}
       aria-pressed={isPressed}
       className={cn(
-        'inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full',
+        'press-scale inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full',
         'transition-colors duration-200 hover:bg-surface-raised hover:text-foreground',
         isPressed === true ? 'bg-surface-high text-foreground' : 'text-foreground-muted',
       )}
@@ -77,7 +77,7 @@ export function SendingSpinner(props: SendingSpinnerProps) {
     <span
       role="status"
       aria-label={t('entity.sheet.sending', 'Sending')}
-      className={cn('entity-spin inline-flex', TONE_TEXT[props.tone])}
+      className={cn('entity-spin inline-flex animate-fade-in', TONE_TEXT[props.tone])}
     >
       <AppIcon id="loader-circle" size={props.size ?? 22} />
     </span>
@@ -123,8 +123,12 @@ export function ValueHead(props: ValueHeadProps) {
         <span className="flex items-center gap-3">
           <span className="flex items-baseline gap-1.5">
             <span
+              // A new reading or word rises into place: keyed by what it reads, so each change plays
+              // it. A level is left alone - it changes on every step of a drag.
+              key={typeof value === 'string' && size !== 'level' ? value : undefined}
               className={cn(
-                'leading-none font-medium tabular',
+                'leading-none font-medium tabular transition-colors duration-300',
+                size !== 'level' && 'entity-tick',
                 size === 'reading' && 'text-[56px] tracking-[-0.04em]',
                 size === 'level' && 'text-[48px] tracking-[-0.04em]',
                 size === 'word' && 'text-[28px] tracking-[-0.02em]',
@@ -196,7 +200,7 @@ export function BigSwitch(props: BigSwitchProps) {
         onChange(!isOn);
       }}
       className={cn(
-        'relative shrink-0 cursor-pointer rounded-pill transition-colors duration-200',
+        'press relative shrink-0 cursor-pointer rounded-pill transition-colors duration-300',
         size === 'large' ? 'h-7.5 w-13' : 'h-6 w-10',
         'disabled:cursor-not-allowed disabled:opacity-50',
         isOn ? TONE_FILL[tone] : 'bg-border-strong',
@@ -205,7 +209,7 @@ export function BigSwitch(props: BigSwitchProps) {
       <span
         aria-hidden="true"
         className={cn(
-          'absolute top-0.75 rounded-full transition-[left] duration-200',
+          'absolute top-0.75 rounded-full transition-[left,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
           size === 'large' ? 'size-6' : 'size-4.5',
           isOn
             ? cn('bg-canvas', size === 'large' ? 'left-6.25' : 'left-4.75')
@@ -254,7 +258,9 @@ export function StatTiles(props: StatTilesProps) {
           )}
         >
           <span className="truncate text-caption text-foreground-subtle">{stat.label}</span>
-          <span className="truncate text-title font-medium tabular">{stat.value}</span>
+          <span key={stat.value} className="entity-tick truncate text-title font-medium tabular">
+            {stat.value}
+          </span>
         </div>
       ))}
     </div>
@@ -317,10 +323,10 @@ export function RangePill<TValue extends string>(props: RangePillProps<TValue>) 
               onChange(choice.value);
             }}
             className={cn(
-              'cursor-pointer rounded-pill px-2.5 text-caption whitespace-nowrap transition-colors',
+              'press cursor-pointer rounded-pill px-2.5 text-caption whitespace-nowrap transition-colors duration-200',
               size === 'small' ? 'h-6' : 'h-6.5',
               isChosen
-                ? 'bg-surface-high font-medium text-foreground'
+                ? 'entity-pop bg-surface-high font-medium text-foreground'
                 : 'text-foreground-muted hover:text-foreground',
             )}
           >

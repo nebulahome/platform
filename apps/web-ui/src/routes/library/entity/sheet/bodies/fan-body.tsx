@@ -135,7 +135,11 @@ export function FanBody(props: SheetBodyProps) {
   const { entity, state, commander, disabled, reportedAt, history } = props;
   const since = useSinceLine(entity, history);
   const params = paramsOf(entity, 'fan');
-  const percentage = usePendingValue(state.fan?.percentage ?? 0, reportedAt);
+  const percentage = usePendingValue(
+    state.fan?.percentage ?? 0,
+    reportedAt,
+    commander.busy.has('fan'),
+  );
   const isOn = state.on_off?.isOn === true;
   const count = params?.speedCount ?? 0;
   const presets = params?.presets ?? [];
@@ -261,7 +265,7 @@ export function FanBody(props: SheetBodyProps) {
                   setSpeed(isCurrent ? 0 : Math.round(((index + 1) * 100) / count));
                 }}
                 className={cn(
-                  'h-14 flex-1 cursor-pointer font-mono text-ui-sm disabled:cursor-not-allowed',
+                  'press h-14 flex-1 cursor-pointer font-mono text-ui-sm transition-colors duration-200 disabled:cursor-not-allowed',
                   index === 0
                     ? 'rounded-l-panel rounded-r-chip'
                     : index === count - 1
@@ -311,7 +315,7 @@ export function FanBody(props: SheetBodyProps) {
                     commander.send('fan', { command: 'set_preset', preset: name });
                   }}
                   className={cn(
-                    'flex h-14 cursor-pointer items-center gap-2.5 rounded-inner border px-3.5 text-ui disabled:cursor-not-allowed',
+                    'press flex h-14 cursor-pointer items-center gap-2.5 rounded-inner border px-3.5 text-ui transition-colors duration-200 disabled:cursor-not-allowed',
                     isChosen
                       ? 'border-cyan/50 bg-cyan/12 text-cyan'
                       : 'border-border-strong bg-surface-raised text-foreground',

@@ -7,6 +7,10 @@
  * and then the report wins - whatever the lamp actually did is what the page shows. While the
  * knob is still being dragged nothing overrides it at all, and a value that is never confirmed
  * gives way after a few seconds rather than lying for ever.
+ *
+ * A control that knows whether a command for it is still on its way says so (`isBusy`): a report
+ * arriving meanwhile answers an earlier command - the knob set twice in a row - and showing it
+ * would pull the knob back to the first value before the second one lands.
  */
 import { useEffect, useState } from 'react';
 
@@ -39,11 +43,14 @@ export type PendingValue<TValue> = {
  *
  * @param reported - What the device last reported.
  * @param reportedAt - When that report arrived, in milliseconds since the epoch; null for never.
+ * @param isBusy - Whether a command for this value is still on its way; a report then answers an
+ * earlier one, and the value set stays.
  * @returns See {@link PendingValue}.
  */
 export function usePendingValue<TValue>(
   reported: TValue,
   reportedAt: number | null,
+  isBusy = false,
 ): PendingValue<TValue> {
   const [held, setHeld] = useState<Held<TValue> | null>(null);
   const sentAt = held?.sentAt ?? null;
@@ -64,7 +71,7 @@ export function usePendingValue<TValue>(
     };
   }, [sentAt]);
 
-  const isConfirmed = sentAt !== null && reportedAt !== null && reportedAt > sentAt;
+  const isConfirmed = sentAt !== null && reportedAt !== null && reportedAt > sentAt && !isBusy;
 
   return {
     shown: held === null || isConfirmed ? reported : held.value,

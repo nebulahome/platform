@@ -4,7 +4,7 @@
  * the head of a block, the thin slider of a second level, the round buttons of an action, the
  * battery ring, and the line saying since when and because of whom.
  */
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { EntityView } from '@nebulahome/contracts';
@@ -87,6 +87,8 @@ export type PowerTargetProps = {
  */
 export function PowerTarget(props: PowerTargetProps) {
   const { label, isOn, onChange, tone, disabled = false } = props;
+  // Each switching on sends out one ring; its count keys it, so the next one plays again.
+  const [rings, setRings] = useState(0);
 
   return (
     <button
@@ -96,10 +98,14 @@ export function PowerTarget(props: PowerTargetProps) {
       aria-label={label}
       disabled={disabled}
       onClick={() => {
+        if (!isOn) {
+          setRings(rings + 1);
+        }
+
         onChange(!isOn);
       }}
       className={cn(
-        'flex size-44 shrink-0 cursor-pointer items-center justify-center self-center rounded-full border p-0',
+        'press-scale relative flex size-44 shrink-0 cursor-pointer items-center justify-center self-center rounded-full border p-0',
         'transition-[background,box-shadow,color,border-color] duration-320 disabled:cursor-not-allowed',
         isOn
           ? cn(
@@ -110,6 +116,17 @@ export function PowerTarget(props: PowerTargetProps) {
           : 'border-border-strong bg-surface-raised text-foreground-subtle shadow-edge',
       )}
     >
+      {rings === 0 ? null : (
+        <span
+          key={rings}
+          aria-hidden="true"
+          className={cn(
+            'entity-ripple pointer-events-none absolute -inset-px rounded-full border-2',
+            TONE_TEXT[tone],
+            'border-current',
+          )}
+        />
+      )}
       <AppIcon id={props.icon ?? 'power'} size={48} strokeWidth={1.6} />
     </button>
   );
@@ -138,9 +155,6 @@ export type LevelBarProps = {
   /** A colour of its own instead, for a lamp showing one: `hsl(…)`. */
   readonly colour?: string;
 
-  /** Its height: 104 alone, 72 with more under it. */
-  readonly size?: 'tall' | 'short';
-
   /** The glyph at its left. */
   readonly icon?: UiIconId;
 
@@ -149,25 +163,21 @@ export type LevelBarProps = {
 };
 
 /**
- * The wide bar a level is dragged on: filled to the level, a sun at its left.
+ * The wide bar a level is dragged on: filled to the level, a sun at its left. One height wherever
+ * it is, 72 px, so a lamp that only dims and one with colours under it look the same.
  *
  * @param props - See {@link LevelBarProps}.
  * @returns The bar.
  */
 export function LevelBar(props: LevelBarProps) {
   const { t } = useTranslation();
-  const { label, value, onChange, onCommit, isOn, tone, colour, size = 'tall' } = props;
+  const { label, value, onChange, onCommit, isOn, tone, colour } = props;
 
   return (
-    <div
-      className={cn(
-        'relative overflow-hidden border border-border-strong bg-surface-raised',
-        size === 'tall' ? 'h-26 rounded-[26px]' : 'h-18 rounded-[22px]',
-      )}
-    >
+    <div className="entity-slider relative h-18 overflow-hidden rounded-[22px] border border-border-strong bg-surface-raised">
       <div
         className={cn(
-          'absolute inset-y-0 left-0 transition-[width,background] duration-150',
+          'entity-track absolute inset-y-0 left-0',
           isOn ? (colour === undefined ? TONE_BAR[tone] : '') : TONE_BAR.muted,
         )}
         // eslint-disable-next-line react/forbid-dom-props -- the fill is the level, and a lamp's colour its own
@@ -250,10 +260,10 @@ export function QuickPicks(props: QuickPicksProps) {
             onPick(each);
           }}
           className={cn(
-            'h-9 cursor-pointer rounded-tile border text-ui-sm font-medium tabular',
+            'press h-9 cursor-pointer rounded-tile border text-ui-sm font-medium tabular',
             'disabled:cursor-not-allowed',
             value === each
-              ? TONE_CHOSEN[tone]
+              ? cn('entity-pop', TONE_CHOSEN[tone])
               : 'border-border-strong bg-surface-raised text-foreground',
           )}
         >
@@ -381,10 +391,10 @@ export function LevelSteps(props: LevelStepsProps) {
               onPick(level.value);
             }}
             className={cn(
-              'flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-tile px-1',
-              'transition-colors disabled:cursor-not-allowed',
+              'press flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-tile px-1',
+              'transition-colors duration-300 disabled:cursor-not-allowed',
               isChosen
-                ? TONE_FILL[tone]
+                ? cn('entity-pop', TONE_FILL[tone])
                 : isBelow
                   ? TONE_REACHED[tone]
                   : 'bg-surface-high text-foreground-muted',
@@ -439,8 +449,8 @@ export function RoundAction(props: RoundActionProps) {
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-border-strong bg-surface-raised p-0 text-foreground',
-        'disabled:cursor-not-allowed disabled:opacity-50',
+        'press-scale flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-border-strong bg-surface-raised p-0 text-foreground',
+        'hover:border-foreground-subtle disabled:cursor-not-allowed disabled:opacity-50',
         size === 'large' ? 'size-13' : 'size-11',
       )}
     >
@@ -517,7 +527,7 @@ export function BatteryRing(props: BatteryRingProps) {
           fill="none"
           strokeWidth={4}
           strokeLinecap="round"
-          className="stroke-success"
+          className="entity-track stroke-success"
           strokeDasharray={`${((circumference * level) / 100).toFixed(1)} ${circumference.toFixed(1)}`}
           transform="rotate(-90 30 30)"
         />
@@ -563,15 +573,15 @@ export function ThinSlider(props: ThinSliderProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative h-6">
+      <div className="entity-slider relative h-6">
         <span className="absolute inset-x-0 top-2.25 h-1.5 rounded-pill bg-surface-high" />
         <span
-          className={cn('absolute top-2.25 left-0 h-1.5 rounded-pill', fill)}
+          className={cn('entity-track absolute top-2.25 left-0 h-1.5 rounded-pill', fill)}
           // eslint-disable-next-line react/forbid-dom-props -- the track is lit up to the level
           style={{ width: `${String(value)}%` }}
         />
         <span
-          className="absolute top-px size-5.5 rounded-full bg-knob shadow-[0_2px_8px_rgb(0_0_0/0.5)]"
+          className="entity-track absolute top-px size-5.5 rounded-full bg-knob shadow-[0_2px_8px_rgb(0_0_0/0.5)]"
           // eslint-disable-next-line react/forbid-dom-props -- the knob sits at the level
           style={{ left: `calc(${String(value)}% - 11px)` }}
         />

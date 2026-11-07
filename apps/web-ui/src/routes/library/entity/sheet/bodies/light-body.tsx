@@ -12,12 +12,11 @@
  * - a white channel beside the colour: its own thin slider;
  * - effects: chips by the list rule, "None" first.
  */
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AppIcon, cn, Popover } from '@nebulahome/ui';
+import { AppIcon, ColorWheel, cn } from '@nebulahome/ui';
 
-import { ColourPicker } from '@/components/colour-picker';
 import { defineMessage, text, translate } from '@/i18n/messages';
 import {
   hasCapability,
@@ -106,18 +105,29 @@ export function LightBody(props: SheetBodyProps) {
   const hs = paramsOf(entity, 'color_hs');
   const effects = paramsOf(entity, 'effect');
   const isOn = state.on_off?.isOn === true;
-  const level = usePendingValue(state.level?.level ?? 0, reportedAt);
-  const mireds = usePendingValue(state.color_temp?.mireds ?? temp?.maxMireds ?? 370, reportedAt);
-  const white = usePendingValue(state.color_hs?.white ?? 0, reportedAt);
+  const level = usePendingValue(state.level?.level ?? 0, reportedAt, commander.busy.has('level'));
+  const mireds = usePendingValue(
+    state.color_temp?.mireds ?? temp?.maxMireds ?? 370,
+    reportedAt,
+    commander.busy.has('color_temp'),
+  );
+  const white = usePendingValue(
+    state.color_hs?.white ?? 0,
+    reportedAt,
+    commander.busy.has('color_hs'),
+  );
+  const picked = usePendingValue(
+    { hue: state.color_hs?.hue ?? 0, saturation: state.color_hs?.saturation ?? 0 },
+    reportedAt,
+    commander.busy.has('color_hs'),
+  );
   const [isPicking, setIsPicking] = useState(false);
-  const anchor = useRef<HTMLButtonElement>(null);
 
   if (!hasLevel && temp === null && hs === null) {
     return <OnOffBody {...props} tone="lamp" />;
   }
 
-  const hue = state.color_hs?.hue ?? 0;
-  const saturation = state.color_hs?.saturation ?? 0;
+  const { hue, saturation } = picked.shown;
   // Which of white and colour the lamp shows now, when it has both: what it says, or the colour
   // when it says nothing.
   const showsColour =
@@ -157,6 +167,7 @@ export function LightBody(props: SheetBodyProps) {
    * @param next.saturation - The saturation.
    */
   const setColour = (next: { hue: number; saturation: number }): void => {
+    picked.sent(next);
     commander.send('color_hs', { command: 'set_color', ...next });
   };
 
@@ -192,7 +203,6 @@ export function LightBody(props: SheetBodyProps) {
           isOn={isOn}
           tone="lamp"
           {...(colour === undefined ? {} : { colour })}
-          size={isOnlyLevel ? 'tall' : 'short'}
           disabled={disabled}
           onChange={level.hold}
           onCommit={(next) => {
@@ -248,9 +258,9 @@ export function LightBody(props: SheetBodyProps) {
               {t('entity.sheet.light.kelvin', '{{kelvin}} K', { kelvin })}
             </span>
           </div>
-          <div className="relative h-11 rounded-inner border border-border-strong bg-linear-to-r from-[#ff9f43] via-[#fff1dc] to-[#c9dcff]">
+          <div className="entity-slider relative h-11 rounded-inner border border-border-strong bg-linear-to-r from-[#ff9f43] via-[#fff1dc] to-[#c9dcff]">
             <span
-              className="pointer-events-none absolute top-1/2 size-7 -translate-y-1/2 rounded-full border-3 border-surface bg-[#ffc98a] shadow-[0_0_0_2px_var(--color-foreground)]"
+              className="entity-track pointer-events-none absolute top-1/2 size-7 -translate-y-1/2 rounded-full border-3 border-surface bg-[#ffc98a] shadow-[0_0_0_2px_var(--color-foreground)]"
               // eslint-disable-next-line react/forbid-dom-props -- the knob sits at the lamp's temperature
               style={{
                 left: `calc(${String(((kelvin - minKelvin) / Math.max(1, maxKelvin - minKelvin)) * 100)}% - 14px)`,
@@ -284,7 +294,41 @@ export function LightBody(props: SheetBodyProps) {
         </div>
       ) : null}
 
-      {showsColour ? (
+      {showsColour && isPicking ? (
+        // Any colour: the wheel in place of the swatches, the lamp following the knob as it moves.
+        <div className="entity-slide flex flex-col items-center gap-3.5 rounded-panel border border-border bg-well p-4">
+          <div className="flex w-full items-center justify-between gap-3">
+            <span className="flex items-center gap-2.5">
+              <span
+                aria-hidden="true"
+                className="size-4 rounded-full shadow-[inset_0_0_0_1px_rgb(255_255_255/0.16)] transition-colors duration-200"
+                // eslint-disable-next-line react/forbid-dom-props -- the colour being picked
+                style={{ background: hsColor(hue, saturation) }}
+              />
+              <span className="text-ui">
+                {t('entity.sheet.light.anyColour', 'Pick any colour')}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setIsPicking(false);
+              }}
+              className="press h-8 cursor-pointer rounded-pill border border-border-strong bg-surface-raised px-3.5 text-ui-sm font-medium text-foreground transition-colors duration-200 hover:border-foreground-subtle"
+            >
+              {t('entity.sheet.light.done', 'Done')}
+            </button>
+          </div>
+          <ColorWheel
+            label={t('entity.sheet.light.anyColour', 'Pick any colour')}
+            value={{ hue, saturation }}
+            size={232}
+            disabled={disabled}
+            onChange={picked.hold}
+            onCommit={setColour}
+          />
+        </div>
+      ) : showsColour ? (
         <div className="grid grid-cols-6 justify-items-center gap-x-2 gap-y-3">
           {SWATCHES.map(([key, name, hex]) => {
             const isChosen = swatch?.[0] === key;
@@ -304,9 +348,10 @@ export function LightBody(props: SheetBodyProps) {
                   }
                 }}
                 className={cn(
-                  'size-11 cursor-pointer rounded-full p-0',
+                  'press-scale size-11 cursor-pointer rounded-full p-0 transition-shadow duration-300',
+                  'hover:shadow-[0_0_0_3px_var(--color-surface),0_0_0_5px_var(--color-border-strong)]',
                   isChosen
-                    ? 'shadow-[0_0_0_3px_var(--color-surface),0_0_0_5px_var(--color-foreground)]'
+                    ? 'entity-pop shadow-[0_0_0_3px_var(--color-surface),0_0_0_5px_var(--color-foreground)]'
                     : 'shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]',
                 )}
                 // eslint-disable-next-line react/forbid-dom-props -- a swatch is its colour
@@ -315,37 +360,23 @@ export function LightBody(props: SheetBodyProps) {
             );
           })}
           <button
-            ref={anchor}
             type="button"
             aria-label={t('entity.sheet.light.anyColour', 'Pick any colour')}
-            aria-expanded={isPicking}
+            aria-pressed={swatch === undefined}
             disabled={disabled}
             onClick={() => {
-              setIsPicking(!isPicking);
+              setIsPicking(true);
             }}
-            className="flex size-11 cursor-pointer items-center justify-center rounded-full bg-[conic-gradient(#f75d59,#ffc247,#52cd86,#4fd0ee,#7c86ff,#a78bfa,#ff5c9d,#f75d59)] p-0 text-canvas"
+            className={cn(
+              'press-scale flex size-11 cursor-pointer items-center justify-center rounded-full p-0 text-canvas transition-shadow duration-300',
+              'bg-[conic-gradient(#f75d59,#ffc247,#52cd86,#4fd0ee,#7c86ff,#a78bfa,#ff5c9d,#f75d59)]',
+              swatch === undefined
+                ? 'shadow-[0_0_0_3px_var(--color-surface),0_0_0_5px_var(--color-foreground)]'
+                : 'hover:shadow-[0_0_0_3px_var(--color-surface),0_0_0_5px_var(--color-border-strong)]',
+            )}
           >
             <AppIcon id="plus" size={18} />
           </button>
-          <Popover
-            anchor={anchor}
-            isOpen={isPicking}
-            onClose={() => {
-              setIsPicking(false);
-            }}
-            label={t('entity.sheet.light.anyColour', 'Pick any colour')}
-          >
-            <div className="p-3">
-              <ColourPicker
-                value={{ hue, saturation }}
-                onChange={() => undefined}
-                onCommit={(next) => {
-                  setColour(next);
-                }}
-                size={200}
-              />
-            </div>
-          </Popover>
         </div>
       ) : null}
 

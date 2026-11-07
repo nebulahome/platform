@@ -116,8 +116,10 @@ export function LockBody(props: SheetBodyProps) {
             <span
               key={index}
               className={cn(
-                'size-3 rounded-full border-[1.5px]',
-                index < code.length ? 'border-success bg-success' : 'border-foreground-disabled',
+                'size-3 rounded-full border-[1.5px] transition-colors duration-150',
+                index < code.length
+                  ? 'entity-pop border-success bg-success'
+                  : 'border-foreground-disabled',
               )}
             />
           ))}
@@ -135,7 +137,7 @@ export function LockBody(props: SheetBodyProps) {
                 onClick={() => {
                   setCode(code + key);
                 }}
-                className="h-12 cursor-pointer rounded-inner border border-border-strong bg-surface-raised text-[18px] text-foreground"
+                className="press h-12 cursor-pointer rounded-inner border border-border-strong bg-surface-raised text-[18px] text-foreground transition-colors duration-150 hover:border-foreground-subtle"
               >
                 {key}
               </button>
@@ -148,7 +150,7 @@ export function LockBody(props: SheetBodyProps) {
             onClick={() => {
               setCode(code.slice(0, -1));
             }}
-            className="flex h-12 cursor-pointer items-center justify-center rounded-inner text-foreground-muted"
+            className="press flex h-12 cursor-pointer items-center justify-center rounded-inner text-foreground-muted transition-colors hover:text-foreground"
           >
             <AppIcon id="delete" size={20} />
           </button>
@@ -213,16 +215,28 @@ export function LockBody(props: SheetBodyProps) {
       <div className="flex flex-col items-center gap-4">
         <span
           className={cn(
-            'flex size-37.5 items-center justify-center rounded-full border transition-colors duration-300',
+            'relative flex size-37.5 items-center justify-center rounded-full border',
+            'transition-[color,background-color,border-color,box-shadow] duration-500',
             look.ring,
           )}
         >
-          <span className={cn('flex', standing === 'moving' && 'entity-spin')}>
-            <AppIcon id={look.icon} size={44} />
+          {standing === 'moving' ? (
+            <span
+              aria-hidden="true"
+              className="entity-breathe absolute -inset-2 rounded-full border border-current opacity-50"
+            />
+          ) : null}
+          {/* The bolt pops as the lock changes state. */}
+          <span key={look.icon} className="entity-pop flex">
+            <span className={cn('flex', standing === 'moving' && 'entity-spin')}>
+              <AppIcon id={look.icon} size={44} />
+            </span>
           </span>
         </span>
         <div className="flex flex-col items-center gap-1.5 text-center">
-          <span className="text-[26px] font-medium tracking-[-0.02em]">{word}</span>
+          <span key={word} className="entity-tick text-[26px] font-medium tracking-[-0.02em]">
+            {word}
+          </span>
           <span className="text-ui-sm text-foreground-subtle">{line}</span>
         </div>
       </div>

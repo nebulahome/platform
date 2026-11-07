@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import { hasCapability, paramsOf } from '@/library/entity-control';
+import { useCameraStill } from '@/routes/dashboard/cards/use-camera-still';
 import { clockText } from '@/routes/library/entity/sheet/history';
 import { HoldAction } from '@/routes/library/entity/sheet/parts/hold-action';
 import { OptionList } from '@/routes/library/entity/sheet/parts/option-list';
@@ -51,19 +52,18 @@ function RadioRow(props: {
       disabled={props.disabled}
       onClick={props.onPick}
       className={cn(
-        'flex cursor-pointer items-center gap-3 border px-3.5 text-left text-foreground disabled:cursor-not-allowed',
-        props.isTall ? 'h-13 rounded-inner text-title' : 'h-11.5 rounded-tile text-ui',
+        'press flex shrink-0 cursor-pointer items-center gap-3 border px-3.5 text-left text-foreground',
+        'transition-colors duration-200 disabled:cursor-not-allowed',
+        props.isTall ? 'h-13 rounded-inner text-title' : 'h-12 rounded-tile text-ui',
         props.isChosen
           ? 'border-violet/45 bg-violet/8'
-          : props.isTall
-            ? 'border-border'
-            : 'border-transparent hover:bg-surface-raised',
+          : 'border-border bg-surface-raised/40 hover:border-border-strong hover:bg-surface-raised',
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          'size-4.5 shrink-0 rounded-full',
+          'size-4.5 shrink-0 rounded-full transition-[border-width,border-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]',
           props.isChosen
             ? 'border-[5px] border-violet'
             : 'border-[1.5px] border-foreground-disabled',
@@ -127,7 +127,11 @@ export function SelectBody(props: SheetBodyProps) {
   if (options.length <= 8) {
     return (
       <div className="flex grow flex-col justify-center gap-5">
-        <div role="radiogroup" aria-label={entity.name} className="flex flex-col gap-2">
+        <div
+          role="radiogroup"
+          aria-label={entity.name}
+          className="entity-stagger flex flex-col gap-2"
+        >
           {options.map((option) => (
             <RadioRow
               key={option.value}
@@ -174,7 +178,7 @@ export function SelectBody(props: SheetBodyProps) {
               {t('entity.sheet.select.count', '{{count}} options', { count: options.length })}
             </span>
           </div>
-          <div className="-mx-2.5">
+          <div className="flex flex-col">
             <RadioRow
               label={current.label}
               isChosen
@@ -185,12 +189,12 @@ export function SelectBody(props: SheetBodyProps) {
           </div>
         </div>
       )}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         <MonoLabel>{t('entity.sheet.select.all', 'All')}</MonoLabel>
         <div
           role="radiogroup"
           aria-label={entity.name}
-          className="-mx-2.5 flex max-h-70.5 flex-col gap-0.5 overflow-auto"
+          className="entity-stagger -mr-2 flex max-h-80 flex-col gap-1.5 overflow-auto pr-2"
         >
           {found
             .filter((option) => search !== '' || option.value !== chosen)
@@ -223,7 +227,11 @@ export function NumberBody(props: SheetBodyProps) {
   const { t } = useTranslation();
   const { entity, state, commander, disabled, reportedAt } = props;
   const params = paramsOf(entity, 'number');
-  const value = usePendingValue(state.number?.value ?? params?.min ?? 0, reportedAt);
+  const value = usePendingValue(
+    state.number?.value ?? params?.min ?? 0,
+    reportedAt,
+    commander.busy.has('number'),
+  );
   const [typed, setTyped] = useState<string | null>(null);
 
   if (params === null) {
@@ -389,7 +397,7 @@ export function ButtonBody(props: SheetBodyProps) {
           type="button"
           disabled={disabled}
           onClick={press}
-          className="flex size-44 cursor-pointer flex-col items-center justify-center gap-2 rounded-full border border-violet/50 bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,var(--color-violet)_30%,transparent),color-mix(in_oklab,var(--color-violet)_6%,transparent)_72%)] p-0 text-violet shadow-[0_0_60px_color-mix(in_oklab,var(--color-violet)_20%,transparent)] disabled:cursor-not-allowed"
+          className="press-scale flex size-44 cursor-pointer flex-col items-center justify-center gap-2 rounded-full border border-violet/50 bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,var(--color-violet)_30%,transparent),color-mix(in_oklab,var(--color-violet)_6%,transparent)_72%)] p-0 text-violet shadow-[0_0_60px_color-mix(in_oklab,var(--color-violet)_20%,transparent)] disabled:cursor-not-allowed"
         >
           {isSending ? (
             <SendingSpinner tone="violet" size={40} />
@@ -421,13 +429,18 @@ export function CameraBody(props: SheetBodyProps) {
   const params = paramsOf(entity, 'camera');
   const picture = useRef<HTMLDivElement>(null);
   const camera = state.camera;
+  const hasPower = hasCapability(entity, 'on_off');
+  const isOff = hasPower && state.on_off?.isOn === false;
+  // The still comes from the platform's snapshot endpoint, fetched with the session.
+  const still = useCameraStill(
+    entity.entityId,
+    camera?.snapshotPath !== undefined && params?.hasSnapshot === true && !isOff,
+  );
 
   if (camera === undefined || params === null) {
     return null;
   }
 
-  const hasPower = hasCapability(entity, 'on_off');
-  const isOff = hasPower && state.on_off?.isOn === false;
   const isLive = !isOff && params.hasStream && camera.isStreamAvailable;
   const since = entity.lastChanged?.getTime() ?? now;
   /**
@@ -491,7 +504,7 @@ export function CameraBody(props: SheetBodyProps) {
           isOff && '[filter:grayscale(0.7)_brightness(0.65)]',
         )}
       >
-        {camera.snapshotPath === undefined ? (
+        {still === null ? (
           <>
             <span
               aria-hidden="true"
@@ -508,9 +521,10 @@ export function CameraBody(props: SheetBodyProps) {
           </>
         ) : (
           <img
-            src={camera.snapshotPath}
+            key={still}
+            src={still}
             alt=""
-            className="absolute inset-0 size-full object-cover"
+            className="absolute inset-0 size-full animate-fade-in object-cover"
           />
         )}
         <span className="absolute top-3 left-3 inline-flex h-6 items-center gap-1.5 rounded-pill bg-canvas/70 px-2.25 text-[11px] text-foreground-muted">
@@ -525,7 +539,7 @@ export function CameraBody(props: SheetBodyProps) {
             </>
           ) : isLive ? (
             <>
-              <span className="size-1.75 rounded-full bg-danger" />
+              <span className="entity-blink size-1.75 rounded-full bg-danger" />
               <span className="font-semibold tracking-[0.04em] text-foreground">
                 {t('entity.sheet.camera.live', 'LIVE')}
               </span>
@@ -553,7 +567,7 @@ export function CameraBody(props: SheetBodyProps) {
             onClick={() => {
               perform(button.key);
             }}
-            className="inline-flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-inner border border-border-strong bg-surface-raised px-4 text-ui font-medium text-foreground disabled:cursor-not-allowed"
+            className="press inline-flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-inner border border-border-strong bg-surface-raised px-4 text-ui font-medium text-foreground transition-colors duration-200 hover:border-foreground-subtle disabled:cursor-not-allowed"
           >
             <AppIcon id={button.icon} size={16} />
             {button.label}

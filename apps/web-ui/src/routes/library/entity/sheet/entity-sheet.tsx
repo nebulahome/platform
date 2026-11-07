@@ -91,7 +91,7 @@ export function EntitySheet(props: EntitySheetProps) {
       role="dialog"
       aria-label={entity.name}
       className={cn(
-        'relative flex w-[400px] max-w-full flex-col overflow-hidden rounded-[24px] border',
+        'entity-arrive relative flex w-[400px] max-w-full flex-col overflow-hidden rounded-[24px] border',
         'border-border-strong bg-surface shadow-dialog',
         'transition-[min-height] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
         isSettings ? 'min-h-[640px]' : 'min-h-0',
@@ -121,8 +121,8 @@ export function EntitySheet(props: EntitySheetProps) {
           <span
             className={cn(
               'relative flex size-11 shrink-0 items-center justify-center rounded-[13px] border',
-              'transition-colors duration-300',
-              isLit ? TILE_LIT[tone] : TILE_REST,
+              'transition-[color,background-color,border-color,box-shadow] duration-500',
+              isLit ? cn(TILE_LIT[tone], 'shadow-[0_0_24px_-6px_currentColor]') : TILE_REST,
             )}
           >
             {icon === undefined ? (
@@ -133,7 +133,7 @@ export function EntitySheet(props: EntitySheetProps) {
             {entity.isAvailable ? null : (
               <span
                 aria-hidden="true"
-                className="absolute -top-0.75 -right-0.75 size-2.5 rounded-full border-2 border-surface bg-danger"
+                className="entity-pop absolute -top-0.75 -right-0.75 size-2.5 rounded-full border-2 border-surface bg-danger"
               />
             )}
           </span>
@@ -165,7 +165,7 @@ export function EntitySheet(props: EntitySheetProps) {
         </div>
 
         {isEnabled ? null : (
-          <div className="mx-5 flex items-center gap-2.5 rounded-tile border border-border-strong bg-foreground-muted/8 px-3 py-2.5 text-ui-sm text-foreground-muted">
+          <div className="mx-5 flex animate-arrive items-center gap-2.5 rounded-tile border border-border-strong bg-foreground-muted/8 px-3 py-2.5 text-ui-sm text-foreground-muted">
             <AppIcon id="eye-off" size={16} />
             <span className="grow">
               {t('entity.sheet.disabled', 'Disabled. Hidden from pickers, states not recorded.')}
@@ -173,7 +173,7 @@ export function EntitySheet(props: EntitySheetProps) {
             <button
               type="button"
               onClick={onEnable}
-              className="h-7 cursor-pointer rounded-pill border border-border-strong bg-surface-raised px-2.5 text-caption font-medium whitespace-nowrap text-foreground"
+              className="press h-7 cursor-pointer rounded-pill border border-border-strong bg-surface-raised px-2.5 text-caption font-medium whitespace-nowrap text-foreground transition-colors duration-200 hover:border-foreground-subtle"
             >
               {t('entity.sheet.enable', 'Enable')}
             </button>
@@ -181,7 +181,7 @@ export function EntitySheet(props: EntitySheetProps) {
         )}
 
         {!isEnabled || entity.isAvailable ? null : (
-          <div className="mx-5 flex items-center gap-2.5 rounded-tile border border-danger/30 bg-danger/8 px-3 py-2.5 text-ui-sm text-danger">
+          <div className="mx-5 flex animate-arrive items-center gap-2.5 rounded-tile border border-danger/30 bg-danger/8 px-3 py-2.5 text-ui-sm text-danger">
             <AppIcon id="wifi-off" size={16} />
             <span>
               {silentFor === null
@@ -197,7 +197,7 @@ export function EntitySheet(props: EntitySheetProps) {
 
         <div
           className={cn(
-            'flex min-h-[300px] flex-col px-6 pt-2 pb-6 transition-opacity duration-240',
+            'entity-stagger-deep flex min-h-[300px] flex-col px-6 pt-2 pb-6 transition-opacity duration-240',
             !isEnabled && 'pointer-events-none opacity-35',
           )}
         >

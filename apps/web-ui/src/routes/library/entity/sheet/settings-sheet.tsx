@@ -1,11 +1,11 @@
 /**
  * The entity dialog's settings: a sheet that rises over the controls, as the Nebula canvas draws
- * it - the icon and the name, the room, what it is shown as and the way it is read when it has
- * those, the tags, whether it is enabled, its address and its device.
+ * it - the icon and the name, what it is shown as and the way it is read when it has those, the
+ * tags, whether it is enabled, its address and its device. An entity has no room of its own: it
+ * is where its device is.
  *
- * The fields are the platform's own: the name with the icon picker, the room from the house, the
- * tags with their colours. What a save sends is worked out as the settings dialog does it, so
- * that only what changed goes.
+ * The fields are the platform's own: the name with the icon picker, the tags with their colours.
+ * What a save sends is worked out as the settings dialog does it, so that only what changed goes.
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +18,6 @@ import {
 } from '@nebulahome/contracts';
 import { AppIcon, Button, Segmented, SelectField, Switch } from '@nebulahome/ui';
 
-import { roomChoices } from '@/lib/area-tree';
 import { entityKindOf } from '@/library/entity-kind';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { diffOf, kindKey, shownKeyOf } from '@/routes/library/entity/entity-settings-dialog';
@@ -26,16 +25,12 @@ import { SheetIconButton } from '@/routes/library/entity/sheet/parts/sheet-parts
 import { useEntityWays } from '@/routes/library/entity/transport-panel';
 import { NameIconField } from '@/routes/library/name-icon-field';
 import { TagField } from '@/routes/library/tag-field';
-import { useAreas } from '@/routes/library/use-areas';
 import { useTags } from '@/routes/library/use-tags';
 
 /** What a save asks for. */
 export type SheetSettingsChange = {
   /** What the entity endpoint takes today: name, icon, tags, shown as, transport; null for none. */
   readonly update: EntityUpdate | null;
-
-  /** The room chosen, by id; undefined when it did not change. Not saved by the API yet. */
-  readonly areaId?: string | null;
 
   /** Whether it is enabled; undefined when it did not change. Not saved by the API yet. */
   readonly isEnabled?: boolean;
@@ -70,15 +65,12 @@ export function SettingsSheet(props: SettingsSheetProps) {
   const { entity, deviceName, onSave, onClose, onOpenDevice } = props;
   const { tags, create } = useTags();
   const tagIcons = useCatalogueIcons(tags.map((tag) => tag.icon));
-  const { areas, tree } = useAreas();
   const ways = useEntityWays(entity);
 
   const [name, setName] = useState(entity.name);
   const [icon, setIcon] = useState<string | null>(entity.icon);
   const [tagIds, setTagIds] = useState<readonly string[]>(entity.tagIds);
   const [transport, setTransport] = useState<string | null>(entity.linked?.transport ?? null);
-  const openedArea = areas.find((area) => area.key === entity.areaKey)?.id ?? '';
-  const [areaId, setAreaId] = useState(openedArea);
   const [isEnabled, setIsEnabled] = useState(entity.isEnabled);
 
   // What it may be shown as, besides what its integration says: never an alias.
@@ -98,7 +90,6 @@ export function SettingsSheet(props: SettingsSheetProps) {
   const save = (): void => {
     onSave({
       update: diffOf(entity, name, icon, tagIds, transport, shown, choices),
-      ...(areaId === openedArea ? {} : { areaId: areaId === '' ? null : areaId }),
       ...(isEnabled === entity.isEnabled ? {} : { isEnabled }),
     });
     onClose();
@@ -124,7 +115,7 @@ export function SettingsSheet(props: SettingsSheetProps) {
         />
       </div>
 
-      <div className="flex min-h-0 grow flex-col gap-4.5 overflow-auto px-5 pt-1 pb-5">
+      <div className="entity-stagger flex min-h-0 grow flex-col gap-4.5 overflow-auto px-5 pt-1 pb-5">
         <NameIconField
           label={t('entity.sheet.settings.iconAndName', 'Icon and name')}
           value={name}
@@ -135,16 +126,6 @@ export function SettingsSheet(props: SettingsSheetProps) {
             setIcon(view.id);
           }}
           required
-        />
-
-        <SelectField
-          label={t('entity.sheet.settings.area', 'Area')}
-          options={roomChoices(tree).map((choice) => ({
-            ...choice,
-            leading: <AppIcon id="map-pin" size={16} className="text-foreground-subtle" />,
-          }))}
-          value={areaId}
-          onChange={setAreaId}
         />
 
         {choices.size === 0 ? null : (

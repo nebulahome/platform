@@ -13,6 +13,7 @@ import type { CapabilityState, EntityView, StateHistoryPoint } from '@nebulahome
 import { dateTimeFormat } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
 import { hasCapability, paramsOf } from '@/library/entity-control';
+import { describeState } from '@/library/entity-reading';
 import {
   numericSeries,
   stateSegments,
@@ -42,6 +43,7 @@ export type DrawerContent =
       readonly domain: readonly [number, number];
       readonly stats: readonly StatTile[];
       readonly label: string;
+      readonly unit: string;
     };
 
 /** The words of a band's figures: how long it was on, how often it turned on, when last. */
@@ -138,6 +140,26 @@ export function timesText(count: number): string {
  */
 export function clockText(at: number): string {
   return dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(at);
+}
+
+/**
+ * A moment in a chart's tooltip, as precise as its window needs: the time within a day or two,
+ * the day and the time within a week, the date over longer.
+ *
+ * @param at - The moment.
+ * @param window - The chart's window.
+ * @returns "21:48", "Tue 21:48" or "4 Nov".
+ */
+export function momentText(at: number, window: TimeWindow): string {
+  const span = window.to - window.from;
+
+  if (span > 8 * 86_400_000) {
+    return dateTimeFormat({ day: 'numeric', month: 'short' }).format(at);
+  }
+
+  return span > 36 * 3_600_000
+    ? dateTimeFormat({ weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(at)
+    : clockText(at);
 }
 
 /**
@@ -322,7 +344,7 @@ function usualValue(points: readonly LinePoint[]): number | null {
  * @param unit - Its unit.
  * @returns "60%", "21.5°", "12 min".
  */
-function withUnit(value: number, unit: string): string {
+export function withUnit(value: number, unit: string): string {
   const rounded = Number(value.toFixed(1));
 
   return unit === '%' || unit === '°'
@@ -349,7 +371,7 @@ export function drawerContentOf(
     points,
     window,
     { state: entity.state, isAvailable: entity.isAvailable },
-    () => '',
+    (each) => describeState(each, entity),
   );
   const main = mainNumberOf(entity);
 
@@ -374,6 +396,7 @@ export function drawerContentOf(
             domain: main.domain,
             stats: [],
             label: main.label,
+            unit: main.unit,
           };
     }
 
@@ -410,7 +433,14 @@ export function drawerContentOf(
             },
           ];
 
-    return { kind: 'step', points: line, domain: main.domain, stats, label: main.label };
+    return {
+      kind: 'step',
+      points: line,
+      domain: main.domain,
+      stats,
+      label: main.label,
+      unit: main.unit,
+    };
   }
 
   if (segments.length === 0) {

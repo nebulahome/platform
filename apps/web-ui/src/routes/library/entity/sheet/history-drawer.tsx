@@ -9,7 +9,7 @@ import type { CapabilityState, EntityView } from '@nebulahome/contracts';
 import { cn } from '@nebulahome/ui';
 
 import { AxisRow, BandChart, LineChart } from '@/routes/library/entity/sheet/charts';
-import { axisLabels, type DrawerContent } from '@/routes/library/entity/sheet/history';
+import { axisLabels, withUnit, type DrawerContent } from '@/routes/library/entity/sheet/history';
 import { MonoLabel, RangePill, StatTiles } from '@/routes/library/entity/sheet/parts/sheet-parts';
 import {
   SHEET_RANGES,
@@ -82,7 +82,11 @@ export function HistoryDrawer(props: HistoryDrawerProps) {
               onChange={history.onRange}
             />
           </div>
-          <div className="flex flex-col gap-2.5 rounded-panel border border-border bg-well p-4">
+          <div
+            // Drawn again each time the drawer opens, or the window changes.
+            key={`${String(isOpen)}:${history.range}`}
+            className="flex flex-col gap-2.5 rounded-panel border border-border bg-well p-4"
+          >
             {content.kind === 'band' ? (
               <BandChart
                 segments={content.segments}
@@ -100,6 +104,8 @@ export function HistoryDrawer(props: HistoryDrawerProps) {
                 tone={tone}
                 isStepped
                 isStale={isStale}
+                format={(value) => withUnit(value, content.unit)}
+
                 label={t('entity.sheet.history.overTime', '{{what}} over the last {{range}}', {
                   what: content.label,
                   range: history.range,

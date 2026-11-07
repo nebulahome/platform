@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import {
+  TILE_LIT,
   TONE_CHOSEN,
   TONE_DOT,
   TONE_SEGMENT,
@@ -168,39 +169,53 @@ export function OptionList(props: OptionListProps) {
   const labelOf = (option: ListOption): string => option.label ?? option.value;
 
   if (options.length <= 4) {
-    return (
-      <div
-        role="radiogroup"
-        aria-label={title}
-        className="flex gap-0.5 rounded-pill border border-border-strong bg-well p-0.75"
-      >
-        {options.map((option) => {
-          const isChosen = option.value === value;
+    const chosenAt = options.findIndex((option) => option.value === value);
 
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={isChosen}
-              disabled={disabled}
-              onClick={() => {
-                onPick(option.value);
-              }}
+    return (
+      <div className="rounded-pill border border-border-strong bg-well p-0.75">
+        <div role="radiogroup" aria-label={title} className="relative flex">
+          {chosenAt < 0 ? null : (
+            // One pill, travelling to the option chosen rather than reappearing under it.
+            <span
+              aria-hidden="true"
               className={cn(
-                'h-7.5 min-w-0 flex-1 cursor-pointer truncate rounded-pill px-3 text-ui-sm',
-                'transition-colors disabled:cursor-not-allowed',
-                isChosen
-                  ? isTinted
-                    ? TONE_SEGMENT[tone]
-                    : 'bg-surface-high font-medium text-foreground'
-                  : 'text-foreground-muted hover:text-foreground',
+                'absolute inset-y-0 left-0 rounded-pill',
+                'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                isTinted ? TONE_SEGMENT[tone] : 'bg-surface-high',
               )}
-            >
-              {labelOf(option)}
-            </button>
-          );
-        })}
+              // eslint-disable-next-line react/forbid-dom-props -- one option wide, under the chosen one
+              style={{
+                width: `${String(100 / options.length)}%`,
+                transform: `translateX(${String(chosenAt * 100)}%)`,
+              }}
+            />
+          )}
+          {options.map((option) => {
+            const isChosen = option.value === value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={isChosen}
+                disabled={disabled}
+                onClick={() => {
+                  onPick(option.value);
+                }}
+                className={cn(
+                  'relative h-7.5 min-w-0 flex-1 cursor-pointer truncate rounded-pill px-3 text-ui-sm',
+                  'transition-colors duration-300 disabled:cursor-not-allowed',
+                  isChosen
+                    ? cn('font-medium', isTinted ? TONE_TEXT[tone] : 'text-foreground')
+                    : 'text-foreground-muted hover:text-foreground',
+                )}
+              >
+                {labelOf(option)}
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -233,11 +248,11 @@ export function OptionList(props: OptionListProps) {
               onPick(option.value);
             }}
             className={cn(
-              'inline-flex h-9 cursor-pointer items-center gap-1.75 rounded-pill border pr-3.5 pl-3',
-              'text-ui-sm font-medium transition-colors disabled:cursor-not-allowed',
+              'press inline-flex h-9 cursor-pointer items-center gap-1.75 rounded-pill border pr-3.5 pl-3',
+              'text-ui-sm font-medium transition-colors duration-200 disabled:cursor-not-allowed',
               isChosen
-                ? TONE_CHOSEN[tone]
-                : 'border-border-strong bg-surface-raised text-foreground',
+                ? cn('entity-pop', TONE_CHOSEN[tone])
+                : 'border-border-strong bg-surface-raised text-foreground hover:border-foreground-subtle',
             )}
           >
             <Mark name={option.value} isChosen={isChosen} hasIcons={hasIcons} tone={tone} />
@@ -253,7 +268,7 @@ export function OptionList(props: OptionListProps) {
           onClick={() => {
             openList({ title, options, value, onPick, tone });
           }}
-          className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-pill border border-dashed border-border-strong pr-3 pl-3.5 text-ui-sm text-foreground-muted"
+          className="press inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-pill border border-dashed border-border-strong pr-3 pl-3.5 text-ui-sm text-foreground-muted transition-colors duration-200 hover:border-foreground-subtle hover:text-foreground"
         >
           {t('entity.sheet.list.more', '+{{count}} more', { count: options.length - shown.length })}
           <AppIcon id="chevron-right" size={14} />
@@ -291,20 +306,21 @@ export function ListViewPanel(props: ListViewPanelProps) {
   );
 
   return (
-    <div className="flex flex-col">
+    <div className="entity-slide flex flex-col">
       <div className="flex items-center gap-3 pt-5 pr-3.5 pb-4 pl-5">
         <button
           type="button"
           onClick={onBack}
           aria-label={t('entity.sheet.list.back', 'Back')}
           title={t('entity.sheet.list.back', 'Back')}
-          className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-foreground-muted hover:bg-surface-raised"
+          className="press-scale inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-foreground-muted hover:bg-surface-raised"
         >
           <AppIcon id="chevron-left" size={18} />
         </button>
         <span
           className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-[13px] border border-cyan/28 bg-cyan/12 text-cyan',
+            'flex size-11 shrink-0 items-center justify-center rounded-[13px] border',
+            TILE_LIT[tone],
           )}
         >
           <AppIcon id="list" size={20} />
@@ -342,7 +358,11 @@ export function ListViewPanel(props: ListViewPanelProps) {
             className="min-w-0 grow bg-transparent text-foreground outline-none placeholder:text-foreground-subtle"
           />
         </label>
-        <div role="radiogroup" aria-label={title} className="-mx-2 -mt-1.5 flex flex-col gap-0.5">
+        <div
+          role="radiogroup"
+          aria-label={title}
+          className="entity-stagger flex max-h-105 flex-col gap-1.5 overflow-auto"
+        >
           {found.map((option) => {
             const isChosen = option.value === value;
             const icon = knownIcon(option.value);
@@ -358,8 +378,11 @@ export function ListViewPanel(props: ListViewPanelProps) {
                   onBack();
                 }}
                 className={cn(
-                  'flex h-11 cursor-pointer items-center gap-3 rounded-tile border px-3 text-left text-ui',
-                  isChosen ? TONE_CHOSEN[tone] : 'border-transparent hover:bg-surface-raised',
+                  'press flex h-12 shrink-0 cursor-pointer items-center gap-3 rounded-tile border px-3.5 text-left text-ui',
+                  'transition-colors duration-200',
+                  isChosen
+                    ? TONE_CHOSEN[tone]
+                    : 'border-border bg-surface-raised/40 hover:border-border-strong hover:bg-surface-raised',
                 )}
               >
                 {icon === undefined ? (

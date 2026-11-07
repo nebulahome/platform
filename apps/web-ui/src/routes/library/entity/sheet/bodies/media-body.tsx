@@ -5,8 +5,11 @@
  * device's own picture when there is no artwork; what is playing; the progress, or LIVE; the
  * transport with shuffle and repeat either side; the volume as a line, or as steps; sound modes.
  * Switched off, only the power is left.
+ *
+ * While it plays, the artwork glows, three bars dance beside the title and the progress moves on
+ * by itself between reports, as the music does.
  */
-import { useContext, type ReactNode } from 'react';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
@@ -49,16 +52,16 @@ function LineSlider(props: LineSliderProps) {
   const { label, value, onChange, onCommit, disabled } = props;
 
   return (
-    <div className="relative h-4 grow">
+    <div className="entity-slider group relative h-4 grow">
       <div className="absolute inset-x-0 top-1.5 h-1 overflow-hidden rounded-pill bg-foreground/14">
         <div
-          className="h-full rounded-pill bg-foreground"
+          className="entity-track h-full rounded-pill bg-foreground"
           // eslint-disable-next-line react/forbid-dom-props -- the line is lit to the value
           style={{ width: `${String(value)}%` }}
         />
       </div>
       <span
-        className="absolute top-0.5 size-3 rounded-full bg-knob"
+        className="entity-track absolute top-0.5 size-3 rounded-full bg-knob transition-transform group-hover:scale-125"
         // eslint-disable-next-line react/forbid-dom-props -- the knob sits at the value
         style={{ left: `calc(${String(value)}% - 6px)` }}
       />
@@ -82,6 +85,54 @@ function LineSlider(props: LineSliderProps) {
 }
 
 /**
+ * Three bars dancing while music plays.
+ *
+ * @returns The bars.
+ */
+function PlayingBars() {
+  return (
+    <span aria-hidden="true" className="flex h-3.5 items-end gap-0.5">
+      {[0, 1, 2].map((bar) => (
+        <span
+          key={bar}
+          className="entity-eq h-full w-0.75 rounded-pill bg-media"
+          // eslint-disable-next-line react/forbid-dom-props -- each bar out of step with the others
+          style={{ animationDelay: `${String(-bar * 0.32)}s` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/**
+ * The time now, ticking every second while something plays: the progress moves on between the
+ * player's reports.
+ *
+ * @param isTicking - Whether to tick.
+ * @returns The time, in milliseconds since the epoch.
+ */
+function usePlayClock(isTicking: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+
+  // A timer is something outside React to synchronise with (RULES.md 15.2).
+  useEffect(() => {
+    if (!isTicking) {
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return (): void => {
+      clearInterval(timer);
+    };
+  }, [isTicking]);
+
+  return now;
+}
+
+/**
  * The body of a media player.
  *
  * @param props - See {@link SheetBodyProps}.
@@ -93,15 +144,40 @@ export function MediaBody(props: SheetBodyProps) {
   const since = useSinceLine(entity, history);
   const openList = useContext(ListViewContext);
   const params = paramsOf(entity, 'media_player');
-  const volume = usePendingValue(state.media_player?.volume ?? 0, reportedAt);
-  const position = usePendingValue(state.media_player?.mediaPositionSeconds ?? 0, reportedAt);
+  const volume = usePendingValue(
+    state.media_player?.volume ?? 0,
+    reportedAt,
+    commander.busy.has('media_player'),
+  );
+  const position = usePendingValue(
+    state.media_player?.mediaPositionSeconds ?? 0,
+    reportedAt,
+    commander.busy.has('media_player'),
+  );
   const player = state.media_player;
+  // A picture that would not load is left for the drawn artwork, until the next one.
+  const [brokenArt, setBrokenArt] = useState<string | null>(null);
+  const ticked = usePlayClock(player?.playback === 'playing');
 
   if (player === undefined || params === null) {
     return null;
   }
 
+  const reportedPosition = player.mediaPositionSeconds ?? 0;
+  // Between reports the music goes on: the position moves on with the clock while it plays,
+  // unless the knob is held or was just set.
+  const playedTo =
+    player.playback === 'playing' &&
+    reportedAt !== null &&
+    position.shown === reportedPosition &&
+    player.mediaDurationSeconds !== undefined
+      ? Math.min(
+          player.mediaDurationSeconds,
+          reportedPosition + Math.max(0, ticked - reportedAt) / 1000,
+        )
+      : position.shown;
   const hasPower = hasCapability(entity, 'on_off');
+
   const isOn = state.on_off?.isOn !== false;
   const isPlaying = player.playback === 'playing';
   const duration = player.mediaDurationSeconds;
@@ -196,7 +272,7 @@ export function MediaBody(props: SheetBodyProps) {
    * @returns The artwork.
    */
   const art = (size: 'large' | 'small'): ReactNode =>
-    player.mediaImagePath === undefined ? (
+    player.mediaImagePath === undefined || player.mediaImagePath === brokenArt ? (
       <span
         aria-hidden="true"
         className={cn(
@@ -213,6 +289,9 @@ export function MediaBody(props: SheetBodyProps) {
       <img
         src={player.mediaImagePath}
         alt=""
+        onError={() => {
+          setBrokenArt(player.mediaImagePath ?? null);
+        }}
         className={cn(
           'shrink-0 rounded-inner object-cover',
           size === 'large' ? 'size-47' : 'size-24',
@@ -252,7 +331,7 @@ export function MediaBody(props: SheetBodyProps) {
             onClick={() => {
               send({ command: 'previous' });
             }}
-            className="flex size-12 cursor-pointer items-center justify-center rounded-full p-0 text-foreground"
+            className="press-scale flex size-12 cursor-pointer items-center justify-center rounded-full p-0 text-foreground transition-colors duration-200 hover:bg-surface-raised"
           >
             <AppIcon id="skip-back" size={22} />
           </button>
@@ -270,7 +349,7 @@ export function MediaBody(props: SheetBodyProps) {
           onClick={() => {
             send({ command: isPlaying ? (isLive && params.canStop ? 'stop' : 'pause') : 'play' });
           }}
-          className="flex size-16 cursor-pointer items-center justify-center rounded-full bg-foreground p-0 text-canvas shadow-[0_0_0_6px_color-mix(in_oklab,var(--color-foreground)_6%,transparent),0_12px_40px_-8px_color-mix(in_oklab,var(--color-media)_60%,transparent)]"
+          className="press-scale flex size-16 cursor-pointer items-center justify-center rounded-full bg-foreground p-0 text-canvas shadow-[0_0_0_6px_color-mix(in_oklab,var(--color-foreground)_6%,transparent),0_12px_40px_-8px_color-mix(in_oklab,var(--color-media)_60%,transparent)]"
         >
           <AppIcon
             id={isPlaying ? (isLive && params.canStop ? 'square' : 'pause') : 'play'}
@@ -285,7 +364,7 @@ export function MediaBody(props: SheetBodyProps) {
             onClick={() => {
               send({ command: 'next' });
             }}
-            className="flex size-12 cursor-pointer items-center justify-center rounded-full p-0 text-foreground"
+            className="press-scale flex size-12 cursor-pointer items-center justify-center rounded-full p-0 text-foreground transition-colors duration-200 hover:bg-surface-raised"
           >
             <AppIcon id="skip-forward" size={22} />
           </button>
@@ -495,23 +574,38 @@ export function MediaBody(props: SheetBodyProps) {
           <AppIcon id="radio" size={44} />
         </div>
       ) : (
-        <div className="relative h-47 w-59 self-center">
+        <div className="relative self-center">
           <span
             aria-hidden="true"
             className={cn(
-              'absolute top-2 left-16 size-43 rounded-full bg-[radial-gradient(circle_at_50%_50%,var(--color-media)_0_9%,#1b1d2a_9.5%_15%,#0d0e15_15.5%_100%)] shadow-[0_18px_40px_-14px_rgb(0_0_0/0.8)]',
-              isPlaying && 'entity-fan [--spin:4s]',
+              'absolute inset-4 rounded-[28px] bg-media/40 blur-3xl transition-opacity duration-700',
+              isPlaying ? 'entity-breathe' : 'opacity-0',
+            )}
+          />
+          <span
+            key={player.mediaTitle}
+            className={cn(
+              'relative block animate-enter transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
+              !isPlaying && 'scale-95',
             )}
           >
-            <span className="absolute inset-0 rounded-full bg-[repeating-radial-gradient(circle_at_50%_50%,rgb(255_255_255/0.05)_0_1px,transparent_1px_4px)]" />
+            {art('large')}
           </span>
-          <span className="absolute top-0 left-0">{art('large')}</span>
         </div>
       )}
 
       {player.mediaTitle === undefined ? null : (
-        <div className="flex flex-col items-center gap-1 text-center">
-          <span className="flex items-center gap-2 text-[20px] font-medium tracking-[-0.01em]">
+        <div
+          key={player.mediaTitle}
+          className="entity-tick flex flex-col items-center gap-1 text-center"
+        >
+          <span className="relative flex items-center gap-2 text-[20px] font-medium tracking-[-0.01em]">
+            {/* Beside the title, not in its line, so the title stays centred over the artist. */}
+            {isPlaying ? (
+              <span className="absolute top-1/2 right-full mr-2.5 flex -translate-y-1/2">
+                <PlayingBars />
+              </span>
+            ) : null}
             {player.mediaTitle}
             {isSending ? <SendingSpinner tone="media" size={16} /> : null}
           </span>
@@ -538,7 +632,7 @@ export function MediaBody(props: SheetBodyProps) {
         <div className="flex flex-col gap-1.5">
           <LineSlider
             label={t('entity.sheet.media.position', 'Position')}
-            value={Math.round((position.shown / Math.max(1, duration)) * 100)}
+            value={Math.round((playedTo / Math.max(1, duration)) * 100)}
             disabled={disabled}
             onChange={(next) => {
               position.hold((next / 100) * duration);
@@ -551,7 +645,7 @@ export function MediaBody(props: SheetBodyProps) {
             }}
           />
           <div className="flex justify-between font-mono text-[10px] text-foreground-subtle">
-            <span>{clock(position.shown)}</span>
+            <span>{clock(playedTo)}</span>
             <span>{clock(duration)}</span>
           </div>
         </div>

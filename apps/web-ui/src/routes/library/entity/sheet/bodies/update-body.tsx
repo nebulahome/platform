@@ -106,7 +106,7 @@ export function UpdateBody(props: SheetBodyProps) {
           onClick={() => {
             commander.send('update', { command: 'install' });
           }}
-          className="inline-flex h-13 flex-1 cursor-pointer items-center justify-center gap-2.25 rounded-card bg-primary px-4.5 text-title font-medium text-white shadow-[0_10px_28px_-14px_color-mix(in_oklab,var(--color-primary)_90%,transparent)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="press inline-flex h-13 flex-1 cursor-pointer items-center justify-center gap-2.25 rounded-card bg-primary px-4.5 text-title font-medium text-white shadow-[0_10px_28px_-14px_color-mix(in_oklab,var(--color-primary)_90%,transparent)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <AppIcon id="download" size={18} />
           {t('entity.sheet.update.install', 'Install {{version}}', {
@@ -179,7 +179,10 @@ export function UpdateBody(props: SheetBodyProps) {
               strokeLinecap="round"
               strokeDasharray={`${(ROUND * filled).toFixed(1)} ${ROUND.toFixed(1)}`}
               transform="rotate(-90 110 110)"
-              className={cn(isInstalling && progress === null && 'entity-spin origin-center')}
+              className={cn(
+                'entity-track',
+                isInstalling && progress === null && 'entity-spin origin-center',
+              )}
             />
           ) : null}
           {isOffered && canInstall && !isInstalling ? (
