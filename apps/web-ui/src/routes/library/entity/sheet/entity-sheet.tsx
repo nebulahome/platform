@@ -2,8 +2,8 @@
  * An entity, in one dialog: the sheet chosen on the Nebula canvas (`N-Entity-Modal-B`).
  *
  * A 400 px card with the entity's tile, name and kind at the top, and three round buttons:
- * History folds a drawer open under the controls, Settings lifts a sheet over them, Close puts
- * the dialog away. Between them, the body of its kind: a lamp's level, a lock's bolt, a sensor's
+ * History and Settings each lift a sheet over the controls - pulled down by its handle, or
+ * lowered with its button - and Close puts the dialog away. Between them, the body of its kind: a lamp's level, a lock's bolt, a sensor's
  * chart. A disabled entity says so under the header and greys its controls; one that no longer
  * answers says how long it has been silent, and shows its last value greyed.
  *
@@ -18,7 +18,7 @@ import { AppIcon, CatalogueIcon, cn } from '@nebulahome/ui';
 
 import { durationText } from '@/library/history-stats';
 import { drawerContentOf } from '@/routes/library/entity/sheet/history';
-import { HistoryDrawer } from '@/routes/library/entity/sheet/history-drawer';
+import { HistorySheet } from '@/routes/library/entity/sheet/history-drawer';
 import { sheetKindOf } from '@/routes/library/entity/sheet/kinds';
 import {
   ListViewContext,
@@ -57,10 +57,10 @@ export type EntitySheetProps = SheetBodyProps & {
 /** Where the dialog is: on its controls, with its history open, or in its settings. */
 type SheetView = 'control' | 'history' | 'settings';
 
-/** How far down the settings must be pulled, of their height, to be put away when let go. */
+/** How far down a raised sheet must be pulled, of its height, to be put away when let go. */
 const CLOSE_AT = 0.25;
 
-/** A pull on the settings' handle: where it began, how far down it has come, and how tall they are. */
+/** A pull on a raised sheet's handle: where it began, how far down it has come, how tall it is. */
 type Pull = { readonly from: number; readonly by: number; readonly height: number };
 
 /**
@@ -77,13 +77,15 @@ export function EntitySheet(props: EntitySheetProps) {
   const [openings, setOpenings] = useState(0);
   // A list too long for its chips, open in place of the body.
   const [list, setList] = useState<ListView | null>(null);
-  // The settings being pulled down by their handle.
+  // The sheet raised over the controls - the settings or the history - kept after it is lowered,
+  // so it is still there as it slides away; and a pull on its handle.
+  const [raised, setRaised] = useState<'settings' | 'history'>('settings');
   const [pull, setPull] = useState<Pull | null>(null);
   const kind = sheetKindOf(entity, state);
   const Body = kind.Body;
   const tone = kind.tone;
   const glyph = kind.icon;
-  const isSettings = view === 'settings';
+  const isRaised = view !== 'control';
   const isEnabled = entity.isEnabled;
   const drawer =
     kind.history === 'drawer'
@@ -93,19 +95,39 @@ export function EntitySheet(props: EntitySheetProps) {
     entity.lastUpdated === null ? null : Math.max(0, now - entity.lastUpdated.getTime());
   const sub = [kind.words, entity.areaName].filter(Boolean).join(' · ');
   const isLit = isEnabled && entity.isAvailable && kind.isLit;
-  // How far the settings are pulled down, from 0 (up) to 1 (gone): the controls behind come back
-  // in step with it.
+  // How far the raised sheet is pulled down, from 0 (up) to 1 (gone): the controls behind come
+  // back in step with it.
   const pulled = pull === null ? null : Math.min(1, pull.by / Math.max(1, pull.height));
 
   /**
-   * Starts pulling the settings down, from their handle or their head - never from a button.
+   * Raises a sheet over the controls.
+   *
+   * @param which - The settings, or the history.
+   */
+  const raise = (which: 'settings' | 'history'): void => {
+    if (which === 'settings') {
+      // Each opening of the settings starts from the entity as it is now.
+      setOpenings(openings + 1);
+    }
+
+    setRaised(which);
+    setView(which);
+  };
+
+  /** Lowers the raised sheet, back to the controls. */
+  const lower = (): void => {
+    setView('control');
+  };
+
+  /**
+   * Starts pulling the raised sheet down, from its handle or its head - never from a button.
    *
    * @param event - The press.
    */
   const startPull = (event: PointerEvent<HTMLDivElement>): void => {
     const target = event.target as Element;
 
-    if (!isSettings || target.closest('[data-sheet-grip]') === null || target.closest('button')) {
+    if (!isRaised || target.closest('[data-sheet-grip]') === null || target.closest('button')) {
       return;
     }
 
@@ -124,10 +146,10 @@ export function EntitySheet(props: EntitySheetProps) {
     }
   };
 
-  /** Lets go: far enough down puts the settings away, otherwise they spring back up. */
+  /** Lets go: far enough down puts the sheet away, otherwise it springs back up. */
   const endPull = (): void => {
     if (pulled !== null && pulled > CLOSE_AT) {
-      setView('control');
+      lower();
     }
 
     setPull(null);
@@ -141,7 +163,7 @@ export function EntitySheet(props: EntitySheetProps) {
         'entity-arrive relative flex w-[400px] max-w-full flex-col overflow-hidden rounded-[24px] border',
         'border-border-strong bg-surface shadow-dialog',
         'transition-[min-height] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
-        isSettings ? 'min-h-[640px]' : 'min-h-0',
+        isRaised ? 'min-h-[640px]' : 'min-h-0',
       )}
     >
       {list === null ? null : (
@@ -155,16 +177,16 @@ export function EntitySheet(props: EntitySheetProps) {
         />
       )}
       <div
-        inert={isSettings}
-        aria-hidden={isSettings}
+        inert={isRaised}
+        aria-hidden={isRaised}
         className={cn(
           'flex origin-top flex-col transition-[scale,translate,opacity] duration-500',
           'ease-[cubic-bezier(0.2,0.8,0.2,1)]',
-          isSettings && 'pointer-events-none -translate-y-1.5 scale-[0.94] opacity-45',
+          isRaised && 'pointer-events-none -translate-y-1.5 scale-[0.94] opacity-45',
           pulled !== null && 'duration-0',
           list !== null && 'hidden',
         )}
-        // eslint-disable-next-line react/forbid-dom-props -- while the settings are pulled down, the controls come back with them
+        // eslint-disable-next-line react/forbid-dom-props -- while a sheet is pulled down, the controls come back with it
         style={
           pulled === null
             ? undefined
@@ -180,8 +202,23 @@ export function EntitySheet(props: EntitySheetProps) {
             className={cn(
               'relative flex size-11 shrink-0 items-center justify-center rounded-[13px] border',
               'transition-[color,background-color,border-color,box-shadow] duration-500',
-              isLit ? cn(TILE_LIT[tone], 'shadow-[0_0_10px_-7px_currentColor]') : TILE_REST,
+              isLit
+                ? cn(
+                    kind.colour === undefined && TILE_LIT[tone],
+                    'shadow-[0_0_10px_-7px_currentColor]',
+                  )
+                : TILE_REST,
             )}
+            // eslint-disable-next-line react/forbid-dom-props -- a lamp's tile takes the colour it shines in
+            style={
+              isLit && kind.colour !== undefined
+                ? {
+                    color: kind.colour,
+                    borderColor: `color-mix(in oklab, ${kind.colour} 40%, transparent)`,
+                    backgroundColor: `color-mix(in oklab, ${kind.colour} 15%, transparent)`,
+                  }
+                : undefined
+            }
           >
             {icon === undefined ? (
               <AppIcon id={glyph} size={20} />
@@ -207,7 +244,7 @@ export function EntitySheet(props: EntitySheetProps) {
               label={t('entity.sheet.history.title', 'History')}
               isPressed={view === 'history'}
               onClick={() => {
-                setView(view === 'history' ? 'control' : 'history');
+                raise('history');
               }}
             />
           )}
@@ -215,8 +252,7 @@ export function EntitySheet(props: EntitySheetProps) {
             icon="settings"
             label={t('entity.sheet.settings.title', 'Settings')}
             onClick={() => {
-              setOpenings(openings + 1);
-              setView('settings');
+              raise('settings');
             }}
           />
           <SheetIconButton icon="x" label={t('common.close', 'Close')} onClick={onClose} />
@@ -263,33 +299,22 @@ export function EntitySheet(props: EntitySheetProps) {
             <Body {...props} disabled={props.disabled || !isEnabled} />
           </ListViewContext>
         </div>
-
-        {drawer === null ? null : (
-          <HistoryDrawer
-            isOpen={view === 'history'}
-            entity={entity}
-            state={state}
-            content={drawer}
-            history={history}
-            tone={tone}
-          />
-        )}
       </div>
 
       <div
         aria-hidden="true"
         className={cn(
           'pointer-events-none absolute inset-0 bg-canvas/55 transition-opacity duration-420',
-          isSettings ? 'opacity-100' : 'opacity-0',
+          isRaised ? 'opacity-100' : 'opacity-0',
           pulled !== null && 'duration-0',
         )}
-        // eslint-disable-next-line react/forbid-dom-props -- the shade lifts as the settings are pulled down
+        // eslint-disable-next-line react/forbid-dom-props -- the shade lifts as a sheet is pulled down
         style={pulled === null ? undefined : { opacity: 1 - pulled }}
       />
 
       <div
-        inert={!isSettings}
-        aria-hidden={!isSettings}
+        inert={!isRaised}
+        aria-hidden={!isRaised}
         onPointerDown={startPull}
         onPointerMove={movePull}
         onPointerUp={endPull}
@@ -298,22 +323,30 @@ export function EntitySheet(props: EntitySheetProps) {
           'absolute inset-x-0 top-3.5 bottom-0 flex flex-col rounded-t-[22px] border-t',
           'border-border-strong bg-sheet shadow-[0_-24px_60px_rgb(0_0_0/0.55)]',
           'transition-transform duration-520 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
-          isSettings ? 'translate-y-0' : 'pointer-events-none translate-y-[105%]',
+          isRaised ? 'translate-y-0' : 'pointer-events-none translate-y-[105%]',
           pull !== null && 'duration-0',
         )}
         // eslint-disable-next-line react/forbid-dom-props -- the sheet follows the finger pulling it down
         style={pull === null ? undefined : { translate: `0 ${String(pull.by)}px` }}
       >
-        <SettingsSheet
-          key={openings}
-          entity={entity}
-          deviceName={deviceName}
-          onSave={onSave}
-          onClose={() => {
-            setView('control');
-          }}
-          {...(props.onOpenDevice === undefined ? {} : { onOpenDevice: props.onOpenDevice })}
-        />
+        {raised === 'history' && drawer !== null ? (
+          <HistorySheet
+            entity={entity}
+            content={drawer}
+            history={history}
+            tone={tone}
+            onClose={lower}
+          />
+        ) : (
+          <SettingsSheet
+            key={openings}
+            entity={entity}
+            deviceName={deviceName}
+            onSave={onSave}
+            onClose={lower}
+            {...(props.onOpenDevice === undefined ? {} : { onOpenDevice: props.onOpenDevice })}
+          />
+        )}
       </div>
     </div>
   );

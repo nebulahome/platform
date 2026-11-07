@@ -21,7 +21,7 @@ import { AppIcon, Button, Segmented, SelectField, Switch } from '@nebulahome/ui'
 import { entityKindOf } from '@/library/entity-kind';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { diffOf, kindKey, shownKeyOf } from '@/routes/library/entity/entity-settings-dialog';
-import { SheetIconButton } from '@/routes/library/entity/sheet/parts/sheet-parts';
+import { RaisedHead } from '@/routes/library/entity/sheet/parts/sheet-parts';
 import { useEntityWays } from '@/routes/library/entity/transport-panel';
 import { NameIconField } from '@/routes/library/name-icon-field';
 import { TagField } from '@/routes/library/tag-field';
@@ -97,29 +97,12 @@ export function SettingsSheet(props: SettingsSheetProps) {
 
   return (
     <>
-      <div
-        data-sheet-grip
-        aria-hidden="true"
-        className="group flex h-4.5 shrink-0 cursor-grab touch-none items-end justify-center active:cursor-grabbing"
-      >
-        <span className="h-1 w-10 rounded-pill bg-border-strong transition-[width,background-color] duration-200 group-hover:w-12 group-hover:bg-foreground-subtle" />
-      </div>
-      <div
-        data-sheet-grip
-        className="flex cursor-grab touch-none items-center gap-2.5 pt-3 pr-3.5 pb-3.5 pl-5 active:cursor-grabbing"
-      >
-        <div className="flex min-w-0 grow flex-col gap-0.75">
-          <span className="text-[17px] font-medium">
-            {t('entity.sheet.settings.title', 'Settings')}
-          </span>
-          <span className="truncate text-ui-sm text-foreground-subtle">{entity.name}</span>
-        </div>
-        <SheetIconButton
-          icon="chevron-down"
-          label={t('entity.sheet.settings.close', 'Close settings')}
-          onClick={onClose}
-        />
-      </div>
+      <RaisedHead
+        title={t('entity.sheet.settings.title', 'Settings')}
+        sub={entity.name}
+        closeLabel={t('entity.sheet.settings.close', 'Close settings')}
+        onClose={onClose}
+      />
 
       <div className="entity-stagger flex min-h-0 grow flex-col gap-4.5 overflow-auto px-5 pt-1 pb-5">
         <NameIconField

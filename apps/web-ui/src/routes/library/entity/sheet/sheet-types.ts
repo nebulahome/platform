@@ -66,6 +66,9 @@ export type SheetKind = {
   /** Whether its tile is lit: a lamp that is on, a sensor that reads. */
   readonly isLit: boolean;
 
+  /** A colour of its own for the lit tile instead of the kind's: a lamp's, `hsl(…)`. */
+  readonly colour?: string;
+
   /**
    * Where its history goes: in a drawer the History button opens under the controls, in the body
    * itself (a sensor, whose chart is what it is), or nowhere (a button, a firmware update).

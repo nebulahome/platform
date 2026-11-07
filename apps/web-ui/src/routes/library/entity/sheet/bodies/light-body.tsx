@@ -15,6 +15,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { CapabilityState, EntityView } from '@nebulahome/contracts';
 import { AppIcon, ColorWheel, cn } from '@nebulahome/ui';
 
 import { defineMessage, text, translate } from '@/i18n/messages';
@@ -98,6 +99,37 @@ function whiteAt(at: number): string {
 }
 
 /**
+ * Whether a lamp shows a colour rather than a white, when it can do both: what it says, or the
+ * colour when it says nothing.
+ *
+ * @param entity - The lamp.
+ * @param state - Its state.
+ * @returns True when it shows a colour.
+ */
+function showsColourOf(entity: EntityView, state: CapabilityState): boolean {
+  return (
+    paramsOf(entity, 'color_hs') !== null &&
+    (paramsOf(entity, 'color_temp') === null ||
+      state.color_hs?.isActive === true ||
+      state.color_temp?.isActive === false)
+  );
+}
+
+/**
+ * The colour a lamp shines in, while it shows one: the dialog's header tile and its switch take
+ * it, as the brightness bar does.
+ *
+ * @param entity - The lamp.
+ * @param state - Its state.
+ * @returns The colour, `hsl(…)`, or undefined for a lamp off or showing a white.
+ */
+export function lampColourOf(entity: EntityView, state: CapabilityState): string | undefined {
+  return state.on_off?.isOn === true && showsColourOf(entity, state)
+    ? hsColor(state.color_hs?.hue ?? 0, state.color_hs?.saturation ?? 0)
+    : undefined;
+}
+
+/**
  * Says how warm a white is.
  *
  * @param kelvin - Its temperature.
@@ -153,9 +185,7 @@ export function LightBody(props: SheetBodyProps) {
   const { hue, saturation } = picked.shown;
   // Which of white and colour the lamp shows now, when it has both: what it says, or the colour
   // when it says nothing.
-  const showsColour =
-    hs !== null &&
-    (temp === null || state.color_hs?.isActive === true || state.color_temp?.isActive === false);
+  const showsColour = hs !== null && showsColourOf(entity, state);
   const colour = showsColour ? hsColor(hue, saturation) : undefined;
   const swatch = showsColour ? swatchOf(hue, saturation) : undefined;
   const kelvin = miredsToKelvin(Math.round(mireds.shown));
@@ -212,6 +242,7 @@ export function LightBody(props: SheetBodyProps) {
         line={line}
         trail={
           <BigSwitch
+            {...(colour === undefined ? {} : { colour })}
             label={entity.name}
             isOn={isOn}
             isSending={isSending}
@@ -329,7 +360,7 @@ export function LightBody(props: SheetBodyProps) {
                 mireds.sent(next);
                 commander.send('color_temp', { command: 'set_color_temp', mireds: next });
               }}
-              className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
+              className="entity-range absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
             />
           </div>
           <div className="flex justify-between font-mono text-[10px] text-foreground-subtle">

@@ -58,9 +58,9 @@ function CoverPicture(props: PictureProps) {
     <span
       aria-hidden="true"
       className={cn(
-        'entity-track pointer-events-none absolute rounded-[48px] blur-3xl',
+        'entity-track pointer-events-none absolute rounded-[32px] blur-xl',
         isDoor ? 'bg-lamp' : 'bg-[#ffb36b]',
-        isCurtain ? '-inset-y-5' : '-inset-x-5 -bottom-7',
+        isCurtain ? '-inset-y-2' : '-inset-x-2 -bottom-3',
       )}
       // eslint-disable-next-line react/forbid-dom-props -- the glow is where the light comes in, as strong as it is
       style={
@@ -247,7 +247,7 @@ function SlatAngle(props: SlatsProps) {
           onPointerUp={(event) => {
             onCommit(Number(event.currentTarget.value));
           }}
-          className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
+          className="entity-range absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
         />
       </div>
       <div className="flex justify-between font-mono text-[10px] text-foreground-subtle">
@@ -441,7 +441,7 @@ export function CoverBody(props: SheetBodyProps) {
               onPointerUp={(event) => {
                 moveTo(Number(event.currentTarget.value));
               }}
-              className="absolute inset-0 m-0 size-full cursor-grab opacity-0 [direction:rtl] [writing-mode:vertical-lr] active:cursor-grabbing"
+              className="entity-range absolute inset-0 m-0 size-full cursor-grab opacity-0 [direction:rtl] [writing-mode:vertical-lr] active:cursor-grabbing"
             />
           </div>
         ) : null}
@@ -505,7 +505,7 @@ export function CoverBody(props: SheetBodyProps) {
             onPointerUp={(event) => {
               moveTo(Number(event.currentTarget.value));
             }}
-            className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
+            className="entity-range absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
           />
         </div>
       ) : null}

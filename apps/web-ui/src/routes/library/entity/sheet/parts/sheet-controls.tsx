@@ -13,6 +13,7 @@ import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 import { clockText } from '@/routes/library/entity/sheet/history';
 import { usePicked } from '@/routes/library/entity/sheet/parts/option-list';
 import {
+  TONE_DOT,
   TONE_BAR,
   TONE_CHOSEN,
   TONE_FILL,
@@ -126,6 +127,77 @@ export function PowerTarget(props: PowerTargetProps) {
   );
 }
 
+/**
+ * A wall switch, drawn as one: a plate, and a rocker in it pressed in at the top while on - its
+ * light lit in the kind's colour - and at the bottom while off. The rocker tips over as it is
+ * switched; a command on its way turns its glyph into a spinner.
+ *
+ * @param props - See {@link PowerTargetProps}.
+ * @returns The switch.
+ */
+export function RockerSwitch(props: PowerTargetProps) {
+  const { t } = useTranslation();
+  const { label, isOn, onChange, tone, disabled = false, isSending = false } = props;
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isOn}
+      aria-label={label}
+      aria-busy={isSending}
+      disabled={disabled}
+      onClick={() => {
+        onChange(!isOn);
+      }}
+      className={cn(
+        'press group flex h-46 w-31 shrink-0 cursor-pointer self-center rounded-[30px] border border-border-strong p-2.5',
+        'bg-[#0b0e1b] shadow-[inset_0_2px_10px_rgb(0_0_0/0.55),0_24px_48px_-24px_rgb(0_0_0/0.9)]',
+        'perspective-[420px] disabled:cursor-not-allowed disabled:opacity-60',
+      )}
+    >
+      <span
+        className={cn(
+          'relative flex size-full flex-col items-center justify-between rounded-[22px] border py-4.5',
+          'transition-[transform,background-color,box-shadow] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          isOn
+            ? 'rotate-x-[8deg] border-white/8 bg-linear-to-b from-[#1f2440] to-[#2d3356] shadow-[inset_0_10px_18px_-10px_rgb(0_0_0/0.65)]'
+            : '-rotate-x-[8deg] border-white/6 bg-linear-to-b from-[#2d3356] to-[#1c2037] shadow-[inset_0_-10px_18px_-10px_rgb(0_0_0/0.65)]',
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            'h-1 w-7 rounded-pill transition-[background-color,box-shadow] duration-400',
+            isOn
+              ? cn(TONE_DOT[tone], TONE_TEXT[tone], 'shadow-[0_0_10px_currentColor]')
+              : 'bg-[#3a4170]',
+          )}
+        />
+        {isSending ? (
+          <span
+            role="status"
+            aria-label={t('entity.sheet.sending', 'Sending')}
+            className={cn('entity-spin flex', TONE_TEXT[tone])}
+          >
+            <AppIcon id="loader-circle" size={24} />
+          </span>
+        ) : (
+          <span
+            className={cn(
+              'flex transition-colors duration-400',
+              isOn ? TONE_TEXT[tone] : 'text-foreground-subtle group-hover:text-foreground-muted',
+            )}
+          >
+            <AppIcon id={props.icon ?? 'power'} size={24} />
+          </span>
+        )}
+        <span aria-hidden="true" className="size-2 rounded-full border-[1.5px] border-[#3a4170]" />
+      </span>
+    </button>
+  );
+}
+
 /** What the level bar needs. */
 export type LevelBarProps = {
   /** What it sets, to a screen reader: "Brightness". */
@@ -171,7 +243,6 @@ export function LevelBar(props: LevelBarProps) {
     <div
       className={cn(
         'entity-slider group relative h-18 overflow-hidden rounded-[22px] border border-border-strong bg-surface-raised',
-        'transition-[border-color] duration-200 hover:border-foreground-subtle',
       )}
     >
       <div
@@ -201,13 +272,13 @@ export function LevelBar(props: LevelBarProps) {
       <span
         aria-hidden="true"
         className={cn(
-          'entity-track pointer-events-none absolute top-1/2 h-8 w-1.5 -translate-y-1/2 rounded-pill',
+          'entity-track pointer-events-none absolute top-1/2 h-8 w-1.5 -translate-1/2 rounded-pill',
           'shadow-[0_0_0_1px_rgb(0_0_0/0.12),0_2px_10px_rgb(0_0_0/0.35)]',
           'group-hover:h-10 group-has-[input:active]:h-12 group-has-[input:active]:w-2',
           isOn ? 'bg-knob' : 'bg-foreground-subtle',
         )}
-        // eslint-disable-next-line react/forbid-dom-props -- the handle rides the edge of the level
-        style={{ left: `max(6px, calc(${String(value)}% - 14px))` }}
+        // eslint-disable-next-line react/forbid-dom-props -- the handle rides the edge of the level, under the pointer
+        style={{ left: `clamp(8px, ${String(value)}%, calc(100% - 8px))` }}
       />
       <input
         type="range"
@@ -226,7 +297,7 @@ export function LevelBar(props: LevelBarProps) {
         onKeyUp={(event) => {
           onCommit(Number(event.currentTarget.value));
         }}
-        className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing disabled:cursor-not-allowed"
+        className="entity-range absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing disabled:cursor-not-allowed"
       />
     </div>
   );
@@ -632,7 +703,7 @@ export function ThinSlider(props: ThinSliderProps) {
           onKeyUp={(event) => {
             onCommit(Number(event.currentTarget.value));
           }}
-          className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
+          className="entity-range absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
         />
       </div>
       <div className="flex justify-between font-mono text-[10px] text-foreground-subtle">

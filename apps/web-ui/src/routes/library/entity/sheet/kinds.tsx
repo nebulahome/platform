@@ -26,7 +26,7 @@ import { ClimateBody, climateLookOf } from '@/routes/library/entity/sheet/bodies
 import { CoverBody } from '@/routes/library/entity/sheet/bodies/cover-body';
 import { FanBody } from '@/routes/library/entity/sheet/bodies/fan-body';
 import { ImageBody } from '@/routes/library/entity/sheet/bodies/image-body';
-import { LightBody } from '@/routes/library/entity/sheet/bodies/light-body';
+import { LightBody, lampColourOf } from '@/routes/library/entity/sheet/bodies/light-body';
 import { LocationBody } from '@/routes/library/entity/sheet/bodies/location-body';
 import { LockBody, lockToneOf } from '@/routes/library/entity/sheet/bodies/lock-body';
 import { MediaBody } from '@/routes/library/entity/sheet/bodies/media-body';
@@ -159,11 +159,11 @@ function toneOf(id: KindId, entity: EntityView, state: CapabilityState): SheetTo
  * A kind's glyph, for an entity of it with no icon of its own.
  *
  * @param id - The kind.
- * @param entity - The entity: a sensor's glyph follows its class.
- * @param state - Its state now: a binary sensor's glyph is the one of its state.
+ * @param entity - The entity: a sensor's glyph follows its class. It never follows the state:
+ * the glyph is the entity's, as its owner may also choose one; only the colour does.
  * @returns The glyph.
  */
-function iconOf(id: KindId, entity: EntityView, state: CapabilityState): UiIconId {
+function iconOf(id: KindId, entity: EntityView): UiIconId {
   const deviceClass = entity.deviceClass ?? '';
   const glyphs: Readonly<Record<KindId, UiIconId>> = {
     camera: 'camera',
@@ -187,10 +187,7 @@ function iconOf(id: KindId, entity: EntityView, state: CapabilityState): UiIconI
         : deviceClass === 'identify'
           ? 'scan-eye'
           : 'circle-dot',
-    binary:
-      state.sensor_binary?.isOn === true
-        ? binaryLookOf(entity.deviceClass).on
-        : binaryLookOf(entity.deviceClass).off,
+    binary: binaryLookOf(entity.deviceClass).on,
     sensor:
       deviceClass === 'temperature'
         ? 'thermometer'
@@ -377,10 +374,13 @@ export function sheetKindOf(entity: EntityView, state: CapabilityState): SheetKi
     };
   }
 
+  const colour = rule.id === 'light' ? lampColourOf(entity, state) : undefined;
+
   return {
+    ...(colour === undefined ? {} : { colour }),
     tone: toneOf(rule.id, entity, state),
 
-    icon: iconOf(rule.id, entity, state),
+    icon: iconOf(rule.id, entity),
     words: wordsOf(rule.id, entity),
     isLit: isLitOf(rule.id, state),
     history: rule.history,

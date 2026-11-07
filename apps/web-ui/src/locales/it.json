@@ -3475,7 +3475,10 @@
         "workingFor": "Al lavoro per",
         "notAnswering": "Non risponde",
         "span": "{{from}} – {{to}} · {{duration}}",
-        "slotSpan": "{{from}} – {{to}}"
+        "slotSpan": "{{from}} – {{to}}",
+        "close": "Chiudi lo storico",
+        "activity": "Attività",
+        "changes": "{{count}} modifiche"
       },
       "kind": {
         "binarySensor": "Sensore binario",
@@ -3656,7 +3659,6 @@
         "water": "Acqua",
         "wholeHome": "Tutta la casa"
       },
-      "seconds": "{{count}} s",
       "select": {
         "all": "Tutte",
         "count": "{{count}} opzioni",

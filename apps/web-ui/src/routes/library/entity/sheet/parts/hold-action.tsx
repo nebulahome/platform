@@ -4,7 +4,6 @@
  * is written at its end, so nobody wonders why a press did nothing.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
 
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
@@ -45,7 +44,6 @@ export type HoldActionProps = {
  * @returns The button.
  */
 export function HoldAction(props: HoldActionProps) {
-  const { t } = useTranslation();
   const {
     children,
     icon,
@@ -175,29 +173,12 @@ export function HoldAction(props: HoldActionProps) {
           isStacked ? 'flex-col gap-2 text-ui' : 'gap-2',
         )}
       >
-        <span
-          className={cn('flex', progress === 0 && 'transition-[rotate] duration-300 ease-out')}
-          // eslint-disable-next-line react/forbid-dom-props -- the glyph turns as the hold fills, a key in a lock
-          style={{ rotate: `${String(progress * -14)}deg` }}
-        >
-          <AppIcon
-            id={icon}
-            size={isStacked ? 36 : 16}
-            className={isStacked ? 'text-current' : undefined}
-          />
-        </span>
+        <AppIcon
+          id={icon}
+          size={isStacked ? 36 : 16}
+          className={isStacked ? 'text-current' : undefined}
+        />
         {children}
-        <span
-          className={cn(
-            'ml-0.5 font-mono text-[11px]',
-            fill === undefined ? 'text-foreground-subtle' : 'text-current',
-          )}
-        >
-          {t('entity.sheet.seconds', '{{count}} s', {
-            // Counting down while held.
-            count: Number((((1 - progress) * durationMs) / 1000).toFixed(progress > 0 ? 1 : 0)),
-          })}
-        </span>
       </span>
     </button>
   );

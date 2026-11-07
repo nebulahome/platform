@@ -10,7 +10,11 @@ import { AppIcon, cn } from '@nebulahome/ui';
 
 import { paramsOf } from '@/library/entity-control';
 import { isBusy } from '@/routes/library/entity/controls/control-block';
-import { PowerTarget, useSinceLine } from '@/routes/library/entity/sheet/parts/sheet-controls';
+import {
+  PowerTarget,
+  RockerSwitch,
+  useSinceLine,
+} from '@/routes/library/entity/sheet/parts/sheet-controls';
 import { SendingSpinner } from '@/routes/library/entity/sheet/parts/sheet-parts';
 import type { SheetBodyProps } from '@/routes/library/entity/sheet/sheet-types';
 import { TONE_CHOSEN, type SheetTone } from '@/routes/library/entity/sheet/tones';
@@ -19,6 +23,9 @@ import { TONE_CHOSEN, type SheetTone } from '@/routes/library/entity/sheet/tones
 export type OnOffBodyProps = SheetBodyProps & {
   /** Its colour. */
   readonly tone: SheetTone;
+
+  /** Whether it is drawn as a wall switch, rather than as the round power target of a lamp. */
+  readonly isRocker?: boolean;
 };
 
 /**
@@ -93,15 +100,27 @@ export function OnOffBody(props: OnOffBodyProps) {
 
   return (
     <div className="flex grow flex-col items-center justify-center gap-6">
-      <PowerTarget
-        label={entity.name}
-        isOn={isOn}
-        onChange={turn}
-        tone={tone}
-        disabled={disabled}
-        isSending={isSending}
-        {...(entity.deviceClass === 'outlet' ? { icon: 'plug' as const } : {})}
-      />
+      {props.isRocker === true ? (
+        <RockerSwitch
+          label={entity.name}
+          isOn={isOn}
+          onChange={turn}
+          tone={tone}
+          disabled={disabled}
+          isSending={isSending}
+          {...(entity.deviceClass === 'outlet' ? { icon: 'plug' as const } : {})}
+        />
+      ) : (
+        <PowerTarget
+          label={entity.name}
+          isOn={isOn}
+          onChange={turn}
+          tone={tone}
+          disabled={disabled}
+          isSending={isSending}
+          {...(entity.deviceClass === 'outlet' ? { icon: 'plug' as const } : {})}
+        />
+      )}
       <div className="flex flex-col items-center gap-1.5 text-center">
         <span key={word} className="entity-tick text-[28px] font-medium tracking-[-0.02em]">
           {word}
@@ -119,5 +138,5 @@ export function OnOffBody(props: OnOffBodyProps) {
  * @returns The body.
  */
 export function SwitchBody(props: SheetBodyProps) {
-  return <OnOffBody {...props} tone="primary" />;
+  return <OnOffBody {...props} tone="primary" isRocker />;
 }

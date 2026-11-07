@@ -78,7 +78,7 @@ function LineSlider(props: LineSliderProps) {
         onPointerUp={(event) => {
           onCommit(Number(event.currentTarget.value));
         }}
-        className="absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
+        className="entity-range absolute inset-0 m-0 size-full cursor-grab opacity-0 active:cursor-grabbing"
       />
     </div>
   );

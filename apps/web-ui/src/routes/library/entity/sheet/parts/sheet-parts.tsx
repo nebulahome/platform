@@ -55,6 +55,57 @@ export function SheetIconButton(props: SheetIconButtonProps) {
   );
 }
 
+/** What the head of a raised sheet needs. */
+export type RaisedHeadProps = {
+  /** What the sheet is: "Settings", "History". */
+  readonly title: string;
+
+  /** The line under it: the entity's name. */
+  readonly sub: string;
+
+  /** What stands before the close button: the history's windows. */
+  readonly trail?: ReactNode;
+
+  /** The close button's words, to a screen reader. */
+  readonly closeLabel: string;
+
+  /** Called to put the sheet away. */
+  readonly onClose: () => void;
+};
+
+/**
+ * The head of a sheet raised over the dialog's controls - the settings, the history: the handle
+ * it is pulled down by, its name, and the button that lowers it. The handle and the head are
+ * what a pull starts from (`data-sheet-grip`).
+ *
+ * @param props - See {@link RaisedHeadProps}.
+ * @returns The head.
+ */
+export function RaisedHead(props: RaisedHeadProps) {
+  return (
+    <>
+      <div
+        data-sheet-grip
+        aria-hidden="true"
+        className="group flex h-4.5 shrink-0 cursor-grab touch-none items-end justify-center active:cursor-grabbing"
+      >
+        <span className="h-1 w-10 rounded-pill bg-border-strong transition-[width,background-color] duration-200 group-hover:w-12 group-hover:bg-foreground-subtle" />
+      </div>
+      <div
+        data-sheet-grip
+        className="flex shrink-0 cursor-grab touch-none items-center gap-2.5 pt-3 pr-3.5 pb-3.5 pl-5 active:cursor-grabbing"
+      >
+        <div className="flex min-w-0 grow flex-col gap-0.75">
+          <span className="text-[17px] font-medium">{props.title}</span>
+          <span className="truncate text-ui-sm text-foreground-subtle">{props.sub}</span>
+        </div>
+        {props.trail}
+        <SheetIconButton icon="chevron-down" label={props.closeLabel} onClick={props.onClose} />
+      </div>
+    </>
+  );
+}
+
 /** What the spinner of a command on its way needs. */
 export type SendingSpinnerProps = {
   /** Its colour. */
@@ -178,6 +229,9 @@ export type BigSwitchProps = {
 
   /** Whether a command is on its way: the knob turns into a spinner, so no word moves. */
   readonly isSending?: boolean;
+
+  /** A colour of its own when on instead of the kind's: a lamp's, `hsl(…)`. */
+  readonly colour?: string;
 };
 
 /**
@@ -195,7 +249,10 @@ export function BigSwitch(props: BigSwitchProps) {
     disabled = false,
     size = 'large',
     isSending = false,
+    colour,
   } = props;
+  // A colour of its own is painted, rather than the kind's class.
+  const isPainted = isOn && colour !== undefined;
 
   return (
     <button
@@ -212,8 +269,10 @@ export function BigSwitch(props: BigSwitchProps) {
         'press relative shrink-0 cursor-pointer rounded-pill transition-colors duration-300',
         size === 'large' ? 'h-7.5 w-13' : 'h-6 w-10',
         'disabled:cursor-not-allowed disabled:opacity-50',
-        isOn ? TONE_FILL[tone] : 'bg-border-strong',
+        isOn ? !isPainted && TONE_FILL[tone] : 'bg-border-strong',
       )}
+      // eslint-disable-next-line react/forbid-dom-props -- a lamp's switch takes the colour it shines in
+      style={isPainted ? { backgroundColor: colour } : undefined}
     >
       <span
         aria-hidden="true"
@@ -222,9 +281,15 @@ export function BigSwitch(props: BigSwitchProps) {
           'flex items-center justify-center',
           size === 'large' ? 'size-6' : 'size-4.5',
           isOn
-            ? cn('bg-canvas', size === 'large' ? 'left-6.25' : 'left-4.75', TONE_TEXT[tone])
+            ? cn(
+                'bg-canvas',
+                size === 'large' ? 'left-6.25' : 'left-4.75',
+                !isPainted && TONE_TEXT[tone],
+              )
             : 'left-0.75 bg-foreground-muted text-canvas',
         )}
+        // eslint-disable-next-line react/forbid-dom-props -- its spinner in the lamp's colour too
+        style={isPainted ? { color: colour } : undefined}
       >
         {isSending ? (
           <span className="entity-spin flex">
