@@ -67,16 +67,6 @@ describe('command schemas', () => {
   it('rejects a level outside the normalised range', () => {
     expect(levelCommandSchema.safeParse({ command: 'set_level', level: 120 }).success).toBe(false);
   });
-
-  it('accepts an optional transition', () => {
-    const parsed = levelCommandSchema.parse({
-      command: 'set_level',
-      level: 40,
-      transitionMs: 1500,
-    });
-
-    expect(parsed).toMatchObject({ level: 40, transitionMs: 1500 });
-  });
 });
 
 describe('device limits', () => {

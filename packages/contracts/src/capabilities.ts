@@ -56,14 +56,6 @@ export type CapabilityName = (typeof CAPABILITIES)[number];
 /** Validates a capability name. */
 export const capabilityNameSchema = z.enum(CAPABILITIES);
 
-/**
- * How long a device may take to reach a commanded value.
- *
- * Bounded at ten minutes: a longer transition is a scene or an automation, not a command, and an
- * unbounded value would hold a command slot open indefinitely.
- */
-const transitionMsSchema = z.int().min(0).max(600_000).optional();
-
 /** Capabilities that report only, and accept no commands at all. */
 const NO_COMMANDS = null;
 
@@ -73,24 +65,17 @@ const NO_COMMANDS = null;
 export const onOffStateSchema = z.object({ isOn: z.boolean() });
 
 /**
- * Whether the device can fade in and out rather than switch at once - a dimmable lamp that
- * takes a transition - and whether what it is said to be is only assumed: a relay or a 433 MHz
- * socket that never reports back, so its state is the last command sent, not a reading.
+ * Whether what the entity is said to be is only assumed: a relay or a 433 MHz socket that never
+ * reports back, so its state is the last command sent, not a reading.
  */
 export const onOffParamsSchema = z.object({
-  hasTransition: z.boolean().default(false),
   isAssumed: z.boolean().default(false),
 });
 
-/**
- * Turning an entity on, off, or to the opposite of what it is now.
- *
- * On and off can fade where the device says it can; a toggle cannot, because whether it fades in
- * or out depends on a state the command does not know.
- */
+/** Turning an entity on, off, or to the opposite of what it is now. */
 export const onOffCommandSchema = z.discriminatedUnion('command', [
-  z.object({ command: z.literal('turn_on'), transitionMs: transitionMsSchema }),
-  z.object({ command: z.literal('turn_off'), transitionMs: transitionMsSchema }),
+  z.object({ command: z.literal('turn_on') }),
+  z.object({ command: z.literal('turn_off') }),
   z.object({ command: z.literal('toggle') }),
 ]);
 
@@ -104,16 +89,12 @@ export const onOffCommandSchema = z.discriminatedUnion('command', [
  */
 export const levelStateSchema = z.object({ level: z.number().min(0).max(100) });
 
-/** Whether the device can fade rather than jump to a new level. */
-export const levelParamsSchema = z.object({ hasTransition: z.boolean().default(false) });
+/** A level has no limits of its own: every percentage is representable. */
+export const levelParamsSchema = z.object({});
 
-/** Setting the level, optionally over time. */
+/** Setting the level. */
 export const levelCommandSchema = z.discriminatedUnion('command', [
-  z.object({
-    command: z.literal('set_level'),
-    level: z.number().min(0).max(100),
-    transitionMs: transitionMsSchema,
-  }),
+  z.object({ command: z.literal('set_level'), level: z.number().min(0).max(100) }),
 ]);
 
 // --- color_hs ----------------------------------------------------------------------------
@@ -131,28 +112,21 @@ export const colorHsStateSchema = z.object({
 });
 
 /**
- * Whether the lamp can fade from one colour to the next, and whether it has a white channel of
- * its own beside the colour. Every hue and saturation is representable, so there is nothing else
- * to say.
+ * Whether the lamp has a white channel of its own beside the colour. Every hue and saturation is
+ * representable, so there is nothing else to say.
  */
 export const colorHsParamsSchema = z.object({
-  hasTransition: z.boolean().default(false),
   hasWhiteChannel: z.boolean().default(false),
 });
 
-/** Setting the colour, or the white channel, optionally over time. */
+/** Setting the colour, or the white channel. */
 export const colorHsCommandSchema = z.discriminatedUnion('command', [
   z.object({
     command: z.literal('set_color'),
     hue: z.number().min(0).max(360),
     saturation: z.number().min(0).max(100),
-    transitionMs: transitionMsSchema,
   }),
-  z.object({
-    command: z.literal('set_white'),
-    white: z.number().min(0).max(100),
-    transitionMs: transitionMsSchema,
-  }),
+  z.object({ command: z.literal('set_white'), white: z.number().min(0).max(100) }),
 ]);
 
 // --- color_temp --------------------------------------------------------------------------
@@ -176,21 +150,14 @@ export const colorTempParamsSchema = z
   .object({
     minMireds: z.int().min(1).max(1000),
     maxMireds: z.int().min(1).max(1000),
-
-    /** Whether the lamp can fade from one temperature to the next. */
-    hasTransition: z.boolean().default(false),
   })
   .refine((params) => params.minMireds <= params.maxMireds, {
     message: 'minMireds must not exceed maxMireds',
   });
 
-/** Setting the colour temperature, optionally over time. */
+/** Setting the colour temperature. */
 export const colorTempCommandSchema = z.discriminatedUnion('command', [
-  z.object({
-    command: z.literal('set_color_temp'),
-    mireds: z.int().min(1).max(1000),
-    transitionMs: transitionMsSchema,
-  }),
+  z.object({ command: z.literal('set_color_temp'), mireds: z.int().min(1).max(1000) }),
 ]);
 
 // --- effect ------------------------------------------------------------------------------

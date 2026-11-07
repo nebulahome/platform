@@ -324,9 +324,6 @@ export const sceneMemberSchema = z.object({
 
   /** What this entity should be set to. */
   targetState: jsonObjectSchema,
-
-  /** How long this one entity takes to get there, when it differs from the scene's own. */
-  transitionMs: z.int().min(0).nullable(),
 });
 
 /** One entity's target state inside a scene. */
@@ -341,7 +338,6 @@ export type SceneMember = z.output<typeof sceneMemberSchema>;
 export const sceneUnresolvedMemberSchema = z.object({
   entityId: entityIdSchema,
   targetState: jsonObjectSchema,
-  transitionMs: z.int().min(0).max(600_000).nullable(),
 });
 
 /** A member whose entity did not exist when the scene was written. */
@@ -379,9 +375,6 @@ export const sceneViewSchema = z.object({
   icon: z.string().nullable(),
   areaKey: z.string().nullable(),
 
-  /** How long the whole scene takes to apply. */
-  transitionMs: z.int().min(0),
-
   /** Whether a partial failure undoes what already applied. */
   rollbackOnPartialFailure: z.boolean(),
 
@@ -399,12 +392,10 @@ export type SceneView = z.output<typeof sceneViewSchema>;
  * One entity to set when a scene is created or rewritten.
  *
  * `entityId` is the address (`light.kitchen`); the row stores the registry uuid behind it.
- * `transitionMs` null or absent means the scene's own transition applies.
  */
 export const sceneMemberInputSchema = z.object({
   entityId: entityIdSchema,
   targetState: capabilityStateSchema,
-  transitionMs: z.int().min(0).max(600_000).nullable().optional(),
 });
 
 /** One entity to set when a scene is created or rewritten. */
@@ -439,7 +430,6 @@ export const sceneCreateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   icon: z.string().trim().min(1).max(64).nullable().optional(),
   areaId: z.uuid().nullable().optional(),
-  transitionMs: z.int().min(0).max(600_000).default(0),
   rollbackOnPartialFailure: z.boolean().default(false),
   members: z.array(sceneMemberInputSchema).max(200).default([]),
   unresolvedMembers: z.array(sceneUnresolvedMemberSchema).max(200).default([]),
@@ -460,7 +450,6 @@ export const sceneUpdateSchema = z
     name: z.string().trim().min(1).max(120),
     icon: z.string().trim().min(1).max(64).nullable(),
     areaId: z.uuid().nullable(),
-    transitionMs: z.int().min(0).max(600_000),
     rollbackOnPartialFailure: z.boolean(),
     members: z.array(sceneMemberInputSchema).max(200),
     unresolvedMembers: z.array(sceneUnresolvedMemberSchema).max(200),

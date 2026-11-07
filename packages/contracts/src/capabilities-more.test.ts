@@ -39,8 +39,8 @@ function accepts(capability: CapabilityName, command: unknown): boolean {
 
 describe('what adapters already report', () => {
   it('parses as it did, the new params at their old meaning', () => {
-    expect(paramsOf('on_off', {})).toEqual({ hasTransition: false, isAssumed: false });
-    expect(paramsOf('color_hs', {})).toEqual({ hasTransition: false, hasWhiteChannel: false });
+    expect(paramsOf('on_off', {})).toEqual({ isAssumed: false });
+    expect(paramsOf('color_hs', {})).toEqual({ hasWhiteChannel: false });
     expect(paramsOf('lock', { hasCode: true })).toEqual({ hasCode: true, canOpen: false });
     expect(paramsOf('camera', {})).toMatchObject({ hasMotionDetection: false });
     expect(paramsOf('media_player', {})).toMatchObject({

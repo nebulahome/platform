@@ -562,15 +562,6 @@ describe('what a block may ask for', () => {
     expect(accepts({ ...command, params: { command: 'set_level', level: 160 } })).toBe(false);
   });
 
-  it('fades a light on and off', () => {
-    const command = { type: 'command', entityId: 'light.hall', capability: 'on_off' };
-
-    expect(accepts({ ...command, params: { command: 'turn_on', transitionMs: 2_000 } })).toBe(true);
-    expect(accepts({ ...command, params: { command: 'turn_off', transitionMs: 2_000 } })).toBe(
-      true,
-    );
-  });
-
   it('sets a stored number helper, the one command a sensor reading takes', () => {
     expect(
       accepts({

@@ -45,6 +45,9 @@ export const CORE_SYNC_LINKS_METHOD = 'sync_links';
 /** What each source of a linked entity last said, for its page. */
 export const CORE_LINK_SOURCES_METHOD = 'link_sources';
 
+/** Reads again whether an entity the API has just enabled or disabled is in use. */
+export const CORE_SYNC_ENTITY_METHOD = 'sync_entity';
+
 /** Reads the system monitor: the host, the recent samples, the disk (system-monitor.ts). */
 export const CORE_SYSTEM_MONITOR_METHOD = 'system_monitor';
 
@@ -437,6 +440,21 @@ export type SyncLinksRequest = z.output<typeof syncLinksRequestSchema>;
 
 /** How many of the entities `core` still had. */
 export const syncLinksReplySchema = z.object({ synced: z.int().min(0) });
+
+/**
+ * Asks `core` to read again whether an entity is enabled, after the API has changed it: `core`
+ * refuses commands to a disabled entity and records none of its states, from its own directory.
+ */
+export const syncEntityRequestSchema = z.strictObject({ entityId: entityIdSchema });
+
+/** Asks `core` to read an entity's enabled flag again. */
+export type SyncEntityRequest = z.output<typeof syncEntityRequestSchema>;
+
+/** Whether `core` had the entity; false when it is not registered with it. */
+export const syncEntityReplySchema = z.object({ isLoaded: z.boolean() });
+
+/** Whether `core` had the entity. */
+export type SyncEntityReply = z.output<typeof syncEntityReplySchema>;
 
 /** Asks what each source of a linked entity last said. */
 export const linkSourcesRequestSchema = z.strictObject({ entityId: entityIdSchema });

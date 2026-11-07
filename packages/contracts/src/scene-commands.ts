@@ -13,20 +13,6 @@ import {
 } from './capabilities.js';
 import type { JsonObject } from './json.js';
 
-/**
- * Capabilities whose commands accept a fade.
- *
- * Whether a particular device can fade is its `hasTransition` param, which this mapper does not
- * see: `core` drops the transition from a command to a device that cannot, so a scene can ask
- * for one on every member and each gets what it can do.
- */
-export const TRANSITION_CAPABILITIES: ReadonlySet<CapabilityName> = new Set<CapabilityName>([
-  'on_off',
-  'level',
-  'color_hs',
-  'color_temp',
-]);
-
 /** One command produced from a target state. */
 export type SceneTargetCommand = {
   readonly capability: CapabilityName;
@@ -37,67 +23,46 @@ export type SceneTargetCommand = {
  * Turns a scene member's target state into the commands that produce it.
  *
  * Only writable fields become commands: cover motion, thermostat readings, media titles and
- * positions are ignored. `transitionMs` is attached only when it is positive and the capability
- * accepts a fade. A light that is to be off is only switched off - a level or a colour sent
- * after the switch would turn most lamps straight back on - and one that is to be on is switched
- * on first. A thermostat that is to be off is only set to off.
+ * positions are ignored. A light that is to be off is only switched off - a level or a colour
+ * sent after the switch would turn most lamps straight back on - and one that is to be on is
+ * switched on first. A thermostat that is to be off is only set to off.
  *
  * @param targetState - What the entity should become.
- * @param transitionMs - How long fades may take.
  * @returns One command per writable field, in the order they are to be sent.
  */
-export function commandsForTargetState(
-  targetState: CapabilityState,
-  transitionMs: number,
-): SceneTargetCommand[] {
+export function commandsForTargetState(targetState: CapabilityState): SceneTargetCommand[] {
   const commands: SceneTargetCommand[] = [];
   const isSwitchedOff = targetState.on_off?.isOn === false;
 
   if (targetState.on_off !== undefined) {
     commands.push({
       capability: 'on_off',
-      command: withTransition(
-        'on_off',
-        { command: targetState.on_off.isOn ? 'turn_on' : 'turn_off' },
-        transitionMs,
-      ),
+      command: { command: targetState.on_off.isOn ? 'turn_on' : 'turn_off' },
     });
   }
 
   if (targetState.level !== undefined && !isSwitchedOff) {
     commands.push({
       capability: 'level',
-      command: withTransition(
-        'level',
-        { command: 'set_level', level: targetState.level.level },
-        transitionMs,
-      ),
+      command: { command: 'set_level', level: targetState.level.level },
     });
   }
 
   if (targetState.color_hs !== undefined && !isSwitchedOff) {
     commands.push({
       capability: 'color_hs',
-      command: withTransition(
-        'color_hs',
-        {
-          command: 'set_color',
-          hue: targetState.color_hs.hue,
-          saturation: targetState.color_hs.saturation,
-        },
-        transitionMs,
-      ),
+      command: {
+        command: 'set_color',
+        hue: targetState.color_hs.hue,
+        saturation: targetState.color_hs.saturation,
+      },
     });
   }
 
   if (targetState.color_temp !== undefined && !isSwitchedOff) {
     commands.push({
       capability: 'color_temp',
-      command: withTransition(
-        'color_temp',
-        { command: 'set_color_temp', mireds: targetState.color_temp.mireds },
-        transitionMs,
-      ),
+      command: { command: 'set_color_temp', mireds: targetState.color_temp.mireds },
     });
   }
 
@@ -196,26 +161,6 @@ export function restoreStateFor(before: CapabilityState, target: CapabilityState
   const parsed = capabilityStateSchema.safeParse(restore);
 
   return parsed.success ? parsed.data : {};
-}
-
-/**
- * Attaches a transition when the capability accepts one and the duration is positive.
- *
- * @param capability - Which capability.
- * @param command - The command without a transition.
- * @param transitionMs - How long the fade may take.
- * @returns The command, possibly with `transitionMs`.
- */
-export function withTransition(
-  capability: CapabilityName,
-  command: JsonObject,
-  transitionMs: number,
-): JsonObject {
-  if (transitionMs > 0 && TRANSITION_CAPABILITIES.has(capability)) {
-    return { ...command, transitionMs };
-  }
-
-  return command;
 }
 
 /**

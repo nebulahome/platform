@@ -134,8 +134,8 @@ export const entityViewSchema = z.object({
 export type EntityView = z.output<typeof entityViewSchema>;
 
 /**
- * What changing an entity accepts: what a person calls it, what it is drawn as, and the tags on
- * it. The identifier is not here - it is what automations and history name the entity by, and
+ * What changing an entity accepts: what a person calls it, what it is drawn as, the tags on it
+ * and whether it is enabled. The identifier is not here - it is what automations and history name the entity by, and
  * renaming in the interface changes `name`, never that.
  */
 export const entityUpdateSchema = z
@@ -159,6 +159,12 @@ export const entityUpdateSchema = z
      * presence (`entity-types.ts`); null to show it as it is.
      */
     shownAs: shownAsSchema.nullable(),
+
+    /**
+     * Whether it is in use: a disabled entity takes no commands, records no states and is left
+     * out when entities are picked.
+     */
+    isEnabled: z.boolean(),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });
