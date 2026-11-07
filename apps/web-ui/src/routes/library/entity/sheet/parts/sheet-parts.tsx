@@ -266,7 +266,7 @@ export function BigSwitch(props: BigSwitchProps) {
         onChange(!isOn);
       }}
       className={cn(
-        'press relative shrink-0 cursor-pointer rounded-pill transition-colors duration-300',
+        'press entity-tint relative shrink-0 cursor-pointer rounded-pill',
         size === 'large' ? 'h-7.5 w-13' : 'h-6 w-10',
         'disabled:cursor-not-allowed disabled:opacity-50',
         isOn ? !isPainted && TONE_FILL[tone] : 'bg-border-strong',
@@ -277,7 +277,7 @@ export function BigSwitch(props: BigSwitchProps) {
       <span
         aria-hidden="true"
         className={cn(
-          'absolute top-0.75 rounded-full transition-[left,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'absolute top-0.75 rounded-full transition-[left,background-color,color] duration-400 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
           'flex items-center justify-center',
           size === 'large' ? 'size-6' : 'size-4.5',
           isOn

@@ -24,25 +24,25 @@ const LOOKS = {
     icon: 'lock',
     tone: 'success',
     hold: 'bg-success/25',
-    ring: 'border-success/34 text-success bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,var(--color-success)_14%,transparent),color-mix(in_oklab,var(--color-success)_5%,transparent)_72%)] shadow-[0_0_60px_color-mix(in_oklab,var(--color-success)_18%,transparent)]',
+    ring: 'text-success border-current/40 bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,currentColor_15%,transparent),color-mix(in_oklab,currentColor_3%,transparent)_72%)] shadow-[0_0_60px_color-mix(in_oklab,currentColor_14%,transparent)]',
   },
   unlocked: {
     icon: 'lock-open',
     tone: 'lamp',
     hold: 'bg-lamp/25',
-    ring: 'border-lamp/50 text-lamp bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-lamp)_16%,transparent),color-mix(in_oklab,var(--color-lamp)_2%,transparent)_70%)]',
+    ring: 'text-lamp border-current/40 bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,currentColor_15%,transparent),color-mix(in_oklab,currentColor_3%,transparent)_72%)] shadow-[0_0_60px_color-mix(in_oklab,currentColor_14%,transparent)]',
   },
   jammed: {
     icon: 'lock-keyhole',
     tone: 'danger',
     hold: 'bg-danger/25',
-    ring: 'border-danger/50 text-danger bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-danger)_16%,transparent),color-mix(in_oklab,var(--color-danger)_2%,transparent)_70%)]',
+    ring: 'text-danger border-current/40 bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,currentColor_15%,transparent),color-mix(in_oklab,currentColor_3%,transparent)_72%)] shadow-[0_0_60px_color-mix(in_oklab,currentColor_14%,transparent)]',
   },
   moving: {
     icon: 'loader-circle',
     tone: 'lamp',
     hold: 'bg-lamp/25',
-    ring: 'border-dashed border-lamp/50 text-lamp bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-lamp)_16%,transparent),color-mix(in_oklab,var(--color-lamp)_2%,transparent)_70%)]',
+    ring: 'border-dashed text-lamp border-current/40 bg-[radial-gradient(circle_at_50%_38%,color-mix(in_oklab,currentColor_15%,transparent),color-mix(in_oklab,currentColor_3%,transparent)_72%)] shadow-[0_0_60px_color-mix(in_oklab,currentColor_14%,transparent)]',
   },
 } as const satisfies Record<
   string,
@@ -240,7 +240,7 @@ export function LockBody(props: SheetBodyProps) {
         <span
           className={cn(
             'relative flex size-37.5 items-center justify-center rounded-full border',
-            'transition-[color,background-color,border-color,box-shadow] duration-500',
+            'entity-tint',
             look.ring,
           )}
         >

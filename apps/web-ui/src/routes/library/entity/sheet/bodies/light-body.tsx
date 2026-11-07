@@ -186,7 +186,11 @@ export function LightBody(props: SheetBodyProps) {
   // Which of white and colour the lamp shows now, when it has both: what it says, or the colour
   // when it says nothing.
   const showsColour = hs !== null && showsColourOf(entity, state);
-  const colour = showsColour ? hsColor(hue, saturation) : undefined;
+  // The colour the lamp shines in, as it reports it: the bar, the switch and the header tile all
+  // take it at the same moment. The swatches and the wheel answer the finger at once instead.
+  const colour = showsColour
+    ? hsColor(state.color_hs?.hue ?? 0, state.color_hs?.saturation ?? 0)
+    : undefined;
   const swatch = showsColour ? swatchOf(hue, saturation) : undefined;
   const kelvin = miredsToKelvin(Math.round(mireds.shown));
   const minKelvin = temp === null ? 2200 : miredsToKelvin(temp.maxMireds);

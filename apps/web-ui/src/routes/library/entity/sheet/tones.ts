@@ -91,16 +91,19 @@ export const TONE_CHOSEN: Readonly<Record<SheetTone, string>> = {
   muted: 'border-border-strong bg-surface-high text-foreground',
 };
 
-/** The fill of a wide bar: the level reached, darker at the start and brighter at the end. */
+/**
+ * The fill of a wide bar: the level reached, in one colour - a plain colour, so it can turn from
+ * one to another; the bar lays its own shade over the start, darker there and brighter at the end.
+ */
 export const TONE_BAR: Readonly<Record<SheetTone, string>> = {
-  lamp: 'bg-linear-to-r from-lamp/28 to-lamp/80',
-  primary: 'bg-linear-to-r from-primary/28 to-primary/80',
-  success: 'bg-linear-to-r from-success/28 to-success/80',
-  heat: 'bg-linear-to-r from-heat/28 to-heat/80',
-  cyan: 'bg-linear-to-r from-cyan/28 to-cyan/80',
-  media: 'bg-linear-to-r from-media/28 to-media/80',
-  violet: 'bg-linear-to-r from-violet/28 to-violet/80',
-  danger: 'bg-linear-to-r from-danger/28 to-danger/80',
+  lamp: 'bg-lamp/80',
+  primary: 'bg-primary/80',
+  success: 'bg-success/80',
+  heat: 'bg-heat/80',
+  cyan: 'bg-cyan/80',
+  media: 'bg-media/80',
+  violet: 'bg-violet/80',
+  danger: 'bg-danger/80',
   muted: 'bg-foreground-muted/14',
 };
 

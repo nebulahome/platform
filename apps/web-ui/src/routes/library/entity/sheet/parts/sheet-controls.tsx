@@ -13,7 +13,7 @@ import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 import { clockText } from '@/routes/library/entity/sheet/history';
 import { usePicked } from '@/routes/library/entity/sheet/parts/option-list';
 import {
-  TONE_DOT,
+  TILE_LIT,
   TONE_BAR,
   TONE_CHOSEN,
   TONE_FILL,
@@ -91,7 +91,7 @@ export function PowerTarget(props: PowerTargetProps) {
       }}
       className={cn(
         'press-scale relative flex size-44 shrink-0 cursor-pointer items-center justify-center self-center rounded-full border p-0',
-        'transition-[background,box-shadow,color,border-color] duration-320 disabled:cursor-not-allowed',
+        'entity-tint disabled:cursor-not-allowed',
         isOn
           ? cn(
               TONE_TEXT[tone],
@@ -127,10 +127,15 @@ export function PowerTarget(props: PowerTargetProps) {
   );
 }
 
+/** The knob's motion: it travels with a little overshoot, and turns colour as the rest does. */
+const KNOB_MOTION =
+  '[transition:translate_520ms_cubic-bezier(0.34,1.35,0.64,1),scale_160ms_ease-out,background-color_400ms_cubic-bezier(0.2,0.8,0.2,1),color_400ms_cubic-bezier(0.2,0.8,0.2,1),box-shadow_400ms_cubic-bezier(0.2,0.8,0.2,1)]';
+
 /**
- * A wall switch, drawn as one: a plate, and a rocker in it pressed in at the top while on - its
- * light lit in the kind's colour - and at the bottom while off. The rocker tips over as it is
- * switched; a command on its way turns its glyph into a spinner.
+ * A switch drawn as a tall toggle: a rounded track, and a knob that slides to the top while on -
+ * filled in the kind's colour, the power glyph on it - and to the bottom while off. The knob
+ * overshoots a little as it lands, sinks under the finger, and turns its glyph into a spinner
+ * while a command is on its way.
  *
  * @param props - See {@link PowerTargetProps}.
  * @returns The switch.
@@ -151,48 +156,51 @@ export function RockerSwitch(props: PowerTargetProps) {
         onChange(!isOn);
       }}
       className={cn(
-        'press group flex h-46 w-31 shrink-0 cursor-pointer self-center rounded-[30px] border border-border-strong p-2.5',
-        'bg-[#0b0e1b] shadow-[inset_0_2px_10px_rgb(0_0_0/0.55),0_24px_48px_-24px_rgb(0_0_0/0.9)]',
-        'perspective-[420px] disabled:cursor-not-allowed disabled:opacity-60',
+        'entity-tint group relative flex h-50 w-28 shrink-0 cursor-pointer flex-col self-center rounded-[36px] border p-1.5',
+        'disabled:cursor-not-allowed disabled:opacity-60',
+        isOn ? TILE_LIT[tone] : 'border-border-strong bg-surface-raised',
       )}
     >
-      <span
-        className={cn(
-          'relative flex size-full flex-col items-center justify-between rounded-[22px] border py-4.5',
-          'transition-[transform,background-color,box-shadow] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)]',
-          isOn
-            ? 'rotate-x-[8deg] border-white/8 bg-linear-to-b from-[#1f2440] to-[#2d3356] shadow-[inset_0_10px_18px_-10px_rgb(0_0_0/0.65)]'
-            : '-rotate-x-[8deg] border-white/6 bg-linear-to-b from-[#2d3356] to-[#1c2037] shadow-[inset_0_-10px_18px_-10px_rgb(0_0_0/0.65)]',
-        )}
-      >
+      {/* A mark in each half, where the knob would rest; the knob covers its own. */}
+      {(['top-1/4', 'top-3/4'] as const).map((place) => (
         <span
+          key={place}
           aria-hidden="true"
           className={cn(
-            'h-1 w-7 rounded-pill transition-[background-color,box-shadow] duration-400',
-            isOn
-              ? cn(TONE_DOT[tone], TONE_TEXT[tone], 'shadow-[0_0_10px_currentColor]')
-              : 'bg-[#3a4170]',
+            'absolute left-1/2 size-1.5 -translate-1/2 rounded-full bg-foreground-disabled',
+            place,
           )}
         />
+      ))}
+      <span
+        className={cn(
+          'relative flex h-1/2 w-full items-center justify-center rounded-[30px]',
+          KNOB_MOTION,
+          'group-active:scale-[0.96]',
+          isOn
+            ? cn(
+                TONE_FILL[tone],
+                'translate-y-0 shadow-[0_10px_26px_-10px_rgb(0_0_0/0.65),inset_0_1px_0_rgb(255_255_255/0.25)]',
+              )
+            : 'translate-y-full bg-surface-high text-foreground-muted shadow-[0_8px_20px_-8px_rgb(0_0_0/0.7),inset_0_1px_0_rgb(255_255_255/0.06)]',
+        )}
+      >
         {isSending ? (
           <span
             role="status"
             aria-label={t('entity.sheet.sending', 'Sending')}
-            className={cn('entity-spin flex', TONE_TEXT[tone])}
+            className="entity-spin flex"
           >
-            <AppIcon id="loader-circle" size={24} />
+            <AppIcon id="loader-circle" size={26} />
           </span>
         ) : (
-          <span
-            className={cn(
-              'flex transition-colors duration-400',
-              isOn ? TONE_TEXT[tone] : 'text-foreground-subtle group-hover:text-foreground-muted',
-            )}
-          >
-            <AppIcon id={props.icon ?? 'power'} size={24} />
+          <span key={String(isOn)} className="entity-pop flex">
+            <AppIcon
+              id={isOn ? (props.icon ?? 'power') : props.icon === 'plug' ? 'plug' : 'power-off'}
+              size={26}
+            />
           </span>
         )}
-        <span aria-hidden="true" className="size-2 rounded-full border-[1.5px] border-[#3a4170]" />
       </span>
     </button>
   );
@@ -254,12 +262,13 @@ export function LevelBar(props: LevelBarProps) {
         style={{
           width: `${String(value)}%`,
           ...(isOn && colour !== undefined
-            ? {
-                background: `linear-gradient(90deg, color-mix(in oklab, ${colour} 30%, transparent), color-mix(in oklab, ${colour} 85%, transparent))`,
-              }
+            ? { backgroundColor: `color-mix(in oklab, ${colour} 82%, transparent)` }
             : {}),
         }}
-      />
+      >
+        {/* The shade over its start, so the fill brightens towards the level. */}
+        <span className="absolute inset-0 bg-linear-to-r from-surface-raised/75 to-transparent" />
+      </div>
       <span
         className={cn(
           'pointer-events-none absolute top-1/2 left-5.5 flex -translate-y-1/2',
@@ -342,7 +351,7 @@ export function QuickPicks(props: QuickPicksProps) {
             onPick(each);
           }}
           className={cn(
-            'press h-9 cursor-pointer rounded-tile border text-ui-sm font-medium tabular',
+            'press entity-tint h-9 cursor-pointer rounded-tile border text-ui-sm font-medium tabular',
             'disabled:cursor-not-allowed',
             value === each
               ? cn('entity-pop', TONE_CHOSEN[tone])
@@ -484,7 +493,7 @@ export function LevelSteps(props: LevelStepsProps) {
             }}
             className={cn(
               'press flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-tile px-1',
-              'transition-colors duration-300 disabled:cursor-not-allowed',
+              'entity-tint disabled:cursor-not-allowed',
               isChosen
                 ? cn('entity-pop', TONE_FILL[tone])
                 : isBelow

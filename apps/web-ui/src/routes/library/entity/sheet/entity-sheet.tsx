@@ -201,7 +201,7 @@ export function EntitySheet(props: EntitySheetProps) {
           <span
             className={cn(
               'relative flex size-11 shrink-0 items-center justify-center rounded-[13px] border',
-              'transition-[color,background-color,border-color,box-shadow] duration-500',
+              'entity-tint',
               isLit
                 ? cn(
                     kind.colour === undefined && TILE_LIT[tone],

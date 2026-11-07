@@ -104,22 +104,8 @@ const ACTIONS: Readonly<Record<Action, { icon: UiIconId; tone: SheetTone; word: 
 };
 
 /** The breathing glow behind the number, in the action's colour. */
-const GLOWS: Readonly<Record<SheetTone, string>> = {
-  lamp: 'bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-lamp)_20%,transparent),transparent_70%)]',
-  primary:
-    'bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-primary)_20%,transparent),transparent_70%)]',
-  success:
-    'bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-success)_20%,transparent),transparent_70%)]',
-  heat: 'bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-heat)_20%,transparent),transparent_70%)]',
-  cyan: 'bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-cyan)_20%,transparent),transparent_70%)]',
-  media:
-    'bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-media)_20%,transparent),transparent_70%)]',
-  violet:
-    'bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-violet)_20%,transparent),transparent_70%)]',
-  danger:
-    'bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-danger)_20%,transparent),transparent_70%)]',
-  muted: '',
-};
+const GLOW =
+  'bg-[radial-gradient(circle,color-mix(in_oklab,currentColor_20%,transparent),transparent_70%)]';
 
 /** The tile of a mode chosen, in its colour. */
 const MODE_CHOSEN: Readonly<Record<SheetTone, string>> = {
@@ -276,7 +262,7 @@ function Dial(props: DialProps) {
             strokeWidth={isLit ? 2.5 : 2}
             strokeLinecap="round"
             className={cn(
-              'transition-colors duration-300',
+              'entity-tint',
               isLit
                 ? low !== null
                   ? 'stroke-success/55'
@@ -336,7 +322,7 @@ function Dial(props: DialProps) {
                 cx={point.x}
                 cy={point.y}
                 r={4}
-                className={low !== null ? 'fill-success' : TONE_SVG[tone].fill}
+                className={cn('entity-tint', low !== null ? 'fill-success' : TONE_SVG[tone].fill)}
               />
             );
           })()}
@@ -501,8 +487,9 @@ export function ClimateBody(props: SheetBodyProps) {
           <span
             aria-hidden="true"
             className={cn(
-              'entity-breathe absolute top-11 left-11 size-40 rounded-full',
-              GLOWS[tone],
+              'entity-breathe entity-tint absolute top-11 left-11 size-40 rounded-full',
+              GLOW,
+              TONE_TEXT[tone],
             )}
           />
         )}
@@ -526,7 +513,7 @@ export function ClimateBody(props: SheetBodyProps) {
         <div className="absolute inset-x-0 top-0 flex h-62 flex-col items-center justify-center gap-0.5">
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 text-ui-sm font-medium',
+              'entity-tint inline-flex items-center gap-1.5 text-ui-sm font-medium',
               TONE_TEXT[isRange && climate.action === 'idle' ? 'success' : tone],
             )}
           >
@@ -676,7 +663,7 @@ export function ClimateBody(props: SheetBodyProps) {
               }}
               className={cn(
                 'press flex h-15 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-inner border p-0',
-                'transition-colors duration-300 disabled:cursor-not-allowed',
+                'entity-tint disabled:cursor-not-allowed',
                 isChosen
                   ? cn('entity-pop', MODE_CHOSEN[lookTone])
                   : 'border-border bg-surface-raised/60 text-foreground-muted',

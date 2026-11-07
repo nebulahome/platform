@@ -673,7 +673,7 @@ export function BinaryBody(props: SheetBodyProps) {
           ) : null}
           <span
             className={cn(
-              'relative flex size-16 items-center justify-center rounded-full border transition-colors duration-500',
+              'entity-tint relative flex size-16 items-center justify-center rounded-full border',
               isLit ? BINARY_TILE[look.tone] : TILE_REST,
             )}
           >
