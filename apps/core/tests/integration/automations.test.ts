@@ -250,7 +250,7 @@ describe('automations in a running core', () => {
       .values({
         key: `half_${suffix}`,
         name: 'Half',
-        unresolvedMembers: [{ entityId: 'light.gone', targetState: {}, transitionMs: null }],
+        unresolvedMembers: [{ entityId: 'light.gone', targetState: {} }],
       })
       .returning({ id: schema.registry.scenes.id });
 

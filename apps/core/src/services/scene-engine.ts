@@ -90,7 +90,6 @@ export class SceneEngine {
     const reply = await applyScenePlan(
       {
         sceneId: scene.id,
-        transitionMs: scene.transitionMs,
         rollbackOnPartialFailure: scene.rollbackOnPartialFailure,
         members: scene.members.map((member) => ({
           ...member,

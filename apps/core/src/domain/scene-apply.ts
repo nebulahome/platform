@@ -2,10 +2,10 @@
  * Applying a scene, as a procedure over its members: what to send each one, in what order, and
  * what to put back when some fail and the scene asks for a rollback.
  *
- * ARCHITECTURE.md §6.2: snapshot the members, command them with a bounded concurrency honouring
- * each one's fade, report exactly which did not reach their target, and roll back the ones that
- * did when the scene says so - for lighting a half-applied scene is usually better than a
- * rollback; for a security scene it is not.
+ * ARCHITECTURE.md §6.2: snapshot the members, command them with a bounded concurrency, report
+ * exactly which did not reach their target, and roll back the ones that did when the scene says
+ * so - for lighting a half-applied scene is usually better than a rollback; for a security scene
+ * it is not.
  *
  * Pure: the commands go out through a port, and the state before the apply is handed in, so the
  * whole procedure is tested without a broker, a database or a clock.
@@ -30,9 +30,6 @@ export type SceneApplyMember = {
   readonly entityId: EntityId;
   readonly targetState: CapabilityState;
 
-  /** Its own fade, or null to use the scene's. */
-  readonly transitionMs: number | null;
-
   /** Its state before the apply, for a rollback. Undefined when it never reported. */
   readonly before: CapabilityState | undefined;
 };
@@ -40,7 +37,6 @@ export type SceneApplyMember = {
 /** The scene, as the procedure needs it. */
 export type SceneApplyPlan = {
   readonly sceneId: string;
-  readonly transitionMs: number;
   readonly rollbackOnPartialFailure: boolean;
   readonly members: readonly SceneApplyMember[];
 };
@@ -128,10 +124,7 @@ export async function applyScenePlan(
       return;
     }
 
-    const commands = commandsForTargetState(
-      member.targetState,
-      member.transitionMs ?? plan.transitionMs,
-    );
+    const commands = commandsForTargetState(member.targetState);
 
     if (commands.length === 0) {
       outcome.error = 'Nothing in its target state can be commanded';
@@ -157,7 +150,7 @@ export async function applyScenePlan(
 
       const restore =
         member.before === undefined ? {} : restoreStateFor(member.before, member.targetState);
-      const commands = commandsForTargetState(restore, member.transitionMs ?? plan.transitionMs);
+      const commands = commandsForTargetState(restore);
 
       outcome.ok = false;
 

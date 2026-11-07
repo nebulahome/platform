@@ -44,20 +44,6 @@ function parseParams(capability: CapabilityName, record: EntityRecord): unknown 
 }
 
 /**
- * Whether a capability's declared parameters say the device can fade.
- *
- * @param params - The parsed parameters.
- * @returns True only when they say `hasTransition: true`.
- */
-function canFade(params: unknown): boolean {
-  return (
-    typeof params === 'object' &&
-    params !== null &&
-    (params as { hasTransition?: unknown }).hasTransition === true
-  );
-}
-
-/**
  * Rejects a command whose arguments fall outside what the device declared.
  *
  * Only the limits a capability actually declares are checked. There is no attempt to guess at
@@ -518,12 +504,6 @@ export function validateCommand(
   const params = parseParams(capability, record);
 
   checkAgainstParams(capability, params, validated, record.entityId);
-
-  // A fade asked of a device that cannot fade is no fade at all rather than a refusal: a scene or
-  // an automation asks every member for the same transition, and each does what it can.
-  if ('transitionMs' in validated && !canFade(params)) {
-    return Object.fromEntries(Object.entries(validated).filter(([key]) => key !== 'transitionMs'));
-  }
 
   if (capability === 'custom' && packageTypes !== undefined) {
     const { packageId, type } = params as { packageId: string; type: string };

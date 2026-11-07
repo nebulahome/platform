@@ -19,9 +19,6 @@ import { schema, type Database } from '@nebulahome/db';
 export type SceneMemberRecord = {
   readonly entityId: EntityId;
   readonly targetState: CapabilityState;
-
-  /** Its own fade, or null to use the scene's. */
-  readonly transitionMs: number | null;
 };
 
 /** A scene, ready to apply. */
@@ -29,7 +26,6 @@ export type SceneRecord = {
   readonly id: string;
   readonly key: string;
   readonly name: string;
-  readonly transitionMs: number;
   readonly rollbackOnPartialFailure: boolean;
   readonly members: readonly SceneMemberRecord[];
 
@@ -57,7 +53,6 @@ export async function loadScene(db: Database, ref: SceneRef): Promise<SceneRecor
       id: scenes.id,
       key: scenes.key,
       name: scenes.name,
-      transitionMs: scenes.transitionMs,
       rollbackOnPartialFailure: scenes.rollbackOnPartialFailure,
       unresolvedMembers: scenes.unresolvedMembers,
     })
@@ -73,7 +68,6 @@ export async function loadScene(db: Database, ref: SceneRef): Promise<SceneRecor
     .select({
       entityId: schema.registry.entities.entityId,
       targetState: schema.registry.sceneEntities.targetState,
-      transitionMs: schema.registry.sceneEntities.transitionMs,
     })
     .from(schema.registry.sceneEntities)
     .innerJoin(
@@ -91,7 +85,6 @@ export async function loadScene(db: Database, ref: SceneRef): Promise<SceneRecor
       return {
         entityId: parseEntityId(row.entityId),
         targetState: target.success ? target.data : {},
-        transitionMs: row.transitionMs,
       };
     }),
   };

@@ -17,7 +17,7 @@ describe('ChangeAttribution', () => {
     now = 1_000;
     expect(attribution.of(lamp)).toEqual(run);
     now = 4_000;
-    // A fade reports again; still the same command's doing.
+    // A second report of the same change; still the same command's doing.
     expect(attribution.of(lamp)).toEqual(run);
   });
 

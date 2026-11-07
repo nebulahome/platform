@@ -49,7 +49,6 @@ function port(failing: readonly string[] = []): {
 function plan(members: SceneApplyMember[], rollbackOnPartialFailure = false) {
   return {
     sceneId: '00000000-0000-4000-8000-000000000001',
-    transitionMs: 2_000,
     rollbackOnPartialFailure,
     members,
   };
@@ -59,36 +58,25 @@ const evening: SceneApplyMember[] = [
   {
     entityId: ceiling,
     targetState: { on_off: { isOn: true }, level: { level: 40 } },
-    transitionMs: null,
     before: { on_off: { isOn: false }, level: { level: 100 } },
   },
   {
     entityId: lamp,
     targetState: { on_off: { isOn: false } },
-    transitionMs: 0,
     before: { on_off: { isOn: true } },
   },
 ];
 
 describe('applyScenePlan', () => {
-  it("sends each member its commands in order, with the scene's fade unless it has its own", async () => {
+  it('sends each member its commands in order', async () => {
     const ports = port();
     const reply = await applyScenePlan(plan(evening), [], ports);
 
     expect(reply).toMatchObject({ applied: 2, failed: 0 });
     expect(ports.sent).toEqual([
-      // The scene's fade on the ceiling, which has none of its own; the lamp's own 0, none.
-      {
-        entityId: ceiling,
-        capability: 'on_off',
-        command: { command: 'turn_on', transitionMs: 2_000 },
-      },
+      { entityId: ceiling, capability: 'on_off', command: { command: 'turn_on' } },
       { entityId: lamp, capability: 'on_off', command: { command: 'turn_off' } },
-      {
-        entityId: ceiling,
-        capability: 'level',
-        command: { command: 'set_level', level: 40, transitionMs: 2_000 },
-      },
+      { entityId: ceiling, capability: 'level', command: { command: 'set_level', level: 40 } },
     ]);
     expect(reply.members[0]?.sent).toHaveLength(2);
   });
@@ -126,7 +114,7 @@ describe('applyScenePlan', () => {
     expect(ports.sent.at(-1)).toEqual({
       entityId: ceiling,
       capability: 'on_off',
-      command: { command: 'turn_off', transitionMs: 2_000 },
+      command: { command: 'turn_off' },
     });
   });
 
@@ -138,7 +126,6 @@ describe('applyScenePlan', () => {
           {
             entityId: door,
             targetState: { lock: { lockState: 'locked' } },
-            transitionMs: null,
             before: undefined,
           },
         ],
@@ -153,7 +140,7 @@ describe('applyScenePlan', () => {
 
   it('says so of a member whose target holds nothing to command', async () => {
     const reply = await applyScenePlan(
-      plan([{ entityId: lamp, targetState: {}, transitionMs: null, before: undefined }]),
+      plan([{ entityId: lamp, targetState: {}, before: undefined }]),
       [],
       port(),
     );

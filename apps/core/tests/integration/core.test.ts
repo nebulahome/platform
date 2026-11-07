@@ -135,7 +135,7 @@ describe('core end to end', () => {
       {
         entityId: bulb,
         name: 'Kitchen ceiling',
-        capabilities: { on_off: {}, level: { hasTransition: true } },
+        capabilities: { on_off: {}, level: {} },
       },
       { entityId: thermometer, name: 'Kitchen temperature', capabilities: { sensor_numeric: {} } },
     ]);

@@ -8,8 +8,8 @@
  * can say "turned on by the Evening lights automation" and how the automation engine tells a
  * change it caused itself from one somebody else did.
  *
- * Not consumed on read: a light fading over two seconds reports several times, and every one of
- * those changes is the command's. Bounded by time instead. A change arriving after the window is
+ * Not consumed on read: a device often reports a change more than once - a lamp its level as it
+ * settles, a cover as it starts moving - and every one of those reports is the command's. Bounded by time instead. A change arriving after the window is
  * nobody's - most likely a person at the switch - and a newer command replaces an older one.
  * The window is a heuristic, and it errs the way that matters least: a hand on the switch within
  * a few seconds of an automation is credited to the automation.

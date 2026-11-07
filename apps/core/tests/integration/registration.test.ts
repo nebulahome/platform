@@ -92,7 +92,7 @@ function request(fields: Record<string, unknown> = {}): Record<string, unknown> 
       {
         entityId: relay,
         name: 'Relay',
-        capabilities: { on_off: {}, level: { hasTransition: true } },
+        capabilities: { on_off: { isAssumed: true }, level: {} },
       },
     ],
     ...fields,
@@ -238,7 +238,7 @@ describe('completing a device the API created', () => {
   });
 
   it('records what the entity can do, with the device limits it reported', () => {
-    expect(directory.get(relay)?.capabilities.get('level')).toEqual({ hasTransition: true });
+    expect(directory.get(relay)?.capabilities.get('on_off')).toEqual({ isAssumed: true });
   });
 
   it('owns the device by its integration, not by a package', async () => {

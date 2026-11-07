@@ -38,9 +38,7 @@ describe('startCommandRouter', () => {
     aliases = new AliasCatalog();
     attribution = new ChangeAttribution();
 
-    harness.directory.set(
-      entityRecord(bulb, { capabilities: { on_off: {}, level: { hasTransition: true } } }),
-    );
+    harness.directory.set(entityRecord(bulb, { capabilities: { on_off: {}, level: {} } }));
     harness.directory.set(entityRecord(thermometer, { capabilities: { sensor_numeric: {} } }));
     harness.directory.set(
       entityRecord(average, { source: 'derived', capabilities: { sensor_numeric: {} } }),

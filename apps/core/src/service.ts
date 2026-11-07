@@ -55,6 +55,7 @@ import { startAutomationService } from './services/automation-service.js';
 import { createCommandDispatcher } from './services/command-dispatch.js';
 import { startCommandRouter } from './services/command-router.js';
 import { startContainersService } from './services/containers.js';
+import { startEntityService } from './services/entity-service.js';
 import { startHistoryService } from './services/history-service.js';
 import { startHouseService } from './services/house-service.js';
 import { LinkEngine } from './services/link-engine.js';
@@ -458,6 +459,7 @@ export class CoreService {
         onNotableChange: this.#onChange,
       }),
       ...startAliasService({ client, engine: aliasEngine, logger }),
+      startEntityService({ client, db, directory: this.#directory, logger }),
       startSystemMonitorService({ client, monitor: systemMonitor }),
       startSceneService({ client, engine: sceneEngine }),
       ...startAutomationService({
