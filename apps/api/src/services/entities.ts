@@ -966,7 +966,8 @@ export async function updateEntity(
       body.name !== undefined ||
       body.icon !== undefined ||
       body.transport !== undefined ||
-      body.shownAs !== undefined
+      body.shownAs !== undefined ||
+      body.isEnabled !== undefined
     ) {
       await tx
         .update(schema.registry.entities)
@@ -974,6 +975,7 @@ export async function updateEntity(
           ...(body.name === undefined ? {} : { name: body.name }),
           ...(body.icon === undefined ? {} : { icon: body.icon }),
           ...(body.transport === undefined ? {} : { transport: body.transport }),
+          ...(body.isEnabled === undefined ? {} : { isEnabled: body.isEnabled }),
           ...(body.shownAs === undefined
             ? {}
             : {

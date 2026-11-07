@@ -106,6 +106,7 @@ import {
   CORE_REMOVE_ALIAS_METHOD,
   CORE_SERVICE,
   CORE_SYNC_ALIAS_METHOD,
+  CORE_SYNC_ENTITY_METHOD,
   CORE_SYSTEM_MONITOR_METHOD,
   CORE_UNREGISTER_METHOD,
   ConflictError,
@@ -119,6 +120,7 @@ import {
   parseCommandSubject,
   removeAliasRequestSchema,
   syncAliasRequestSchema,
+  syncEntityRequestSchema,
   HUB_CATALOGUE_METHOD,
   HUB_DISCOVER_METHOD,
   HUB_DISCOVERED_METHOD,
@@ -158,6 +160,8 @@ import {
   type RemoveAliasRequest,
   type SyncAliasReply,
   type SyncAliasRequest,
+  type SyncEntityReply,
+  type SyncEntityRequest,
   type SystemMonitorSnapshot,
   type UnregisterDeviceReply,
   type UnregisterDeviceRequest,
@@ -593,6 +597,9 @@ export const unregistered: string[] = [];
 /** What the fake `core` was asked to take in, by alias entity id, in order. */
 export const aliasesSynced: string[] = [];
 
+/** What the fake `core` was asked to read the enabled flag of again, by entity id, in order. */
+export const entitiesSynced: string[] = [];
+
 /** What the fake `core` was asked to remove, by alias entity id, in order. */
 export const aliasesRemoved: string[] = [];
 
@@ -1023,6 +1030,15 @@ export async function buildTestServer(
       },
     ),
     core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_SYNC_ENTITY_METHOD),
+      syncEntityRequestSchema,
+      (request: SyncEntityRequest): SyncEntityReply => {
+        entitiesSynced.push(request.entityId);
+
+        return { isLoaded: true };
+      },
+    ),
+    core.serve(
       busSubjects.service(CORE_SERVICE, CORE_SYNC_ALIAS_METHOD),
       syncAliasRequestSchema,
       (request: SyncAliasRequest): SyncAliasReply => {
@@ -1150,7 +1166,7 @@ export async function buildTestServer(
             return { entityId: row.entityId, ok: false, error: reason, sent: [] };
           }
 
-          const sent = commandsForTargetState(capabilityStateSchema.parse(row.targetState), 0);
+          const sent = commandsForTargetState(capabilityStateSchema.parse(row.targetState));
 
           for (const entry of sent) {
             commanded.push({

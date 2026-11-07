@@ -107,7 +107,7 @@ async function readMembers(db: Database, sceneId: string): Promise<MemberRow[]> 
  * Applies a scene: the members the caller may command, through `core`.
  *
  * Does not wait for devices to converge - an acknowledgement means the adapter accepted the
- * command, not that the lamp has finished fading.
+ * command, not that the device has reached its target.
  *
  * @param db - The database.
  * @param sceneId - Which scene.

@@ -63,7 +63,6 @@ const SCENE_TARGET_CAPABILITIES = new Set<CapabilityName>([
 type ResolvedSceneMember = {
   readonly entityRowId: string;
   readonly targetState: CapabilityState;
-  readonly transitionMs: number | null;
 };
 
 /**
@@ -80,7 +79,6 @@ export async function listScenes(db: Database): Promise<SceneView[]> {
       name: schema.registry.scenes.name,
       icon: schema.registry.scenes.icon,
       areaKey: schema.registry.areas.key,
-      transitionMs: schema.registry.scenes.transitionMs,
       rollbackOnPartialFailure: schema.registry.scenes.rollbackOnPartialFailure,
       unresolvedMembers: schema.registry.scenes.unresolvedMembers,
     })
@@ -112,7 +110,6 @@ export async function readScene(db: Database, id: string): Promise<SceneView> {
       name: schema.registry.scenes.name,
       icon: schema.registry.scenes.icon,
       areaKey: schema.registry.areas.key,
-      transitionMs: schema.registry.scenes.transitionMs,
       rollbackOnPartialFailure: schema.registry.scenes.rollbackOnPartialFailure,
       unresolvedMembers: schema.registry.scenes.unresolvedMembers,
     })
@@ -177,7 +174,6 @@ export async function createScene(
           name: body.name,
           icon: body.icon ?? null,
           areaId: body.areaId ?? null,
-          transitionMs: body.transitionMs,
           rollbackOnPartialFailure: body.rollbackOnPartialFailure,
           unresolvedMembers: body.unresolvedMembers,
           createdBy: userId,
@@ -237,7 +233,6 @@ export async function updateScene(db: Database, id: string, body: SceneUpdate): 
         ...(body.name === undefined ? {} : { name: body.name }),
         ...(body.icon === undefined ? {} : { icon: body.icon }),
         ...(body.areaId === undefined ? {} : { areaId: body.areaId }),
-        ...(body.transitionMs === undefined ? {} : { transitionMs: body.transitionMs }),
         ...(body.rollbackOnPartialFailure === undefined
           ? {}
           : { rollbackOnPartialFailure: body.rollbackOnPartialFailure }),
@@ -309,7 +304,6 @@ async function loadSceneMembers(
       entityId: schema.registry.entities.entityId,
       entityName: schema.registry.entities.name,
       targetState: schema.registry.sceneEntities.targetState,
-      transitionMs: schema.registry.sceneEntities.transitionMs,
     })
     .from(schema.registry.sceneEntities)
     .innerJoin(
@@ -325,7 +319,6 @@ async function loadSceneMembers(
         entityId: row.entityId,
         entityName: row.entityName,
         targetState: row.targetState ?? {},
-        transitionMs: row.transitionMs,
       },
     ]);
   }
@@ -455,7 +448,6 @@ async function resolveSceneMembers(
     resolved.push({
       entityRowId,
       targetState,
-      transitionMs: member.transitionMs ?? null,
     });
   }
 
@@ -562,7 +554,6 @@ async function replaceSceneMembers(
       sceneId,
       entityId: member.entityRowId,
       targetState: member.targetState,
-      transitionMs: member.transitionMs,
     })),
   );
 }

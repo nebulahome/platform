@@ -203,9 +203,7 @@ describe('a scene with members waiting for an entity', () => {
       key: `${slug}_imported`,
       name: 'Imported',
       members: [{ entityId: porchEntityId, targetState: { on_off: { isOn: true } } }],
-      unresolvedMembers: [
-        { entityId: 'light.not_here', targetState: { on_off: { isOn: true } }, transitionMs: null },
-      ],
+      unresolvedMembers: [{ entityId: 'light.not_here', targetState: { on_off: { isOn: true } } }],
     });
 
     expect(created.status).toBe(201);
@@ -213,7 +211,7 @@ describe('a scene with members waiting for an entity', () => {
     const scene = sceneViewSchema.parse(created.body);
 
     expect(scene.unresolvedMembers).toEqual([
-      { entityId: 'light.not_here', targetState: { on_off: { isOn: true } }, transitionMs: null },
+      { entityId: 'light.not_here', targetState: { on_off: { isOn: true } } },
     ]);
 
     const applied = await call(

@@ -35,7 +35,7 @@ import { IdempotencyStore } from '../http/idempotency.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { isAuditedCapability, sendCommand } from '../services/commands.js';
 import { findEntity, listEntities, updateEntity, withSources } from '../services/entities.js';
-import { syncLinksOnCore } from '../services/links.js';
+import { syncEntityOnCore, syncLinksOnCore } from '../services/links.js';
 
 import { forRequest } from './devices.js';
 
@@ -205,6 +205,11 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
       if (route.body.transport !== undefined) {
         // The way it is read first changed: `core` reads its order again.
         await syncLinksOnCore(forRequest(context, route.request.traceId), [found.rowId]);
+      }
+
+      if (route.body.isEnabled !== undefined) {
+        // Commands and recording go by `core`'s own copy of the flag.
+        await syncEntityOnCore(forRequest(context, route.request.traceId), view.entityId);
       }
 
       await context.audit.record({

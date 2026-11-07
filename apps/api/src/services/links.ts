@@ -18,10 +18,12 @@ import { and, asc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from 'dri
 import {
   busSubjects,
   CORE_SERVICE,
+  CORE_SYNC_ENTITY_METHOD,
   CORE_SYNC_LINKS_METHOD,
   linkPreviewSchema,
   MATTER_TRANSPORT,
   NotFoundError,
+  syncEntityReplySchema,
   syncLinksReplySchema,
   ValidationError,
   type IntegrationVendor,
@@ -442,6 +444,33 @@ export async function syncLinksOnCore(
   } catch (error: unknown) {
     // The rows are written; `core` reads them all again when it next starts.
     context.logger.warn({ err: error }, 'core did not take in the links');
+  }
+}
+
+/**
+ * Asks `core` to read again whether an entity is enabled, once the API has written it.
+ *
+ * @param context - The bus, the logger and the request's trace.
+ * @param entityId - The entity.
+ */
+export async function syncEntityOnCore(
+  context: IntegrationsContext,
+  entityId: string,
+): Promise<void> {
+  if (context.bus === undefined) {
+    return;
+  }
+
+  try {
+    await context.bus.request(
+      busSubjects.service(CORE_SERVICE, CORE_SYNC_ENTITY_METHOD),
+      { entityId },
+      syncEntityReplySchema,
+      { traceId: context.traceId, timeoutMs: context.timeoutMs },
+    );
+  } catch (error: unknown) {
+    // The row is written; `core` reads it again when it next starts.
+    context.logger.warn({ entityId, err: error }, 'core did not take in the entity');
   }
 }
 

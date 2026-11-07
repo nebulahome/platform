@@ -19,7 +19,7 @@ import { entityViewSchema, tagViewSchema, type TagView } from '@nebulahome/contr
 import { createDatabase, schema } from '@nebulahome/db';
 
 import { createIconStore } from '@/services/icons.js';
-import { bearer, buildTestServer, stopHub } from '@/testing/hub-harness.js';
+import { bearer, buildTestServer, entitiesSynced, stopHub } from '@/testing/hub-harness.js';
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 
@@ -189,6 +189,18 @@ describe('a tag, from creation to removal', () => {
     const view = entityViewSchema.parse(body);
 
     expect([view.name, view.icon, view.tagIds]).toEqual(['Porch light', 'light', [tag.id]]);
+  });
+
+  it('is disabled and enabled again through the entity change, and core is told each time', async () => {
+    entitiesSynced.length = 0;
+
+    const off = await call('PATCH', `/entities/${relayEntityId}`, { isEnabled: false });
+    const on = await call('PATCH', `/entities/${relayEntityId}`, { isEnabled: true });
+
+    expect([off.status, on.status]).toEqual([200, 200]);
+    expect(entityViewSchema.parse(off.body).isEnabled).toBe(false);
+    expect(entityViewSchema.parse(on.body).isEnabled).toBe(true);
+    expect(entitiesSynced).toEqual([relayEntityId, relayEntityId]);
   });
 
   it('is counted on both, and found by key when entities are listed', async () => {
