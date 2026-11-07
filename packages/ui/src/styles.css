@@ -1420,6 +1420,20 @@
   animation: entity-ripple 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+@keyframes entity-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* A hold that went through: the button flashes once in its colour. */
+.entity-flash {
+  animation: entity-flash 600ms ease-out both;
+}
+
 /* Where a tracked thing is: a ring going out from it every two seconds. */
 .entity-ping {
   animation: entity-ripple 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
@@ -1484,6 +1498,7 @@
     .entity-tip,
     .entity-ripple,
     .entity-ping,
+    .entity-flash,
     .entity-reveal,
     .entity-grow-y,
     .entity-grow-x,
@@ -1518,6 +1533,7 @@
       .entity-tip,
       .entity-ripple,
       .entity-ping,
+      .entity-flash,
       .entity-reveal,
       .entity-grow-y,
       .entity-grow-x,
