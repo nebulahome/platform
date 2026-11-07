@@ -1468,7 +1468,7 @@
 .entity-track {
   transition-property:
     width, height, left, top, right, transform, stroke-dasharray, background, opacity;
-  transition-duration: 380ms;
+  transition-duration: 400ms;
   transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -1504,9 +1504,24 @@
   height: 1px;
 }
 
-/* ...but following the finger exactly while its slider is held. */
+/*
+ * ...and following the finger while its slider is held: quick enough to keep up with a drag,
+ * slow enough that a tap on the track still glides there rather than jumping.
+ */
 .entity-slider:has(input:active) .entity-track {
-  transition-duration: 0ms;
+  transition-duration: 140ms;
+  transition-timing-function: ease-out;
+}
+
+/*
+ * A colour changing with the thing's state - the header tile, the switch, a fill, a ring, a
+ * dial's ticks: one duration and one ease everywhere, so every part of the dialog turns together.
+ */
+.entity-tint {
+  transition-property:
+    color, background-color, border-color, fill, stroke, box-shadow, text-decoration-color;
+  transition-duration: 400ms;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 [data-motion='reduced']
