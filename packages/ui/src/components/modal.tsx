@@ -160,9 +160,11 @@ export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
    * `sections`: a header bar - whatever leads it, the title, a close button - a body that scrolls
    * on its own, and a foot bar; the card keeps one height, so a dialog with pages does not jump
    * as they change. `card`: the same bars round a padded body, the card as tall as what it holds
-   * - a confirmation with its consequences, a short form, a job's steps.
+   * - a confirmation with its consequences, a short form, a job's steps. `bare`: no card at all,
+   * the children are the card - a dialog that draws its own, as an entity's does; the title is
+   * then only what a screen reader calls it.
    */
-  readonly layout?: 'plain' | 'sections' | 'card';
+  readonly layout?: 'plain' | 'sections' | 'card' | 'bare';
 
   /** What stands before the title - a way back, an icon. */
   readonly lead?: ReactNode;
@@ -216,6 +218,7 @@ export function Modal(props: ModalProps) {
   // The frame two cards sit in: a press on it, between or around them, is a press on the backdrop.
   const pair = useRef<HTMLDivElement>(null);
   const isPaired = aside !== undefined && aside !== null;
+  const isBare = layout === 'bare';
 
   // Whether the press that is about to become a click started on the backdrop. A release outside
   // the card only counts when the press was outside it too.
@@ -377,37 +380,38 @@ export function Modal(props: ModalProps) {
     </div>
   );
 
-  const body =
-    layout === 'sections' ? (
-      sections
-    ) : layout === 'card' ? (
-      card
-    ) : (
-      <div className="flex flex-col gap-5 p-6">
-        <div className="flex items-start gap-3.5">
-          {lead}
-          <div className="flex min-w-0 grow flex-col gap-1.5">
-            <h2 id={titleId} className="text-headline-sm font-medium">
-              {title}
-            </h2>
-            {description === undefined ? null : (
-              <p id={descriptionId} className="text-ui text-foreground-subtle">
-                {description}
-              </p>
-            )}
-          </div>
-          {hasCloseButton ? (
-            <IconButton variant="bare" label={closeLabel} onClick={onClose}>
-              <AppIcon id="x" size={15} />
-            </IconButton>
-          ) : null}
+  const body = isBare ? (
+    children
+  ) : layout === 'sections' ? (
+    sections
+  ) : layout === 'card' ? (
+    card
+  ) : (
+    <div className="flex flex-col gap-5 p-6">
+      <div className="flex items-start gap-3.5">
+        {lead}
+        <div className="flex min-w-0 grow flex-col gap-1.5">
+          <h2 id={titleId} className="text-headline-sm font-medium">
+            {title}
+          </h2>
+          {description === undefined ? null : (
+            <p id={descriptionId} className="text-ui text-foreground-subtle">
+              {description}
+            </p>
+          )}
         </div>
-
-        {children}
-
-        {footer === undefined ? null : <div className="flex justify-end gap-2.5">{footer}</div>}
+        {hasCloseButton ? (
+          <IconButton variant="bare" label={closeLabel} onClick={onClose}>
+            <AppIcon id="x" size={15} />
+          </IconButton>
+        ) : null}
       </div>
-    );
+
+      {children}
+
+      {footer === undefined ? null : <div className="flex justify-end gap-2.5">{footer}</div>}
+    </div>
+  );
 
   return (
     /* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions,
@@ -419,12 +423,17 @@ export function Modal(props: ModalProps) {
        which is the backdrop. */
     <dialog
       ref={dialog}
-      aria-labelledby={titleId}
-      aria-describedby={description === undefined ? undefined : descriptionId}
+      aria-labelledby={isBare ? undefined : titleId}
+      aria-label={isBare ? title : undefined}
+      aria-describedby={description === undefined || isBare ? undefined : descriptionId}
       onClose={onNativeClose}
       onMouseDown={onMouseDown}
       onClick={onClick}
-      className={cn(dialogBox({ size, isPaired }), className)}
+      className={cn(
+        dialogBox({ size, isPaired: isPaired || isBare }),
+        isBare && 'w-auto max-w-[94vw]',
+        className,
+      )}
     >
       {isPaired ? (
         <div
