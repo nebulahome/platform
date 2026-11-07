@@ -386,15 +386,33 @@ export type PackageRoute = {
 /** Goes to a path of the package's page. */
 export type PackageNavigate = (to: string, options?: { readonly replace?: boolean }) => void;
 
-/** A place of the platform, named by what it is: its address is the platform's. */
+/**
+ * A sheet an entity's card may open with: its settings, or its history. Since 1.9.
+ */
+export type EntityCardView = 'settings' | 'history';
+
+/**
+ * A place of the platform, named by what it is: its address is the platform's. An entity opens
+ * as its card, over the page that is open; `view` raises one of its sheets (since 1.9).
+ */
 export type PlatformTarget =
-  | { readonly kind: 'entity'; readonly entityId: EntityId }
+  | { readonly kind: 'entity'; readonly entityId: EntityId; readonly view?: EntityCardView }
   | { readonly kind: 'device'; readonly deviceId: string }
   | { readonly kind: 'package'; readonly packageId: string }
   | { readonly kind: 'dashboard'; readonly dashboardId?: string };
 
 /** Goes to a place of the platform. */
 export type PlatformNavigate = (target: PlatformTarget) => void;
+
+/**
+ * Opens an entity's card - the dialog the platform draws for every entity, with its controls,
+ * history and settings - over the page that is open, as a tap on an entity anywhere in the
+ * interface does. Since 1.9.
+ */
+export type OpenEntityCard = (
+  entityId: EntityId,
+  options?: { readonly view?: EntityCardView },
+) => void;
 
 /** What a link takes besides where it goes: an anchor's attributes, but its address. */
 type LinkAttributes = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
@@ -534,4 +552,7 @@ export type UiHost = {
 
   /** Since 1.6. */
   readonly Floating: ComponentType<FloatingProps>;
+
+  /** Since 1.9. */
+  readonly useEntityCard: () => OpenEntityCard;
 };

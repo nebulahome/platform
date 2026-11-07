@@ -228,9 +228,9 @@ export type ReportedCapabilityState = {
 
 /** Each capability's params: the device's own limits, as an entity declares them. */
 export type CapabilityParams = {
-  readonly on_off: { readonly hasTransition?: boolean; readonly isAssumed?: boolean };
-  readonly level: { readonly hasTransition?: boolean };
-  readonly color_hs: { readonly hasTransition?: boolean; readonly hasWhiteChannel?: boolean };
+  readonly on_off: { readonly isAssumed?: boolean };
+  readonly level: Readonly<Record<never, never>>;
+  readonly color_hs: { readonly hasWhiteChannel?: boolean };
   readonly color_temp: { readonly minMireds: number; readonly maxMireds: number };
   readonly effect: { readonly effects: readonly string[] };
   readonly cover: { readonly hasPosition?: boolean; readonly hasTilt?: boolean };
@@ -322,24 +322,11 @@ export type CapabilityCommands = {
     | { readonly command: 'turn_on' }
     | { readonly command: 'turn_off' }
     | { readonly command: 'toggle' };
-  readonly level: {
-    readonly command: 'set_level';
-    readonly level: number;
-    readonly transitionMs?: number;
-  };
+  readonly level: { readonly command: 'set_level'; readonly level: number };
   readonly color_hs:
-    | {
-        readonly command: 'set_color';
-        readonly hue: number;
-        readonly saturation: number;
-        readonly transitionMs?: number;
-      }
-    | { readonly command: 'set_white'; readonly white: number; readonly transitionMs?: number };
-  readonly color_temp: {
-    readonly command: 'set_color_temp';
-    readonly mireds: number;
-    readonly transitionMs?: number;
-  };
+    | { readonly command: 'set_color'; readonly hue: number; readonly saturation: number }
+    | { readonly command: 'set_white'; readonly white: number };
+  readonly color_temp: { readonly command: 'set_color_temp'; readonly mireds: number };
   readonly effect: { readonly command: 'set_effect'; readonly effect: string | null };
   readonly cover:
     | { readonly command: 'open' }

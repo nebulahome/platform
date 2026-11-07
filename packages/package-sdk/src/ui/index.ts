@@ -31,6 +31,7 @@ import type {
   Locale,
   Mutation,
   MutationOptions,
+  OpenEntityCard,
   PackageCall,
   PackageInfo,
   PackageLinkProps,
@@ -61,6 +62,7 @@ export type {
   AreaView,
   CustomEntityState,
   EntitiesFilter,
+  EntityCardView,
   EntityPicture,
   EntityView,
   FloatingProps,
@@ -72,6 +74,7 @@ export type {
   Locale,
   Mutation,
   MutationOptions,
+  OpenEntityCard,
   PackageCall,
   PackageInfo,
   PackageLinkProps,
@@ -437,4 +440,15 @@ export function PageActions(props: PageActionsProps): ReactElement {
  */
 export function Floating(props: FloatingProps): ReactElement {
   return createElement(ui('Floating', '1.6'), props);
+}
+
+/**
+ * Opens entities' cards: the dialog the platform draws for every entity - its controls, its
+ * history, its settings - over the page that is open, as a tap on an entity anywhere in the
+ * interface does. Since 1.9.
+ *
+ * @returns What opens one, by the entity's id, optionally on its settings or its history.
+ */
+export function useEntityCard(): OpenEntityCard {
+  return ui('useEntityCard', '1.9')();
 }

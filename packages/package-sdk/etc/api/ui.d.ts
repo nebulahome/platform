@@ -283,10 +283,18 @@ type PackageRoute = {
 type PackageNavigate = (to: string, options?: {
   readonly replace?: boolean;
 }) => void;
-/** A place of the platform, named by what it is: its address is the platform's. */
+/**
+ * A sheet an entity's card may open with: its settings, or its history. Since 1.9.
+ */
+type EntityCardView = 'settings' | 'history';
+/**
+ * A place of the platform, named by what it is: its address is the platform's. An entity opens
+ * as its card, over the page that is open; `view` raises one of its sheets (since 1.9).
+ */
 type PlatformTarget = {
   readonly kind: 'entity';
   readonly entityId: EntityId;
+  readonly view?: EntityCardView;
 } | {
   readonly kind: 'device';
   readonly deviceId: string;
@@ -299,6 +307,14 @@ type PlatformTarget = {
 };
 /** Goes to a place of the platform. */
 type PlatformNavigate = (target: PlatformTarget) => void;
+/**
+ * Opens an entity's card - the dialog the platform draws for every entity, with its controls,
+ * history and settings - over the page that is open, as a tap on an entity anywhere in the
+ * interface does. Since 1.9.
+ */
+type OpenEntityCard = (entityId: EntityId, options?: {
+  readonly view?: EntityCardView;
+}) => void;
 /** What a link takes besides where it goes: an anchor's attributes, but its address. */
 type LinkAttributes = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & {
   readonly children?: ReactNode;
@@ -398,6 +414,8 @@ type UiHost = {
   readonly usePackageSend: () => PackageSend;
   /** Since 1.6. */
   readonly Floating: ComponentType<FloatingProps>;
+  /** Since 1.9. */
+  readonly useEntityCard: () => OpenEntityCard;
 };
 //#endregion
 //#region src/ui/index.d.ts
@@ -615,5 +633,13 @@ export declare function PageActions(props: PageActionsProps): ReactElement;
  * @returns The window.
  */
 export declare function Floating(props: FloatingProps): ReactElement;
+/**
+ * Opens entities' cards: the dialog the platform draws for every entity - its controls, its
+ * history, its settings - over the page that is open, as a tap on an entity anywhere in the
+ * interface does. Since 1.9.
+ *
+ * @returns What opens one, by the entity's id, optionally on its settings or its history.
+ */
+export declare function useEntityCard(): OpenEntityCard;
 //#endregion
-export type { AreaActions, AreaDraft, AreaKind, AreaView, BackgroundProps, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityPicture, EntityView, EntityViewProps, FloatingProps, History, HistoryQuery, HistorySeries, HistoryWindow, LiveOptions, LiveState, Locale, Mutation, MutationOptions, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSend, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, ToastMessage, Toasts, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };
+export type { AreaActions, AreaDraft, AreaKind, AreaView, BackgroundProps, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityCardView, EntityPicture, EntityView, EntityViewProps, FloatingProps, History, HistoryQuery, HistorySeries, HistoryWindow, LiveOptions, LiveState, Locale, Mutation, MutationOptions, OpenEntityCard, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSend, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, ToastMessage, Toasts, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };

@@ -1,24 +1,38 @@
 import { n as EntityDomain, r as EntityId } from "./entities.js";
 //#region src/capabilities.d.ts
 /** Every capability an entity may declare. */
-type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'image' | 'custom';
+type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'effect' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'fan' | 'location' | 'image' | 'custom';
 /** How a sensor's readings add up, for statistics: a reading, a running total, or a meter. */
 type EntityStateClass = 'measurement' | 'total' | 'total_increasing';
 /** The modes a thermostat may be set to. */
 type ThermostatMode = 'off' | 'heat' | 'cool' | 'auto' | 'fan_only' | 'dry';
 /** What a thermostat is doing, which is not the mode it is set to. */
-type ThermostatAction = 'off' | 'idle' | 'heating' | 'cooling' | 'drying' | 'fan';
+type ThermostatAction = 'off' | 'idle' | 'heating' | 'cooling' | 'drying' | 'fan' | 'preheating' | 'defrosting';
 /** What a player is doing. */
 type PlaybackState = 'playing' | 'paused' | 'stopped' | 'idle' | 'buffering';
+/** How a player repeats what it plays. */
+type RepeatMode = 'off' | 'all' | 'one';
 /** What a robot mower is doing. */
 type LawnMowerActivity = 'mowing' | 'paused' | 'returning' | 'docked' | 'idle' | 'error';
 /** What a robot vacuum is doing. */
 type VacuumActivity = 'cleaning' | 'paused' | 'returning' | 'docked' | 'idle' | 'error';
-/** One room of a robot's map. */
+/**
+ * One room of a robot's map; its outline, when the robot shares its map, in percent of the map's
+ * width and height from its top left.
+ */
 type VacuumRoom = {
   readonly id: string;
   readonly name: string;
+  readonly outline?: readonly (readonly [number, number])[];
 };
+/** How a robot that can mop cleans. */
+type VacuumCleanMode = 'vacuum' | 'mop' | 'vacuum_and_mop';
+/** Which way a fan's blades turn. */
+type FanDirection = 'forward' | 'reverse';
+/** Where a location comes from. */
+type LocationSource = 'gps' | 'router' | 'bluetooth' | 'bluetooth_le' | 'event';
+/** How a number is set: a slider, a box, or a slider while the steps are few. */
+type NumberMode = 'auto' | 'slider' | 'box';
 /** One choice of a select. */
 type SelectOption = {
   readonly value: string;
@@ -39,9 +53,15 @@ type CapabilityStates = {
   readonly color_hs: {
     readonly hue: number;
     readonly saturation: number;
+    readonly white?: number;
+    readonly isActive?: boolean;
   };
   readonly color_temp: {
     readonly mireds: number;
+    readonly isActive?: boolean;
+  };
+  readonly effect: {
+    readonly effect: string | null;
   };
   readonly cover: {
     readonly position: number;
@@ -50,13 +70,22 @@ type CapabilityStates = {
   };
   readonly lock: {
     readonly lockState: 'locked' | 'unlocked' | 'jammed';
+    readonly motion?: 'locking' | 'unlocking' | 'opening';
+    readonly isOpen?: boolean;
   };
   readonly thermostat: {
-    readonly currentTemperature: number;
+    readonly currentTemperature?: number;
     readonly targetTemperature: number;
+    readonly targetTemperatureLow?: number;
+    readonly targetTemperatureHigh?: number;
     readonly mode: ThermostatMode;
     readonly action: ThermostatAction;
     readonly humidity?: number;
+    readonly targetHumidity?: number;
+    readonly preset?: string | null;
+    readonly fanMode?: string;
+    readonly swingMode?: string;
+    readonly swingHorizontalMode?: string;
   };
   readonly sensor_numeric: {
     readonly value: number;
@@ -72,8 +101,13 @@ type CapabilityStates = {
     readonly volume: number;
     readonly isMuted: boolean;
     readonly source?: string;
+    readonly soundMode?: string;
+    readonly isShuffled?: boolean;
+    readonly repeat?: RepeatMode;
     readonly mediaTitle?: string;
     readonly mediaArtist?: string;
+    readonly mediaAlbum?: string;
+    readonly mediaImagePath?: string;
     readonly mediaDurationSeconds?: number;
     readonly mediaPositionSeconds?: number;
   };
@@ -81,6 +115,7 @@ type CapabilityStates = {
     readonly isStreamAvailable: boolean;
     readonly snapshotPath?: string;
     readonly isRecording: boolean;
+    readonly isMotionDetectionOn?: boolean;
   };
   readonly button: Readonly<Record<never, never>>;
   readonly update: {
@@ -88,6 +123,9 @@ type CapabilityStates = {
     readonly latestVersion: string | null;
     readonly isInstalling: boolean;
     readonly progress: number | null;
+    readonly title?: string;
+    readonly releaseSummary?: string;
+    readonly releaseUrl?: string;
   };
   readonly lawn_mower: {
     readonly activity: LawnMowerActivity;
@@ -103,6 +141,26 @@ type CapabilityStates = {
     readonly activity: VacuumActivity;
     readonly rooms: readonly VacuumRoom[];
     readonly isResumable: boolean;
+    readonly fanSpeed?: string;
+    readonly cleanMode?: VacuumCleanMode;
+    readonly waterLevel?: string;
+  };
+  readonly fan: {
+    readonly percentage?: number;
+    readonly preset?: string | null;
+    readonly isOscillating?: boolean;
+    readonly direction?: FanDirection;
+  };
+  readonly location: {
+    readonly zone: string | null;
+    readonly latitude?: number;
+    readonly longitude?: number;
+    readonly accuracyMeters?: number;
+    readonly locationName?: string;
+    readonly distanceKm?: number;
+    readonly ipAddress?: string;
+    readonly macAddress?: string;
+    readonly hostName?: string;
   };
   readonly image: {
     readonly contentType: ImageContentType;
@@ -115,7 +173,9 @@ type CapabilityStates = {
   };
 };
 /** Each capability's state, as a package reports it: what has a default may be left out. */
-type ReportedStates = Omit<CapabilityStates, 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum'> & {
+type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'location'> & {
+  readonly effect: Partial<CapabilityStates['effect']>;
+  readonly location: Partial<CapabilityStates['location']>;
   readonly camera: Omit<CapabilityStates['camera'], 'isRecording'> & {
     readonly isRecording?: boolean;
   };
@@ -133,14 +193,19 @@ type CapabilityState = { readonly [TName in CapabilityName]?: CapabilityStates[T
 type ReportedCapabilityState = { readonly [TName in CapabilityName]?: ReportedStates[TName]; };
 /** Each capability's params: the device's own limits, as an entity declares them. */
 type CapabilityParams = {
-  readonly on_off: Readonly<Record<never, never>>;
-  readonly level: {
-    readonly hasTransition?: boolean;
+  readonly on_off: {
+    readonly isAssumed?: boolean;
   };
-  readonly color_hs: Readonly<Record<never, never>>;
+  readonly level: Readonly<Record<never, never>>;
+  readonly color_hs: {
+    readonly hasWhiteChannel?: boolean;
+  };
   readonly color_temp: {
     readonly minMireds: number;
     readonly maxMireds: number;
+  };
+  readonly effect: {
+    readonly effects: readonly string[];
   };
   readonly cover: {
     readonly hasPosition?: boolean;
@@ -148,25 +213,44 @@ type CapabilityParams = {
   };
   readonly lock: {
     readonly hasCode?: boolean;
+    readonly codeLength?: number;
+    readonly canOpen?: boolean;
   };
   readonly thermostat: {
     readonly supportedModes: readonly ThermostatMode[];
     readonly minTemperature: number;
     readonly maxTemperature: number;
     readonly temperatureStep?: number;
+    readonly hasTargetRange?: boolean;
+    readonly hasTargetHumidity?: boolean;
+    readonly minHumidity?: number;
+    readonly maxHumidity?: number;
+    readonly presets?: readonly string[];
+    readonly fanModes?: readonly string[];
+    readonly swingModes?: readonly string[];
+    readonly swingHorizontalModes?: readonly string[];
   };
   readonly sensor_numeric: Readonly<Record<never, never>>;
   readonly sensor_binary: Readonly<Record<never, never>>;
-  readonly sensor_text: Readonly<Record<never, never>>;
+  readonly sensor_text: {
+    readonly options?: readonly string[];
+  };
   readonly media_player: {
     readonly supportedSources?: readonly string[];
+    readonly soundModes?: readonly string[];
     readonly hasSeek?: boolean;
     readonly hasVolume?: boolean;
+    readonly hasVolumeStep?: boolean;
+    readonly canStop?: boolean;
+    readonly canSkip?: boolean;
+    readonly hasShuffle?: boolean;
+    readonly hasRepeat?: boolean;
   };
   readonly camera: {
     readonly hasSnapshot?: boolean;
     readonly hasStream?: boolean;
     readonly hasRecording?: boolean;
+    readonly hasMotionDetection?: boolean;
   };
   readonly button: Readonly<Record<never, never>>;
   readonly update: {
@@ -186,6 +270,7 @@ type CapabilityParams = {
     readonly min: number;
     readonly max: number;
     readonly step?: number;
+    readonly mode?: NumberMode;
   };
   readonly vacuum: {
     readonly canPause?: boolean;
@@ -194,6 +279,19 @@ type CapabilityParams = {
     readonly canLocate?: boolean;
     readonly canCleanRooms?: boolean;
     readonly canResume?: boolean;
+    readonly canCleanSpot?: boolean;
+    readonly fanSpeeds?: readonly string[];
+    readonly cleanModes?: readonly VacuumCleanMode[];
+    readonly waterLevels?: readonly string[];
+  };
+  readonly fan: {
+    readonly speedCount?: number;
+    readonly presets?: readonly string[];
+    readonly canOscillate?: boolean;
+    readonly canReverse?: boolean;
+  };
+  readonly location: {
+    readonly source?: LocationSource;
   };
   readonly image: Readonly<Record<never, never>>;
   readonly custom: {
@@ -215,18 +313,22 @@ type CapabilityCommands = {
   readonly level: {
     readonly command: 'set_level';
     readonly level: number;
-    readonly transitionMs?: number;
   };
   readonly color_hs: {
     readonly command: 'set_color';
     readonly hue: number;
     readonly saturation: number;
-    readonly transitionMs?: number;
+  } | {
+    readonly command: 'set_white';
+    readonly white: number;
   };
   readonly color_temp: {
     readonly command: 'set_color_temp';
     readonly mireds: number;
-    readonly transitionMs?: number;
+  };
+  readonly effect: {
+    readonly command: 'set_effect';
+    readonly effect: string | null;
   };
   readonly cover: {
     readonly command: 'open';
@@ -247,13 +349,35 @@ type CapabilityCommands = {
   } | {
     readonly command: 'unlock';
     readonly code?: string;
+  } | {
+    readonly command: 'open';
+    readonly code?: string;
   };
   readonly thermostat: {
     readonly command: 'set_target';
     readonly temperature: number;
   } | {
+    readonly command: 'set_target_range';
+    readonly low: number;
+    readonly high: number;
+  } | {
+    readonly command: 'set_humidity';
+    readonly humidity: number;
+  } | {
     readonly command: 'set_mode';
     readonly mode: ThermostatMode;
+  } | {
+    readonly command: 'set_preset';
+    readonly preset: string | null;
+  } | {
+    readonly command: 'set_fan_mode';
+    readonly fanMode: string;
+  } | {
+    readonly command: 'set_swing';
+    readonly swingMode: string;
+  } | {
+    readonly command: 'set_swing_horizontal';
+    readonly swingMode: string;
   };
   readonly media_player: {
     readonly command: 'play';
@@ -272,17 +396,33 @@ type CapabilityCommands = {
     readonly command: 'set_volume';
     readonly volume: number;
   } | {
+    readonly command: 'volume_up';
+  } | {
+    readonly command: 'volume_down';
+  } | {
     readonly command: 'set_mute';
     readonly isMuted: boolean;
   } | {
     readonly command: 'set_source';
     readonly source: string;
+  } | {
+    readonly command: 'set_sound_mode';
+    readonly soundMode: string;
+  } | {
+    readonly command: 'set_shuffle';
+    readonly isShuffled: boolean;
+  } | {
+    readonly command: 'set_repeat';
+    readonly repeat: RepeatMode;
   };
   readonly camera: {
     readonly command: 'snapshot';
   } | {
     readonly command: 'record';
     readonly durationSeconds: number;
+  } | {
+    readonly command: 'set_motion_detection';
+    readonly isOn: boolean;
   };
   readonly button: {
     readonly command: 'press';
@@ -324,6 +464,30 @@ type CapabilityCommands = {
   } | {
     readonly command: 'clean_rooms';
     readonly rooms: readonly string[];
+  } | {
+    readonly command: 'clean_spot';
+  } | {
+    readonly command: 'set_fan_speed';
+    readonly fanSpeed: string;
+  } | {
+    readonly command: 'set_clean_mode';
+    readonly cleanMode: VacuumCleanMode;
+  } | {
+    readonly command: 'set_water_level';
+    readonly waterLevel: string;
+  };
+  readonly fan: {
+    readonly command: 'set_percentage';
+    readonly percentage: number;
+  } | {
+    readonly command: 'set_preset';
+    readonly preset: string;
+  } | {
+    readonly command: 'set_oscillating';
+    readonly isOscillating: boolean;
+  } | {
+    readonly command: 'set_direction';
+    readonly direction: FanDirection;
   };
   readonly custom: {
     readonly command: string;

@@ -1,7 +1,7 @@
 import { r as EntityId } from "./chunks/entities.js";
-import { G as CapabilityCommand, i as SettingsDefinition, it as ReportedCapabilityState, r as JsonValue, t as JsonObject } from "./chunks/json.js";
+import { G as CapabilityCommand, i as SettingsDefinition, it as ReportedCapabilityState, q as CapabilityName, r as JsonValue, t as JsonObject } from "./chunks/json.js";
 import { i as TelemetryPoint, r as StateHistoryPoint } from "./chunks/history.js";
-import { O as StateChange, S as ServerContext, _ as ReportOptions, b as RpcCaller, l as EntitySnapshot, o as DeviceInput, t as Awaitable } from "./chunks/context.js";
+import { E as ServerContext, M as StateChange, f as House, l as EntitySnapshot, o as DeviceInput, t as Awaitable, w as RpcCaller, x as ReportOptions } from "./chunks/context.js";
 //#region src/testing/index.d.ts
 /** What a test context starts with. */
 export type TestContextOptions<TSettings extends SettingsDefinition | undefined> = {
@@ -17,6 +17,13 @@ export type TestContextOptions<TSettings extends SettingsDefinition | undefined>
   readonly entities?: readonly EntitySnapshot[];
   /** The past `ctx.history` reads, by entity: points in any order. */
   readonly history?: Readonly<Record<string, RecordedHistory>>;
+  /** The house `ctx.house.read` answers: an empty one when not said. Since 1.8. */
+  readonly house?: House;
+  /**
+   * What a command the package sends another entity does (`ctx.entities.command`); a throw is
+   * its failure. Every command is recorded either way. Since 1.8.
+   */
+  readonly onEntityCommand?: (command: RecordedEntityCommand) => Awaitable<void>;
   readonly dataDir?: string;
   readonly cacheDir?: string;
 };
@@ -30,6 +37,12 @@ export type RecordedReport = {
   readonly entityId: EntityId;
   readonly state: ReportedCapabilityState;
   readonly options?: ReportOptions;
+};
+/** One command the package sent another entity of the house. Since 1.8. */
+export type RecordedEntityCommand = {
+  readonly entityId: EntityId;
+  readonly capability: CapabilityName;
+  readonly command: JsonObject;
 };
 /** One live message the package sent its interfaces. */
 export type RecordedLiveMessage = {
@@ -62,6 +75,8 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
   };
   /** Every line logged. */
   readonly logs: readonly RecordedLog[];
+  /** The commands it sent other entities, in order. Since 1.8. */
+  readonly entityCommands: readonly RecordedEntityCommand[];
   /** Every live message published and sent, in order. */
   readonly published: readonly RecordedLiveMessage[];
   /**
@@ -115,6 +130,12 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
    * @param snapshot - The entity.
    */
   readonly setEntity: (snapshot: EntitySnapshot) => void;
+  /**
+   * Replaces the house `ctx.house.read` answers. Since 1.8.
+   *
+   * @param house - The house.
+   */
+  readonly setHouse: (house: House) => void;
   /**
    * Changes an entity of the house, as `ctx.entities.subscribe` hears it.
    *

@@ -15,6 +15,13 @@ to it, a major one breaks it, and a patch leaves it as it is.
   sound modes, shuffle, repeat, album and artwork; a camera's motion detection; firmware notes and
   title; a robot's spot clean, suction, clean mode, water level and room outlines; a text sensor's
   list of values; a number's slider or box. Every new param defaults to what a device meant before.
+- **Lights no longer fade:** the lighting commands lose their transition, and `on_off`, `level`
+  and `color_hs` lose the param that said a lamp could fade. A command that still carries one has
+  it dropped by `core` before it reaches the package.
+- **Entity cards:** an entity has no page any more - it opens as its card, the dialog the platform
+  draws for every entity, over the page that is open. `useEntityCard()` opens one by id, with
+  `view: 'settings' | 'history'` to raise that sheet; `PlatformLink` and `usePlatformNavigate` to
+  `{ kind: 'entity' }` open the same card and take the same `view`.
 
 ## 1.8.0
 

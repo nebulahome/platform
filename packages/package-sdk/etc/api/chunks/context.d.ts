@@ -1,5 +1,5 @@
 import { n as EntityDomain, r as EntityId } from "./entities.js";
-import { $ as DeclaredCapabilities, G as CapabilityCommand, Y as CapabilityState, a as SettingsOf, d as EntityTypeDefinition, et as EntityStateClass, f as ValuesOf, i as SettingsDefinition, it as ReportedCapabilityState, r as JsonValue, s as ArgsOf, t as JsonObject, u as CommandsOf } from "./json.js";
+import { $ as DeclaredCapabilities, G as CapabilityCommand, Y as CapabilityState, a as SettingsOf, d as EntityTypeDefinition, et as EntityStateClass, f as ValuesOf, i as SettingsDefinition, it as ReportedCapabilityState, q as CapabilityName, r as JsonValue, s as ArgsOf, t as JsonObject, u as CommandsOf } from "./json.js";
 import { a as TelemetryResolution, i as TelemetryPoint, n as HistorySeries, r as StateHistoryPoint } from "./history.js";
 //#region src/schema.d.ts
 /**
@@ -164,6 +164,58 @@ type StateChange = {
 type EntityFilter = {
   readonly domain?: EntityDomain;
   readonly entityIds?: readonly EntityId[];
+};
+/** One floor, room or the house itself, as the owner arranged them. Since 1.8. */
+type HouseArea = {
+  readonly id: string;
+  readonly name: string;
+  /** `house`, `floor` or `room`. */
+  readonly kind: string;
+  /** The house a floor is in, or the floor a room is on. */
+  readonly parentId: string | null;
+  /** Which storey a floor is: 0 the ground, 1 the one above. Null for the rest. */
+  readonly level: number | null;
+  readonly icon: string | null;
+  readonly sortOrder: number;
+};
+/** One device of the house. Since 1.8. */
+type HouseDevice = {
+  readonly id: string;
+  readonly name: string;
+  readonly icon: string | null;
+  readonly manufacturer: string | null;
+  readonly model: string | null;
+  readonly swVersion: string | null;
+  /** The owner's own id for it: the serial, the id the relay answers with. */
+  readonly externalId: string | null;
+  readonly areaId: string | null;
+  /** The package or the integration (its vendor's id) that brought it. */
+  readonly owner: string | null;
+};
+/** One entity of the house, as the owner sees it. Since 1.8. */
+type HouseEntity = {
+  readonly entityId: EntityId;
+  readonly name: string;
+  readonly icon: string | null;
+  /** What the owner shows it as, when not its address's domain: a relay as a light. */
+  readonly shownDomain: string | null;
+  readonly deviceId: string | null;
+  /** Its own room, else its device's. */
+  readonly areaId: string | null;
+  readonly deviceClass: string | null;
+  readonly unitOfMeasurement: string | null;
+  readonly isHidden: boolean;
+  /** The package or the integration (its vendor's id) that brought it; `derived` or `system` else. */
+  readonly owner: string;
+  /** Each declared capability and the device's own limits for it: a lamp's mired range. */
+  readonly capabilities: Readonly<Record<string, JsonObject>>;
+};
+/** The house, whole: what `ctx.house.read` answers. Since 1.8. */
+type House = {
+  readonly areas: readonly HouseArea[];
+  readonly devices: readonly HouseDevice[];
+  /** The enabled entities; linked ones are read through the entity they are linked to. */
+  readonly entities: readonly HouseEntity[];
 };
 /** Which entities' past `ctx.history` reads, over which window. Since 1.2. */
 type HistoryRead = {
@@ -396,6 +448,29 @@ type ServerContext<TSettings = undefined> = {
      * @returns What stops it hearing.
      */
     readonly subscribe: (filter: EntityFilter, handler: (change: StateChange) => Awaitable<void>) => Unsubscribe;
+    /**
+     * Sends a command to any entity of the house, checked as one a person sends: for a package
+     * that acts for the house, such as a bridge to a voice assistant. Since 1.8.
+     *
+     * @param entityId - The entity.
+     * @param capability - Which of its capabilities: `on_off`, `level`, `cover`.
+     * @param command - The command and its arguments: `{ command: 'set_level', level: 40 }`.
+     * @returns Once the entity's owner has accepted it.
+     * @throws {Error} When the entity is unknown, cannot be asked this, or did not answer.
+     */
+    readonly command: (entityId: EntityId, capability: CapabilityName, command: JsonObject) => Promise<void>;
+  };
+  /**
+   * The house as the owner arranged it: floors and rooms, devices, entities with their names and
+   * capabilities. Read whole, when needed: it does not follow edits by itself. Since 1.8.
+   */
+  readonly house: {
+    /**
+     * Reads the house.
+     *
+     * @returns Its areas, devices and entities.
+     */
+    readonly read: () => Promise<House>;
   };
   /**
    * The past of the house's entities, read only, with the house's authority as `entities` has.
@@ -448,4 +523,4 @@ type ServerContext<TSettings = undefined> = {
   };
 };
 //#endregion
-export { TelemetryRead as A, ServerSettings as C, SettingsChange as D, ServiceProvide as E, StandardResult as F, StandardSchemaV1 as I, SafeParser as M, Schema as N, StateChange as O, SchemaIssue as P, ServerContext as S, ServiceCallFunction as T, ReportOptions as _, CustomEntityInput as a, RpcCaller as b, EntityInput as c, HistoryRead as d, LiveCall as f, Logger as g, LogMethod as h, CustomEntities as i, Unsubscribe as j, SyncResult as k, EntitySnapshot as l, LivePublishOptions as m, CapabilityEntityInput as n, DeviceInput as o, LiveOnMessage as p, CustomCommand as r, EntityFilter as s, Awaitable as t, HistoryAnswer as u, RpcAccess as v, ServiceCall as w, RpcMethod as x, RpcCall as y };
+export { ServiceProvide as A, StandardSchemaV1 as B, RpcCall as C, ServerSettings as D, ServerContext as E, Unsubscribe as F, SafeParser as I, Schema as L, StateChange as M, SyncResult as N, ServiceCall as O, TelemetryRead as P, SchemaIssue as R, RpcAccess as S, RpcMethod as T, LiveOnMessage as _, CustomEntityInput as a, Logger as b, EntityInput as c, HistoryRead as d, House as f, LiveCall as g, HouseEntity as h, CustomEntities as i, SettingsChange as j, ServiceCallFunction as k, EntitySnapshot as l, HouseDevice as m, CapabilityEntityInput as n, DeviceInput as o, HouseArea as p, CustomCommand as r, EntityFilter as s, Awaitable as t, HistoryAnswer as u, LivePublishOptions as v, RpcCaller as w, ReportOptions as x, LogMethod as y, StandardResult as z };

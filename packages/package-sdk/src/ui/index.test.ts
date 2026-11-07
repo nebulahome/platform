@@ -12,6 +12,7 @@ import {
   PageActions,
   useAreaActions,
   useAreas,
+  useEntityCard,
   useEntityPicture,
   usePackage,
   usePackageLive,
@@ -114,6 +115,14 @@ describe('the forwarders', () => {
 
     expect(() => Floating({ open: true, label: 'Now playing' })).toThrow(
       'Floating needs package SDK 1.6; this interface implements 1.5.0',
+    );
+  });
+
+  it('name 1.9 for what 1.9 added', () => {
+    lend('1.8.0', { [UI_MODULE]: {} });
+
+    expect(() => useEntityCard()).toThrow(
+      'useEntityCard needs package SDK 1.9; this interface implements 1.8.0',
     );
   });
 
