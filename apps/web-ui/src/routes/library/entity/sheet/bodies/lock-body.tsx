@@ -127,7 +127,7 @@ export function LockBody(props: SheetBodyProps) {
             <AppIcon id="lock" size={22} />
           </span>
           <div className="flex flex-col gap-0.75">
-            <span className="text-[22px] font-medium">{word}</span>
+            <span className="text-[22px] font-medium select-text">{word}</span>
             <span className="text-ui-sm text-foreground-subtle">
               {t('entity.sheet.lock.enterCode', 'Enter the {{count}}-digit code to unlock', {
                 count: digits,
@@ -258,7 +258,10 @@ export function LockBody(props: SheetBodyProps) {
           </span>
         </span>
         <div className="flex flex-col items-center gap-1.5 text-center">
-          <span key={word} className="entity-tick text-[26px] font-medium tracking-[-0.02em]">
+          <span
+            key={word}
+            className="entity-tick text-[26px] font-medium tracking-[-0.02em] select-text"
+          >
             {word}
           </span>
           <span className="text-ui-sm text-foreground-subtle">{line}</span>

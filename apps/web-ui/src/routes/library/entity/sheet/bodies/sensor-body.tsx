@@ -374,7 +374,7 @@ export function SensorBody(props: SheetBodyProps) {
         <div className="flex items-center gap-3.5">
           <RoundMark icon="alarm-clock" tone="lamp" isStale={isStale} />
           <div className="flex flex-col gap-0.75">
-            <span className="text-[30px] leading-[1.1] font-medium tracking-[-0.02em]">
+            <span className="text-[30px] leading-[1.1] font-medium tracking-[-0.02em] select-text">
               {Number.isNaN(at)
                 ? value
                 : isFuture
@@ -428,7 +428,7 @@ export function SensorBody(props: SheetBodyProps) {
         <div className="flex items-center gap-3.5">
           <RoundMark icon="waves-horizontal" tone="violet" isStale={isStale} />
           <div className="flex flex-col gap-0.75">
-            <span className="text-[30px] leading-[1.1] font-medium tracking-[-0.02em]">
+            <span className="text-[30px] leading-[1.1] font-medium tracking-[-0.02em] select-text">
               {value}
             </span>
             <span className="text-ui-sm text-foreground-subtle">{since}</span>
@@ -449,8 +449,8 @@ export function SensorBody(props: SheetBodyProps) {
             {totals.map((each) => (
               <div key={each.option} className="flex h-7 items-center gap-2">
                 <span className={cn('size-2.5 rounded-[3px]', colourOf(each.option))} />
-                <span className="grow text-ui-sm">{each.option}</span>
-                <span className="font-mono text-mono-caption text-foreground-muted">
+                <span className="grow text-ui-sm select-text">{each.option}</span>
+                <span className="font-mono text-mono-caption text-foreground-muted select-text">
                   {durationText(each.ms)}
                 </span>
               </div>
@@ -466,7 +466,7 @@ export function SensorBody(props: SheetBodyProps) {
       <div className="flex items-center gap-3.5">
         <RoundMark icon="text-align-start" tone="cyan" isStale={isStale} />
         <div className="flex min-w-0 flex-col gap-0.75">
-          <span className="truncate text-[30px] leading-[1.1] font-medium tracking-[-0.02em]">
+          <span className="truncate text-[30px] leading-[1.1] font-medium tracking-[-0.02em] select-text">
             {value ?? '—'}
           </span>
           <span className="text-ui-sm text-foreground-subtle">
@@ -531,13 +531,13 @@ function LastValues(props: { points: readonly StateHistoryPoint[]; now: number; 
               />
               <span
                 className={cn(
-                  'grow truncate text-ui',
+                  'grow truncate text-ui select-text',
                   index === 0 ? 'text-foreground' : 'text-foreground-muted',
                 )}
               >
                 {row.value}
               </span>
-              <span className="font-mono text-[11px] text-foreground-subtle">
+              <span className="font-mono text-[11px] text-foreground-subtle select-text">
                 {props.now - row.at < 86_400_000
                   ? clockText(row.at)
                   : shortTime(new Date(row.at), new Date(props.now))}
@@ -686,7 +686,7 @@ export function BinaryBody(props: SheetBodyProps) {
           <span
             key={String(isOn)}
             className={cn(
-              'entity-tick text-[28px] font-medium tracking-[-0.02em]',
+              'entity-tick text-[28px] font-medium tracking-[-0.02em] select-text',
               isStale && 'text-foreground-subtle',
             )}
           >

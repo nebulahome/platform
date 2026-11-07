@@ -113,7 +113,7 @@ export function SelectBody(props: SheetBodyProps) {
       <div className="flex grow flex-col justify-center gap-4.5">
         <div className="flex flex-col gap-1.5 pt-1.5">
           <span className="flex items-center gap-2 text-[26px] font-medium tracking-[-0.02em]">
-            {chosenLabel ?? '—'}
+            <span className="select-text">{chosenLabel ?? '—'}</span>
             {isSending ? <SendingSpinner tone="violet" size={18} /> : null}
           </span>
           <span className="text-ui-sm text-foreground-subtle">{since}</span>
@@ -297,7 +297,7 @@ export function NumberBody(props: SheetBodyProps) {
             </span>
           </label>
         ) : (
-          <span className="flex items-baseline gap-1.5">
+          <span className="flex items-baseline gap-1.5 select-text">
             <span className="text-[56px] leading-none font-medium tracking-[-0.04em] tabular">
               {shown}
             </span>

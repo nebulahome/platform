@@ -170,7 +170,7 @@ function LocationMap(props: MapProps) {
  */
 function Fact(props: { label: string; value: string }) {
   return (
-    <div className="flex h-10 items-center justify-between gap-3 border-t border-border">
+    <div className="flex h-10 items-center justify-between gap-3 border-t border-border select-text">
       <span className="text-ui-sm text-foreground-muted">{props.label}</span>
       <span className="font-mono text-mono-caption text-foreground">{props.value}</span>
     </div>
@@ -227,7 +227,7 @@ export function LocationBody(props: SheetBodyProps) {
       <div className="flex grow flex-col gap-4.5 pt-1">
         <LocationMap isHome={false} offset={offset} accuracy={null} label={null} isEvent />
         <div className="flex flex-col gap-1.5">
-          <span className="flex items-baseline gap-1.5">
+          <span className="flex items-baseline gap-1.5 select-text">
             <span className="text-[48px] leading-none font-medium tracking-[-0.04em] tabular">
               {location.distanceKm === undefined ? '—' : Math.round(location.distanceKm)}
             </span>
@@ -284,7 +284,10 @@ export function LocationBody(props: SheetBodyProps) {
           <BatteryRing level={battery} tone="cyan" icon="map-pin" />
         )}
         <div className="flex min-w-0 flex-col gap-1">
-          <span key={word} className="entity-tick text-[24px] font-medium tracking-[-0.02em]">
+          <span
+            key={word}
+            className="entity-tick text-[24px] font-medium tracking-[-0.02em] select-text"
+          >
             {word}
           </span>
           <span className="text-ui-sm text-foreground-subtle">

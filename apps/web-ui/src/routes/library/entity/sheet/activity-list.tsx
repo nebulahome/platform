@@ -66,20 +66,20 @@ export function ActivityList(props: ActivityListProps) {
               )}
             />
             <span className="flex min-w-0 grow flex-col gap-0.5">
-              <span className="truncate text-ui-sm text-foreground">
+              <span className="truncate text-ui-sm text-foreground select-text">
                 {point.isAvailable
                   ? describeState(point.state, entity)
                   : t('entity.recentChanges.unreachable', 'Unreachable')}
               </span>
               <span className="inline-flex min-w-0 items-center gap-1.25 text-caption text-foreground-subtle">
                 <AppIcon id={cause.icon} size={11} />
-                <span className="truncate">{cause.label}</span>
+                <span className="truncate select-text">{cause.label}</span>
               </span>
             </span>
             <time
               dateTime={point.time.toISOString()}
               title={absoluteTime(point.time)}
-              className="shrink-0 font-mono text-[11px] text-foreground-subtle tabular"
+              className="shrink-0 font-mono text-[11px] text-foreground-subtle tabular select-text"
             >
               {momentText(point.time.getTime(), window)}
             </time>

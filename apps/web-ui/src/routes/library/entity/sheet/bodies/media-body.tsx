@@ -483,11 +483,11 @@ export function MediaBody(props: SheetBodyProps) {
                 : t('entity.sheet.media.paused', 'Paused')}
               {isSending ? <SendingSpinner tone="media" size={14} /> : null}
             </span>
-            <span className="truncate text-[19px] font-medium">
+            <span className="truncate text-[19px] font-medium select-text">
               {player.mediaTitle ?? entity.name}
             </span>
             {player.mediaArtist === undefined ? null : (
-              <span className="truncate text-ui-sm text-foreground-muted">
+              <span className="truncate text-ui-sm text-foreground-muted select-text">
                 {player.mediaArtist}
               </span>
             )}
@@ -616,9 +616,9 @@ export function MediaBody(props: SheetBodyProps) {
                 <PlayingBars />
               </span>
             ) : null}
-            {player.mediaTitle}
+            <span className="select-text">{player.mediaTitle}</span>
           </span>
-          <span className="text-ui-sm text-foreground-muted">
+          <span className="text-ui-sm text-foreground-muted select-text">
             {isLive
               ? t('entity.sheet.media.liveRadio', 'Live radio')
               : [player.mediaArtist, player.mediaAlbum].filter(Boolean).join(' · ')}

@@ -204,7 +204,9 @@ export function SettingsSheet(props: SettingsSheetProps) {
             <span className="text-ui-sm text-foreground-subtle">
               {t('entity.sheet.settings.entityId', 'Entity id')}
             </span>
-            <span className="font-mono text-mono-caption text-foreground">{entity.entityId}</span>
+            <span className="font-mono text-mono-caption text-foreground select-text">
+              {entity.entityId}
+            </span>
           </div>
           {deviceName === null ? null : (
             <button

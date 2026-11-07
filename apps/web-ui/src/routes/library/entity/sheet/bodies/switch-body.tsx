@@ -64,7 +64,7 @@ export function OnOffBody(props: OnOffBodyProps) {
             )}
           </span>
           <div className="flex flex-col gap-1">
-            <span key={word} className="entity-tick text-[22px] font-medium">
+            <span key={word} className="entity-tick text-[22px] font-medium select-text">
               {t('entity.sheet.switch.lastSent', 'Last sent: {{state}}', { state: word })}
             </span>
             <span className="text-ui-sm text-foreground-subtle">{since}</span>
@@ -122,7 +122,10 @@ export function OnOffBody(props: OnOffBodyProps) {
         />
       )}
       <div className="flex flex-col items-center gap-1.5 text-center">
-        <span key={word} className="entity-tick text-[28px] font-medium tracking-[-0.02em]">
+        <span
+          key={word}
+          className="entity-tick text-[28px] font-medium tracking-[-0.02em] select-text"
+        >
           {word}
         </span>
         <span className="text-ui-sm leading-[1.45] text-foreground-subtle">{since}</span>

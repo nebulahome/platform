@@ -525,7 +525,7 @@ export function ClimateBody(props: SheetBodyProps) {
             {isOff ? text(MODES.off.word) : actionWord}
           </span>
           {isRange ? (
-            <span className="flex items-baseline gap-2">
+            <span className="flex items-baseline gap-2 select-text">
               <span className="text-[44px] font-medium tracking-[-0.04em] text-heat tabular">
                 {climate.targetTemperatureLow}
               </span>
@@ -536,7 +536,7 @@ export function ClimateBody(props: SheetBodyProps) {
               <span className="text-title text-foreground-subtle">{unit}</span>
             </span>
           ) : (
-            <span className={cn('flex items-start', isOff && 'text-foreground-subtle')}>
+            <span className={cn('flex items-start select-text', isOff && 'text-foreground-subtle')}>
               <span className="text-[64px] leading-none font-medium tracking-[-0.05em] tabular">
                 {whole}
               </span>
@@ -614,7 +614,7 @@ export function ClimateBody(props: SheetBodyProps) {
               nudge(-1);
             }}
           />
-          <div className="flex flex-col items-center gap-0.75 text-center">
+          <div className="flex flex-col items-center gap-0.75 text-center select-text">
             <span className="text-title">{nowLine}</span>
             <span className="text-caption text-foreground-subtle">
               {now === null ? since : humidityLine}

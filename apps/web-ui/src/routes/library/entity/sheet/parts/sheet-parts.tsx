@@ -170,7 +170,7 @@ export function ValueHead(props: ValueHeadProps) {
       {/* The switch stands level with the value, centred on it, not with the line under it. */}
       <div className="flex items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-3">
-          <span className="flex items-baseline gap-1.5">
+          <span className="flex items-baseline gap-1.5 select-text">
             <span
               // A new reading or word rises into place: keyed by what it reads, so each change plays
               // it. A level is left alone - it changes on every step of a drag.
@@ -201,7 +201,7 @@ export function ValueHead(props: ValueHeadProps) {
         {trail}
       </div>
       {line === undefined ? null : (
-        <span className="text-ui-sm leading-[1.45] text-foreground-subtle">{line}</span>
+        <span className="text-ui-sm leading-[1.45] text-foreground-subtle select-text">{line}</span>
       )}
     </div>
   );
@@ -339,7 +339,10 @@ export function StatTiles(props: StatTilesProps) {
           )}
         >
           <span className="truncate text-caption text-foreground-subtle">{stat.label}</span>
-          <span key={stat.value} className="entity-tick truncate text-title font-medium tabular">
+          <span
+            key={stat.value}
+            className="entity-tick truncate text-title font-medium tabular select-text"
+          >
             {stat.value}
           </span>
         </div>

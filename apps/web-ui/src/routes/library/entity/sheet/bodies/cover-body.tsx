@@ -373,7 +373,7 @@ export function CoverBody(props: SheetBodyProps) {
           {picture}
           <div className="flex min-w-0 grow flex-col justify-between gap-3">
             <div className="flex flex-col gap-1">
-              <span className="text-[28px] font-medium tracking-[-0.02em]">{word}</span>
+              <span className="text-[28px] font-medium tracking-[-0.02em] select-text">{word}</span>
               <span className="text-ui-sm leading-[1.45] text-foreground-subtle">{since}</span>
             </div>
             <div className="flex flex-col gap-2">
@@ -447,7 +447,7 @@ export function CoverBody(props: SheetBodyProps) {
         ) : null}
         <div className="flex min-w-0 grow flex-col justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <span className="text-[40px] leading-none font-medium tracking-[-0.04em] tabular">
+            <span className="text-[40px] leading-none font-medium tracking-[-0.04em] tabular select-text">
               {isTiltOnly
                 ? t('entity.sheet.cover.degrees', '{{value}}°', { value: degrees })
                 : hasPosition

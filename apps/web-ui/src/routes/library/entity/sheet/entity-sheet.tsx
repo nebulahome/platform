@@ -161,7 +161,7 @@ export function EntitySheet(props: EntitySheetProps) {
       aria-label={entity.name}
       className={cn(
         'entity-arrive relative flex w-[400px] max-w-full flex-col overflow-hidden rounded-[24px] border',
-        'border-border-strong bg-surface shadow-dialog',
+        'border-border-strong bg-surface shadow-dialog select-none',
         'transition-[min-height] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
         isRaised ? 'min-h-[640px]' : 'min-h-0',
       )}
@@ -232,7 +232,7 @@ export function EntitySheet(props: EntitySheetProps) {
               />
             )}
           </span>
-          <div className="flex min-w-0 grow flex-col gap-0.75">
+          <div className="flex min-w-0 grow flex-col gap-0.75 select-text">
             <span className="truncate text-[17px] font-medium tracking-[-0.01em]">
               {entity.name}
             </span>

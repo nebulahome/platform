@@ -466,7 +466,7 @@ export function LevelSteps(props: LevelStepsProps) {
           }}
           className="min-w-0 grow accent-current"
         />
-        <span className={cn('font-mono text-mono-caption tabular', TONE_TEXT[tone])}>
+        <span className={cn('font-mono text-mono-caption tabular select-text', TONE_TEXT[tone])}>
           {levels[index]?.label ?? '—'}
           {unit}
         </span>

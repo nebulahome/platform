@@ -43,7 +43,7 @@ export function UpdateBody(props: SheetBodyProps) {
   const filled = isUpToDate ? 1 : isInstalling ? (progress ?? 25) / 100 : isOffered ? 1 : 0;
   const glow = isUpToDate ? 'success' : canInstall || isInstalling ? 'violet' : 'muted';
   const versions = (
-    <div className="flex items-center justify-center gap-4">
+    <div className="flex items-center justify-center gap-4 select-text">
       <span className="font-mono text-[20px] text-foreground-subtle">
         {update.installedVersion ?? '—'}
       </span>
@@ -74,7 +74,7 @@ export function UpdateBody(props: SheetBodyProps) {
       </div>
     ) : (
       <>
-        <div className="rounded-card border border-border bg-well px-4 py-3.5 text-ui-sm leading-[1.7] text-foreground-muted">
+        <div className="rounded-card border border-border bg-well px-4 py-3.5 text-ui-sm leading-[1.7] text-foreground-muted select-text">
           <b className="font-medium text-foreground">
             {update.latestVersion ?? update.installedVersion}
           </b>
@@ -210,7 +210,7 @@ export function UpdateBody(props: SheetBodyProps) {
               </div>
             ) : (
               <div className="flex flex-col items-center gap-0.5">
-                <span className="flex items-baseline gap-0.75">
+                <span className="flex items-baseline gap-0.75 select-text">
                   <span className="text-[48px] leading-none font-medium tracking-[-0.04em] tabular">
                     {Math.round(progress)}
                   </span>

@@ -144,7 +144,10 @@ function RobotStatus(props: RobotFrameProps) {
           <BatteryRing level={body.battery} tone={tone} icon={icon} />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
-          <span key={activity} className="entity-tick text-[22px] font-medium tracking-[-0.02em]">
+          <span
+            key={activity}
+            className="entity-tick text-[22px] font-medium tracking-[-0.02em] select-text"
+          >
             {text(
               ACTIVITIES[activity] ??
                 ACTIVITIES['idle'] ??
