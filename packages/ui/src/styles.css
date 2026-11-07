@@ -1472,6 +1472,38 @@
   transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/*
+ * The invisible range input under a drawn slider: its thumb a hair wide, so the value under the
+ * pointer is the value at that point - a wide native thumb shifts it by half its width.
+ */
+.entity-range {
+  appearance: none;
+  background: transparent;
+}
+
+.entity-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 1px;
+  height: 100%;
+}
+
+.entity-range::-moz-range-thumb {
+  width: 1px;
+  height: 100%;
+  border: 0;
+}
+
+/* A vertical one's thumb is a hair tall instead. */
+.entity-range[aria-orientation='vertical']::-webkit-slider-thumb {
+  width: 100%;
+  height: 1px;
+}
+
+.entity-range[aria-orientation='vertical']::-moz-range-thumb {
+  width: 100%;
+  height: 1px;
+}
+
 /* ...but following the finger exactly while its slider is held. */
 .entity-slider:has(input:active) .entity-track {
   transition-duration: 0ms;
