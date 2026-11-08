@@ -393,6 +393,13 @@
   --animate-fade-in: fade-in 120ms ease-out;
 
   /**
+   * A dialog arriving: in from a shade smaller as its backdrop darkens. No fill, so no transform
+   * stays on the dialog once it has played (`modal.tsx` says why that matters).
+   */
+  --animate-dialog-in: dialog-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-backdrop-in: backdrop-in 220ms ease-out;
+
+  /**
    * Power moving along a wire of the energy card: its dashes travel one period of their pattern
    * per turn. How long a turn takes is the card's to say, by the power on the wire, and which way
    * the dashes go by `animation-direction`.
@@ -542,6 +549,19 @@
 }
 
 @keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+@keyframes backdrop-in {
   from {
     opacity: 0;
   }

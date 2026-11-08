@@ -1593,3 +1593,86 @@
     transition-duration: 0ms;
   }
 }
+
+/*
+ * A chart whose history is still being read: a light passing over its place, again and again,
+ * until the readings arrive.
+ */
+.entity-loading {
+  background: linear-gradient(
+      100deg,
+      transparent 25%,
+      color-mix(in oklab, var(--color-foreground) 7%, transparent) 50%,
+      transparent 75%
+    )
+    var(--color-surface-raised);
+  background-size: 200% 100%;
+  animation: entity-loading 1.4s ease-in-out infinite;
+}
+
+@keyframes entity-loading {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+[data-motion='reduced'] .entity-loading {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .entity-loading {
+    animation: none;
+  }
+}
+
+/*
+ * A dialog that has just closed, fading out with its backdrop: a copy of it as it last looked
+ * (`modal.tsx`), out of the pointer's way, everything in it held still - its own arrivals would
+ * otherwise play again as it leaves.
+ */
+.modal-ghost {
+  pointer-events: none;
+  animation: dialog-out 170ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.modal-ghost::backdrop {
+  pointer-events: none;
+  animation: backdrop-out 170ms ease-in both;
+}
+
+.modal-ghost *,
+.modal-ghost *::before,
+.modal-ghost *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+@keyframes backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* With less motion a dialog comes and goes at once; the copy is then removed straight away. */
+[data-motion='reduced'] :is(dialog, .modal-ghost),
+[data-motion='reduced'] :is(dialog, .modal-ghost)::backdrop {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) :is(dialog, .modal-ghost),
+  :root:not([data-motion='full']) :is(dialog, .modal-ghost)::backdrop {
+    animation: none;
+  }
+}

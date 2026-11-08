@@ -43,6 +43,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   type MouseEvent,
   type ReactNode,
@@ -56,22 +57,122 @@ import { AppIcon } from './app-icon.js';
 import { IconButton } from './icon-button.js';
 
 /*
- * The dialog fades; it does not move.
+ * The dialog arrives and leaves; it does not stay moved.
  *
- * It used to rise four pixels, and those four pixels were a `transform` - which makes the element
- * a containing block for every `position: fixed` descendant. The dropdown inside it is fixed
- * exactly so that it can escape the dialog's scrolling box, and a transform on the dialog quietly
- * put it back: opening the role list gave the whole dialog a scrollbar again, and the list came
- * out ten pixels too wide because the button it had measured had just been narrowed by that
- * scrollbar.
+ * Opening, the backdrop darkens and the card fades in from a shade smaller (`animate-dialog-in`).
+ * The scale is an animation with no fill, so it is gone once played: a `transform` left on the
+ * dialog makes it the containing block of every `position: fixed` descendant, and the dropdown
+ * inside is fixed exactly to escape the dialog's scrolling box - a dialog that kept rising four
+ * pixels put the role list back inside it, with a scrollbar, ten pixels too wide.
  *
- * So the motion is opacity, which creates a stacking context and nothing else. What rises is the
- * dropdown, which has no fixed descendants of its own.
+ * Closing, the dialog is gone at once - closed, or unmounted with whatever held it - so what fades
+ * out with its backdrop is a copy of it as it last looked (`fadeOut`).
  */
 /** What a card of a dialog is drawn as: the dialog's own, and the one beside it. */
 const CARD = 'rounded-dialog border border-border-strong bg-surface text-foreground shadow-dialog';
 
-const dialogBox = cva('m-auto p-0 backdrop:bg-scrim open:animate-fade-in', {
+/** What every dialog is: centred over a backdrop, both arriving. */
+const DIALOG = 'm-auto p-0 backdrop:bg-scrim backdrop:animate-backdrop-in';
+
+/**
+ * The frame of a dialog that draws no card of its own - a pair, or a bare dialog: the whole
+ * window, see-through, what it holds centred and scrolling when taller than the window. A frame
+ * the size of its cards clipped them - their shadows reach well past their edges and were cut off
+ * square under the card - and gave itself a scrollbar while a card arrived from a little lower.
+ */
+const FRAME =
+  'size-full max-h-none max-w-none overflow-y-auto border-0 bg-transparent p-4 text-foreground shadow-none open:flex';
+
+/** How wide a pair is, by the size of the dialog's own card. */
+const PAIR_WIDTH = {
+  small: 'w-[min(94vw,45rem)]',
+  medium: 'w-[min(94vw,48rem)]',
+  brief: 'w-[min(94vw,59rem)]',
+  form: 'w-[min(94vw,59rem)]',
+  large: 'w-[min(94vw,59rem)]',
+  wide: 'w-[min(94vw,59rem)]',
+  picker: 'w-[min(94vw,59rem)]',
+  xlarge: 'w-[min(94vw,59rem)]',
+} as const;
+
+/** A copy of a dialog as it last looked, and how far its scrolled boxes were scrolled. */
+type Snapshot = {
+  readonly ghost: HTMLDialogElement;
+
+  /** Each scrolled box, by its place among the dialog's elements, and how far down it was. */
+  readonly scrolls: readonly (readonly [number, number])[];
+};
+
+/**
+ * Copies a dialog while it is still in the page, to fade out once it is gone.
+ *
+ * @param dialog - The dialog.
+ * @returns The copy, or null where nothing animates - a test's DOM.
+ */
+function snapshotOf(dialog: HTMLDialogElement): Snapshot | null {
+  if (typeof dialog.getAnimations !== 'function') {
+    return null;
+  }
+
+  const ghost = dialog.cloneNode(true) as HTMLDialogElement;
+  const scrolls = [dialog, ...dialog.querySelectorAll('*')].flatMap((element, index) =>
+    element.scrollTop > 0 ? [[index, element.scrollTop] as const] : [],
+  );
+
+  return { ghost, scrolls };
+}
+
+/**
+ * Fades a dialog's copy out over the page, backdrop and all.
+ *
+ * Shown as a popover rather than as a modal: in the top layer with a backdrop of its own, but
+ * nothing behind it turns inert and focus stays where it is - so a dialog opened as this one
+ * closes, a wizard's next step, has the keyboard at once. Removed once its animation ends, or at
+ * once where there is none: for somebody who asked for less motion.
+ *
+ * @param snapshot - See {@link Snapshot}.
+ */
+function fadeOut(snapshot: Snapshot): void {
+  const { ghost, scrolls } = snapshot;
+
+  ghost.popover = 'manual';
+  ghost.inert = true;
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.classList.add('modal-ghost');
+  globalThis.document.body.append(ghost);
+
+  try {
+    ghost.showPopover();
+  } catch {
+    ghost.remove();
+
+    return;
+  }
+
+  const boxes = [ghost, ...ghost.querySelectorAll('*')];
+
+  for (const [index, top] of scrolls) {
+    const box = boxes[index];
+
+    if (box !== undefined) {
+      box.scrollTop = top;
+    }
+  }
+
+  const animations = ghost.getAnimations();
+
+  if (animations.length === 0) {
+    ghost.remove();
+
+    return;
+  }
+
+  void Promise.allSettled(animations.map(async (animation) => animation.finished)).then(() => {
+    ghost.remove();
+  });
+}
+
+const dialogBox = cva(cn(DIALOG, CARD, 'open:animate-dialog-in'), {
   variants: {
     size: {
       /** A confirmation, or one field. */
@@ -98,27 +199,8 @@ const dialogBox = cva('m-auto p-0 backdrop:bg-scrim open:animate-fade-in', {
       /** A dialog with pages of its own: the install dialogs' search and an item's page. */
       xlarge: 'w-[min(94vw,58rem)]',
     },
-
-    /**
-     * Whether a second card stands beside the dialog's own. The dialog element is then only
-     * the frame the two sit in: it draws no card itself, and is as wide as both.
-     */
-    isPaired: {
-      false: CARD,
-      true: 'overflow-y-auto border-0 bg-transparent text-foreground shadow-none',
-    },
   },
-  compoundVariants: [
-    { isPaired: true, size: 'small', className: 'w-[min(94vw,45rem)]' },
-    { isPaired: true, size: 'medium', className: 'w-[min(94vw,48rem)]' },
-    { isPaired: true, size: 'brief', className: 'w-[min(94vw,59rem)]' },
-    { isPaired: true, size: 'form', className: 'w-[min(94vw,59rem)]' },
-    { isPaired: true, size: 'large', className: 'w-[min(94vw,59rem)]' },
-    { isPaired: true, size: 'wide', className: 'w-[min(94vw,59rem)]' },
-    { isPaired: true, size: 'picker', className: 'w-[min(94vw,59rem)]' },
-    { isPaired: true, size: 'xlarge', className: 'w-[min(94vw,59rem)]' },
-  ],
-  defaultVariants: { size: 'medium', isPaired: false },
+  defaultVariants: { size: 'medium' },
 });
 
 /** What a dialog needs. */
@@ -240,9 +322,36 @@ export function Modal(props: ModalProps) {
     }
 
     if (!isOpen && element.open) {
+      const snapshot = snapshotOf(element);
+
       element.close();
+
+      if (snapshot !== null) {
+        fadeOut(snapshot);
+      }
     }
   }, [isOpen]);
+
+  // Unmounted while open - the way most dialogs close, with whatever held them - it fades out too.
+  // Copied while it is still in the page, faded once React has taken it out: strict mode runs this
+  // cleanup once on a dialog it keeps, which then is still there.
+  useLayoutEffect(() => {
+    const element = dialog.current;
+
+    return () => {
+      if (element?.open !== true) {
+        return;
+      }
+
+      const snapshot = snapshotOf(element);
+
+      queueMicrotask(() => {
+        if (snapshot !== null && !element.isConnected) {
+          fadeOut(snapshot);
+        }
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -317,6 +426,18 @@ export function Modal(props: ModalProps) {
   const onNativeClose = (event: SyntheticEvent<HTMLDialogElement>): void => {
     if (event.target === event.currentTarget) {
       onClose();
+    }
+  };
+
+  /**
+   * Keeps the browser from closing the dialog on Escape by itself: the document's Escape handler
+   * above closes it, through `onClose`, so that it fades out like every other way of closing.
+   *
+   * @param event - The browser's request to close.
+   */
+  const onCancel = (event: SyntheticEvent<HTMLDialogElement>): void => {
+    if (event.target === event.currentTarget) {
+      event.preventDefault();
     }
   };
 
@@ -427,18 +548,23 @@ export function Modal(props: ModalProps) {
       aria-label={isBare ? title : undefined}
       aria-describedby={description === undefined || isBare ? undefined : descriptionId}
       onClose={onNativeClose}
+      onCancel={onCancel}
       onMouseDown={onMouseDown}
       onClick={onClick}
       className={cn(
-        dialogBox({ size, isPaired: isPaired || isBare }),
-        isBare && 'w-auto max-w-[94vw]',
+        isPaired || isBare
+          ? cn(DIALOG, FRAME, !isBare && 'open:animate-dialog-in')
+          : dialogBox({ size }),
         className,
       )}
     >
       {isPaired ? (
         <div
           ref={pair}
-          className="grid gap-3 md:grid-cols-[17.5rem_minmax(0,1fr)] md:items-stretch"
+          className={cn(
+            'm-auto grid max-w-full gap-3 md:grid-cols-[17.5rem_minmax(0,1fr)] md:items-stretch',
+            PAIR_WIDTH[size ?? 'medium'],
+          )}
         >
           <section
             aria-label={asideLabel}
@@ -454,6 +580,9 @@ export function Modal(props: ModalProps) {
           </section>
           <div className={cn(CARD, 'min-w-0')}>{body}</div>
         </div>
+      ) : isBare ? (
+        // The card arrives by itself, so the frame only centres it.
+        <div className="m-auto max-w-full">{body}</div>
       ) : (
         body
       )}
