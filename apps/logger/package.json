@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/logger",
-  "version": "2026.10.0-alpha.64",
+  "version": "2026.10.0-alpha.65",
   "private": true,
   "type": "module",
   "scripts": {
