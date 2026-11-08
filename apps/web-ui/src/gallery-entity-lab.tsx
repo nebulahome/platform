@@ -522,12 +522,24 @@ function Variant(props: VariantProps) {
     count(capability, 1);
     globalThis.setTimeout(() => {
       const latest = rowRef.current;
+      // A lamp set to a colour or a white shows that one and no longer the other, and says so.
+      const other =
+        command['command'] === 'set_color'
+          ? 'color_temp'
+          : command['command'] === 'set_color_temp'
+            ? 'color_hs'
+            : null;
+      const hasBoth = other !== null && latest.capabilities.includes(other);
 
       onChange({
         ...latest,
         state: {
           ...latest.state,
-          [capability]: applyCommand(latest.state[capability] ?? {}, command),
+          [capability]: {
+            ...applyCommand(latest.state[capability] ?? {}, command),
+            ...(hasBoth ? { isActive: true } : {}),
+          },
+          ...(hasBoth ? { [other]: { ...latest.state[other], isActive: false } } : {}),
         },
       });
       setReportedAt(Date.now());

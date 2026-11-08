@@ -99,8 +99,8 @@ function whiteAt(at: number): string {
 }
 
 /**
- * Whether a lamp shows a colour rather than a white, when it can do both: what it says, or the
- * colour when it says nothing.
+ * Whether a lamp shows a colour rather than a white: what it says when it can do both - the white
+ * when it says nothing - and the colour when a colour is all it has.
  *
  * @param entity - The lamp.
  * @param state - Its state.
@@ -116,17 +116,69 @@ function showsColourOf(entity: EntityView, state: CapabilityState): boolean {
 }
 
 /**
- * The colour a lamp shines in, while it shows one: the dialog's header tile and its switch take
- * it, as the brightness bar does.
+ * How far along the colour-temperature bar a white is, from warm (0) to cool (1).
+ *
+ * @param kelvin - The white's temperature.
+ * @param range - The lamp's warmest and coolest, in kelvin.
+ * @param range.minKelvin - Its warmest.
+ * @param range.maxKelvin - Its coolest.
+ * @returns The place.
+ */
+function warmthOf(kelvin: number, range: { minKelvin: number; maxKelvin: number }): number {
+  return Math.min(
+    1,
+    Math.max(0, (kelvin - range.minKelvin) / Math.max(1, range.maxKelvin - range.minKelvin)),
+  );
+}
+
+/**
+ * The lamp's warmest and coolest white, in kelvin.
+ *
+ * @param entity - The lamp.
+ * @returns Its range; 2200-6500 K for one that does not say.
+ */
+function kelvinRangeOf(entity: EntityView): { minKelvin: number; maxKelvin: number } {
+  const temp = paramsOf(entity, 'color_temp');
+
+  return temp === null
+    ? { minKelvin: 2200, maxKelvin: 6500 }
+    : { minKelvin: miredsToKelvin(temp.maxMireds), maxKelvin: miredsToKelvin(temp.minMireds) };
+}
+
+/**
+ * The light a lamp gives as it reports it: its colour, or the white of its temperature as the
+ * bar draws it - the brightness bar, the switch and the header tile all take it.
  *
  * @param entity - The lamp.
  * @param state - Its state.
- * @returns The colour, `hsl(…)`, or undefined for a lamp off or showing a white.
+ * @param isColour - Whether it shows its colour; what it says when not given.
+ * @returns The colour, `hsl(…)` or `rgb(…)`; undefined for a lamp that reports neither.
+ */
+function shineOf(
+  entity: EntityView,
+  state: CapabilityState,
+  isColour = showsColourOf(entity, state),
+): string | undefined {
+  if (isColour) {
+    return hsColor(state.color_hs?.hue ?? 0, state.color_hs?.saturation ?? 0);
+  }
+
+  const mireds = state.color_temp?.mireds;
+
+  return mireds === undefined || paramsOf(entity, 'color_temp') === null
+    ? undefined
+    : whiteAt(warmthOf(miredsToKelvin(Math.round(mireds)), kelvinRangeOf(entity)));
+}
+
+/**
+ * The light a lamp gives while it is on, for the dialog's header tile.
+ *
+ * @param entity - The lamp.
+ * @param state - Its state.
+ * @returns The colour, or undefined for a lamp off or one that reports no colour or white.
  */
 export function lampColourOf(entity: EntityView, state: CapabilityState): string | undefined {
-  return state.on_off?.isOn === true && showsColourOf(entity, state)
-    ? hsColor(state.color_hs?.hue ?? 0, state.color_hs?.saturation ?? 0)
-    : undefined;
+  return state.on_off?.isOn === true ? shineOf(entity, state) : undefined;
 }
 
 /**
@@ -176,6 +228,15 @@ export function LightBody(props: SheetBodyProps) {
     reportedAt,
     commander.busy.has('color_hs'),
   );
+  // White or colour: the one pressed shows at once, until the lamp says which it shows.
+  const mode = usePendingValue<'white' | 'colour'>(
+    showsColourOf(entity, state) ? 'colour' : 'white',
+    reportedAt,
+    commander.busy.has('color_temp') || commander.busy.has('color_hs'),
+  );
+  // shortcut: a lamp that never says which it shows (none of the integrations does yet) keeps the
+  // one pressed here while the dialog is open; drop this once they report `isActive`.
+  const [chosen, setChosen] = useState<'white' | 'colour' | null>(null);
   const [isPicking, setIsPicking] = useState(false);
 
   if (!hasLevel && temp === null && hs === null) {
@@ -183,23 +244,19 @@ export function LightBody(props: SheetBodyProps) {
   }
 
   const { hue, saturation } = picked.shown;
-  // Which of white and colour the lamp shows now, when it has both: what it says, or the colour
-  // when it says nothing.
-  const showsColour = hs !== null && showsColourOf(entity, state);
-  // The colour the lamp shines in, as it reports it: the bar, the switch and the header tile all
-  // take it at the same moment. The swatches and the wheel answer the finger at once instead.
-  const colour = showsColour
-    ? hsColor(state.color_hs?.hue ?? 0, state.color_hs?.saturation ?? 0)
-    : undefined;
+  // Which of white and colour the controls are for: the one pressed, or what the lamp says.
+  const saysMode =
+    state.color_hs?.isActive !== undefined || state.color_temp?.isActive !== undefined;
+  const showsColour = hs !== null && (saysMode ? mode.shown : (chosen ?? mode.shown)) === 'colour';
+  // The light the lamp gives, as it reports it - its colour or the white of its temperature: the
+  // bar, the switch and the header tile all take it at the same moment. The swatches, the wheel
+  // and the temperature bar answer the finger at once instead.
+  const colour = shineOf(entity, state, saysMode || chosen === null ? undefined : showsColour);
   const swatch = showsColour ? swatchOf(hue, saturation) : undefined;
   const kelvin = miredsToKelvin(Math.round(mireds.shown));
-  const minKelvin = temp === null ? 2200 : miredsToKelvin(temp.maxMireds);
-  const maxKelvin = temp === null ? 6500 : miredsToKelvin(temp.minMireds);
+  const { minKelvin, maxKelvin } = kelvinRangeOf(entity);
   // How far along the bar the temperature is, from warm (0) to cool (1).
-  const warmth = Math.min(
-    1,
-    Math.max(0, (kelvin - minKelvin) / Math.max(1, maxKelvin - minKelvin)),
-  );
+  const warmth = warmthOf(kelvin, { minKelvin, maxKelvin });
   const isOnlyLevel = temp === null && hs === null && effects === null;
   const isSending = (['on_off', 'level', 'color_temp', 'color_hs', 'effect'] as const).some(
     (capability) => isBusy(props, capability),
@@ -299,6 +356,9 @@ export function LightBody(props: SheetBodyProps) {
           tone="lamp"
           disabled={disabled}
           onPick={(next) => {
+            mode.sent(next === 'colour' ? 'colour' : 'white');
+            setChosen(next === 'colour' ? 'colour' : 'white');
+
             if (next === 'colour') {
               setColour({ hue, saturation: Math.max(saturation, 60) });
             } else {

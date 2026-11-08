@@ -3,7 +3,7 @@
  * controls and hides them from a screen reader, a feature the entity does not have is not drawn
  * at all, and a capability with no body of its own still gets the platform's control. Settings
  * send only what changed, stay read-only for someone who may not change them, and offer Unlink
- * for a linked reading when the dialog is given a way to.
+ * for a linked reading when the dialog is given a way to. A lamp's White | Colour answers at once.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -34,15 +34,21 @@ const NOW = Date.parse('2026-11-06T12:00:00Z');
  * @param entity - The entity.
  * @param states - Its history.
  * @param extra - Props besides the usual.
+ * @returns A way to draw it again with other props, as a report arriving would.
  */
 function show(
   entity: EntityView,
   states: StateHistoryPoint[] = [],
   extra: Partial<EntitySheetProps> = {},
-): void {
+): (more: Partial<EntitySheetProps>) => void {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-  render(
+  /**
+   * The dialog, with props besides the usual.
+   *
+   * @param more - Those props.
+   * @returns It.
+   */
+  const dialog = (more: Partial<EntitySheetProps>) => (
     <QueryClientProvider client={client}>
       <EntitySheet
         entity={entity}
@@ -63,10 +69,15 @@ function show(
         onClose={vi.fn()}
         onSave={vi.fn()}
         onEnable={vi.fn()}
-        {...extra}
+        {...more}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const { rerender } = render(dialog(extra));
+
+  return (more) => {
+    rerender(dialog({ ...extra, ...more }));
+  };
 }
 
 /** A dimmable lamp, on at 60%. */
@@ -182,5 +193,48 @@ describe('the entity dialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Unlink…' }));
 
     expect(onUnlink).toHaveBeenCalledOnce();
+  });
+
+  it('turns a lamp to its colour at once, and tints a white lamp by its white', () => {
+    const send = vi.fn();
+    const lamp = anEntity({
+      entityId: 'light.desk',
+      name: 'Desk lamp',
+      capabilities: [
+        { capability: 'on_off', params: {} },
+        { capability: 'level', params: {} },
+        { capability: 'color_hs', params: {} },
+        { capability: 'color_temp', params: { minMireds: 153, maxMireds: 500 } },
+      ],
+      state: {
+        on_off: { isOn: true },
+        level: { level: 60 },
+        color_hs: { hue: 200, saturation: 80 },
+        color_temp: { mireds: 370 },
+      },
+    });
+
+    const update = show(lamp, [], { commander: { send, busy: new Set(), problem: null } });
+
+    // Saying neither, it shows its white, and its switch takes that white.
+    expect(screen.getByRole('slider', { name: 'Colour temperature' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Desk lamp' }).style.backgroundColor).toMatch(
+      /^rgb/u,
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Colour' }));
+
+    expect(send).toHaveBeenCalledWith('color_hs', {
+      command: 'set_color',
+      hue: 200,
+      saturation: 80,
+    });
+    expect(screen.getByRole('button', { name: 'Rose' })).toBeTruthy();
+    expect(screen.queryByRole('slider', { name: 'Colour temperature' })).toBeNull();
+
+    // The lamp answers without saying which it shows: the colour pressed stays.
+    update({ reportedAt: Date.now() + 1000 });
+
+    expect(screen.getByRole('button', { name: 'Rose' })).toBeTruthy();
   });
 });
