@@ -11,6 +11,7 @@ import type { UiIconId } from '@nebulahome/ui';
 
 import type { TimeWindow } from '@/library/history-series';
 import type { ControlProps } from '@/routes/library/entity/controls/control-block';
+import type { LineChartProps } from '@/routes/library/entity/sheet/charts';
 import type { SheetTone } from '@/routes/library/entity/sheet/tones';
 
 /** The windows a history is read over: the last hours or days. */
@@ -41,6 +42,9 @@ export type SheetHistory = {
 
   /** Whether the window's history is still being read: its charts wait, a light passing over. */
   readonly isLoading?: boolean;
+
+  /** Reads where a gap in the readings really began and ended: see {@link LineChartProps}. */
+  readonly readGap?: LineChartProps['readGap'];
 };
 
 /** What a kind of thing's body is given. */

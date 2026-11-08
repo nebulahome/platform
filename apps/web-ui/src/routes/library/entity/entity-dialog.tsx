@@ -9,7 +9,7 @@
  * putting it away takes only that out of the address.
  */
 import { useIsFetching, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
 
@@ -19,7 +19,7 @@ import { Modal, toast } from '@nebulahome/ui';
 import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS, updateEntity } from '@/library/api';
 import { hasCapability } from '@/library/entity-control';
-import type { HistoryRange } from '@/library/history-series';
+import { telemetryResolutionFor, type HistoryRange } from '@/library/history-series';
 import { useStateChanges, useTelemetry } from '@/routes/dashboard/cards/use-card-history';
 import { devicePath } from '@/routes/library/device/device-path';
 import { LinkDialog, type LinkRequest } from '@/routes/library/device/link-dialog';
@@ -28,7 +28,9 @@ import {
   ENTITY_VIEW_PARAM,
   type EntitySheetView,
 } from '@/routes/library/entity/entity-path';
+import type { Gap } from '@/routes/library/entity/sheet/charts';
 import { EntitySheet } from '@/routes/library/entity/sheet/entity-sheet';
+import { exactGap } from '@/routes/library/entity/sheet/gap-edges';
 import { sheetKindOf } from '@/routes/library/entity/sheet/kinds';
 import type { SheetRange } from '@/routes/library/entity/sheet/sheet-types';
 import { useEntityCommand } from '@/routes/library/entity/use-entity-command';
@@ -120,6 +122,11 @@ function LoadedEntityDialog(props: EntityDialogProps & { readonly view: EntityDi
   const isLoading =
     (wantsStates && states === undefined && !failed('state')) ||
     (wantsTelemetry && telemetry === undefined && !failed('telemetry'));
+  const resolution = telemetryResolutionFor(window);
+  const readGap = useCallback(
+    async (gap: Gap, signal: AbortSignal) => exactGap(entityId, gap, resolution, signal),
+    [entityId, resolution],
+  );
 
   const save = useMutation({
     /**
@@ -171,6 +178,7 @@ function LoadedEntityDialog(props: EntityDialogProps & { readonly view: EntityDi
             states: states?.points ?? [],
             telemetry: telemetry?.points ?? [],
             isLoading,
+            readGap,
           }}
           battery={view.battery}
           now={now}

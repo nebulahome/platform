@@ -12,7 +12,7 @@
  * Plain SVG in a 320-wide box stretched to the dialog's width; the stroke keeps its width however
  * it is stretched, and the dots and the tooltip are drawn over it in the page's own pixels.
  */
-import { useId, useState, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useId, useState, type PointerEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@nebulahome/ui';
@@ -335,6 +335,12 @@ export type LineChartProps = {
 
   /** Writes a value for the tooltip, with its unit: "21.4 °C". */
   readonly format?: (value: number) => string;
+
+  /**
+   * Reads where a gap really began and ended, when the points are buckets that put its edges on
+   * the hour; the tooltip says the bucket's edges until it answers.
+   */
+  readonly readGap?: (gap: Gap, signal: AbortSignal) => Promise<Gap>;
 };
 
 /** A stretch with no reading in it: the line breaks there instead of running straight across. */
@@ -395,6 +401,42 @@ function runsAcross(points: readonly LinePoint[], gaps: readonly Gap[]): LinePoi
   }
 
   return runs;
+}
+
+/**
+ * The exact edges of the gap under the pointer, read once per gap and kept.
+ *
+ * @param gap - The gap under the pointer, if any.
+ * @param read - Reads its edges; none when the points are already the readings.
+ * @returns Its exact edges once read, otherwise undefined.
+ */
+function useExactGap(gap: Gap | undefined, read: LineChartProps['readGap']): Gap | undefined {
+  const [known, setKnown] = useState<ReadonlyMap<number, Gap>>(new Map());
+  const from = gap?.from;
+  const to = gap?.to;
+  const isKnown = from !== undefined && known.has(from);
+
+  useEffect(() => {
+    if (from === undefined || to === undefined || read === undefined || isKnown) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    read({ from, to }, controller.signal).then(
+      (edges) => {
+        setKnown((map) => new Map(map).set(from, edges));
+      },
+      // A read that failed or was cancelled leaves the bucket's edges.
+      () => undefined,
+    );
+
+    return () => {
+      controller.abort();
+    };
+  }, [from, to, read, isKnown]);
+
+  return from === undefined ? undefined : known.get(from);
 }
 
 /**
@@ -499,6 +541,7 @@ export function LineChart(props: LineChartProps) {
   const gap =
     moment === null ? undefined : gaps.find((each) => moment > each.from && moment < each.to);
   const hovered = moment === null || gap !== undefined ? null : valueAt(points, moment, isStepped);
+  const edges = useExactGap(gap, props.readGap) ?? gap;
 
   return (
     <div className="relative">
@@ -519,7 +562,10 @@ export function LineChart(props: LineChartProps) {
                 <span
                   key={each.from}
                   className={cn(
-                    'absolute inset-y-0 overflow-hidden rounded-[6px] transition-opacity duration-200',
+                    // Faded out at the top and the bottom, so it is a quiet stretch rather than a
+                    // block standing in the chart.
+                    'absolute inset-y-0 overflow-hidden transition-opacity duration-200',
+                    '[mask-image:linear-gradient(to_bottom,transparent,black_35%,black_80%,transparent)]',
                     gap !== undefined && gap !== each && 'opacity-55',
                   )}
                   // eslint-disable-next-line react/forbid-dom-props -- where nothing was recorded, in its place
@@ -531,7 +577,7 @@ export function LineChart(props: LineChartProps) {
                   {/* One hatching as wide as the chart, seen through each gap, so the stripes of
                       gaps apart from each other line up. */}
                   <span
-                    className="absolute inset-y-0 bg-[repeating-linear-gradient(135deg,color-mix(in_oklab,var(--color-foreground-muted)_10%,transparent)_0_4px,transparent_4px_8px)]"
+                    className="absolute inset-y-0 bg-[repeating-linear-gradient(135deg,color-mix(in_oklab,var(--color-foreground-muted)_9%,transparent)_0_1.5px,transparent_1.5px_6px)]"
                     // eslint-disable-next-line react/forbid-dom-props -- the chart's width, set back to its left edge
                     style={{
                       left: `${((-left / width) * 100).toFixed(2)}%`,
@@ -623,15 +669,15 @@ export function LineChart(props: LineChartProps) {
           />
         )}
       </div>
-      {pointer.at === null || gap === undefined ? null : (
+      {pointer.at === null || edges === undefined ? null : (
         <ChartTip
           at={pointer.at}
           tone="muted"
           title={t('entity.sheet.history.noData', 'No data')}
           sub={t('entity.sheet.history.span', '{{from}} – {{to}} · {{duration}}', {
-            from: momentText(gap.from, window),
-            to: momentText(gap.to, window),
-            duration: durationText(gap.to - gap.from),
+            from: momentText(edges.from, window),
+            to: momentText(edges.to, window),
+            duration: durationText(edges.to - edges.from),
           })}
         />
       )}

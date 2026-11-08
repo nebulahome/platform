@@ -4,12 +4,15 @@
  * its radio on the left, a line or a snippet to copy, the tag of a device and the integration
  * it comes from, the mono table head and a section's View all.
  */
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AppIcon, Button, cn, IconButton } from '@nebulahome/ui';
 
 import { copyText } from '@/lib/clipboard';
+
+/** How long a copy button shows its tick before it can be pressed again. */
+const COPIED_MS = 1600;
 
 /**
  * How many of four bars a signal fills: -60 dBm or better is all four.
@@ -193,35 +196,61 @@ export function ChoiceCard(props: {
  * @param props.value - The text.
  * @param props.label - What the button says; Copy when not said.
  * @param props.isCompact - A small ghost button, for a line.
+ * @param props.className - Extra classes, for the compact button.
  * @returns The button.
  */
 export function CopyButton(props: {
   readonly value: string;
   readonly label?: string;
   readonly isCompact?: boolean;
+  readonly className?: string;
 }) {
   const { t } = useTranslation();
   const [isCopied, setCopied] = useState(false);
+
+  // The tick says it worked, then gives the glyph back for another copy.
+  useEffect(() => {
+    if (!isCopied) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setCopied(false);
+    }, COPIED_MS);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isCopied]);
 
   /** Puts the text on the clipboard. */
   const copy = (): void => {
     void copyText(props.value).then(setCopied);
   };
+  const glyph = (
+    <AppIcon
+      key={String(isCopied)}
+      id={isCopied ? 'check' : 'copy'}
+      size={14}
+      className={cn(isCopied && 'copy-done text-success')}
+    />
+  );
 
   if (props.isCompact === true) {
     return (
       <IconButton
         label={isCopied ? t('brokers.parts.copied', 'Copied') : t('brokers.parts.copy', 'Copy')}
         onClick={copy}
+        {...(props.className === undefined ? {} : { className: props.className })}
       >
-        <AppIcon id={isCopied ? 'check' : 'copy'} size={14} />
+        {glyph}
       </IconButton>
     );
   }
 
   return (
     <Button variant="ghost" size="compact" onClick={copy}>
-      <AppIcon id={isCopied ? 'check' : 'copy'} size={14} />
+      {glyph}
       {isCopied
         ? t('brokers.parts.copied', 'Copied')
         : (props.label ?? t('brokers.parts.copy', 'Copy'))}

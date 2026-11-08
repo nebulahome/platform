@@ -75,6 +75,15 @@ type SheetView = 'control' | 'history' | 'settings';
 /** How far down a raised sheet must be pulled, of its height, to be put away when let go. */
 const CLOSE_AT = 0.25;
 
+/** How a sheet rises over the controls: quick, settling at the end. */
+const RAISE = 'duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]';
+
+/**
+ * How it is put away: a little slower, easing in as well as out, so it is seen going down rather
+ * than gone at the first frames while the card closes up behind it.
+ */
+const LOWER = 'duration-650 ease-[cubic-bezier(0.4,0,0.2,1)]';
+
 /**
  * A pull on a raised sheet's handle: where it began, how far down it has come, how tall it is,
  * and how much larger the card is drawn than it is laid out (`entity-card` on a large screen).
@@ -193,8 +202,8 @@ export function EntitySheet(props: EntitySheetProps) {
       className={cn(
         'entity-card entity-arrive relative flex w-[400px] max-w-full flex-col overflow-hidden rounded-[24px] border',
         'border-border-strong bg-surface shadow-dialog select-none',
-        'transition-[min-height] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
-        isRaised ? 'min-h-[640px]' : 'min-h-0',
+        'transition-[min-height]',
+        isRaised ? cn('min-h-[640px]', RAISE) : cn('min-h-0', LOWER),
       )}
     >
       {list === null ? null : (
@@ -211,9 +220,10 @@ export function EntitySheet(props: EntitySheetProps) {
         inert={isRaised}
         aria-hidden={isRaised}
         className={cn(
-          'flex origin-top flex-col transition-[scale,translate,opacity] duration-500',
-          'ease-[cubic-bezier(0.2,0.8,0.2,1)]',
-          isRaised && 'pointer-events-none -translate-y-1.5 scale-[0.94] opacity-45',
+          'flex origin-top flex-col transition-[scale,translate,opacity]',
+          isRaised
+            ? cn('pointer-events-none -translate-y-1.5 scale-[0.94] opacity-45', RAISE)
+            : LOWER,
           pulled !== null && 'duration-0',
           list !== null && 'hidden',
         )}
@@ -335,8 +345,8 @@ export function EntitySheet(props: EntitySheetProps) {
       <div
         aria-hidden="true"
         className={cn(
-          'pointer-events-none absolute inset-0 bg-canvas/55 transition-opacity duration-420',
-          isRaised ? 'opacity-100' : 'opacity-0',
+          'pointer-events-none absolute inset-0 bg-canvas/55 transition-opacity',
+          isRaised ? 'opacity-100 duration-420' : cn('opacity-0', LOWER),
           pulled !== null && 'duration-0',
         )}
         // eslint-disable-next-line react/forbid-dom-props -- the shade lifts as a sheet is pulled down
@@ -353,8 +363,10 @@ export function EntitySheet(props: EntitySheetProps) {
         className={cn(
           'absolute inset-x-0 top-3.5 bottom-0 flex flex-col rounded-t-[22px] border-t',
           'border-border-strong bg-sheet shadow-[0_-24px_60px_rgb(0_0_0/0.55)]',
-          'transition-transform duration-520 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
-          isRaised ? 'translate-y-0' : 'pointer-events-none translate-y-[105%]',
+          'transition-transform',
+          isRaised
+            ? cn('translate-y-0', RAISE)
+            : cn('pointer-events-none translate-y-[105%]', LOWER),
           pull !== null && 'duration-0',
         )}
         // eslint-disable-next-line react/forbid-dom-props -- the sheet follows the finger pulling it down

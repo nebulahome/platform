@@ -1428,6 +1428,25 @@
   animation: entity-pop 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* A copy button's tick as the text is copied: it springs in, then gives the glyph back. */
+@keyframes copy-done {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-20deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.18) rotate(0deg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.copy-done {
+  animation: copy-done 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 /* A chart's tooltip. */
 .entity-tip {
   animation: entity-tip 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -1560,6 +1579,7 @@
     .entity-tick,
     .entity-slide,
     .entity-pop,
+    .copy-done,
     .entity-tip,
     .entity-ripple,
     .entity-ping,
@@ -1595,6 +1615,7 @@
       .entity-tick,
       .entity-slide,
       .entity-pop,
+      .copy-done,
       .entity-tip,
       .entity-ripple,
       .entity-ping,

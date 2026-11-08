@@ -353,6 +353,7 @@ export function SensorBody(props: SheetBodyProps) {
               height={128}
               isStale={isStale}
               format={(value) => `${figure(value, entity)} ${unit}`.trim()}
+              {...(history.readGap === undefined ? {} : { readGap: history.readGap })}
               label={t('entity.sheet.sensor.overTime', '{{name}} over the last {{range}}', {
                 name: entity.name,
                 range: history.range,

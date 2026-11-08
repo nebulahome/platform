@@ -24,6 +24,7 @@ import {
 import { AppIcon, Button, Segmented, SelectField, Switch } from '@nebulahome/ui';
 
 import { entityKindOf } from '@/library/entity-kind';
+import { CopyButton } from '@/routes/library/broker-parts';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { useEntityWays } from '@/routes/library/entity/entity-ways';
 import { RaisedHead } from '@/routes/library/entity/sheet/parts/sheet-parts';
@@ -282,12 +283,18 @@ export function SettingsSheet(props: SettingsSheetProps) {
         </fieldset>
 
         <div className="flex flex-col">
-          <div className="flex items-center justify-between gap-3 border-b border-border py-3">
-            <span className="text-ui-sm text-foreground-subtle">
+          <div className="flex items-center justify-between gap-3 border-b border-border py-1.5">
+            <span className="shrink-0 text-ui-sm whitespace-nowrap text-foreground-subtle">
               {t('entity.sheet.settings.entityId', 'Entity id')}
             </span>
-            <span className="font-mono text-mono-caption text-foreground select-text">
-              {entity.entityId}
+            <span className="flex min-w-0 items-center gap-1">
+              <span
+                title={entity.entityId}
+                className="truncate font-mono text-mono-caption text-foreground select-text"
+              >
+                {entity.entityId}
+              </span>
+              <CopyButton value={entity.entityId} isCompact className="-mr-1.5" />
             </span>
           </div>
           {deviceName === null ? null : (
