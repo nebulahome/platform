@@ -28,7 +28,9 @@ import { durationText } from '@/library/history-stats';
 import {
   AxisRow,
   BandChart,
+  ChartLoading,
   LineChart,
+  StatsLoading,
   StretchChart,
   TotalBars,
 } from '@/routes/library/entity/sheet/charts';
@@ -328,7 +330,9 @@ export function SensorBody(props: SheetBodyProps) {
           ranges={isTotal ? TOTAL_RANGES : SHEET_RANGES}
           onRange={history.onRange}
         >
-          {isTotal ? (
+          {history.isLoading === true ? (
+            <ChartLoading className="h-32" />
+          ) : isTotal ? (
             <>
               <TotalBars
                 key={history.range}
@@ -355,7 +359,11 @@ export function SensorBody(props: SheetBodyProps) {
               })}
             />
           )}
-          {stats.length === 0 ? null : <StatTiles stats={stats} />}
+          {history.isLoading === true ? (
+            <StatsLoading />
+          ) : stats.length === 0 ? null : (
+            <StatTiles stats={stats} />
+          )}
         </HistoryCard>
       </div>
     );
@@ -435,17 +443,21 @@ export function SensorBody(props: SheetBodyProps) {
           </div>
         </div>
         <HistoryCard range={history.range} ranges={SHEET_RANGES} onRange={history.onRange}>
-          <StretchChart
-            key={history.range}
-            stretches={stretches}
-            window={history.window}
-            colourOf={colourOf}
-            label={t('entity.sheet.sensor.byValue', 'Its values over the window')}
-          />
+          {history.isLoading === true ? (
+            <ChartLoading className="h-9" />
+          ) : (
+            <StretchChart
+              key={history.range}
+              stretches={stretches}
+              window={history.window}
+              colourOf={colourOf}
+              label={t('entity.sheet.sensor.byValue', 'Its values over the window')}
+            />
+          )}
           <AxisRow
             labels={axisLabels(history.window, history.range).filter((label, index) => index !== 1)}
           />
-          <div className="flex flex-col">
+          <div className={cn('flex flex-col', history.isLoading === true && 'hidden')}>
             {totals.map((each) => (
               <div key={each.option} className="flex h-7 items-center gap-2">
                 <span className={cn('size-2.5 rounded-[3px]', colourOf(each.option))} />
@@ -703,18 +715,22 @@ export function BinaryBody(props: SheetBodyProps) {
         </div>
       </div>
       <HistoryCard range={history.range} ranges={SHEET_RANGES} onRange={history.onRange}>
-        <BandChart
-          key={history.range}
-          segments={segments}
-          window={history.window}
-          words={[text(onWord), text(offWord)]}
-          tone={isStale ? 'muted' : look.tone}
-          label={t('entity.sheet.history.whenOn', 'When it was on, over the last {{range}}', {
-            range: history.range,
-          })}
-        />
+        {history.isLoading === true ? (
+          <ChartLoading className="h-12" />
+        ) : (
+          <BandChart
+            key={history.range}
+            segments={segments}
+            window={history.window}
+            words={[text(onWord), text(offWord)]}
+            tone={isStale ? 'muted' : look.tone}
+            label={t('entity.sheet.history.whenOn', 'When it was on, over the last {{range}}', {
+              range: history.range,
+            })}
+          />
+        )}
         <AxisRow labels={axisLabels(history.window, history.range)} />
-        <StatTiles stats={stats} />
+        {history.isLoading === true ? <StatsLoading /> : <StatTiles stats={stats} />}
       </HistoryCard>
     </div>
   );

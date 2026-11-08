@@ -3,7 +3,9 @@
  * domain the contracts define, with the capabilities, params and state of each way its entity may
  * be as switches and fields on the left, and the entity dialog drawn from them on the right - the
  * same `EntitySheet` the platform opens over its pages (`entity-dialog.tsx`), with the same props,
- * so what is seen here is what the app shows.
+ * so what is seen here is what the app shows. "Open as a dialog" opens it in the same dialog the
+ * platform puts it in - centred over a backdrop, arriving and leaving as it does - and a window's
+ * history takes a moment to arrive, as a read from the hub does.
  *
  * Nothing on this page lists a domain, a capability or a field: the domains are
  * `ENTITY_DOMAINS`, what each carries is `DOMAIN_CAPABILITIES`, each capability's fields are its
@@ -29,6 +31,7 @@ import {
   BUILTIN_UI_FRAME,
   BUILTIN_UI_NODES,
   cn,
+  Modal,
   Segmented,
   SelectField,
   Switch,
@@ -459,6 +462,9 @@ function Variant(props: VariantProps) {
   const [range, setRange] = useState<SheetRange>('24h');
   const [busy, setBusy] = useState<ReadonlySet<CapabilityName>>(new Set());
   const [closed, setClosed] = useState(false);
+  const [isDialog, setDialog] = useState(false);
+  // The window whose history has "arrived": another is still being read, for a moment.
+  const [loaded, setLoaded] = useState<SheetRange | null>(null);
   const [reportedAt, setReportedAt] = useState(NOW);
   const rowRef = useRef(row);
   // How many commands for each capability are on their way, as the platform's commander counts
@@ -478,6 +484,17 @@ function Variant(props: VariantProps) {
   useEffect(() => {
     rowRef.current = row;
   });
+
+  // A window's history arrives a moment after it is chosen, as a read from the hub does.
+  useEffect(() => {
+    const timer = globalThis.setTimeout(() => {
+      setLoaded(range);
+    }, 900);
+
+    return () => {
+      globalThis.clearTimeout(timer);
+    };
+  }, [range]);
   const telemetry = labTelemetry(build.entity, range, window);
   const { oneOf, may } = DOMAIN_CAPABILITIES[row.domain];
   const classes = deviceClassesOf(row.domain);
@@ -517,6 +534,57 @@ function Variant(props: VariantProps) {
       count(capability, -1);
     }, 700);
   };
+
+  /**
+   * The dialog's card, as the platform draws it.
+   *
+   * @param onClose - What its Close does.
+   * @returns The card.
+   */
+  const sheetOf = (onClose: () => void): ReactNode => (
+    <EntitySheet
+      key={`${row.id}:${row.capabilities.join(',')}`}
+      entity={build.entity}
+      state={build.state}
+      reportedAt={reportedAt}
+      commander={{
+        send,
+        busy: row.isSending ? new Set(row.capabilities) : busy,
+        problem: null,
+      }}
+      disabled={!row.isAvailable}
+      history={{
+        range,
+        onRange: setRange,
+        window,
+        states,
+        telemetry,
+        isLoading: loaded !== range,
+      }}
+      battery={row.battery}
+      now={NOW}
+      deviceName="Living room lamp"
+      onClose={onClose}
+      onSave={(change) => {
+        onChange({
+          ...row,
+          ...(change.isEnabled === undefined ? {} : { isEnabled: change.isEnabled }),
+        });
+      }}
+      onEnable={() => {
+        onChange({ ...row, isEnabled: true });
+      }}
+      // The app asks first (its Unlink dialog); the lab unlinks at once.
+      {...(row.isLinked
+        ? {
+            /** Unlinks at once. */
+            onUnlink: () => {
+              onChange({ ...row, isLinked: false });
+            },
+          }
+        : {})}
+    />
+  );
 
   return (
     <div className="grid grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-start gap-8">
@@ -750,51 +818,35 @@ function Variant(props: VariantProps) {
               Open the dialog again
             </button>
           ) : (
-            <EntitySheet
-              key={`${row.id}:${row.capabilities.join(',')}`}
-              entity={build.entity}
-              state={build.state}
-              reportedAt={reportedAt}
-              commander={{
-                send,
-                busy: row.isSending ? new Set(row.capabilities) : busy,
-                problem: null,
-              }}
-              disabled={!row.isAvailable}
-              history={{
-                range,
-                onRange: setRange,
-                window,
-                states,
-                telemetry,
-              }}
-              battery={row.battery}
-              now={NOW}
-              deviceName="Living room lamp"
-              onClose={() => {
-                setClosed(true);
-              }}
-              onSave={(change) => {
-                onChange({
-                  ...row,
-                  ...(change.isEnabled === undefined ? {} : { isEnabled: change.isEnabled }),
-                });
-              }}
-              onEnable={() => {
-                onChange({ ...row, isEnabled: true });
-              }}
-              // The app asks first (its Unlink dialog); the lab unlinks at once.
-              {...(row.isLinked
-                ? {
-                    /** Unlinks at once. */
-                    onUnlink: () => {
-                      onChange({ ...row, isLinked: false });
-                    },
-                  }
-                : {})}
-            />
+            sheetOf(() => {
+              setClosed(true);
+            })
           )}
+          <button
+            type="button"
+            className="press absolute top-4 right-4 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-pill border border-border-strong bg-surface px-3 text-caption font-medium transition-colors hover:border-foreground-subtle"
+            onClick={() => {
+              setDialog(true);
+            }}
+          >
+            <AppIcon id="maximize-2" size={13} />
+            Open as a dialog
+          </button>
         </div>
+        {isDialog ? (
+          <Modal
+            isOpen
+            layout="bare"
+            title={build.entity.name}
+            onClose={() => {
+              setDialog(false);
+            }}
+          >
+            {sheetOf(() => {
+              setDialog(false);
+            })}
+          </Modal>
+        ) : null}
         {build.issues.length === 0 ? (
           <span className="inline-flex items-center gap-2 self-start rounded-pill border border-success/35 bg-success/10 px-3 py-1.5 text-caption text-success">
             <AppIcon id="check" size={14} />

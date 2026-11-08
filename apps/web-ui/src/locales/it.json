@@ -2933,7 +2933,10 @@
       "transport": "Trasporto",
       "unlinkDevices": "Scollega i dispositivi…",
       "webPage": "Pagina web",
-      "editButtons": "Modifica tasti"
+      "editButtons": "Modifica tasti",
+      "showDisabled": "Mostra disattivate ({{count}})",
+      "hideDisabled": "Nascondi disattivate",
+      "allDisabled": "Tutte disattivate."
     },
     "deviceProblem": {
       "deviceIsNotWorking": "Il dispositivo non funziona. L'ultima cosa che ha detto l'hub:",
@@ -3292,7 +3295,6 @@
         "lowest": "Minima",
         "month": "Mese",
         "monthWord": "mese",
-        "notYet": "Non ancora",
         "now": "Ora",
         "onFor": "Accesa per",
         "once": "una volta",
@@ -3317,7 +3319,9 @@
         "slotSpan": "{{from}} – {{to}}",
         "close": "Chiudi lo storico",
         "activity": "Attività",
-        "changes": "{{count}} modifiche"
+        "changes": "{{count}} modifiche",
+        "noData": "Nessun dato",
+        "loading": "Lettura della cronologia"
       },
       "kind": {
         "binarySensor": "Sensore binario",
@@ -4391,7 +4395,8 @@
       "hidden": "Nascosta",
       "hiddenFromListsBy": "Nascosta dagli elenchi per impostazione predefinita",
       "releaseToLink": "Rilascia per collegare",
-      "room": " · {{room}}"
+      "room": " · {{room}}",
+      "disabled": "Disattivata"
     },
     "entityStateSummary": {
       "neverReported": "Mai riferito",

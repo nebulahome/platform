@@ -38,6 +38,9 @@ export type SheetHistory = {
 
   /** A numeric reading's points inside it, oldest first: buckets for a long window. */
   readonly telemetry: readonly TelemetryPoint[];
+
+  /** Whether the window's history is still being read: its charts wait, a light passing over. */
+  readonly isLoading?: boolean;
 };
 
 /** What a kind of thing's body is given. */

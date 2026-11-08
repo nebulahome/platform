@@ -204,11 +204,16 @@ export function labTelemetry(
   const shift = now - (raw.at(-1) ?? 0);
   const span = window.to - window.from;
 
-  return raw.map((value, index) => ({
-    time: new Date(window.from + (span * index) / (count - 1)),
-    value: value + shift,
-    min: value + shift - swing * 0.05,
-    max: value + shift + swing * 0.05,
-    count: 1,
-  }));
+  return (
+    raw
+      .map((value, index) => ({
+        time: new Date(window.from + (span * index) / (count - 1)),
+        value: value + shift,
+        min: value + shift - swing * 0.05,
+        max: value + shift + swing * 0.05,
+        count: 1,
+      }))
+      // A while with nothing recorded - the hub off - for the chart to show as a gap.
+      .filter((point, index) => index < 26 || index > 31)
+  );
 }

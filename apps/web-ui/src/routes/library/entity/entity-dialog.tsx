@@ -8,7 +8,7 @@
  * (`entity-path.ts`), so a row, a card, a package or a bookmark opens it the same way, and
  * putting it away takes only that out of the address.
  */
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useIsFetching, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -99,15 +99,27 @@ function LoadedEntityDialog(props: EntityDialogProps & { readonly view: EntityDi
   const [range, setRange] = useState<SheetRange>('24h');
   const [unlinking, setUnlinking] = useState<LinkRequest | null>(null);
   const span = SPAN_OF[range];
-  const hasHistory = sheetKindOf(entity, state).history !== 'none';
-  const states = useStateChanges(entityId, span, hasHistory);
-  const telemetry = useTelemetry(
-    entityId,
-    span,
-    hasHistory && hasCapability(entity, 'sensor_numeric'),
-  );
+  const wantsStates = view.canReadHistory && sheetKindOf(entity, state).history !== 'none';
+  const wantsTelemetry = wantsStates && hasCapability(entity, 'sensor_numeric');
+  const states = useStateChanges(entityId, span, wantsStates);
+  const telemetry = useTelemetry(entityId, span, wantsTelemetry);
   const now = useNow();
   const window = states?.window ?? telemetry?.window ?? { from: now, to: now };
+  // Drawn again as the reads come and go, so a read that failed stops the charts waiting: they
+  // are then drawn empty rather than waiting for ever. The keys are the history hooks' own.
+  useIsFetching({ queryKey: [...LIBRARY_QUERY_KEYS.history, entityId] });
+  /**
+   * Whether a read of the window failed.
+   *
+   * @param kind - The changes of state, or the readings.
+   * @returns True once it gave up.
+   */
+  const failed = (kind: 'state' | 'telemetry'): boolean =>
+    queryClient.getQueryState([...LIBRARY_QUERY_KEYS.history, entityId, kind, span])?.status ===
+    'error';
+  const isLoading =
+    (wantsStates && states === undefined && !failed('state')) ||
+    (wantsTelemetry && telemetry === undefined && !failed('telemetry'));
 
   const save = useMutation({
     /**
@@ -158,6 +170,7 @@ function LoadedEntityDialog(props: EntityDialogProps & { readonly view: EntityDi
             window,
             states: states?.points ?? [],
             telemetry: telemetry?.points ?? [],
+            isLoading,
           }}
           battery={view.battery}
           now={now}

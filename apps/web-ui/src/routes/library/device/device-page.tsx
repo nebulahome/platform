@@ -109,6 +109,9 @@ function wayDetailOf(way: DeviceWay): string {
  * On a device reached two ways, a reading read one way can be dragged onto one of the same kind
  * read the other way to link them, and a pair that read alike is suggested under the list.
  *
+ * Disabled entities are left out of each section until "Show disabled" beside its heading brings
+ * them back, faded.
+ *
  * @param props - The view, and what the rows open.
  * @param props.view - See {@link DevicePageView}.
  * @param props.onConfigure - Opens an entity's settings; absent for somebody who may not edit.
@@ -123,6 +126,8 @@ function EntityGroups(props: {
   const { t } = useTranslation();
   const { view, onConfigure, onLink } = props;
   const vendors = useVendorsById();
+  // The sections whose disabled entities are shown, by title: none until asked.
+  const [showsDisabled, setShowsDisabled] = useState<ReadonlySet<string>>(new Set());
   const matter = t('library.matterTag', 'Matter');
   const ways = view.device.linked?.ways ?? [];
   const wayOfSource = new Map(ways.map((way) => [way.deviceId, way]));
@@ -227,12 +232,54 @@ function EntityGroups(props: {
         const suggested = view.device.suggestedLinks.filter((pair) =>
           pair.entityIds.every((id) => ids.has(id)),
         );
+        const disabled = group.lines.filter((line) => !line.entity.isEnabled).length;
+        const isShowingDisabled = showsDisabled.has(group.title);
+        const lines = isShowingDisabled
+          ? group.lines
+          : group.lines.filter((line) => line.entity.isEnabled);
 
         return (
-          <Section key={group.title} title={group.title}>
+          <Section
+            key={group.title}
+            title={group.title}
+            actions={
+              disabled === 0 ? undefined : (
+                <Button
+                  variant="bare"
+                  size="compact"
+                  aria-pressed={isShowingDisabled}
+                  onClick={() => {
+                    setShowsDisabled((current) => {
+                      const next = new Set(current);
+
+                      if (next.has(group.title)) {
+                        next.delete(group.title);
+                      } else {
+                        next.add(group.title);
+                      }
+
+                      return next;
+                    });
+                  }}
+                >
+                  <AppIcon id={isShowingDisabled ? 'eye-off' : 'eye'} size={15} />
+                  {isShowingDisabled
+                    ? t('device.device.hideDisabled', 'Hide disabled')
+                    : t('device.device.showDisabled', 'Show disabled ({{count}})', {
+                        count: disabled,
+                      })}
+                </Button>
+              )
+            }
+          >
             <div className="flex flex-col rounded-card border border-border bg-surface px-5 py-0.5">
+              {lines.length === 0 ? (
+                <p className="py-4 text-ui-sm text-foreground-subtle">
+                  {t('device.device.allDisabled', 'All disabled.')}
+                </p>
+              ) : null}
               <ul className="flex flex-col">
-                {group.lines.map((line) =>
+                {lines.map((line) =>
                   drag.isHeld(line.entity.entityId) ? (
                     <li
                       key={line.entity.entityId}

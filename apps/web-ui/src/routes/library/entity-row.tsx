@@ -1,13 +1,16 @@
 /**
  * One entity under an opened device: what it is, what it reads, and the way into it.
  *
- * The row is a link to the entity's own page, where it is controlled, read back over time and
- * configured - the whole row, because a name alone is a small target for the one thing a row
- * leads to. The switch, the press of a button entity and the spanner beside them are the
- * exceptions, and the reason the link is stretched over the row rather than wrapped around it: on
- * and off, and a press, are done from the list without opening anything, the spanner opens the
- * entity's settings over the list rather than leaving it, and a button inside a link is a control
- * nobody can reach by keyboard reliably.
+ * The row is a link that opens the entity's dialog over the list, where it is controlled, read
+ * back over time and configured - the whole row, because a name alone is a small target for the
+ * one thing a row leads to. The switch, the press of a button entity and the spanner beside them
+ * are the exceptions, and the reason the link is stretched over the row rather than wrapped around
+ * it: on and off, and a press, are done from the list without opening anything, the spanner opens
+ * the dialog on its settings, and a button inside a link is a control nobody can reach by keyboard
+ * reliably.
+ *
+ * A disabled entity is drawn faded, says "Disabled" where its reading would be and has no switch
+ * or press - it takes no command - but still opens, to be enabled again from its dialog.
  *
  * What it is reads as words - "Dimmable light", "Power sensor" - not as the capabilities it
  * declares. The tags sit under the name at full width, with their names, capped at three and a
@@ -114,10 +117,12 @@ export function EntityRow(props: EntityRowProps) {
   const { line, deviceAreaKey, onConfigure, titleAfter, kindAfter, look = 'rest', handle } = props;
   const { entity, reading, state, reportedAt, icon, tags, canControl } = line;
   const kind = entityKindOf(entity);
-  const hasPower = entity.capabilities.some((entry) => entry.capability === 'on_off');
+  const isEnabled = entity.isEnabled;
+  const hasPower = isEnabled && entity.capabilities.some((entry) => entry.capability === 'on_off');
   const isOn = state.on_off?.isOn ?? false;
   // A button reads only "Ready": where it can be pressed, the press takes the reading's place.
   const canPress =
+    isEnabled &&
     entity.capabilities.some((entry) => entry.capability === 'button') &&
     canControl &&
     reading.isAvailable &&
@@ -133,6 +138,7 @@ export function EntityRow(props: EntityRowProps) {
       className={cn(
         'relative flex min-w-0 items-center gap-4.5 border-t border-border py-3.5 transition-[opacity,background-color] first:border-t-0 has-[[data-row-link]:focus-visible]:ring-3 has-[[data-row-link]:focus-visible]:ring-primary/25',
         look === 'dimmed' && 'opacity-35',
+        look === 'rest' && !isEnabled && 'opacity-50',
         look === 'target' &&
           'link-glow -mx-3 rounded-inner border border-primary bg-primary/8 px-3 first:border-t',
         look === 'lifted' &&
@@ -210,7 +216,12 @@ export function EntityRow(props: EntityRowProps) {
         </span>
       ) : null}
 
-      {canPress ? null : (
+      {!isEnabled ? (
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-ui-sm text-foreground-subtle">
+          <AppIcon id="eye-off" size={14} />
+          {t('library.entityRow.disabled', 'Disabled')}
+        </span>
+      ) : canPress ? null : (
         <EntityStateSummary reading={reading} state={state} className="shrink-0 justify-end" />
       )}
 

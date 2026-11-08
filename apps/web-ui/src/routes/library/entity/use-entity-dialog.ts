@@ -52,6 +52,9 @@ export type EntityDialogView = {
 
   /** Whether this person may link and unlink: the device's to allow. */
   readonly canLink: boolean;
+
+  /** Whether this person may read its history, which its charts and activity are drawn from. */
+  readonly canReadHistory: boolean;
 };
 
 /** What the dialog gets. */
@@ -165,6 +168,7 @@ export function useEntityDialog(entityId: string): EntityDialogData {
       canEdit: can('entity:write', scopes),
       canCreateTags: can('tag:write'),
       canLink: can('device:write'),
+      canReadHistory: can('history:read', scopes),
     },
     error: entity.error,
   };

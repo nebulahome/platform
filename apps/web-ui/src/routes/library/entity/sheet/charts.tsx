@@ -6,7 +6,8 @@
  * Every chart answers the pointer: a guide follows it, and a tooltip says what the thing was at
  * that moment - the value, or the state and how long it lasted - and when. Each is drawn in as it
  * appears: the line from the left, the bars from the floor, the band's stretches from where they
- * began.
+ * began. Where a reading went quiet the line breaks over a grey hatched stretch rather than
+ * running straight across; while the history is still read, a light passes over the chart's place.
  *
  * Plain SVG in a 320-wide box stretched to the dialog's width; the stroke keeps its width however
  * it is stretched, and the dots and the tooltip are drawn over it in the page's own pixels.
@@ -336,6 +337,66 @@ export type LineChartProps = {
   readonly format?: (value: number) => string;
 };
 
+/** A stretch with no reading in it: the line breaks there instead of running straight across. */
+export type Gap = { readonly from: number; readonly to: number };
+
+/** How many of its usual spacings a reading may go quiet for before the quiet is a gap. */
+const GAP_SPACINGS = 5;
+
+/** The shortest gap, as a share of the window: a moment's quiet on a month is no gap. */
+const GAP_SHARE = 1 / 60;
+
+/**
+ * Where a reading went quiet: between two points further apart than five of its usual spacings
+ * and than a sixtieth of the window - six minutes of six hours, twelve hours of a month. Nothing
+ * was recorded there, the hub off or the device silent, so a line drawn across would make up the
+ * readings in between.
+ *
+ * @param points - The points, left to right.
+ * @param window - The window they cover.
+ * @returns The gaps, left to right.
+ */
+export function gapsOf(points: readonly LinePoint[], window: TimeWindow): Gap[] {
+  const pairs = points
+    .slice(1)
+    .map((point, index) => ({ from: points[index]?.at ?? 0, to: point.at }));
+  const steps = pairs.map((pair) => pair.to - pair.from).filter((step) => step > 0);
+
+  if (steps.length === 0) {
+    return [];
+  }
+
+  const usual =
+    steps.toSorted((first, second) => first - second)[Math.floor(steps.length / 2)] ?? 0;
+  const least = Math.max(usual * GAP_SPACINGS, (window.to - window.from) * GAP_SHARE);
+
+  return pairs.filter((pair) => pair.to - pair.from > least);
+}
+
+/**
+ * Cuts a line's points at its gaps.
+ *
+ * @param points - The points, left to right.
+ * @param gaps - Its gaps.
+ * @returns The runs between the gaps, each one or more points.
+ */
+function runsAcross(points: readonly LinePoint[], gaps: readonly Gap[]): LinePoint[][] {
+  const runs: LinePoint[][] = [];
+
+  for (const point of points) {
+    const run = runs.at(-1);
+    const last = run?.at(-1);
+
+    if (run === undefined || (last !== undefined && gaps.some((gap) => gap.from === last.at))) {
+      runs.push([point]);
+    } else {
+      run.push(point);
+    }
+  }
+
+  return runs;
+}
+
 /**
  * The value a line has at a moment: the last step before it, or between the two points around it.
  *
@@ -367,6 +428,7 @@ function valueAt(points: readonly LinePoint[], at: number, isStepped: boolean): 
  * @returns The chart.
  */
 export function LineChart(props: LineChartProps) {
+  const { t } = useTranslation();
   const { points, window, tone, isStepped = false, height = 120, isStale = false, label } = props;
   const gradient = useId();
   const pointer = usePointer();
@@ -399,26 +461,44 @@ export function LineChart(props: LineChartProps) {
    */
   const format = props.format ?? ((value: number): string => String(Math.round(value * 10) / 10));
 
-  const line = points
-    .map((point, index) => {
-      const previous = points[index - 1];
+  // A level holds between its changes; only a reading has gaps.
+  const gaps = isStepped ? [] : gapsOf(points, window);
+  const runs = runsAcross(points, gaps);
+  /**
+   * The path of one run of points.
+   *
+   * @param run - The points, left to right.
+   * @returns The path's commands.
+   */
+  const pathOf = (run: readonly LinePoint[]): string =>
+    run
+      .map((point, index) => {
+        const previous = run[index - 1];
 
-      if (index === 0) {
-        return `M${x(point.at).toFixed(1)} ${y(point.value).toFixed(1)}`;
-      }
+        if (index === 0) {
+          return `M${x(point.at).toFixed(1)} ${y(point.value).toFixed(1)}`;
+        }
 
-      return isStepped && previous !== undefined
-        ? `L${x(point.at).toFixed(1)} ${y(previous.value).toFixed(1)} L${x(point.at).toFixed(1)} ${y(point.value).toFixed(1)}`
-        : `L${x(point.at).toFixed(1)} ${y(point.value).toFixed(1)}`;
-    })
+        return isStepped && previous !== undefined
+          ? `L${x(point.at).toFixed(1)} ${y(previous.value).toFixed(1)} L${x(point.at).toFixed(1)} ${y(point.value).toFixed(1)}`
+          : `L${x(point.at).toFixed(1)} ${y(point.value).toFixed(1)}`;
+      })
+      .join(' ');
+  const line = runs.map(pathOf).join(' ');
+  const area = runs
+    .map(
+      (run) =>
+        `${pathOf(run)} L${x(run.at(-1)?.at ?? window.from).toFixed(1)} ${String(height)} L${x(run[0]?.at ?? window.from).toFixed(1)} ${String(height)} Z`,
+    )
     .join(' ');
   const last = points.at(-1);
   const lastX = last === undefined ? 0 : x(last.at);
   const lastY = last === undefined ? height : y(last.value);
-  const area = `${line} L${lastX.toFixed(1)} ${String(height)} L${x(points[0]?.at ?? window.from).toFixed(1)} ${String(height)} Z`;
   const colours = TONE_CHART[isStale ? 'muted' : tone];
   const moment = pointer.at === null ? null : window.from + pointer.at * (window.to - window.from);
-  const hovered = moment === null ? null : valueAt(points, moment, isStepped);
+  const gap =
+    moment === null ? undefined : gaps.find((each) => moment > each.from && moment < each.to);
+  const hovered = moment === null || gap !== undefined ? null : valueAt(points, moment, isStepped);
 
   return (
     <div className="relative">
@@ -428,6 +508,22 @@ export function LineChart(props: LineChartProps) {
         className="relative cursor-crosshair"
       >
         <Guides at={null} />
+        {gaps.map((each) => (
+          <span
+            key={each.from}
+            aria-hidden="true"
+            className={cn(
+              'pointer-events-none absolute inset-y-0 rounded-[6px] transition-opacity duration-200',
+              'bg-[repeating-linear-gradient(135deg,color-mix(in_oklab,var(--color-foreground-muted)_16%,transparent)_0_4px,transparent_4px_8px)]',
+              gap !== undefined && gap !== each && 'opacity-55',
+            )}
+            // eslint-disable-next-line react/forbid-dom-props -- where nothing was recorded, in its place
+            style={{
+              left: `${(across(each.from, window) * 100).toFixed(2)}%`,
+              width: `${((across(each.to, window) - across(each.from, window)) * 100).toFixed(2)}%`,
+            }}
+          />
+        ))}
         <svg
           width="100%"
           height={height}
@@ -467,6 +563,26 @@ export function LineChart(props: LineChartProps) {
             </>
           )}
         </svg>
+        {runs.map((run) => {
+          const [alone] = run;
+
+          // A reading alone between two gaps has no line to be on: it is a dot.
+          return run.length !== 1 || alone === undefined ? null : (
+            <span
+              key={alone.at}
+              aria-hidden="true"
+              className={cn(
+                'pointer-events-none absolute size-1.5 -translate-1/2 rounded-full',
+                TONE_DOT[isStale ? 'muted' : tone],
+              )}
+              // eslint-disable-next-line react/forbid-dom-props -- where the lone reading falls
+              style={{
+                left: `${((x(alone.at) / WIDTH) * 100).toFixed(2)}%`,
+                top: y(alone.value),
+              }}
+            />
+          );
+        })}
         {isStale && last !== undefined ? (
           <span
             aria-hidden="true"
@@ -488,6 +604,18 @@ export function LineChart(props: LineChartProps) {
           />
         )}
       </div>
+      {pointer.at === null || gap === undefined ? null : (
+        <ChartTip
+          at={pointer.at}
+          tone="muted"
+          title={t('entity.sheet.history.noData', 'No data')}
+          sub={t('entity.sheet.history.span', '{{from}} – {{to}} · {{duration}}', {
+            from: momentText(gap.from, window),
+            to: momentText(gap.to, window),
+            duration: durationText(gap.to - gap.from),
+          })}
+        />
+      )}
       {pointer.at === null || hovered === null || moment === null ? null : (
         <ChartTip
           at={pointer.at}
@@ -497,6 +625,58 @@ export function LineChart(props: LineChartProps) {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The place of the three figures under a chart while its history is read, as tall as they will
+ * be, so the dialog keeps its height as they arrive.
+ *
+ * @param props - How they are drawn.
+ * @param props.isBoxed - Whether each figure is boxed, as under a drawer's chart.
+ * @returns The placeholders.
+ */
+export function StatsLoading(props: { readonly isBoxed?: boolean }) {
+  return (
+    <div aria-hidden="true" className="grid grid-cols-3 gap-2">
+      {['first', 'second', 'third'].map((place) => (
+        <div
+          key={place}
+          className={cn(
+            'flex flex-col gap-1.5 py-px',
+            props.isBoxed === true && 'rounded-inner border border-border bg-well p-3',
+          )}
+        >
+          <span className="entity-loading h-3.5 w-3/5 rounded-chip" />
+          <span className="entity-loading h-5.5 w-4/5 rounded-chip" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** What the place of a chart being read needs. */
+export type ChartLoadingProps = {
+  /** Its height, as a class: the chart's own. */
+  readonly className: string;
+};
+
+/**
+ * The place of a chart while its history is read: as tall as the chart will be, with a light
+ * passing over it, so the dialog does not draw an empty chart and then jump.
+ *
+ * @param props - See {@link ChartLoadingProps}.
+ * @returns The placeholder.
+ */
+export function ChartLoading(props: ChartLoadingProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      role="status"
+      aria-label={t('entity.sheet.history.loading', 'Reading the history')}
+      className={cn('entity-loading rounded-tile', props.className)}
+    />
   );
 }
 
@@ -622,7 +802,8 @@ export type TotalBarsProps = {
 
 /**
  * Bars of a running total, one per hour of the day or per day of the week or month, grown from
- * the floor one after another; under the pointer, how much its slot added and when.
+ * the floor one after another; under the pointer, how much its slot added and when - or that
+ * nothing was recorded in it.
  *
  * @param props - See {@link TotalBarsProps}.
  * @returns The bars.
@@ -680,7 +861,7 @@ export function TotalBars(props: TotalBarsProps) {
           tone={value === null ? 'muted' : tone}
           title={
             value === null || value === undefined
-              ? t('entity.sheet.history.notYet', 'Not yet')
+              ? t('entity.sheet.history.noData', 'No data')
               : format(value)
           }
           sub={t('entity.sheet.history.slotSpan', '{{from}} – {{to}}', {

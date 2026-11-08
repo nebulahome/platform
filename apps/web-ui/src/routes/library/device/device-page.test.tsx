@@ -176,6 +176,35 @@ describe('DevicePage', () => {
     expect(screen.getByRole('region', { name: 'Sensors' })).toBeTruthy();
   });
 
+  it('leaves a disabled entity out until asked, then shows it faded and saying so', async () => {
+    vi.mocked(fetchEntities).mockResolvedValue(
+      printerEntities().map((entity) =>
+        entity.entityId === NOZZLE_ID ? { ...entity, isEnabled: false } : entity,
+      ),
+    );
+    renderPage();
+
+    const sensors = await screen.findByRole('region', { name: 'Sensors' });
+
+    expect(sensors.textContent).not.toContain('Nozzle temperature');
+    expect(sensors.textContent).toContain('All disabled.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show disabled (1)' }));
+
+    expect(
+      screen.getByRole('link', { name: 'Nozzle temperature' }).closest('li')?.className,
+    ).toContain('opacity-50');
+    expect(sensors.textContent).toContain('Disabled');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide disabled' }));
+
+    expect(sensors.textContent).not.toContain('Nozzle temperature');
+    // A heading with nothing disabled under it offers nothing.
+    expect(
+      screen.getByRole('region', { name: 'Controls' }).querySelector('[aria-pressed]'),
+    ).toBeNull();
+  });
+
   it('lists what can be operated apart from what only reports, each under a heading', async () => {
     renderPage();
 

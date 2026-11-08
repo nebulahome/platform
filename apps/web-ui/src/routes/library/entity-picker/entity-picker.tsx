@@ -6,7 +6,8 @@
  * way wherever it is asked for. The search reads the name, the address, the synonyms, the room
  * and the device, folding case and accents; the pills narrow by kind of thing. A caller may also
  * narrow what can be chosen at all - only what takes commands, only what a scene can set - and
- * what it rules out is not shown.
+ * what it rules out is not shown. A disabled entity is never shown: it takes no command and
+ * records no state, so nothing should be built on it.
  *
  * A press chooses and the footer confirms, so a stray press is not a choice; a double press takes
  * it at once. Several may be chosen where the caller adds many at a time.
@@ -96,7 +97,10 @@ function PickerBody(props: PickerBodyProps) {
   const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set(value));
 
   const deviceNames = new Map(directory.devices.map((device) => [device.id, device.name]));
-  const choosable = directory.entities.filter((entity) => accept?.(entity) ?? true);
+  // A disabled entity is offered nowhere; one already chosen still shows among the chosen.
+  const choosable = directory.entities.filter(
+    (entity) => entity.isEnabled && (accept?.(entity) ?? true),
+  );
   const families = ENTITY_FAMILIES.filter((candidate) =>
     choosable.some((entity) => entityFamilyOf(entity) === candidate),
   );

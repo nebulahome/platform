@@ -150,4 +150,22 @@ describe('SceneDialog', () => {
     });
     expect(onSaved).toHaveBeenCalledWith(SAVED);
   });
+
+  it('offers no disabled entity to add', async () => {
+    vi.mocked(fetchEntities).mockResolvedValueOnce([
+      LAMP,
+      {
+        ...LAMP,
+        entityId: entityIdSchema.parse('light.hallway_porch'),
+        name: 'Porch',
+        isEnabled: false,
+      },
+    ]);
+    renderCreate();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to the scene' }));
+
+    expect(await screen.findByRole('checkbox', { name: /Ceiling/u })).toBeTruthy();
+    expect(screen.queryByRole('checkbox', { name: /Porch/u })).toBeNull();
+  });
 });
