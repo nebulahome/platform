@@ -508,22 +508,41 @@ export function LineChart(props: LineChartProps) {
         className="relative cursor-crosshair"
       >
         <Guides at={null} />
-        {gaps.map((each) => (
-          <span
-            key={each.from}
-            aria-hidden="true"
-            className={cn(
-              'pointer-events-none absolute inset-y-0 rounded-[6px] transition-opacity duration-200',
-              'bg-[repeating-linear-gradient(135deg,color-mix(in_oklab,var(--color-foreground-muted)_16%,transparent)_0_4px,transparent_4px_8px)]',
-              gap !== undefined && gap !== each && 'opacity-55',
-            )}
-            // eslint-disable-next-line react/forbid-dom-props -- where nothing was recorded, in its place
-            style={{
-              left: `${(across(each.from, window) * 100).toFixed(2)}%`,
-              width: `${((across(each.to, window) - across(each.from, window)) * 100).toFixed(2)}%`,
-            }}
-          />
-        ))}
+        {gaps.length === 0 ? null : (
+          // Drawn in with the line, from the left, rather than standing there before it.
+          <div aria-hidden="true" className="entity-reveal pointer-events-none absolute inset-0">
+            {gaps.map((each) => {
+              const left = across(each.from, window);
+              const width = Math.max(1e-6, across(each.to, window) - left);
+
+              return (
+                <span
+                  key={each.from}
+                  className={cn(
+                    'absolute inset-y-0 overflow-hidden rounded-[6px] transition-opacity duration-200',
+                    gap !== undefined && gap !== each && 'opacity-55',
+                  )}
+                  // eslint-disable-next-line react/forbid-dom-props -- where nothing was recorded, in its place
+                  style={{
+                    left: `${(left * 100).toFixed(2)}%`,
+                    width: `${(width * 100).toFixed(2)}%`,
+                  }}
+                >
+                  {/* One hatching as wide as the chart, seen through each gap, so the stripes of
+                      gaps apart from each other line up. */}
+                  <span
+                    className="absolute inset-y-0 bg-[repeating-linear-gradient(135deg,color-mix(in_oklab,var(--color-foreground-muted)_10%,transparent)_0_4px,transparent_4px_8px)]"
+                    // eslint-disable-next-line react/forbid-dom-props -- the chart's width, set back to its left edge
+                    style={{
+                      left: `${((-left / width) * 100).toFixed(2)}%`,
+                      width: `${(100 / width).toFixed(2)}%`,
+                    }}
+                  />
+                </span>
+              );
+            })}
+          </div>
+        )}
         <svg
           width="100%"
           height={height}

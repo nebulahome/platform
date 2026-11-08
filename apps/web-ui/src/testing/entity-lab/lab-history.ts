@@ -213,7 +213,7 @@ export function labTelemetry(
         max: value + shift + swing * 0.05,
         count: 1,
       }))
-      // A while with nothing recorded - the hub off - for the chart to show as a gap.
-      .filter((point, index) => index < 26 || index > 31)
+      // Two whiles with nothing recorded - the hub off - for the chart to show as gaps.
+      .filter((point, index) => (index < 10 || index > 15) && (index < 26 || index > 31))
   );
 }
