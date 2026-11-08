@@ -1362,6 +1362,24 @@
 }
 
 /*
+ * On a large screen the entity dialog is drawn larger, whole - its card and everything in it in
+ * proportion - rather than wider with the same small dial in more room. `zoom` lays it out again
+ * at that size, so text stays sharp; what reads the pointer inside it measures against the box as
+ * drawn. Only where the raised sheet still fits the window's height.
+ */
+@media (min-width: 1600px) and (min-height: 900px) {
+  .entity-card {
+    zoom: 1.15;
+  }
+}
+
+@media (min-width: 2300px) and (min-height: 1250px) {
+  .entity-card {
+    zoom: 1.25;
+  }
+}
+
+/*
  * Blocks arriving one after another, each 45 ms behind the one above it: the children of
  * `entity-stagger`, or the grandchildren of `entity-stagger-deep` - a dialog's body, whose own
  * root sits between.

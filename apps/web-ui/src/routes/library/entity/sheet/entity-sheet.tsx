@@ -1,9 +1,10 @@
 /**
  * An entity, in one dialog: the sheet chosen on the Nebula canvas (`N-Entity-Modal-B`).
  *
- * A 400 px card with the entity's tile, name and kind at the top, and three round buttons:
- * History and Settings each lift a sheet over the controls - pulled down by its handle, or
- * lowered with its button - and Close puts the dialog away. Between them, the body of its kind: a lamp's level, a lock's bolt, a sensor's
+ * A 400 px card - drawn 15 or 25 % larger, whole, on a large screen - with the entity's tile,
+ * name and kind at the top, and three round buttons: History and Settings each lift a sheet over
+ * the controls - pulled down by its handle, or lowered with its button - and Close puts the
+ * dialog away. Between them, the body of its kind: a lamp's level, a lock's bolt, a sensor's
  * chart. A disabled entity says so under the header and greys its controls; one that no longer
  * answers says how long it has been silent, and shows its last value greyed.
  *
@@ -74,8 +75,16 @@ type SheetView = 'control' | 'history' | 'settings';
 /** How far down a raised sheet must be pulled, of its height, to be put away when let go. */
 const CLOSE_AT = 0.25;
 
-/** A pull on a raised sheet's handle: where it began, how far down it has come, how tall it is. */
-type Pull = { readonly from: number; readonly by: number; readonly height: number };
+/**
+ * A pull on a raised sheet's handle: where it began, how far down it has come, how tall it is,
+ * and how much larger the card is drawn than it is laid out (`entity-card` on a large screen).
+ */
+type Pull = {
+  readonly from: number;
+  readonly by: number;
+  readonly height: number;
+  readonly scale: number;
+};
 
 /**
  * Renders the dialog's card.
@@ -148,8 +157,15 @@ export function EntitySheet(props: EntitySheetProps) {
       return;
     }
 
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setPull({ from: event.clientY, by: 0, height: event.currentTarget.offsetHeight });
+    const sheet = event.currentTarget;
+
+    sheet.setPointerCapture(event.pointerId);
+    setPull({
+      from: event.clientY,
+      by: 0,
+      height: sheet.offsetHeight,
+      scale: sheet.getBoundingClientRect().height / Math.max(1, sheet.offsetHeight),
+    });
   };
 
   /**
@@ -159,7 +175,7 @@ export function EntitySheet(props: EntitySheetProps) {
    */
   const movePull = (event: PointerEvent<HTMLDivElement>): void => {
     if (pull !== null) {
-      setPull({ ...pull, by: Math.max(0, event.clientY - pull.from) });
+      setPull({ ...pull, by: Math.max(0, (event.clientY - pull.from) / pull.scale) });
     }
   };
 
@@ -175,7 +191,7 @@ export function EntitySheet(props: EntitySheetProps) {
   return (
     <div
       className={cn(
-        'entity-arrive relative flex w-[400px] max-w-full flex-col overflow-hidden rounded-[24px] border',
+        'entity-card entity-arrive relative flex w-[400px] max-w-full flex-col overflow-hidden rounded-[24px] border',
         'border-border-strong bg-surface shadow-dialog select-none',
         'transition-[min-height] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]',
         isRaised ? 'min-h-[640px]' : 'min-h-0',

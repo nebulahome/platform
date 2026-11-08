@@ -433,10 +433,12 @@ export function ClimateBody(props: SheetBodyProps) {
    */
   const targetAt = (event: PointerEvent<HTMLDivElement>): number => {
     const box = event.currentTarget.getBoundingClientRect();
+    // The dial's own pixels: the card may be drawn larger than it is laid out (`entity-card`).
+    const scale = box.width / Math.max(1, event.currentTarget.offsetWidth);
 
     return valueAtPoint(
-      event.clientX - box.left,
-      event.clientY - box.top,
+      (event.clientX - box.left) / scale,
+      (event.clientY - box.top) / scale,
       params.minTemperature,
       params.maxTemperature,
       step,
