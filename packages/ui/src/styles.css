@@ -321,6 +321,21 @@
     color: var(--color-foreground);
   }
 
+  /*
+   * Every button points and none has text to select. Tailwind's reset leaves buttons with the
+   * arrow, so each component had to ask for the hand; the ones that forgot showed an arrow over
+   * a control. Here once, for all of them; `disabled:cursor-not-allowed` still wins.
+   */
+  button,
+  [role='button'] {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border-strong) transparent;
