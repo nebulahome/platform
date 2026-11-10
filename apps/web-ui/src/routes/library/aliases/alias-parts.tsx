@@ -772,6 +772,16 @@ function SourceFields(props: PartEditorProps & { readonly set: (next: AliasPartC
 }
 
 /**
+ * Mireds as kelvin, or kelvin as mireds: the same sum both ways.
+ *
+ * @param value - The temperature, or undefined.
+ * @returns The other unit, rounded; undefined for none or zero.
+ */
+function toKelvin(value: number | undefined): number | undefined {
+  return value === undefined || value <= 0 ? undefined : Math.round(1_000_000 / value);
+}
+
+/**
  * A number typed in a text field: the text kept while it does not read as a number.
  *
  * @param props - The field's label, its value and how to change it.
@@ -801,7 +811,8 @@ function NumberInput(props: {
         size="compact"
         inputMode="decimal"
         value={shown}
-        {...(props.suffix === undefined ? {} : { trail: props.suffix })}
+        // A unit is a few letters: the field's room for a long one would hide the number.
+        {...(props.suffix === undefined ? {} : { trail: props.suffix, className: 'pr-11' })}
         onChange={(event) => {
           const next = event.target.value.replace(',', '.');
           setText(next);
@@ -1337,23 +1348,46 @@ function SettingFields(props: {
       (settings.has('range') || config.min !== undefined || config.max !== undefined) ? (
         <>
           <Field label={t('library.aliasPage.range', 'Range')}>
-            <span className="flex items-center gap-2">
-              <NumberInput
-                label={t('library.aliasPage.lowest', 'Lowest')}
-                value={config.min}
-                onChange={(min) => {
-                  set({ ...config, min });
-                }}
-              />
-              <span className="text-foreground-subtle">–</span>
-              <NumberInput
-                label={t('library.aliasPage.highest', 'Highest')}
-                value={config.max}
-                onChange={(max) => {
-                  set({ ...config, max });
-                }}
-              />
-            </span>
+            {def.key === 'color_temp' ? (
+              // Stored in mireds, shown in kelvin like its value: the warmest is the most mireds.
+              <span className="flex items-center gap-2">
+                <NumberInput
+                  label={t('library.aliasPage.lowest', 'Lowest')}
+                  value={toKelvin(config.max)}
+                  suffix="K"
+                  onChange={(kelvin) => {
+                    set({ ...config, max: toKelvin(kelvin) });
+                  }}
+                />
+                <span className="text-foreground-subtle">–</span>
+                <NumberInput
+                  label={t('library.aliasPage.highest', 'Highest')}
+                  value={toKelvin(config.min)}
+                  suffix="K"
+                  onChange={(kelvin) => {
+                    set({ ...config, min: toKelvin(kelvin) });
+                  }}
+                />
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <NumberInput
+                  label={t('library.aliasPage.lowest', 'Lowest')}
+                  value={config.min}
+                  onChange={(min) => {
+                    set({ ...config, min });
+                  }}
+                />
+                <span className="text-foreground-subtle">–</span>
+                <NumberInput
+                  label={t('library.aliasPage.highest', 'Highest')}
+                  value={config.max}
+                  onChange={(max) => {
+                    set({ ...config, max });
+                  }}
+                />
+              </span>
+            )}
           </Field>
           <Field label={t('library.aliasPage.step', 'Step')}>
             <NumberInput
