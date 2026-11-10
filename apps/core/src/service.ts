@@ -48,6 +48,7 @@ import {
 } from './persistence/history-writer.js';
 import { loadRegistry } from './persistence/registry-loader.js';
 import { ensureSystemDevice, syncSunEntities } from './persistence/system-entities.js';
+import { AliasCodeRuntime } from './services/alias-code-runtime.js';
 import { AliasEngine } from './services/alias-engine.js';
 import { startAliasService } from './services/alias-service.js';
 import { AutomationEngine } from './services/automation-engine.js';
@@ -116,6 +117,7 @@ export class CoreService {
   #directory = new EntityDirectory();
   #aliases = new AliasCatalog();
   #aliasEngine: AliasEngine | undefined;
+  #aliasCode: AliasCodeRuntime | undefined;
   #automationEngine: AutomationEngine | undefined;
   #systemMonitor: SystemMonitor | undefined;
   #sunMonitor: SunMonitor | undefined;
@@ -297,6 +299,15 @@ export class CoreService {
     this.#linkEngine = linkEngine;
     startupLogger.info({ linked: linkEngine.start() }, 'Linked entities read through another');
 
+    const aliasCode = new AliasCodeRuntime({
+      db,
+      registry: this.#registry,
+      directory: this.#directory,
+      logger,
+    });
+
+    this.#aliasCode = aliasCode;
+
     const aliasEngine = new AliasEngine({
       db,
       directory: this.#directory,
@@ -305,6 +316,16 @@ export class CoreService {
       ingest,
       logger,
       newTraceId,
+      code: aliasCode,
+
+      /**
+       * The fields of a package entity type, for a custom alias.
+       *
+       * @param packageId - The package.
+       * @param type - The entity type.
+       * @returns Its state fields, or undefined when the package does not have it.
+       */
+      customFields: (packageId, type) => packageTypes.get(packageId, type)?.state,
     });
 
     this.#aliasEngine = aliasEngine;
@@ -524,6 +545,7 @@ export class CoreService {
     this.#subscriptions = [];
     this.#updating?.clear();
     this.#systemMonitor?.stop();
+    this.#aliasEngine?.stop();
     this.#sunMonitor?.stop();
     this.#quietTimeMonitor?.stop();
     this.#shutdown.abort();
@@ -535,6 +557,7 @@ export class CoreService {
       this.#history?.stop() ?? Promise.resolve(),
       this.#stateCache?.stop() ?? Promise.resolve(),
       this.#telemetry ?? Promise.resolve(),
+      this.#aliasCode?.flush() ?? Promise.resolve(),
     ]);
 
     await this.#client?.drain();

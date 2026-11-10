@@ -20,7 +20,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
   busSubjects,
-  ConflictError,
   CORE_REMOVE_ALIAS_METHOD,
   CORE_SERVICE,
   CORE_SYNC_ALIAS_METHOD,
@@ -41,6 +40,7 @@ import {
   createStateCacheWriter,
   type EntityStateRow,
 } from '@/persistence/history-writer.js';
+import { AliasCodeRuntime } from '@/services/alias-code-runtime.js';
 import { AliasEngine } from '@/services/alias-engine.js';
 import { startAliasService } from '@/services/alias-service.js';
 
@@ -50,7 +50,10 @@ const NATS_URL = 'nats://localhost:4222';
 const suffix = ulid().toLowerCase().slice(0, 10);
 const helper = parseEntityId(`alias.helper_${suffix}`);
 const doubled = parseEntityId(`alias.doubled_${suffix}`);
+const counter = parseEntityId(`alias.counter_${suffix}`);
 
+let helperRowId: string | undefined;
+let code: AliasCodeRuntime;
 let database: { db: Database; close: () => Promise<void> };
 let bus: BusConnection;
 let caller: BusClient;
@@ -84,32 +87,33 @@ function silent(): PlatformLogger {
 }
 
 /**
- * Writes an alias's rows the way the API does: the entity, the definition, its sources and
+ * Writes an alias's rows the way the API does: the entity, the definition, what it reads and
  * its capabilities, and no state.
  *
  * @param entityId - The alias entity.
- * @param fields - The expression and the capability, and what it reads.
- * @param fields.expression - The formula, or the empty string for a stored helper.
- * @param fields.capability - The one capability it declares.
- * @param fields.sources - What the formula reads, by variable name and entity row.
+ * @param fields - What it behaves as, its parts, and what it reads.
+ * @param fields.behavesAs - Its type.
+ * @param fields.parts - Its parts.
+ * @param fields.reads - The entity ids it reads.
+ * @param fields.capabilities - The capabilities it declares, with their params.
+ * @param fields.code - Its code, when a part comes from code.
+ * @param fields.memory - What its code keeps between runs.
  * @returns The entity's row id.
  */
 async function writeAlias(
   entityId: EntityId,
   fields: {
-    readonly expression: string;
-    readonly capability: string;
-    readonly sources?: readonly { variableName: string; rowId: string }[];
+    readonly behavesAs: string;
+    readonly parts: Record<string, unknown>;
+    readonly reads?: readonly string[];
+    readonly capabilities: Record<string, Record<string, unknown>>;
+    readonly code?: string;
+    readonly memory?: Record<string, unknown>;
   },
 ): Promise<string> {
   const [entity] = await database.db
     .insert(schema.registry.entities)
-    .values({
-      entityId,
-      source: 'derived',
-      name: entityId,
-      config: { alias: { domain: fields.expression === '' ? 'switch' : 'sensor' } },
-    })
+    .values({ entityId, source: 'derived', name: entityId })
     .returning({ id: schema.registry.entities.id });
 
   if (entity === undefined) {
@@ -118,23 +122,31 @@ async function writeAlias(
 
   const [alias] = await database.db
     .insert(schema.registry.aliases)
-    .values({ entityId: entity.id, capability: fields.capability, expression: fields.expression })
+    .values({
+      entityId: entity.id,
+      behavesAs: fields.behavesAs,
+      parts: fields.parts,
+      ...(fields.code === undefined ? {} : { code: fields.code }),
+      ...(fields.memory === undefined ? {} : { memory: fields.memory }),
+    })
     .returning({ id: schema.registry.aliases.id });
 
   if (alias === undefined) {
     throw new Error('Could not insert the alias row');
   }
 
-  for (const source of fields.sources ?? []) {
-    // One source per alias in these tests, written in order: the loop is only a way to write none.
+  for (const read of fields.reads ?? []) {
+    // One read per alias in these tests, written in order: the loop is only a way to write none.
     await database.db
-      .insert(schema.registry.aliasSources)
-      .values({ aliasId: alias.id, variableName: source.variableName, entityId: source.rowId });
+      .insert(schema.registry.aliasReads)
+      .values({ aliasId: alias.id, entityId: read });
   }
 
-  await database.db
-    .insert(schema.registry.entityCapabilities)
-    .values({ entityId: entity.id, capability: fields.capability, params: {} });
+  for (const [capability, params] of Object.entries(fields.capabilities)) {
+    await database.db
+      .insert(schema.registry.entityCapabilities)
+      .values({ entityId: entity.id, capability, params });
+  }
 
   return entity.id;
 }
@@ -189,6 +201,9 @@ beforeAll(async () => {
   stateCache = createStateCacheWriter({ db: database.db, logger, batchSize: 1000 });
 
   const client = new BusClient({ transport: bus.transport, source: 'core', logger });
+
+  code = new AliasCodeRuntime({ db: database.db, registry, directory, logger });
+
   const engine = new AliasEngine({
     db: database.db,
     directory,
@@ -204,6 +219,7 @@ beforeAll(async () => {
     },
     logger,
     newTraceId: () => ulid(),
+    code,
   });
 
   caller = new BusClient({
@@ -220,27 +236,33 @@ afterAll(async () => {
     subscription.unsubscribe();
   }
 
-  // The reader first: it restricts the deletion of what it reads.
   await database.db
     .delete(schema.registry.entities)
-    .where(eq(schema.registry.entities.entityId, doubled));
-  await database.db
-    .delete(schema.registry.entities)
-    .where(inArray(schema.registry.entities.entityId, [helper, doubled]));
+    .where(inArray(schema.registry.entities.entityId, [helper, doubled, counter]));
+
+  if (helperRowId !== undefined) {
+    await database.db
+      .delete(schema.history.telemetry)
+      .where(eq(schema.history.telemetry.entityId, helperRowId));
+  }
 
   await bus.close();
   await database.close();
 });
 
 describe('taking in an alias the API wrote', () => {
-  it('routes to a stored helper and gives it a resting state, with no restart', async () => {
-    await writeAlias(helper, { expression: '', capability: 'on_off' });
+  it('routes to a stored switch and gives it its stored state, with no restart', async () => {
+    await writeAlias(helper, {
+      behavesAs: 'switch',
+      parts: { on: { from: 'stored', value: false } },
+      capabilities: { on_off: { isAssumed: false } },
+    });
 
     expect(directory.get(helper)).toBeUndefined();
     expect(await sync(helper)).toBe(true);
 
     expect(directory.get(helper)?.capabilities.has('on_off')).toBe(true);
-    expect(catalog.getByEntity(helper)?.expression).toBe('');
+    expect(catalog.getByEntity(helper)?.parts['on']?.from).toBe('stored');
     expect(registry.get(helper)?.state).toEqual({ on_off: { isOn: false } });
     expect(stateCache.pending).toBe(1);
   });
@@ -256,9 +278,10 @@ describe('taking in an alias the API wrote', () => {
     }
 
     await writeAlias(doubled, {
-      expression: 'on ? 2 : 1',
-      capability: 'sensor_numeric',
-      sources: [{ variableName: 'on', rowId: source.id }],
+      behavesAs: 'sensor',
+      parts: { value: { from: 'formula', formula: `${helper} ? 2 : 1` } },
+      reads: [helper],
+      capabilities: { sensor_numeric: {} },
     });
 
     expect(await sync(doubled)).toBe(true);
@@ -273,20 +296,129 @@ describe('taking in an alias the API wrote', () => {
   });
 });
 
-describe('removing an alias', () => {
-  it('refuses while another alias reads it, naming that alias, and keeps everything', async () => {
-    const refusal = remove(helper);
+describe('a part from code', () => {
+  it('runs its function over history, keeps its mem across a save and writes it', async () => {
+    const [source] = await database.db
+      .select({ id: schema.registry.entities.id })
+      .from(schema.registry.entities)
+      .where(eq(schema.registry.entities.entityId, helper));
 
-    await expect(refusal).rejects.toBeInstanceOf(ConflictError);
-    await expect(refusal).rejects.toMatchObject({
-      details: { dependents: [{ entityId: doubled, name: doubled }] },
+    if (source === undefined) {
+      throw new Error('The helper written above is missing');
+    }
+
+    helperRowId = source.id;
+
+    const now = Date.now();
+
+    await database.db.insert(schema.history.telemetry).values([
+      { time: new Date(now - 5 * 60_000), entityId: source.id, value: 1 },
+      { time: new Date(now - 60_000), entityId: source.id, value: 3 },
+    ]);
+
+    const rowId = await writeAlias(counter, {
+      behavesAs: 'sensor',
+      parts: { value: { from: 'code', function: 'value' } },
+      code: [
+        'def value():',
+        '    mem["runs"] = (mem["runs"] or 0) + 1',
+        `    return mem["runs"] * 10 + avg_over("${helper}", 60)`,
+        '',
+      ].join('\n'),
+      memory: { runs: 2 },
+      capabilities: { sensor_numeric: {} },
     });
-    expect(directory.get(helper)).toBeDefined();
-  });
+    const [alias] = await database.db
+      .select({ id: schema.registry.aliases.id })
+      .from(schema.registry.aliases)
+      .where(eq(schema.registry.aliases.entityId, rowId));
 
-  it('deletes the rows and forgets the alias in the same step', async () => {
-    expect(await remove(doubled)).toBe(doubled);
+    if (alias === undefined) {
+      throw new Error('The code alias was not written');
+    }
+
+    const aliasId = alias.id;
+
+    /**
+     * The mem the alias's row holds.
+     *
+     * @returns The memory column.
+     */
+    const stored = async (): Promise<unknown> =>
+      (
+        await database.db
+          .select({ memory: schema.registry.aliases.memory })
+          .from(schema.registry.aliases)
+          .where(eq(schema.registry.aliases.id, aliasId))
+      )[0]?.memory;
+
+    expect(await sync(counter)).toBe(true);
+    expect(registry.get(counter)?.state).toEqual({ sensor_numeric: { value: 32 } });
+
+    await code.flush();
+    expect(await stored()).toEqual({ runs: 3 });
+
+    // Saved again with the mem as it was: the run goes on from it.
+    expect(await sync(counter)).toBe(true);
+    expect(registry.get(counter)?.state).toEqual({ sensor_numeric: { value: 42 } });
+
+    // The API resets the mem: the row's wins.
+    await database.db
+      .update(schema.registry.aliases)
+      .set({ memory: {} })
+      .where(eq(schema.registry.aliases.id, aliasId));
+    expect(await sync(counter)).toBe(true);
+    expect(registry.get(counter)?.state).toEqual({ sensor_numeric: { value: 12 } });
+
+    await code.flush();
+    expect(await stored()).toEqual({ runs: 1 });
+    expect(await remove(counter)).toBe(counter);
+  });
+});
+
+describe('a device that goes', () => {
+  it('leaves its aliases on the shared Aliases device, which itself cannot go', async () => {
+    const lamp = parseEntityId(`alias.lamp_${suffix}`);
+    const [device] = await database.db
+      .insert(schema.registry.devices)
+      .values({ source: 'virtual', externalId: `lamp_${suffix}`, name: 'Lamp' })
+      .returning({ id: schema.registry.devices.id });
+    const [shared] = await database.db
+      .select({ id: schema.registry.devices.id })
+      .from(schema.registry.devices)
+      .where(eq(schema.registry.devices.externalId, 'aliases'));
+
+    if (device === undefined || shared === undefined) {
+      throw new Error('Could not write the devices');
+    }
+
+    await database.db
+      .insert(schema.registry.entities)
+      .values({ entityId: lamp, source: 'derived', name: 'Lamp', deviceId: device.id });
+    await database.db
+      .delete(schema.registry.devices)
+      .where(eq(schema.registry.devices.id, device.id));
+
+    const [moved] = await database.db
+      .select({ deviceId: schema.registry.entities.deviceId })
+      .from(schema.registry.entities)
+      .where(eq(schema.registry.entities.entityId, lamp));
+
+    await database.db
+      .delete(schema.registry.entities)
+      .where(eq(schema.registry.entities.entityId, lamp));
+
+    expect(moved?.deviceId).toBe(shared.id);
+    await expect(
+      database.db.delete(schema.registry.devices).where(eq(schema.registry.devices.id, shared.id)),
+    ).rejects.toThrow();
+  });
+});
+
+describe('removing an alias', () => {
+  it('deletes the rows and forgets the alias in the same step, even one another reads', async () => {
     expect(await remove(helper)).toBe(helper);
+    expect(await remove(doubled)).toBe(doubled);
 
     const rows = await database.db
       .select({ id: schema.registry.entities.id })

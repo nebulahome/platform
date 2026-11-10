@@ -37,7 +37,7 @@ import {
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
-import { isStoredAlias, type AliasCatalog } from '../domain/alias-catalog.js';
+import type { AliasCatalog } from '../domain/alias-catalog.js';
 import type { ChangeAttribution } from '../domain/change-attribution.js';
 import { validateCommand } from '../domain/command-validation.js';
 import type { EntityDirectory, EntityRecord } from '../domain/entity-directory.js';
@@ -58,7 +58,7 @@ export type CommandDispatchOptions = {
   /** Alias definitions, consulted before forwarding derived-entity commands. */
   readonly aliases: AliasCatalog;
 
-  /** Applies commands to stored helpers locally. */
+  /** Applies commands to aliases: stored parts here, entity parts forwarded. */
   readonly aliasEngine: AliasEngine;
 
   /** How long an adapter has to accept a command. */
@@ -106,7 +106,16 @@ export type DispatchRequest = {
 
   /** Ends a wait for an update early, as a cancelled run does. */
   readonly signal?: AbortSignal | undefined;
+
+  /**
+   * How many aliases deep this command has been forwarded: an alias forwards to the entities its
+   * parts read, which may be aliases themselves. Bounded, so a chain the cycle check missed ends.
+   */
+  readonly aliasDepth?: number;
 };
+
+/** How many aliases deep a command may be forwarded. */
+const ALIAS_FORWARD_DEPTH = 8;
 
 /** Sends commands. */
 export type CommandDispatcher = {
@@ -150,7 +159,7 @@ function isUnreached(error: unknown): boolean {
  * @returns The dispatcher.
  */
 export function createCommandDispatcher(options: CommandDispatchOptions): CommandDispatcher {
-  return {
+  const dispatcher: CommandDispatcher = {
     /**
      * Sends one command and waits for it to be accepted.
      *
@@ -167,14 +176,30 @@ export function createCommandDispatcher(options: CommandDispatchOptions): Comman
       const alias = options.aliases.getByEntity(entityId);
 
       if (alias !== undefined) {
-        if (!isStoredAlias(alias)) {
-          throw new ValidationError(`Calculated alias ${entityId} rejects every command`, {
+        const depth = request.aliasDepth ?? 0;
+
+        if (depth >= ALIAS_FORWARD_DEPTH) {
+          throw new ValidationError(`Aliases forward ${entityId}'s command too deep`, {
             details: { entityId },
           });
         }
 
-        options.aliasEngine.applyStoredCommand(entityId, capability, request.command, context);
-        logger.debug({ entityId, capability }, 'Command applied to stored alias in core');
+        await options.aliasEngine.applyCommand(
+          entityId,
+          capability,
+          request.command,
+          context,
+          async (target, targetCapability, command) => {
+            await dispatcher.dispatch({
+              ...request,
+              entityId: target,
+              capability: targetCapability,
+              command,
+              aliasDepth: depth + 1,
+            });
+          },
+        );
+        logger.debug({ entityId, capability }, 'Command applied to an alias');
 
         return { entityId, capability, acceptedAt: new Date() };
       }
@@ -262,4 +287,6 @@ export function createCommandDispatcher(options: CommandDispatchOptions): Comman
       throw firstFailure;
     },
   };
+
+  return dispatcher;
 }

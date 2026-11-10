@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   adapterCommandSchema,
+  aliasType,
   ADAPTER_COMMAND_METHOD,
   busSubjects,
   commandAckSchema,
@@ -44,19 +45,22 @@ describe('startCommandRouter', () => {
       entityRecord(average, { source: 'derived', capabilities: { sensor_numeric: {} } }),
     );
 
+    const sensor = aliasType('sensor');
+
     aliases.upsert({
       id: 'alias-row-1',
       entityId: average,
-      capability: 'sensor_numeric',
-      expression: '(t1) / 1',
+      type: sensor,
+      defs: sensor.parts,
+      customType: null,
+      parts: { value: { from: 'formula', formula: `${thermometer} / 1` } },
+      code: '',
+      memory: {},
+      display: { deviceClass: null, unit: null, precision: null },
       debounceMs: 0,
       fallbackPolicy: 'unavailable',
       isEnabled: true,
-      sources: [{ variableName: 't1', entityId: thermometer }],
-      config: {},
-      min: null,
-      max: null,
-      step: null,
+      reads: [thermometer],
     });
 
     const aliasEngine = new AliasEngine({
@@ -184,18 +188,18 @@ describe('startCommandRouter', () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it('refuses a command for a calculated alias', async () => {
-    // Commanding one would write a value the next recomputation immediately overwrites; the
-    // command belongs on whichever source entity actually drives it.
+  it('refuses a command for a part a formula works out', async () => {
+    // Setting it would write a value the next run immediately overwrites; the command belongs on
+    // whichever entity actually drives it.
     await expect(
       harness
         .clientFor('api')
         .request(
           busSubjects.command(average, 'sensor_numeric'),
-          { command: { command: 'set' } },
+          { command: { command: 'set_value', value: 3 } },
           commandAckSchema,
         ),
-    ).rejects.toThrow(/rejects every command/);
+    ).rejects.toThrow(/worked out by a formula/);
   });
 
   it('refuses a capability the entity does not declare', async () => {

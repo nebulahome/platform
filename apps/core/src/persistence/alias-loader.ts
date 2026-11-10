@@ -6,180 +6,182 @@
  * other way, through `core`, because the entity must leave the directory, the live states and
  * the buffered writes in the same step as its rows (see `services/alias-engine.ts`).
  */
-import { asc, eq, inArray, type SQL } from 'drizzle-orm';
+import { eq, inArray, sql, type SQL } from 'drizzle-orm';
 
 import {
-  ConflictError,
+  ALIAS_FALLBACK_POLICIES,
+  ALIAS_TYPE_IDS,
+  aliasCustomTypeSchema,
+  aliasDisplaySchema,
+  aliasPartsSchema,
+  aliasType,
+  aliasTypeParts,
+  jsonObjectSchema,
   NotFoundError,
   parseEntityId,
-  type AliasDependent,
+  type AliasCustomField,
   type AliasFallbackPolicy,
-  type CapabilityName,
+  type AliasTypeId,
   type EntityId,
-  type JsonObject,
+  type JsonValue,
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
 
-import type { AliasDefinition, AliasSourceBinding } from '../domain/alias-catalog.js';
+import type { AliasDefinition } from '../domain/alias-catalog.js';
+
+/** Looks up the fields of a package entity type, for a custom alias's parts. */
+export type CustomFieldsLookup = (
+  packageId: string,
+  type: string,
+) => readonly AliasCustomField[] | undefined;
 
 /**
- * Whether a JSON value is an object, as opposed to an array, a scalar or null.
+ * Reads alias definitions and what they read, all of them or those a condition names.
  *
- * @param value - What a `jsonb` column held.
- * @returns True for an object.
- */
-function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
- * Reads the helper limits an alias keeps on its entity row.
- *
- * @param config - The entity row's `config`.
- * @returns The `alias` object inside it, or an empty one.
- */
-function aliasConfigOf(config: JsonObject): JsonObject {
-  const alias = config['alias'];
-
-  return isJsonObject(alias) ? alias : {};
-}
-
-/**
- * Reads a number from the helper limits, when it is one.
- *
- * @param config - The `alias` object on the entity row.
- * @param key - Which limit.
- * @returns The number, or null.
- */
-function limitOf(config: JsonObject, key: 'min' | 'max' | 'step'): number | null {
-  const value = config[key];
-
-  return typeof value === 'number' ? value : null;
-}
-
-/**
- * Reads alias definitions and their sources, all of them or those a condition names.
+ * A row whose stored setup no longer reads as one (a type this version does not know, parts that
+ * do not parse) is left out and said, rather than taking the rest down with it.
  *
  * @param db - The database.
+ * @param customFields - The fields of package entity types, for custom aliases.
  * @param where - Which aliases, by a condition on the alias or its entity; all when absent.
  * @returns The definitions, ready for the catalogue.
  */
-async function selectAliases(db: Database, where?: SQL): Promise<AliasDefinition[]> {
+async function selectAliases(
+  db: Database,
+  customFields: CustomFieldsLookup,
+  where?: SQL,
+): Promise<AliasDefinition[]> {
+  const { aliases, aliasReads, entities } = schema.registry;
   const rows = await db
     .select({
-      id: schema.registry.aliases.id,
-      entityId: schema.registry.entities.entityId,
-      capability: schema.registry.aliases.capability,
-      expression: schema.registry.aliases.expression,
-      debounceMs: schema.registry.aliases.debounceMs,
-      fallbackPolicy: schema.registry.aliases.fallbackPolicy,
-      isEnabled: schema.registry.aliases.isEnabled,
-      config: schema.registry.entities.config,
+      id: aliases.id,
+      entityId: entities.entityId,
+      behavesAs: aliases.behavesAs,
+      customType: aliases.customType,
+      parts: aliases.parts,
+      code: aliases.code,
+      memory: aliases.memory,
+      display: aliases.display,
+      debounceMs: aliases.debounceMs,
+      fallbackPolicy: aliases.fallbackPolicy,
+      isEnabled: aliases.isEnabled,
     })
-    .from(schema.registry.aliases)
-    .innerJoin(
-      schema.registry.entities,
-      eq(schema.registry.entities.id, schema.registry.aliases.entityId),
-    )
+    .from(aliases)
+    .innerJoin(entities, eq(entities.id, aliases.entityId))
     .where(where);
 
   if (rows.length === 0) {
     return [];
   }
 
-  const sourceRows = await db
-    .select({
-      aliasId: schema.registry.aliasSources.aliasId,
-      variableName: schema.registry.aliasSources.variableName,
-      entityId: schema.registry.entities.entityId,
-    })
-    .from(schema.registry.aliasSources)
-    .innerJoin(
-      schema.registry.entities,
-      eq(schema.registry.entities.id, schema.registry.aliasSources.entityId),
-    )
+  const readRows = await db
+    .select({ aliasId: aliasReads.aliasId, entityId: aliasReads.entityId })
+    .from(aliasReads)
     .where(
       inArray(
-        schema.registry.aliasSources.aliasId,
+        aliasReads.aliasId,
         rows.map((row) => row.id),
       ),
     );
+  const reads = new Map<string, EntityId[]>();
 
-  const sourcesByAlias = new Map<string, AliasSourceBinding[]>();
-
-  for (const row of sourceRows) {
-    sourcesByAlias.set(row.aliasId, [
-      ...(sourcesByAlias.get(row.aliasId) ?? []),
-      { variableName: row.variableName, entityId: parseEntityId(row.entityId) },
-    ]);
+  for (const row of readRows) {
+    reads.set(row.aliasId, [...(reads.get(row.aliasId) ?? []), parseEntityId(row.entityId)]);
   }
 
-  return rows.map((row): AliasDefinition => {
-    const config = isJsonObject(row.config) ? row.config : {};
-    const limits = aliasConfigOf(config);
+  return rows.flatMap((row): AliasDefinition[] => {
+    if (!(ALIAS_TYPE_IDS as readonly string[]).includes(row.behavesAs)) {
+      return [];
+    }
 
-    return {
-      id: row.id,
-      entityId: parseEntityId(row.entityId),
+    const type = aliasType(row.behavesAs as AliasTypeId);
+    const parts = aliasPartsSchema.safeParse(row.parts);
+    const custom = aliasCustomTypeSchema.nullable().safeParse(row.customType ?? null);
+    const memory = jsonObjectSchema.safeParse(row.memory);
+    const display = aliasDisplaySchema.safeParse(row.display);
 
-      // The API writes both columns from the contract's names, and `aliases_fallback_policy`
-      // checks the second, so the casts record what was written rather than assume it.
-      capability: row.capability as CapabilityName,
-      expression: row.expression,
-      debounceMs: row.debounceMs,
-      fallbackPolicy: row.fallbackPolicy as AliasFallbackPolicy,
-      isEnabled: row.isEnabled,
-      sources: sourcesByAlias.get(row.id) ?? [],
-      config,
-      min: limitOf(limits, 'min'),
-      max: limitOf(limits, 'max'),
-      step: limitOf(limits, 'step'),
-    };
+    if (!parts.success || !custom.success) {
+      return [];
+    }
+
+    const fields =
+      custom.data === null ? undefined : customFields(custom.data.packageId, custom.data.type);
+
+    return [
+      {
+        id: row.id,
+        entityId: parseEntityId(row.entityId),
+        type,
+        defs: aliasTypeParts(type, fields),
+        customType: custom.data,
+        parts: parts.data,
+        code: row.code,
+        memory: memory.success ? memory.data : {},
+        display: display.success
+          ? display.data
+          : { deviceClass: null, unit: null, precision: null },
+        debounceMs: row.debounceMs,
+        fallbackPolicy: (ALIAS_FALLBACK_POLICIES as readonly string[]).includes(row.fallbackPolicy)
+          ? (row.fallbackPolicy as AliasFallbackPolicy)
+          : 'unavailable',
+        isEnabled: row.isEnabled,
+        reads: reads.get(row.id) ?? [],
+      },
+    ];
   });
 }
 
 /**
- * Loads every alias definition and its sources.
+ * Loads every alias definition.
  *
  * @param db - The database.
+ * @param customFields - The fields of package entity types, for custom aliases.
  * @returns The definitions, ready for the catalogue.
  */
-export async function loadAliases(db: Database): Promise<AliasDefinition[]> {
-  return selectAliases(db);
+export async function loadAliases(
+  db: Database,
+  customFields: CustomFieldsLookup,
+): Promise<AliasDefinition[]> {
+  return selectAliases(db, customFields);
 }
 
 /**
- * Loads one alias definition, by the entity it produces.
+ * Loads one alias definition, by the entity it is.
  *
  * @param db - The database.
  * @param entityId - The alias entity.
+ * @param customFields - The fields of package entity types, for custom aliases.
  * @returns The definition, or undefined when there is no such alias.
  */
 export async function loadAlias(
   db: Database,
   entityId: EntityId,
+  customFields: CustomFieldsLookup,
 ): Promise<AliasDefinition | undefined> {
-  const [alias] = await selectAliases(db, eq(schema.registry.entities.entityId, entityId));
+  const [alias] = await selectAliases(
+    db,
+    customFields,
+    eq(schema.registry.entities.entityId, entityId),
+  );
 
   return alias;
 }
 
 /**
- * Deletes an alias: its entity row, which takes the definition, the sources, the capabilities,
- * the cached state, the tags and any place in a scene with it.
+ * Deletes an alias: its entity row, which takes the definition, what it reads, its
+ * capabilities, its cached state, its tags and any place in a scene with it.
  *
- * Refused while another alias reads it. `alias_sources` restricts the delete on purpose, and
- * checking first turns the foreign key into a sentence naming what to edit.
+ * Another alias reading this one is no reason to refuse: the delete dialog has listed what stops
+ * working, and the reader turns Failing, saying the entity is not in the house.
  *
  * @param db - The database.
  * @param entityId - The alias entity.
  * @returns The entity's row id, which buffered writes are keyed by.
- * @throws {NotFoundError} When no alias produces that entity.
- * @throws {ConflictError} When another alias reads it; the details name those aliases.
+ * @throws {NotFoundError} When no alias is that entity.
  */
 export async function eraseAlias(db: Database, entityId: EntityId): Promise<string> {
   return db.transaction(async (tx) => {
-    const { aliases, aliasSources, entities } = schema.registry;
+    const { aliases, entities } = schema.registry;
 
     const [alias] = await tx
       .select({ rowId: entities.id })
@@ -188,30 +190,58 @@ export async function eraseAlias(db: Database, entityId: EntityId): Promise<stri
       .where(eq(entities.entityId, entityId));
 
     if (alias === undefined) {
-      throw new NotFoundError('No alias produces that entity', { details: { entityId } });
-    }
-
-    const readers = await tx
-      .selectDistinct({ entityId: entities.entityId, name: entities.name })
-      .from(aliasSources)
-      .innerJoin(aliases, eq(aliases.id, aliasSources.aliasId))
-      .innerJoin(entities, eq(entities.id, aliases.entityId))
-      .where(eq(aliasSources.entityId, alias.rowId))
-      .orderBy(asc(entities.entityId));
-
-    if (readers.length > 0) {
-      const dependents: AliasDependent[] = readers.map((reader) => ({
-        entityId: parseEntityId(reader.entityId),
-        name: reader.name,
-      }));
-
-      throw new ConflictError('Other aliases still read this one', {
-        details: { entityId, dependents },
-      });
+      throw new NotFoundError('No alias is that entity', { details: { entityId } });
     }
 
     await tx.delete(entities).where(eq(entities.id, alias.rowId));
 
     return alias.rowId;
   });
+}
+
+/**
+ * Writes a part's stored value back into the alias's setup, after a command changed it, so the
+ * setup the page and the file show holds the value the alias has.
+ *
+ * @param db - The database.
+ * @param aliasId - The aliases row.
+ * @param values - The new stored values, by part key.
+ */
+export async function storePartValues(
+  db: Database,
+  aliasId: string,
+  values: ReadonlyMap<string, JsonValue>,
+): Promise<void> {
+  if (values.size === 0) {
+    return;
+  }
+
+  let parts = sql`${schema.registry.aliases.parts}`;
+
+  for (const [key, value] of values) {
+    parts = sql`jsonb_set(${parts}, ${`{${key},value}`}::text[], ${JSON.stringify(value)}::jsonb, true)`;
+  }
+
+  await db
+    .update(schema.registry.aliases)
+    .set({ parts })
+    .where(eq(schema.registry.aliases.id, aliasId));
+}
+
+/**
+ * Writes what an alias's code keeps between runs.
+ *
+ * @param db - The database.
+ * @param aliasId - The aliases row.
+ * @param memory - The memory.
+ */
+export async function storeMemory(
+  db: Database,
+  aliasId: string,
+  memory: Readonly<Record<string, JsonValue>>,
+): Promise<void> {
+  await db
+    .update(schema.registry.aliases)
+    .set({ memory })
+    .where(eq(schema.registry.aliases.id, aliasId));
 }

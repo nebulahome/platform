@@ -415,30 +415,28 @@ async function unregister(
 }
 
 describe('releasing a device the owner is removing', () => {
-  it('refuses while a derived entity reads one of its entities', async () => {
-    // `alias_sources` restricts the delete on purpose: an alias that quietly lost a source
-    // would evaluate to nonsense. The owner is told which entities, and edits the alias first.
-    const [relayRow] = await database.db
-      .select({ id: schema.registry.entities.id })
-      .from(schema.registry.entities)
-      .where(eq(schema.registry.entities.entityId, relay));
+  it('refuses while an alias reads one of its entities', async () => {
+    // An alias that quietly lost what it reads would work out to nonsense. The owner is told
+    // which entities, and edits the alias first.
     const [derivedRow] = await database.db
       .insert(schema.registry.entities)
       .values({ entityId: `alias.reg_${suffix}`, source: 'derived', name: 'Relay mirror' })
       .returning({ id: schema.registry.entities.id });
     const [aliasRow] = await database.db
       .insert(schema.registry.aliases)
-      .values({ entityId: derivedRow?.id ?? '', capability: 'on_off', expression: 'relay' })
+      .values({
+        entityId: derivedRow?.id ?? '',
+        behavesAs: 'switch',
+        parts: { on: { from: 'entity', entity: relay } },
+      })
       .returning({ id: schema.registry.aliases.id });
 
-    await database.db.insert(schema.registry.aliasSources).values({
-      aliasId: aliasRow?.id ?? '',
-      variableName: 'relay',
-      entityId: relayRow?.id ?? '',
-    });
+    await database.db
+      .insert(schema.registry.aliasReads)
+      .values({ aliasId: aliasRow?.id ?? '', entityId: relay });
 
     try {
-      await expect(unregister()).rejects.toThrow(/derived/iu);
+      await expect(unregister()).rejects.toThrow(/aliases/iu);
 
       const kept = await database.db
         .select({ id: schema.registry.integrations.id })

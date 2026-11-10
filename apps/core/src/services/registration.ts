@@ -60,6 +60,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 
 import { isLinked, linkFieldsOf, type EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';
+import { readByAliases } from '../persistence/alias-readers.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
 import type { EntityStateRow } from '../persistence/history-writer.js';
 
@@ -138,7 +139,7 @@ async function write(
   removed: NamedEntity[];
 }> {
   return db.transaction(async (tx) => {
-    const { aliasSources, devices, entities } = schema.registry;
+    const { devices, entities } = schema.registry;
     const before = await tx
       .select({ rowId: entities.id, entityId: entities.entityId, name: entities.name })
       .from(entities)
@@ -235,24 +236,17 @@ async function write(
         : [];
 
     if (removed.length > 0) {
-      const read = await tx
-        .selectDistinct({ rowId: aliasSources.entityId })
-        .from(aliasSources)
-        .where(
-          inArray(
-            aliasSources.entityId,
-            removed.map((entity) => entity.rowId),
-          ),
-        );
+      const reading = await readByAliases(
+        tx,
+        removed.map((entity) => entity.entityId),
+      );
 
-      if (read.length > 0) {
-        const reading = new Set(read.map((row) => row.rowId));
-
-        throw new ConflictError('Derived entities read an entity the device no longer has', {
+      if (reading.size > 0) {
+        throw new ConflictError('Aliases read an entity the device no longer has', {
           details: {
             integrationId: request.integrationId,
             entityIds: removed
-              .filter((entity) => reading.has(entity.rowId))
+              .filter((entity) => reading.has(entity.entityId))
               .map((entity) => entity.entityId),
           },
         });
@@ -315,7 +309,7 @@ async function erase(
   request: UnregisterDeviceRequest,
 ): Promise<{ deviceId: string | null; name: string; entities: ReleasedEntity[] }> {
   return db.transaction(async (tx) => {
-    const { aliasSources, devices, entities, integrations } = schema.registry;
+    const { devices, entities, integrations } = schema.registry;
 
     const [device] = await tx
       .select({ id: devices.id, name: devices.name })
@@ -330,19 +324,17 @@ async function erase(
     const rowIds = owned.map((entity) => entity.rowId);
 
     if (rowIds.length > 0) {
-      const read = await tx
-        .selectDistinct({ rowId: aliasSources.entityId })
-        .from(aliasSources)
-        .where(inArray(aliasSources.entityId, rowIds));
+      const reading = await readByAliases(
+        tx,
+        owned.map((entity) => entity.entityId),
+      );
 
-      if (read.length > 0) {
-        const reading = new Set(read.map((row) => row.rowId));
-
-        throw new ConflictError('Derived entities still read this device', {
+      if (reading.size > 0) {
+        throw new ConflictError('Aliases still read this device', {
           details: {
             integrationId: request.integrationId,
             entityIds: owned
-              .filter((entity) => reading.has(entity.rowId))
+              .filter((entity) => reading.has(entity.entityId))
               .map((entity) => entity.entityId),
           },
         });

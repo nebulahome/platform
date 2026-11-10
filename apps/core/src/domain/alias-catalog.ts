@@ -1,64 +1,58 @@
 /**
- * Alias definitions core keeps in memory for evaluation, cycle checks and command routing.
+ * Alias definitions `core` keeps in memory for evaluation, cycle checks and command routing.
  *
- * Calculated aliases have a formula and sources; stored helpers have an empty expression and
- * accept commands locally. Distinguishing them by the expression (empty vs non-blank) matches
- * the database check and keeps a separate `kind` column out of the schema.
+ * An alias behaves as a type (`alias-types.ts`) and is made of parts, each with a source
+ * (`alias-parts.ts`). What it reads - the entities of its parts, its formulas' and its code's -
+ * is worked out by the API on every save and stored beside it (`registry.alias_reads`); the
+ * catalogue keeps it as the edges a source change is followed along.
  */
 import type {
+  AliasCustomType,
+  AliasDisplay,
   AliasFallbackPolicy,
-  CapabilityName,
+  AliasPartDef,
+  AliasParts,
+  AliasTypeDef,
   EntityId,
   JsonObject,
 } from '@nebulahome/contracts';
 
 import type { AliasGraphEdge } from './alias-graph.js';
 
-/** One named source feeding a calculated alias. */
-export type AliasSourceBinding = {
-  readonly variableName: string;
-  readonly entityId: EntityId;
-};
-
 /** One alias as the engine knows it. */
 export type AliasDefinition = {
   /** The aliases table row id. */
   readonly id: string;
 
-  /** The entity the alias materialises. */
+  /** The entity the alias is. */
   readonly entityId: EntityId;
 
-  /** Primary capability written into state. */
-  readonly capability: CapabilityName;
+  /** What it behaves as. */
+  readonly type: AliasTypeDef;
 
-  /** Empty for stored helpers; non-blank for calculated sensors. */
-  readonly expression: string;
+  /** The parts its type has (for a custom alias, its package entity type's fields). */
+  readonly defs: readonly AliasPartDef[];
 
+  /** For a custom alias: its package entity type. */
+  readonly customType: AliasCustomType | null;
+
+  /** The parts it has, by key. */
+  readonly parts: AliasParts;
+
+  /** Its code: one file, empty when no part comes from code. */
+  readonly code: string;
+
+  /** What its code keeps between runs, as last saved. */
+  readonly memory: JsonObject;
+
+  readonly display: AliasDisplay;
   readonly debounceMs: number;
   readonly fallbackPolicy: AliasFallbackPolicy;
   readonly isEnabled: boolean;
 
-  /** Sources the formula reads. Empty for stored helpers. */
-  readonly sources: readonly AliasSourceBinding[];
-
-  /** Device limits and helper metadata from the entity row. */
-  readonly config: JsonObject;
-
-  /** Lower/upper/step for a stored number, when set on the entity. */
-  readonly min: number | null;
-  readonly max: number | null;
-  readonly step: number | null;
+  /** The entities it reads. */
+  readonly reads: readonly EntityId[];
 };
-
-/**
- * Whether an alias definition is a stored helper.
- *
- * @param alias - The definition.
- * @returns True when it has no formula.
- */
-export function isStoredAlias(alias: AliasDefinition): boolean {
-  return alias.expression === '';
-}
 
 /** Every alias definition, indexed for the engine and the command router. */
 export class AliasCatalog {
@@ -84,8 +78,7 @@ export class AliasCatalog {
     this.#byId.clear();
 
     for (const alias of aliases) {
-      this.#byEntity.set(alias.entityId, alias);
-      this.#byId.set(alias.id, alias);
+      this.upsert(alias);
     }
   }
 
@@ -116,7 +109,7 @@ export class AliasCatalog {
   }
 
   /**
-   * Reads one alias by the entity it produces.
+   * Reads one alias by the entity it is.
    *
    * @param entityId - The alias entity.
    * @returns The definition, or undefined.
@@ -137,14 +130,14 @@ export class AliasCatalog {
   /**
    * Builds the edge list used for cycle detection and descendant walks.
    *
-   * @returns Every alias → source edge.
+   * @returns Every alias → read entity edge.
    */
   public edges(): AliasGraphEdge[] {
     const edges: AliasGraphEdge[] = [];
 
     for (const alias of this.#byEntity.values()) {
-      for (const source of alias.sources) {
-        edges.push({ aliasEntityId: alias.entityId, sourceEntityId: source.entityId });
+      for (const read of alias.reads) {
+        edges.push({ aliasEntityId: alias.entityId, sourceEntityId: read });
       }
     }
 
