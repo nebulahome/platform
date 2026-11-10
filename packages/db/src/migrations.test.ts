@@ -56,6 +56,7 @@ describe('the migration set', () => {
       '0006_software_settings.sql',
       '0007_entity_capabilities_more.sql',
       '0008_no_fades.sql',
+      '0009_aliases_parts.sql',
     ]);
   });
 
@@ -74,8 +75,9 @@ describe('the migration set', () => {
 });
 
 describe('the brokers migrations', () => {
-  // Each later migration adds a broker's tables, written by `hub` alone.
-  const later = files.slice(1);
+  // Each later migration adds a broker's tables, written by `hub` alone; 0009 rebuilds the
+  // aliases, which `core` and `api` write under the registry's default privileges.
+  const later = files.slice(1).filter(({ name }) => name !== '0009_aliases_parts.sql');
 
   it.each(later)(
     '$name touches updated_at and lets hub write every table it creates',

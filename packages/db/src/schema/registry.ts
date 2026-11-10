@@ -784,10 +784,11 @@ export const deviceTags = registrySchema.table(
 );
 
 /**
- * Derived entity definitions.
+ * Aliases: entities put together from parts.
  *
- * `expression` is owner input, evaluated by the sandboxed evaluator in `core` - never by the
- * database, and never by `eval`.
+ * `parts` holds each part's source and settings (contracts' `alias-parts.ts`), `code` the one
+ * file of code its Code parts call. Both are owner input, run by `core`'s sandboxed formula
+ * evaluator and code interpreter - never by the database, and never by `eval`.
  */
 export const aliases = registrySchema.table(
   'aliases',
@@ -797,12 +798,25 @@ export const aliases = registrySchema.table(
       .notNull()
       .unique()
       .references(() => entities.id, { onDelete: 'cascade' }),
-    capability: text('capability').notNull(),
-    expression: text('expression').notNull(),
+    behavesAs: text('behaves_as').notNull(),
+    customType: jsonb('custom_type'),
+    parts: jsonb('parts')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    code: text('code').notNull().default(''),
+    memory: jsonb('memory')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    cases: jsonb('cases')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    display: jsonb('display')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     debounceMs: integer('debounce_ms').notNull().default(0),
     fallbackPolicy: text('fallback_policy').notNull().default('unavailable'),
     isEnabled: boolean('is_enabled').notNull().default(true),
-    lastError: text('last_error'),
+    lastError: jsonb('last_error'),
     lastEvaluatedAt: timestamp('last_evaluated_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -812,27 +826,22 @@ export const aliases = registrySchema.table(
 );
 
 /**
- * The dependency graph edge list for derived entities.
- *
- * Sources are named variables rather than an array of ids, so an expression reads
- * `(t1 + t2 + t3) / 3` and replacing a source is a one-row update that leaves it untouched.
- *
- * `entityId` is restricted on delete: removing a sensor a derived entity depends on fails, and
- * the interface can list exactly what would break. Cascading would leave aliases referencing
- * nothing.
+ * The entities an alias reads, by entity id: worked out from its parts and its code on every
+ * save. What its Inputs list, what the cycle check walks, and why an entity an alias reads cannot
+ * be removed. By id rather than by row, so an entity removed and made again is the same input.
  */
-export const aliasSources = registrySchema.table(
-  'alias_sources',
+export const aliasReads = registrySchema.table(
+  'alias_reads',
   {
     aliasId: uuid('alias_id')
       .notNull()
       .references(() => aliases.id, { onDelete: 'cascade' }),
-    variableName: text('variable_name').notNull(),
-    entityId: uuid('entity_id')
-      .notNull()
-      .references(() => entities.id, { onDelete: 'restrict' }),
+    entityId: text('entity_id').notNull(),
   },
-  (table) => [index('alias_sources_entity_id_idx').on(table.entityId)],
+  (table) => [
+    primaryKey({ columns: [table.aliasId, table.entityId] }),
+    index('alias_reads_entity_id_idx').on(table.entityId),
+  ],
 );
 
 /** A named set of target states applied together. */

@@ -36,24 +36,28 @@ const CLAUSE_KEYWORDS = new Set(['constraint', 'unique', 'primary', 'check', 'fo
  * @returns One entry per column, as `[name, definition]`. Empty when the table is absent.
  */
 function migrationColumns(qualified: string): [string, string][] {
-  const opening = [`CREATE TABLE ${qualified} (`, `CREATE TABLE IF NOT EXISTS ${qualified} (`]
-    .map((prefix) => sql.indexOf(prefix))
-    .find((index) => index >= 0);
+  // The last CREATE counts: a later migration may drop a table and make it again.
+  const opening = Math.max(
+    ...[`CREATE TABLE ${qualified} (`, `CREATE TABLE IF NOT EXISTS ${qualified} (`].map((prefix) =>
+      sql.lastIndexOf(prefix),
+    ),
+  );
 
-  if (opening === undefined) {
+  if (opening < 0) {
     return [];
   }
 
-  const body = sql.slice(opening, sql.indexOf('\n);', opening));
+  const current = sql.slice(opening);
+  const body = current.slice(0, current.indexOf('\n);'));
   // Columns a later migration adds: `ALTER TABLE x` then `  ADD COLUMN name definition`.
-  const added = [...sql.matchAll(new RegExp(`ALTER TABLE ${qualified}\\n([^;]*);`, 'g'))]
+  const added = [...current.matchAll(new RegExp(`ALTER TABLE ${qualified}\\n([^;]*);`, 'g'))]
     .flatMap(([, clauses]) => [
       ...(clauses ?? '').matchAll(/^ {2}ADD COLUMN ([a-z_][a-z0-9_]*)\s+(\S.*?),?$/gm),
     ])
     .map(([, name, definition]): [string, string] => [name ?? '', definition ?? '']);
   // Columns a later migration drops: `ALTER TABLE x DROP COLUMN name`.
   const dropped = new Set(
-    [...sql.matchAll(new RegExp(`ALTER TABLE ${qualified}\\s([^;]*);`, 'g'))].flatMap(
+    [...current.matchAll(new RegExp(`ALTER TABLE ${qualified}\\s([^;]*);`, 'g'))].flatMap(
       ([, clauses]) =>
         [...(clauses ?? '').matchAll(/DROP COLUMN ([a-z_][a-z0-9_]*)/g)].map(([, name]) => name),
     ),
@@ -89,15 +93,24 @@ describe('the Drizzle schema against the migration', () => {
   it('mirrors every table the migration creates', () => {
     // The per-table check below iterates the Drizzle side, so a table present only in the
     // migration would pass by not being looked at.
-    const inMigration = [...sql.matchAll(/^CREATE TABLE (?:IF NOT EXISTS )?(\w+\.\w+) \(/gm)].map(
-      ([, name]) => name ?? '',
-    );
+    // In order, so a table a later migration drops is left out unless it is made again.
+    const inMigration = new Set<string>();
+
+    for (const [, verb, name] of sql.matchAll(
+      /^(CREATE TABLE (?:IF NOT EXISTS )?|DROP TABLE )(\w+\.\w+)/gm,
+    )) {
+      if (verb === 'DROP TABLE ') {
+        inMigration.delete(name ?? '');
+      } else {
+        inMigration.add(name ?? '');
+      }
+    }
 
     expect(
       drizzleTables()
         .map(([qualified]) => qualified)
         .sort(),
-    ).toEqual(inMigration.sort());
+    ).toEqual([...inMigration].sort());
   });
 
   it.each(drizzleTables())('gives %s the same columns as the migration', (qualified, table) => {
