@@ -725,7 +725,7 @@ export function AliasCodeTab(props: AliasCodeTabProps) {
                   <button
                     type="button"
                     aria-label={t('library.aliasCode.backToNow', 'Back to the value now')}
-                    className="text-foreground-subtle hover:text-foreground"
+                    className="text-foreground-subtle transition-colors hover:text-foreground"
                     onClick={() => {
                       const next = { ...pretend };
                       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- a pretended value is dropped by its key

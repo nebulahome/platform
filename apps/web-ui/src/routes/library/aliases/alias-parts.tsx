@@ -406,6 +406,8 @@ function PartRow(props: PartRowProps) {
       ? config
       : undefined,
   );
+  // Where the fold last came to rest: the editor stays mounted until it has folded shut.
+  const [isSettledOpen, setSettledOpen] = useState(isOpen);
 
   if (config === undefined) {
     return null;
@@ -424,13 +426,24 @@ function PartRow(props: PartRowProps) {
 
   return (
     <div>
+      {/* The chevron is the control a keyboard reaches; the row is a bigger target for a pointer. */}
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- the IconButton below is the keyboard path */}
       <div
-        className={`${COLUMNS} border-b border-border py-2.5 ${isOpen ? 'bg-primary/[0.05]' : ''}`}
+        className={`${COLUMNS} group cursor-pointer border-b border-border py-2.5 transition-colors duration-200 ${
+          isOpen ? 'bg-primary/[0.05]' : 'hover:bg-surface-raised/40'
+        }`}
+        onClick={(event) => {
+          if ((event.target as Element).closest('button, a') === null) {
+            onToggle();
+          }
+        }}
       >
         <span className="flex min-w-0 items-center gap-2.5">
           <span
-            className={`flex size-8 shrink-0 items-center justify-center rounded-[10px] ${
-              isOpen ? 'bg-primary/15 text-primary' : 'bg-surface-raised text-foreground-muted'
+            className={`flex size-8 shrink-0 items-center justify-center rounded-[10px] transition-colors duration-200 ${
+              isOpen
+                ? 'bg-primary/15 text-primary'
+                : 'bg-surface-raised text-foreground-muted group-hover:text-foreground'
             }`}
           >
             <AppIcon id={uiIcon(def.icon)} size={15} />
@@ -482,14 +495,33 @@ function PartRow(props: PartRowProps) {
           aria-expanded={isOpen}
           onClick={onToggle}
         >
-          <AppIcon id={isOpen ? 'chevron-up' : 'chevron-down'} size={14} />
+          <AppIcon
+            id="chevron-down"
+            size={14}
+            className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          />
         </IconButton>
       </div>
-      {isOpen ? (
-        <div className="border-b border-border bg-canvas px-4 py-4">
-          <PartEditor {...props} config={config} now={now} hasPreview={preview !== undefined} />
+      <div
+        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+        inert={!isOpen}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget) {
+            setSettledOpen(isOpen);
+          }
+        }}
+      >
+        {/* Clipped only while it moves: open, its menus must reach past the row. */}
+        <div className={isOpen && isSettledOpen ? '' : 'min-h-0 overflow-hidden'}>
+          {isOpen || isSettledOpen ? (
+            <div className="border-b border-border bg-canvas px-4 py-4">
+              <PartEditor {...props} config={config} now={now} hasPreview={preview !== undefined} />
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
@@ -972,7 +1004,7 @@ function EntitiesSource(
                 aria-label={t('library.aliasPage.removeEntity', 'Remove {{name}}', {
                   name: nameOf(id),
                 })}
-                className="flex size-4 items-center justify-center rounded-full text-foreground-subtle hover:text-foreground"
+                className="flex size-4 items-center justify-center rounded-full text-foreground-subtle transition-colors hover:bg-surface-high hover:text-foreground"
                 onClick={() => {
                   set({ ...config, entities: config.entities.filter((each) => each !== id) });
                 }}
@@ -983,7 +1015,7 @@ function EntitiesSource(
           ))}
           <button
             type="button"
-            className="flex items-center gap-1 rounded-pill px-1.5 text-caption text-primary"
+            className="flex items-center gap-1 rounded-pill px-1.5 text-caption text-primary transition-colors hover:bg-primary/10 hover:text-primary-hover"
             onClick={() => {
               setPicking(true);
             }}
@@ -1165,7 +1197,7 @@ function FormulaSource(
                 type="button"
                 role="option"
                 aria-selected={index === active}
-                className={`flex items-center gap-3 rounded-field px-3 py-2 text-left ${index === active ? 'bg-surface-raised' : ''}`}
+                className={`flex items-center gap-3 rounded-field px-3 py-2 text-left transition-colors ${index === active ? 'bg-surface-raised' : 'hover:bg-surface-raised/60'}`}
                 onMouseDown={(event) => {
                   event.preventDefault();
                   insert(entity.entityId);
@@ -1372,7 +1404,7 @@ function CodeSource(
               aria-haspopup="menu"
               aria-expanded={isOpen}
               onClick={toggle}
-              className="flex h-control-sm w-56 items-center justify-between gap-2 rounded-field border border-border bg-surface-raised px-3 font-mono text-ui-sm text-foreground"
+              className="flex h-control-sm w-56 items-center justify-between gap-2 rounded-field border border-border bg-surface-raised px-3 font-mono text-ui-sm text-foreground transition-colors hover:border-border-strong hover:bg-surface-high"
             >
               <span className="truncate">{config.function}()</span>
               <AppIcon id="chevron-down" size={14} className="shrink-0 text-foreground-subtle" />

@@ -67,15 +67,19 @@ export function Fold(props: FoldProps) {
       <button
         type="button"
         aria-expanded={isOpen}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left"
+        className="group flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-surface-raised/40"
         onClick={() => {
           setOpen(!isOpen);
         }}
       >
         <AppIcon
-          id={isOpen ? 'chevron-down' : 'chevron-right'}
+          id="chevron-right"
           size={14}
-          className="shrink-0 text-foreground-subtle"
+          className={`shrink-0 transition-[transform,color] duration-200 ${
+            isOpen
+              ? 'rotate-90 text-foreground'
+              : 'text-foreground-subtle group-hover:text-foreground-muted'
+          }`}
         />
         <span className="text-ui-sm font-semibold text-foreground">{props.title}</span>
         <span className="grow" />
@@ -83,7 +87,16 @@ export function Fold(props: FoldProps) {
           <span className="min-w-0 truncate text-caption text-foreground-subtle">{props.meta}</span>
         )}
       </button>
-      {isOpen ? <div className="px-4 pb-4">{props.children}</div> : null}
+      <div
+        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+        inert={!isOpen}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="px-4 pb-4">{props.children}</div>
+        </div>
+      </div>
     </div>
   );
 }

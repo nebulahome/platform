@@ -140,10 +140,10 @@ export function TypePicker(props: TypePickerProps) {
               key={each}
               type="button"
               aria-pressed={group === each}
-              className={`rounded-pill border px-2.5 py-0.5 text-caption ${
+              className={`rounded-pill border px-2.5 py-0.5 text-caption transition-colors ${
                 group === each
                   ? 'border-primary/60 bg-primary/10 text-foreground'
-                  : 'border-border text-foreground-muted hover:text-foreground'
+                  : 'border-border text-foreground-muted hover:border-border-strong hover:text-foreground'
               }`}
               onClick={() => {
                 setGroup(each);
@@ -173,7 +173,7 @@ export function TypePicker(props: TypePickerProps) {
                 type="button"
                 role="radio"
                 aria-checked={isOn}
-                className={`flex h-10 items-center gap-2.5 rounded-field px-2.5 text-left text-ui-sm ${
+                className={`flex h-10 items-center gap-2.5 rounded-field px-2.5 text-left text-ui-sm transition-colors ${
                   isOn
                     ? 'bg-primary/10 font-medium text-foreground ring-1 ring-primary/50'
                     : 'text-foreground-muted hover:bg-surface-raised hover:text-foreground'

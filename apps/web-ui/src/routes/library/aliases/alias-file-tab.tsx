@@ -343,8 +343,8 @@ export function AliasFileTab(props: AliasFileTabProps) {
               key={each}
               type="button"
               aria-pressed={panel === each}
-              className={`relative flex items-center gap-1.5 px-2.5 py-2 text-ui-sm ${
-                panel === each ? 'text-foreground' : 'text-foreground-subtle'
+              className={`relative flex items-center gap-1.5 px-2.5 py-2 text-ui-sm transition-colors ${
+                panel === each ? 'text-foreground' : 'text-foreground-subtle hover:text-foreground'
               }`}
               onClick={() => {
                 setPanel(each);
