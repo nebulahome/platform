@@ -25,6 +25,8 @@ import {
   type AliasParts,
 } from './alias-parts.js';
 import { ALIAS_TYPE_IDS, aliasType, type AliasCustomField } from './alias-types.js';
+import { isParamFormula } from './automation-actions.js';
+import { renameEntities } from './automation-walk.js';
 import { ENTITY_ID_PATTERN, entityIdSchema } from './entity-id.js';
 import { iconIdSchema } from './icons.js';
 import type { JsonValue } from './json.js';
@@ -255,9 +257,24 @@ export function replaceAliasEntity(
 ): AliasFileEntry {
   const pattern = new RegExp(`(?<![a-z0-9_.])${from.replace('.', '\\.')}(?![a-z0-9_])`, 'gu');
   const replacement = entityIdSchema.parse(to);
+  const renames = new Map([[from, replacement]]);
   const parts: AliasParts = {};
 
-  for (const [key, config] of Object.entries(entry.parts)) {
+  for (const [key, part] of Object.entries(entry.parts)) {
+    // Its actions name entities too: the ones they command, and the ones their formulas read.
+    const config =
+      part.actions === undefined
+        ? part
+        : {
+            ...part,
+            actions: part.actions.map((action) => ({
+              ...action,
+              then: mapFormulas(renameEntities(action.then, renames), (formula) =>
+                formula.replace(pattern, to),
+              ),
+            })),
+          };
+
     switch (config.from) {
       case 'entity':
         parts[key] = {
@@ -280,6 +297,33 @@ export function replaceAliasEntity(
   }
 
   return { ...entry, parts, code: entry.code.map((line) => line.replace(pattern, to)) };
+}
+
+/**
+ * A copy of some value with every formula param rewritten.
+ *
+ * @param value - Steps, or anything inside them.
+ * @param rewrite - What a formula becomes.
+ * @returns The copy.
+ */
+function mapFormulas<T>(value: T, rewrite: (formula: string) => string): T {
+  if (isParamFormula(value)) {
+    const rewritten: unknown = { formula: rewrite(value.formula) };
+
+    return rewritten as T;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item: unknown) => mapFormulas(item, rewrite)) as T;
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, mapFormulas(item, rewrite)]),
+    ) as T;
+  }
+
+  return value;
 }
 
 /** One difference between two setups of an alias, as the review and the History show it. */

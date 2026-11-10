@@ -9,13 +9,25 @@
  * - `formula` evaluates an expression over entity ids;
  * - `code` returns what a function of the alias's code returns.
  *
+ * A part may also hold actions (`alias-actions.ts`): what it does when a command reaches it or its
+ * value changes. A command a part has an action for runs that action instead of being forwarded or
+ * refused.
+ *
  * The settings (`min`, `max`, `step`, `offered`, `options`…) belong to the part whatever its
  * source, because they become the alias's capability params - the range a card's dial allows, the
  * modes a thermostat offers - and those must not vanish when the value moves to another source.
  */
 import { z } from 'zod';
 
+import {
+  aliasActionSchema,
+  aliasStepFormulas,
+  COMMAND_VALUE_PREFIX,
+  MAX_ALIAS_ACTIONS,
+} from './alias-actions.js';
 import type { Expectation } from './alias-code/fit.js';
+import { partCommands } from './alias-commands.js';
+import { aliasExpressionNames } from './alias-expression.js';
 import {
   ALIAS_RULES,
   ALIAS_RULES_BY_KIND,
@@ -92,6 +104,9 @@ const settingsShape = {
 
   /** For a location: where it comes from. */
   locationSource: z.enum(LOCATION_SOURCES).optional(),
+
+  /** What the part does when a command reaches it or its value changes. */
+  actions: z.array(aliasActionSchema).max(MAX_ALIAS_ACTIONS).optional(),
 };
 
 /** Where a part takes its value from, and its settings. */
@@ -398,9 +413,68 @@ export function aliasPartIssues(
         issues.push({ part: def.key, message: problem });
       }
     }
+
+    issues.push(...actionIssues(defs, parts, def));
   }
 
   return dedupe(issues);
+}
+
+/**
+ * What is wrong with the actions of a part: a command it does not take, a number compared on a part
+ * that is not one, an action with nothing to do, a command value read where there is no command.
+ *
+ * @param defs - The alias's parts.
+ * @param parts - The parts it has.
+ * @param def - The part.
+ * @returns The problems.
+ */
+function actionIssues(
+  defs: readonly AliasPartDef[],
+  parts: AliasParts,
+  def: AliasPartDef,
+): AliasPartIssue[] {
+  const issues: AliasPartIssue[] = [];
+  const actions = parts[def.key]?.actions ?? [];
+  const commands = partCommands(defs, parts, def.key);
+  const ids = new Set<string>();
+
+  for (const action of actions) {
+    if (ids.has(action.id)) {
+      issues.push({ part: def.key, message: `${def.label}: two actions are both ${action.id}` });
+    }
+
+    ids.add(action.id);
+
+    if (action.when.kind === 'command' && !commands.includes(action.when.command)) {
+      issues.push({ part: def.key, message: `${def.label} takes no ${action.when.command}` });
+    }
+
+    if (
+      action.when.kind === 'change' &&
+      action.when.change.kind === 'numeric' &&
+      def.kind !== 'number'
+    ) {
+      issues.push({ part: def.key, message: `${def.label} is not a number to compare` });
+    }
+
+    if (action.then.length === 0) {
+      issues.push({ part: def.key, message: `${def.label}: an action has nothing to do` });
+    }
+
+    const readsCommand = aliasStepFormulas(action.then).some((formula) =>
+      aliasExpressionNames(formula).some((name) => name.startsWith(COMMAND_VALUE_PREFIX)),
+    );
+
+    if (readsCommand && action.when.kind !== 'command') {
+      issues.push({
+        part: def.key,
+        message: `${def.label}: command values are read only by an action on a command`,
+      });
+    }
+  }
+
+  return issues;
 }
 
 /**

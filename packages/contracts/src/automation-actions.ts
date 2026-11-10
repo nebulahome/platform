@@ -186,22 +186,6 @@ export type AutomationAction = BlockMeta &
   );
 
 /**
- * A list of nested actions.
- *
- * @returns The schema of a branch or a loop body.
- */
-const nestedActionsSchema = (): z.ZodType<AutomationAction[]> =>
-  z.array(automationActionSchema).max(50);
-
-/**
- * A list of nested actions that must hold at least one.
- *
- * @returns The schema of a loop body or a sequence.
- */
-const filledActionsSchema = (): z.ZodType<AutomationAction[]> =>
-  z.array(automationActionSchema).min(1).max(50);
-
-/**
  * Whether a command body sets a stored number helper: `{ command: 'set_value', value }`.
  *
  * @param params - The command body.
@@ -211,173 +195,240 @@ function isStoredNumberCommand(params: Readonly<Record<string, unknown>>): boole
   return params['command'] === 'set_value' && typeof params['value'] === 'number';
 }
 
-/** Something an automation does. */
-export const automationActionSchema: z.ZodType<AutomationAction> = z.lazy(() =>
-  z.discriminatedUnion('type', [
-    z
-      .object({
-        type: z.literal('command'),
+/**
+ * A command param an alias's action works out as it runs: `{ formula: 'command.level * 0.6' }`.
+ * Only the actions of an alias take one; an automation's params are plain values.
+ */
+export const paramFormulaSchema = z.strictObject({ formula: z.string().trim().min(1).max(2_000) });
+
+/** A command param worked out as it runs. */
+export type ParamFormula = z.output<typeof paramFormulaSchema>;
+
+/**
+ * Whether a command param is a formula rather than a value.
+ *
+ * @param value - The param.
+ * @returns True for `{ formula }`.
+ */
+export function isParamFormula(value: unknown): value is ParamFormula {
+  return paramFormulaSchema.safeParse(value).success;
+}
+
+/**
+ * The schema of an action, with or without formulas in command params.
+ *
+ * One body for both, recursive: the blocks a control block holds take formulas exactly when it
+ * does.
+ *
+ * @param formulas - Whether a command param may be a {@link ParamFormula}.
+ * @returns The schema.
+ */
+function actionSchemaOf(formulas: boolean): z.ZodType<AutomationAction> {
+  /**
+   * A list of nested actions: a branch or a loop body.
+   *
+   * @returns Its schema.
+   */
+  const nestedActionsSchema = (): z.ZodType<AutomationAction[]> => z.array(self).max(50);
+
+  /**
+   * A list of nested actions that must hold at least one: a loop body or a sequence.
+   *
+   * @returns Its schema.
+   */
+  const filledActionsSchema = (): z.ZodType<AutomationAction[]> => z.array(self).min(1).max(50);
+
+  const self: z.ZodType<AutomationAction> = z.lazy(() =>
+    z.discriminatedUnion('type', [
+      z
+        .object({
+          type: z.literal('command'),
+          ...blockMetaShape,
+          entityId: entityIdSchema,
+          capability: capabilityNameSchema,
+
+          /** The command body, `{ command: 'set_level', level: 60 }`, as the capability defines it. */
+          params: jsonObjectSchema.default({}),
+        })
+        .superRefine((action, context) => {
+          // Whether the entity has the capability is the world's business; whether the command is
+          // one the capability can take at all is the document's, and saving one it cannot is a
+          // run that fails every time it is reached.
+          const schema = commandSchemaFor(action.capability);
+
+          if (action.capability === 'sensor_numeric' && isStoredNumberCommand(action.params)) {
+            // A stored number helper is set this way; a physical sensor refuses it when it runs.
+            return;
+          }
+
+          if (schema === null) {
+            context.addIssue({
+              code: 'custom',
+              path: ['capability'],
+              message: 'This capability reports only and takes no commands',
+            });
+
+            return;
+          }
+
+          // A formula stands for its value: the rest of the body must still be one the capability
+          // takes, and the keys the formulas fill are left to them.
+          const worked = formulas
+            ? Object.keys(action.params).filter((key) => isParamFormula(action.params[key]))
+            : [];
+          const parsed = schema.safeParse(
+            Object.fromEntries(
+              Object.entries(action.params).filter(([key]) => !worked.includes(key)),
+            ),
+          );
+          const issue = parsed.success
+            ? undefined
+            : parsed.error.issues.find((candidate) => !worked.includes(String(candidate.path[0])));
+
+          if (issue !== undefined) {
+            context.addIssue({
+              code: 'custom',
+              path: ['params'],
+              message: `Not a command ${action.capability} takes: ${issue.message}`,
+            });
+          }
+        }),
+      z.object({ type: z.literal('scene'), ...blockMetaShape, sceneKey: z.string().min(1) }),
+      z.object({
+        type: z.literal('automation'),
+        ...blockMetaShape,
+        automationKey: z.string().min(1),
+      }),
+      z.object({
+        type: z.literal('wait_duration'),
+        ...blockMetaShape,
+        durationMs: durationMsSchema,
+      }),
+      z.object({
+        type: z.literal('wait_for'),
+        ...blockMetaShape,
+        conditions: conditionListSchema(1),
+
+        /** How long to wait before giving up. A wait with no end is a run that never finishes. */
+        timeoutMs: durationMsSchema,
+      }),
+      z.object({
+        type: z.literal('wait_for_trigger'),
+        ...blockMetaShape,
+        trigger: automationTriggerSchema,
+        timeoutMs: durationMsSchema,
+      }),
+      z.object({
+        type: z.literal('notify'),
+        ...blockMetaShape,
+        channel: z.string().min(1),
+        message: z.string().min(1).max(2_000),
+      }),
+      z.object({
+        type: z.literal('package_service'),
+        ...blockMetaShape,
+
+        /** A package, never a part of the platform: `svc.core.*` and its kin are not for calling. */
+        packageId: packageIdSchema,
+        service: z
+          .string()
+          .min(1)
+          .max(64)
+          .refine(isPackageServiceAllowed, { message: 'Is a name the platform keeps for itself' }),
+        params: jsonObjectSchema.default({}),
+      }),
+      z.object({
+        type: z.literal('http_request'),
+        ...blockMetaShape,
+        method: z.enum(HTTP_METHODS),
+        url: z
+          .string()
+          .trim()
+          .max(2_000)
+          .regex(/^https?:\/\/\S/iu, 'Must start with http:// or https://'),
+        variables: expressionVariablesSchema.optional(),
+        headers: z
+          .array(
+            z.object({
+              // An HTTP token, and a value on one line: anything else would split the request.
+              name: z.string().regex(/^[\w!#$%&'*+.^`|~-]{1,64}$/u, 'Not a header name'),
+              value: z.union([
+                z
+                  .string()
+                  .max(4_000)
+                  .regex(/^[^\r\n]*$/u, 'Must be one line'),
+                z.strictObject({
+                  $sealed: z.union([z.string().min(1).max(8_000), z.literal(true)]),
+                  ref: z.string().max(64).optional(),
+                }),
+              ]),
+            }),
+          )
+          .max(20)
+          .optional(),
+        body: z.object({ kind: z.enum(HTTP_BODY_KINDS), text: z.string().max(20_000) }).optional(),
+
+        /** How long the other end has to answer; a request with no end is a run that never ends. */
+        timeoutMs: z.int().min(1_000).max(60_000),
+      }),
+      z.object({
+        type: z.literal('parallel'),
+        ...blockMetaShape,
+        branches: z.array(filledActionsSchema()).min(1).max(10),
+      }),
+      z.object({ type: z.literal('sequence'), ...blockMetaShape, actions: filledActionsSchema() }),
+      z.object({
+        type: z.literal('switch'),
         ...blockMetaShape,
         entityId: entityIdSchema,
-        capability: capabilityNameSchema,
-
-        /** The command body, `{ command: 'set_level', level: 60 }`, as the capability defines it. */
-        params: jsonObjectSchema.default({}),
-      })
-      .superRefine((action, context) => {
-        // Whether the entity has the capability is the world's business; whether the command is
-        // one the capability can take at all is the document's, and saving one it cannot is a
-        // run that fails every time it is reached.
-        const schema = commandSchemaFor(action.capability);
-
-        if (action.capability === 'sensor_numeric' && isStoredNumberCommand(action.params)) {
-          // A stored number helper is set this way; a physical sensor refuses it when it runs.
-          return;
-        }
-
-        if (schema === null) {
-          context.addIssue({
-            code: 'custom',
-            path: ['capability'],
-            message: 'This capability reports only and takes no commands',
-          });
-
-          return;
-        }
-
-        const parsed = schema.safeParse(action.params);
-
-        if (!parsed.success) {
-          context.addIssue({
-            code: 'custom',
-            path: ['params'],
-            message: `Not a command ${action.capability} takes: ${parsed.error.issues[0]?.message ?? 'invalid'}`,
-          });
-        }
+        cases: z
+          .array(
+            z.object({
+              value: z.string().min(1),
+              actions: nestedActionsSchema(),
+            }),
+          )
+          .min(1)
+          .max(20),
+        default: nestedActionsSchema().optional(),
       }),
-    z.object({ type: z.literal('scene'), ...blockMetaShape, sceneKey: z.string().min(1) }),
-    z.object({
-      type: z.literal('automation'),
-      ...blockMetaShape,
-      automationKey: z.string().min(1),
-    }),
-    z.object({ type: z.literal('wait_duration'), ...blockMetaShape, durationMs: durationMsSchema }),
-    z.object({
-      type: z.literal('wait_for'),
-      ...blockMetaShape,
-      conditions: conditionListSchema(1),
+      z.object({
+        type: z.literal('while'),
+        ...blockMetaShape,
+        conditions: conditionListSchema(1),
+        actions: filledActionsSchema(),
+      }),
+      z.object({
+        type: z.literal('do_while'),
+        ...blockMetaShape,
+        conditions: conditionListSchema(1),
+        actions: filledActionsSchema(),
+      }),
+      z.object({
+        type: z.literal('if'),
+        ...blockMetaShape,
+        conditions: conditionListSchema(0),
+        then: nestedActionsSchema(),
+        else: nestedActionsSchema().optional(),
+      }),
+      z.object({
+        type: z.literal('for'),
+        ...blockMetaShape,
+        over: z.discriminatedUnion('kind', [
+          z.object({ kind: z.literal('count'), count: z.int().min(1).max(10_000) }),
+          z.object({ kind: z.literal('each'), items: z.string().min(1).max(2_000) }),
+        ]),
+        actions: filledActionsSchema(),
+      }),
+      z.object({ type: z.literal('stop'), ...blockMetaShape }),
+    ]),
+  );
 
-      /** How long to wait before giving up. A wait with no end is a run that never finishes. */
-      timeoutMs: durationMsSchema,
-    }),
-    z.object({
-      type: z.literal('wait_for_trigger'),
-      ...blockMetaShape,
-      trigger: automationTriggerSchema,
-      timeoutMs: durationMsSchema,
-    }),
-    z.object({
-      type: z.literal('notify'),
-      ...blockMetaShape,
-      channel: z.string().min(1),
-      message: z.string().min(1).max(2_000),
-    }),
-    z.object({
-      type: z.literal('package_service'),
-      ...blockMetaShape,
+  return self;
+}
 
-      /** A package, never a part of the platform: `svc.core.*` and its kin are not for calling. */
-      packageId: packageIdSchema,
-      service: z
-        .string()
-        .min(1)
-        .max(64)
-        .refine(isPackageServiceAllowed, { message: 'Is a name the platform keeps for itself' }),
-      params: jsonObjectSchema.default({}),
-    }),
-    z.object({
-      type: z.literal('http_request'),
-      ...blockMetaShape,
-      method: z.enum(HTTP_METHODS),
-      url: z
-        .string()
-        .trim()
-        .max(2_000)
-        .regex(/^https?:\/\/\S/iu, 'Must start with http:// or https://'),
-      variables: expressionVariablesSchema.optional(),
-      headers: z
-        .array(
-          z.object({
-            // An HTTP token, and a value on one line: anything else would split the request.
-            name: z.string().regex(/^[\w!#$%&'*+.^`|~-]{1,64}$/u, 'Not a header name'),
-            value: z.union([
-              z
-                .string()
-                .max(4_000)
-                .regex(/^[^\r\n]*$/u, 'Must be one line'),
-              z.strictObject({
-                $sealed: z.union([z.string().min(1).max(8_000), z.literal(true)]),
-                ref: z.string().max(64).optional(),
-              }),
-            ]),
-          }),
-        )
-        .max(20)
-        .optional(),
-      body: z.object({ kind: z.enum(HTTP_BODY_KINDS), text: z.string().max(20_000) }).optional(),
+/** Something an automation does. */
+export const automationActionSchema = actionSchemaOf(false);
 
-      /** How long the other end has to answer; a request with no end is a run that never ends. */
-      timeoutMs: z.int().min(1_000).max(60_000),
-    }),
-    z.object({
-      type: z.literal('parallel'),
-      ...blockMetaShape,
-      branches: z.array(filledActionsSchema()).min(1).max(10),
-    }),
-    z.object({ type: z.literal('sequence'), ...blockMetaShape, actions: filledActionsSchema() }),
-    z.object({
-      type: z.literal('switch'),
-      ...blockMetaShape,
-      entityId: entityIdSchema,
-      cases: z
-        .array(
-          z.object({
-            value: z.string().min(1),
-            actions: nestedActionsSchema(),
-          }),
-        )
-        .min(1)
-        .max(20),
-      default: nestedActionsSchema().optional(),
-    }),
-    z.object({
-      type: z.literal('while'),
-      ...blockMetaShape,
-      conditions: conditionListSchema(1),
-      actions: filledActionsSchema(),
-    }),
-    z.object({
-      type: z.literal('do_while'),
-      ...blockMetaShape,
-      conditions: conditionListSchema(1),
-      actions: filledActionsSchema(),
-    }),
-    z.object({
-      type: z.literal('if'),
-      ...blockMetaShape,
-      conditions: conditionListSchema(0),
-      then: nestedActionsSchema(),
-      else: nestedActionsSchema().optional(),
-    }),
-    z.object({
-      type: z.literal('for'),
-      ...blockMetaShape,
-      over: z.discriminatedUnion('kind', [
-        z.object({ kind: z.literal('count'), count: z.int().min(1).max(10_000) }),
-        z.object({ kind: z.literal('each'), items: z.string().min(1).max(2_000) }),
-      ]),
-      actions: filledActionsSchema(),
-    }),
-    z.object({ type: z.literal('stop'), ...blockMetaShape }),
-  ]),
-);
+/** Something an alias's action does: an automation's action whose command params may be formulas. */
+export const aliasStepSchema = actionSchemaOf(true);

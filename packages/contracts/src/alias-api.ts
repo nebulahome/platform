@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 import { aliasPartsSchema } from './alias-parts.js';
 import { ALIAS_TYPE_IDS } from './alias-types.js';
+import { AUTOMATION_RUN_RESULTS, traceStepSchema } from './api-history.js';
 import { entityIdSchema } from './entity-id.js';
 import { iconIdSchema } from './icons.js';
 import { jsonObjectSchema, jsonValueSchema } from './json.js';
@@ -194,11 +195,50 @@ export const aliasUsedBySchema = z.object({
 /** What uses an alias. */
 export type AliasUsedBy = z.output<typeof aliasUsedBySchema>;
 
+/** What an alias's actions act on: an entity they command, a scene, an automation they start. */
+export const ALIAS_TARGET_KINDS = ['entity', 'scene', 'automation'] as const;
+
+/** One thing an alias's actions act on, as its Targets show it. */
+export const aliasTargetSchema = z.object({
+  kind: z.enum(ALIAS_TARGET_KINDS),
+
+  /** The entity id, the scene's key, or the automation's key. */
+  id: z.string(),
+  name: z.string(),
+
+  /** False when it is gone: an action names one that is not in the house. */
+  isPresent: z.boolean(),
+
+  /** The parts whose actions act on it. */
+  parts: z.array(z.string()),
+});
+
+/** One thing an alias's actions act on. */
+export type AliasTarget = z.output<typeof aliasTargetSchema>;
+
+/** How the last run of one action of a part went: what the block says in its header. */
+export const aliasActionLastRunSchema = z.object({
+  part: z.string(),
+  actionId: z.string(),
+  at: timestampSchema,
+  result: z.enum(AUTOMATION_RUN_RESULTS),
+  error: z.string().nullable(),
+});
+
+/** How the last run of one action went. */
+export type AliasActionLastRun = z.output<typeof aliasActionLastRunSchema>;
+
 /** One alias with what it reads and what uses it: the page's whole answer. */
 export const aliasDetailSchema = z.object({
   alias: aliasViewSchema,
   inputs: z.array(aliasInputSchema),
   usedBy: aliasUsedBySchema,
+
+  /** What its actions act on. */
+  targets: z.array(aliasTargetSchema),
+
+  /** The last run of each of its actions that has run. */
+  lastActionRuns: z.array(aliasActionLastRunSchema),
 
   /** Whether code can be changed now (`system.developer_mode`), told to anyone who can read. */
   developerMode: z.boolean(),
@@ -294,3 +334,42 @@ export const aliasSetupChangeSchema = z.object({
 
 /** One change to an alias's setup. */
 export type AliasSetupChange = z.output<typeof aliasSetupChangeSchema>;
+
+/** What started one run of an alias's action: a command with its values, or the part changing. */
+export const aliasActionRunWhenSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('command'), command: jsonObjectSchema }),
+  z.object({ kind: z.literal('change'), from: jsonValueSchema, to: jsonValueSchema }),
+]);
+
+/** What started one run of an alias's action. */
+export type AliasActionRunWhen = z.output<typeof aliasActionRunWhenSchema>;
+
+/** One recorded run of an alias's action, as its History lists it. */
+export const aliasActionRunSchema = z.object({
+  id: z.uuid(),
+  aliasId: z.uuid(),
+  part: z.string(),
+  actionId: z.string(),
+
+  /** When it started. */
+  time: timestampSchema,
+  when: aliasActionRunWhenSchema,
+
+  /** Who or what sent the command or changed the part, by name when it is known. */
+  origin: z.object({
+    type: z.string(),
+    id: z.string().nullable(),
+    name: z.string().nullable(),
+  }),
+
+  result: z.enum(AUTOMATION_RUN_RESULTS),
+  finishedAt: timestampSchema.nullable(),
+  durationMs: z.int().min(0).nullable(),
+
+  /** Step by step, as an automation's run records it. */
+  trace: z.array(traceStepSchema).max(1_001),
+  error: z.string().nullable(),
+});
+
+/** One recorded run of an alias's action. */
+export type AliasActionRun = z.output<typeof aliasActionRunSchema>;

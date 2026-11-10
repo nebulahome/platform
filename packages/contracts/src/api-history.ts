@@ -185,6 +185,7 @@ export const AUTOMATION_RUN_TRIGGER_KINDS = [
   'quiet',
   'manual',
   'automation',
+  'alias',
   'webhook',
   'state',
   'numeric_state',
@@ -218,6 +219,10 @@ export const automationRunTriggerSchema = z.object({
   /** The automation and run that called this one, for a run started by another. */
   automationId: z.uuid().optional(),
   runId: z.uuid().optional(),
+
+  /** The alias whose action started this one, and the part the action belongs to. */
+  aliasId: z.uuid().optional(),
+  part: z.string().max(64).optional(),
 });
 
 /** What started a run. */
