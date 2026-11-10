@@ -243,6 +243,14 @@ export function deviceIntegrationHealth(
     };
   }
 
+  if (device.origin === 'virtual') {
+    return {
+      tone: 'neutral',
+      value: translate('library.deviceHealth.virtualDevice', 'Virtual device'),
+      detail: translate('library.deviceHealth.holdsAliases', 'Holds aliases'),
+    };
+  }
+
   if (device.origin === 'system') {
     return {
       tone: 'neutral',

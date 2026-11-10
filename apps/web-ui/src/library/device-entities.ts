@@ -10,7 +10,7 @@ import type { DeviceView, EntityView } from '@nebulahome/contracts';
  * Grouped by the entity's source, which is the device id - the one a device is listed and
  * linked under - rather than by the registry's row uuid. A package's entities name the package
  * as their source (what its pages filter "its own" by), so a package's device takes the ones it
- * lists.
+ * lists; so does a virtual device, and any device takes the aliases put on it.
  *
  * @param entities - Every entity.
  * @param devices - The devices, for the packages' ones.
@@ -28,11 +28,17 @@ export function bySource(
   }
 
   for (const device of devices) {
-    if (device.origin === 'package') {
-      groups.set(
-        device.id,
-        device.entityIds.flatMap((id) => byId.get(id) ?? []),
-      );
+    const listed = device.entityIds.flatMap((id) => byId.get(id) ?? []);
+
+    if (device.origin === 'package' || device.origin === 'virtual') {
+      groups.set(device.id, listed);
+    } else {
+      // An alias put on a device names `derived` as its source: the device lists it.
+      const aliases = listed.filter((entity) => entity.source === 'derived');
+
+      if (aliases.length > 0) {
+        groups.set(device.id, [...(groups.get(device.id) ?? []), ...aliases]);
+      }
     }
   }
 

@@ -30,10 +30,11 @@ import { TAGS_PER_ROW_MAXIMUM } from './tags.js';
 import { timestampSchema } from './timestamp.js';
 
 /**
- * Where a device comes from: an integration instance, the platform itself, or one of the host's
- * containers, which the supervisor measures and controls.
+ * Where a device comes from: an integration instance, the platform itself, one of the host's
+ * containers, which the supervisor measures and controls, a package, or a virtual device that
+ * only holds aliases.
  */
-export const DEVICE_ORIGINS = ['integration', 'system', 'container', 'package'] as const;
+export const DEVICE_ORIGINS = ['integration', 'system', 'container', 'package', 'virtual'] as const;
 
 /** Where a device comes from. */
 export type DeviceOrigin = (typeof DEVICE_ORIGINS)[number];

@@ -80,6 +80,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 import { entityScopes, isPermitted } from '../auth/permissions.js';
 
 import { checkCode } from './alias-code-check.js';
+import { deviceViewIdOf } from './devices.js';
 import { readTagKeys } from './entities.js';
 import { mentions } from './links.js';
 
@@ -132,6 +133,8 @@ type AliasRow = {
   readonly deviceName: string | null;
   readonly deviceSource: string | null;
   readonly deviceExternalId: string | null;
+  readonly deviceIntegrationId: string | null;
+  readonly devicePackageId: string | null;
   readonly isAvailable: boolean | null;
 };
 
@@ -172,6 +175,8 @@ async function aliasRows(db: Database, where?: ReturnType<typeof eq>): Promise<A
       deviceName: devices.name,
       deviceSource: devices.source,
       deviceExternalId: devices.externalId,
+      deviceIntegrationId: devices.integrationId,
+      devicePackageId: devices.packageId,
       isAvailable: entityStates.isAvailable,
     })
     .from(aliases)
@@ -284,9 +289,19 @@ function toListItem(row: AliasRow, reads: readonly EntityId[]): AliasListItem {
         ? null
         : { key: row.areaKey, name: row.areaName },
     device: {
-      id: row.deviceId ?? '00000000-0000-0000-0000-000000000000',
+      id:
+        row.deviceId === null || row.deviceSource === null
+          ? '00000000-0000-0000-0000-000000000000'
+          : deviceViewIdOf({
+              rowId: row.deviceId,
+              source: row.deviceSource,
+              integrationId: row.deviceIntegrationId,
+              packageId: row.devicePackageId,
+              externalId: row.deviceExternalId,
+              name: row.deviceName ?? '',
+            }),
       name: row.deviceName ?? 'Aliases',
-      isVirtual: row.deviceSource !== 'adapter',
+      isVirtual: row.deviceSource === 'virtual',
       isShared: row.deviceSource === 'virtual' && row.deviceExternalId === SHARED_DEVICE,
     },
     isEnabled: row.isEnabled,
@@ -903,14 +918,30 @@ async function deviceFor(
     return { id: row.id, isVirtual: true };
   }
 
-  const [row] = await db
-    .select({ id: devices.id, source: devices.source })
+  // A device is named by its id in the devices list, which is its row id only when virtual; the
+  // house has few enough devices to read them all.
+  const rows = await db
+    .select({
+      rowId: devices.id,
+      source: devices.source,
+      integrationId: devices.integrationId,
+      packageId: devices.packageId,
+      externalId: devices.externalId,
+      name: devices.name,
+    })
     .from(devices)
     .where(
       device.kind === 'shared'
         ? and(eq(devices.source, 'virtual'), eq(devices.externalId, SHARED_DEVICE))
-        : eq(devices.id, device.deviceId),
+        : undefined,
     );
+  const found =
+    device.kind === 'shared'
+      ? rows[0]
+      : rows.find(
+          (each) => each.rowId === device.deviceId || deviceViewIdOf(each) === device.deviceId,
+        );
+  const row = found === undefined ? undefined : { id: found.rowId, source: found.source };
 
   if (row === undefined) {
     throw new NotFoundError('That device is not there', { details: { ...device } });

@@ -594,10 +594,15 @@ export function DeviceDialog(props: DeviceDialogProps) {
               'A device of the {{driverName}} package: what it is called, its tags and its room.',
               { driverName: existing.driverName },
             )
-          : t(
-              'library.deviceDialog.machineNebulahomeRunsOn',
-              'The machine NebulaHome runs on: what it is called, its tags and its room.',
-            )
+          : existing.origin === 'virtual'
+            ? t(
+                'library.deviceDialog.virtualDevice',
+                'A virtual device that holds aliases: what it is called, its tags and its room.',
+              )
+            : t(
+                'library.deviceDialog.machineNebulahomeRunsOn',
+                'The machine NebulaHome runs on: what it is called, its tags and its room.',
+              )
       : driver === undefined
         ? t(
             'library.deviceDialog.whichModelAndWhat',

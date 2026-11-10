@@ -102,7 +102,8 @@ export type AliasCase = z.output<typeof aliasCaseSchema>;
 
 /** The device an alias is on. */
 export const aliasDeviceViewSchema = z.object({
-  id: z.uuid(),
+  /** Its id as the devices list has it. */
+  id: z.string(),
   name: z.string(),
 
   /** A virtual device (the shared "Aliases" one, or one of the owner's) rather than hardware. */
@@ -212,7 +213,8 @@ export type AliasDetail = z.output<typeof aliasDetailSchema>;
  */
 export const aliasDeviceInputSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('shared') }),
-  z.object({ kind: z.literal('device'), deviceId: z.uuid() }),
+  /** A device by its id as the devices list has it. */
+  z.object({ kind: z.literal('device'), deviceId: z.string().trim().min(1).max(200) }),
   z.object({ kind: z.literal('new'), name: z.string().trim().min(1).max(120) }),
 ]);
 

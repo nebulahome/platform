@@ -366,6 +366,8 @@ export function DeviceField(props: {
           options={[
             { value: '', label: t('library.aliases.chooseDevice', 'Choose a device…') },
             ...(devices.data ?? [])
+              // The virtual ones are the other choice.
+              .filter((device) => device.origin !== 'virtual')
               .toSorted((left, right) => left.name.localeCompare(right.name))
               .map((device) => ({
                 value: device.id,

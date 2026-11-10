@@ -27,6 +27,7 @@
 import { isDeepStrictEqual } from 'node:util';
 
 import { and, asc, eq, inArray, isNotNull, isNull, max, or, sql } from 'drizzle-orm';
+import { z } from 'zod';
 
 import {
   busSubjects,
@@ -410,7 +411,7 @@ async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[
     .leftJoin(packages, eq(packages.id, devices.packageId))
     .where(
       or(
-        inArray(devices.source, ['system', 'container']),
+        inArray(devices.source, ['system', 'container', 'virtual']),
         and(
           eq(devices.source, 'adapter'),
           isNotNull(devices.packageId),
@@ -459,12 +460,17 @@ async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[
       });
     }),
   );
-  const order: Readonly<Record<string, number>> = { system: 0, package: 1, container: 2 };
+  const order: Readonly<Record<string, number>> = {
+    system: 0,
+    package: 1,
+    virtual: 2,
+    container: 3,
+  };
 
   return views.sort((left, right) =>
     left.origin === right.origin
       ? left.name.localeCompare(right.name)
-      : (order[left.origin] ?? 3) - (order[right.origin] ?? 3),
+      : (order[left.origin] ?? 4) - (order[right.origin] ?? 4),
   );
 }
 
@@ -472,7 +478,8 @@ async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[
  * The fixed half of a device the platform or a package keeps: who it is, and how it is reached.
  *
  * @param row - Its row.
- * @param row.source - `system`, `container`, or `adapter` for a package's.
+ * @param row.rowId - Its row id, a virtual device's id.
+ * @param row.source - `system`, `container`, `virtual`, or `adapter` for a package's.
  * @param row.packageId - The package, for a package's.
  * @param row.packageName - The package's name.
  * @param row.externalId - The container's name, or the package's own id for it.
@@ -481,6 +488,7 @@ async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[
  * @returns The fields.
  */
 function platformHalfOf(row: {
+  readonly rowId: string;
   readonly source: string;
   readonly packageId: string | null;
   readonly packageName: string | null;
@@ -503,6 +511,19 @@ function platformHalfOf(row: {
       driverId: 'system',
       driverName: 'System',
       transport: 'system',
+    };
+  }
+
+  if (row.source === 'virtual') {
+    return {
+      id: row.rowId,
+      origin: 'virtual',
+      kind: 'nebula/virtual',
+      kindVersion,
+      vendorId: 'nebula',
+      driverId: 'virtual',
+      driverName: 'Virtual device',
+      transport: 'virtual',
     };
   }
 
@@ -529,6 +550,30 @@ function platformHalfOf(row: {
     driverName: row.packageName ?? row.packageId,
     transport: 'package',
   };
+}
+
+/**
+ * A device row's id as the devices list has it: an integration's instance id, `system`, a
+ * container's or a package's device id, or a virtual device's row id.
+ *
+ * @param row - The row.
+ * @param row.rowId - Its row id.
+ * @param row.source - Where it comes from.
+ * @param row.integrationId - The instance that reaches it, for an integration's.
+ * @param row.packageId - The package that keeps it.
+ * @param row.externalId - Its own id at its source.
+ * @param row.name - Its name.
+ * @returns The id.
+ */
+export function deviceViewIdOf(row: {
+  readonly rowId: string;
+  readonly source: string;
+  readonly integrationId: string | null;
+  readonly packageId: string | null;
+  readonly externalId: string | null;
+  readonly name: string;
+}): string {
+  return row.integrationId ?? platformHalfOf({ ...row, packageName: null, swVersion: null }).id;
 }
 
 /**
@@ -575,6 +620,7 @@ export async function listDevices(context: DevicesContext): Promise<DeviceView[]
         );
       }),
     ...platform.filter((device) => device.origin === 'package'),
+    ...platform.filter((device) => device.origin === 'virtual'),
     ...platform.filter((device) => device.origin === 'container'),
   ];
 }
@@ -924,7 +970,8 @@ export async function updateDevice(
   if (
     id === SYSTEM_DEVICE_ID ||
     id.startsWith(CONTAINER_DEVICE_PREFIX) ||
-    id.startsWith(PACKAGE_DEVICE_PREFIX)
+    id.startsWith(PACKAGE_DEVICE_PREFIX) ||
+    (await virtualRowOf(context, id)) !== undefined
   ) {
     return updatePlatformDevice(context, id, body);
   }
@@ -1081,8 +1128,8 @@ async function preferWay(context: DevicesContext, id: string, way: string): Prom
 const CONNECTION_FIELDS = ['isEnabled', 'model', 'transportConfig', 'options'] as const;
 
 /**
- * Changes a device the platform keeps for itself - the system device, a container's - its name,
- * its icon, its room, its tags.
+ * Changes a device the platform keeps for itself - the system device, a container's, a virtual
+ * one - its name, its icon, its room, its tags.
  *
  * The rest of a change is refused rather than ignored. There is no instance to switch off or
  * reconfigure, and a form that sent a transport configuration for it and was told "saved" would
@@ -1108,7 +1155,9 @@ async function updatePlatformDevice(
         ? 'The system device has no connection to change'
         : id.startsWith(PACKAGE_DEVICE_PREFIX)
           ? 'A package keeps its devices itself; there is no connection to change'
-          : 'A container is reached through Docker; there is no connection to change',
+          : id.startsWith(CONTAINER_DEVICE_PREFIX)
+            ? 'A container is reached through Docker; there is no connection to change'
+            : 'A virtual device has no connection to change',
       { details: { fields: refused } },
     );
   }
@@ -1130,16 +1179,18 @@ async function updatePlatformDevice(
       .where(
         device.origin === 'system'
           ? eq(schema.registry.devices.source, 'system')
-          : device.origin === 'package'
-            ? and(
-                eq(schema.registry.devices.source, 'adapter'),
-                eq(schema.registry.devices.packageId, device.vendorId),
-                eq(schema.registry.devices.externalId, device.externalId ?? ''),
-              )
-            : and(
-                eq(schema.registry.devices.source, 'container'),
-                eq(schema.registry.devices.externalId, device.externalId ?? ''),
-              ),
+          : device.origin === 'virtual'
+            ? eq(schema.registry.devices.id, device.id)
+            : device.origin === 'package'
+              ? and(
+                  eq(schema.registry.devices.source, 'adapter'),
+                  eq(schema.registry.devices.packageId, device.vendorId),
+                  eq(schema.registry.devices.externalId, device.externalId ?? ''),
+                )
+              : and(
+                  eq(schema.registry.devices.source, 'container'),
+                  eq(schema.registry.devices.externalId, device.externalId ?? ''),
+                ),
       )
       .limit(1);
 
@@ -1251,6 +1302,12 @@ export async function deleteDevice(context: DevicesContext, id: string): Promise
     });
   }
 
+  const virtual = await virtualRowOf(context, id);
+
+  if (virtual !== undefined) {
+    return deleteVirtualDevice(context, virtual);
+  }
+
   const device = await readDevice(context, id);
 
   // The device the house shows goes with every way into it; one way in goes alone.
@@ -1274,6 +1331,72 @@ export async function deleteDevice(context: DevicesContext, id: string): Promise
   }
 
   return { name: device.name, kind: device.kind, entityIds };
+}
+
+/**
+ * A virtual device's row, when the id is one.
+ *
+ * @param context - The request's collaborators.
+ * @param id - A device id.
+ * @returns Its row, or nothing when the id is not a virtual device's.
+ */
+async function virtualRowOf(
+  context: DevicesContext,
+  id: string,
+): Promise<
+  { readonly id: string; readonly name: string; readonly externalId: string | null } | undefined
+> {
+  if (!z.uuid().safeParse(id).success) {
+    return undefined;
+  }
+
+  const { devices } = schema.registry;
+  const [row] = await context.db
+    .select({ id: devices.id, name: devices.name, externalId: devices.externalId })
+    .from(devices)
+    .where(and(eq(devices.id, id), eq(devices.source, 'virtual')));
+
+  return row;
+}
+
+/**
+ * Removes a virtual device that holds no alias any more; the shared "Aliases" one stays.
+ *
+ * @param context - The request's collaborators.
+ * @param row - Its row.
+ * @param row.id - Its id.
+ * @param row.name - Its name.
+ * @param row.externalId - `aliases` for the shared one.
+ * @returns What went, for the audit trail: nothing but the device.
+ * @throws {ConflictError} For the shared device, or one that still holds aliases.
+ */
+async function deleteVirtualDevice(
+  context: DevicesContext,
+  row: { readonly id: string; readonly name: string; readonly externalId: string | null },
+): Promise<RemovedDevice> {
+  const { devices, entities } = schema.registry;
+
+  if (row.externalId === 'aliases') {
+    throw new ConflictError('The shared Aliases device belongs to the platform', {
+      details: { id: row.id },
+    });
+  }
+
+  const held = await context.db
+    .select({ entityId: entities.entityId })
+    .from(entities)
+    .where(eq(entities.deviceId, row.id))
+    .orderBy(asc(entities.entityId));
+
+  if (held.length > 0) {
+    throw new ConflictError('Move or delete the aliases on this device first', {
+      details: { id: row.id, entityIds: held.map((each) => each.entityId) },
+    });
+  }
+
+  await context.db.delete(devices).where(eq(devices.id, row.id));
+
+  return { name: row.name, kind: 'nebula/virtual', entityIds: [] };
 }
 
 /**

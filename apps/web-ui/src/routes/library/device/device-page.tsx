@@ -349,10 +349,16 @@ function factsOf(
           ? translate('device.device.container', 'Container')
           : device.origin === 'package'
             ? translate('device.device.package', 'Package')
-            : translate('device.device.integration', 'Integration'),
+            : device.origin === 'virtual'
+              ? translate('device.device.virtual', 'Virtual device')
+              : translate('device.device.integration', 'Integration'),
       value:
         device.origin === 'system' ? (
           vendorName
+        ) : device.origin === 'virtual' ? (
+          <Link to="/aliases" className={link}>
+            {translate('device.device.aliases', 'Aliases')}
+          </Link>
         ) : device.origin === 'package' ? (
           <Link to={`/packages/${encodeURIComponent(device.vendorId)}`} className={link}>
             {device.driverName}

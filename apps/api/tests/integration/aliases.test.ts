@@ -19,6 +19,7 @@ import {
   aliasDetailSchema,
   aliasFileSchema,
   aliasViewSchema,
+  containerDeviceId,
   type AliasView,
 } from '@nebulahome/contracts';
 import { createDatabase, schema } from '@nebulahome/db';
@@ -191,6 +192,33 @@ describe('creating an alias', () => {
 
     expect(wrongPart.status).toBe(400);
     expect(wrongSource.status).toBe(400);
+  });
+
+  it('goes on a device named by its id in the devices list', async () => {
+    const [device] = await database.db
+      .insert(schema.registry.devices)
+      .values({ source: 'container', externalId: slug, name: `Box ${slug}` })
+      .returning({ id: schema.registry.devices.id });
+
+    try {
+      const { status, body } = await call(AUTHOR, 'POST', '/aliases', {
+        name: `On box ${slug}`,
+        behavesAs: 'switch',
+        device: { kind: 'device', deviceId: containerDeviceId(slug) },
+      });
+
+      expect(status).toBe(201);
+      const made = aliasViewSchema.parse(body);
+      expect(made.device).toMatchObject({ id: containerDeviceId(slug), isVirtual: false });
+
+      await database.db
+        .delete(schema.registry.entities)
+        .where(eq(schema.registry.entities.entityId, made.entityId));
+    } finally {
+      await database.db
+        .delete(schema.registry.devices)
+        .where(eq(schema.registry.devices.id, device?.id ?? ''));
+    }
   });
 });
 
