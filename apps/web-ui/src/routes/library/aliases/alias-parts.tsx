@@ -269,7 +269,7 @@ export function AliasParts(props: AliasPartsProps) {
 
   return (
     <div className="rounded-panel border border-border bg-surface">
-      <div className="relative overflow-x-auto">
+      <div className="relative">
         <div>
           <div
             className={`${COLUMNS} border-b border-border py-3 font-mono text-label text-foreground-subtle uppercase`}
@@ -349,6 +349,7 @@ export function AliasParts(props: AliasPartsProps) {
               },
             }))}
             width="wide"
+            align="start"
             trigger={({ isOpen, toggle, buttonRef }) => (
               <Button
                 ref={buttonRef}
@@ -648,19 +649,24 @@ function PartEditor(props: PartEditorProps) {
         <SettingFields def={def} config={config} set={set} />
       </fieldset>
       <div className="flex items-center justify-between border-t border-border pt-3">
-        <span className="flex items-center gap-3">
-          <span className="font-mono text-mono-caption text-foreground-subtle">{def.key}</span>
+        <span className="font-mono text-mono-caption text-foreground-subtle">{def.key}</span>
+        <span className="flex items-center gap-2">
           {def.isRequired || !canEdit ? null : (
-            <Button variant="bare" size="compact" onClick={onRemove}>
+            <Button
+              variant="bare"
+              size="compact"
+              className="text-foreground-muted hover:enabled:bg-danger-soft hover:enabled:text-danger"
+              onClick={onRemove}
+            >
               <AppIcon id="trash-2" size={13} />
               {t('library.aliasPage.removePart', 'Remove the part')}
             </Button>
           )}
+          <Button variant="ghost" size="compact" onClick={onToggle}>
+            <AppIcon id="check" size={13} />
+            {t('library.aliasPage.done', 'Done')}
+          </Button>
         </span>
-        <Button variant="ghost" size="compact" onClick={onToggle}>
-          <AppIcon id="check" size={13} />
-          {t('library.aliasPage.done', 'Done')}
-        </Button>
       </div>
     </div>
   );
@@ -1358,6 +1364,7 @@ function CodeSource(
         <Menu
           items={items}
           width="wide"
+          align="start"
           trigger={({ isOpen, toggle, buttonRef }) => (
             <button
               ref={buttonRef}

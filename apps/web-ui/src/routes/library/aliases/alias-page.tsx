@@ -431,10 +431,8 @@ function LoadedAliasPage(props: { readonly detail: AliasDetail; readonly isFetch
           <HeroFact icon={alias.device.isVirtual ? 'layers' : 'cpu'}>
             <span className="text-foreground-subtle">{t('library.aliases.device', 'Device')}</span>
             {alias.device.isShared
-              ? t('library.aliasPage.aliasesVirtual', 'Aliases · virtual')
-              : alias.device.isVirtual
-                ? `${alias.device.name} · ${t('library.aliases.virtual', 'virtual')}`
-                : alias.device.name}
+              ? t('library.aliases.aliasesDevice', 'Aliases')
+              : alias.device.name}
           </HeroFact>
         </>
       }
@@ -557,7 +555,11 @@ function LoadedAliasPage(props: { readonly detail: AliasDetail; readonly isFetch
   return (
     <DetailFrame hero={hero}>
       <div
-        className={`grid items-start gap-8 ${isPanel ? 'lg:grid-cols-[minmax(0,1fr)_340px]' : ''}`}
+        className={`grid items-start gap-y-8 transition-[grid-template-columns,column-gap] duration-250 ease-out motion-reduce:transition-none ${
+          isPanel
+            ? 'lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-8'
+            : 'lg:grid-cols-[minmax(0,1fr)_0px] lg:gap-x-0'
+        }`}
       >
         <div className="flex min-w-0 flex-col gap-6">
           {error !== null && shown !== 'code' ? (
@@ -656,7 +658,15 @@ function LoadedAliasPage(props: { readonly detail: AliasDetail; readonly isFetch
           ) : null}
           {shown === 'history' ? <AliasHistoryTab alias={alias} defs={defs} /> : null}
         </div>
-        {isPanel ? side : null}
+        {/* Kept while hidden so its column can fold away; clipped only then, as it has menus. */}
+        <div
+          inert={!isPanel}
+          className={`min-w-0 transition-opacity duration-250 ease-out motion-reduce:transition-none ${
+            isPanel ? '' : 'overflow-hidden opacity-0 max-lg:hidden'
+          }`}
+        >
+          <div className="lg:w-[340px]">{side}</div>
+        </div>
       </div>
 
       <DeleteAliasDialog

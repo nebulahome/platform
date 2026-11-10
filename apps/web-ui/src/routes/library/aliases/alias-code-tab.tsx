@@ -650,8 +650,9 @@ export function AliasCodeTab(props: AliasCodeTabProps) {
           )}
         </Note>
       ) : null}
-      <div className="flex flex-col overflow-hidden rounded-panel border border-border bg-[color-mix(in_oklab,var(--color-canvas)_74%,black)]">
-        <div className="flex items-center gap-2.5 border-b border-border bg-canvas px-4 py-2">
+      {/* Not overflow-hidden: the menu of a case opens past the bottom edge. */}
+      <div className="flex flex-col rounded-panel border border-border bg-[color-mix(in_oklab,var(--color-canvas)_74%,black)]">
+        <div className="flex items-center gap-2.5 rounded-t-panel border-b border-border bg-canvas px-4 py-2">
           <AppIcon id="braces" size={14} className="text-foreground-subtle" />
           <span className="text-ui-sm font-medium text-foreground">
             {t('library.aliasPage.code', 'Code')}
@@ -926,6 +927,7 @@ export function AliasCodeTab(props: AliasCodeTabProps) {
               <Menu
                 key={entry.id}
                 items={items}
+                align="start"
                 trigger={({ isOpen, toggle, buttonRef }) => (
                   <button
                     ref={buttonRef}
@@ -979,7 +981,7 @@ export function AliasCodeTab(props: AliasCodeTabProps) {
           ) : null}
         </div>
 
-        <div className="flex items-center gap-4 border-t border-border bg-canvas px-3 py-1.5 font-mono text-label text-foreground-subtle">
+        <div className="flex items-center gap-4 rounded-b-panel border-t border-border bg-canvas px-3 py-1.5 font-mono text-label text-foreground-subtle">
           {check.problems.length > 0 ? (
             <span className="flex items-center gap-1.5 text-danger">
               <AppIcon id="triangle-alert" size={12} />

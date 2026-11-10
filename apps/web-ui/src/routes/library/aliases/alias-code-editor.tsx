@@ -135,6 +135,8 @@ const THEME = EditorView.theme({
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { fontFamily: 'var(--font-mono)', lineHeight: '22px' },
   '.cm-content': { caretColor: 'var(--color-primary)', padding: '12px 0' },
+  // drawSelection hides the native caret and draws its own, black unless told otherwise.
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--color-primary)', borderLeftWidth: '2px' },
   '.cm-gutters': {
     backgroundColor: 'transparent',
     color: 'color-mix(in srgb, var(--color-foreground-subtle) 70%, transparent)',

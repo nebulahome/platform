@@ -289,9 +289,6 @@ function DeviceCell(props: { readonly item: AliasListItem }) {
       <span className="truncate">
         {device.isShared ? t('library.aliases.aliasesDevice', 'Aliases') : device.name}
       </span>
-      <span className="rounded-pill border border-border px-1.5 text-caption text-foreground-subtle">
-        {t('library.aliases.virtual', 'virtual')}
-      </span>
     </span>
   );
 }
@@ -753,7 +750,7 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
                             item={line.item}
                             fallback={
                               line.item.device.isShared
-                                ? t('library.aliases.aliasesVirtual', 'Aliases · virtual')
+                                ? t('library.aliases.aliasesDevice', 'Aliases')
                                 : line.item.device.name
                             }
                           />

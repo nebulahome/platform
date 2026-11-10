@@ -115,6 +115,11 @@ function frame(minHeight: string, maxHeight: string) {
       caretColor: 'var(--color-primary)',
       padding: '8px 0',
     },
+    // drawSelection hides the native caret and draws its own, black unless told otherwise.
+    '.cm-cursor, .cm-dropCursor': {
+      borderLeftColor: 'var(--color-primary)',
+      borderLeftWidth: '2px',
+    },
     '.cm-gutters': {
       backgroundColor: 'transparent',
       color: 'var(--color-foreground-subtle)',
