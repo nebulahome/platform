@@ -7,7 +7,12 @@
  * the same definition.
  */
 
+export * from './alias-api.js';
+export * from './alias-code/index.js';
 export * from './alias-expression.js';
+export * from './alias-file.js';
+export * from './alias-parts.js';
+export * from './alias-types.js';
 export * from './api-activity.js';
 export * from './api-auth.js';
 export * from './api-dashboards.js';

@@ -3,7 +3,9 @@
  *
  * Alias expressions are owner input. They are evaluated here with a recursive-descent parser
  * that never calls `eval` or `new Function` (RULES.md §16, ARCHITECTURE.md §6.3). The only
- * values in scope are the scalar bindings the caller passed; there is no property access, no
+ * values in scope are the scalar bindings the caller passed - plain names (`t1`) or entity ids
+ * (`sensor.kitchen`, `climate.hall.current_temperature`), each bound by the caller to one scalar -
+ * and a few pure functions (`avg`, `min`, `max`, `sum`, `abs`, `round`, `clamp`). There is no
  * indexing, no method call, and no way to reach the house's state through the expression itself.
  */
 import type { CapabilityState } from './capabilities.js';
@@ -11,6 +13,78 @@ import { ValidationError } from './errors.js';
 
 /** A scalar an expression may read or produce. */
 export type AliasScalar = number | boolean | string;
+
+/**
+ * A binding's value: a scalar, or null when the entity has none now (unavailable, never
+ * reported). A function that combines values (`avg`, `min`, `max`, `sum`) leaves a null out; any
+ * other use of one fails, naming it.
+ */
+export type AliasBinding = AliasScalar | null;
+
+/** One function a formula may call. */
+export type AliasFormulaFunction = {
+  readonly name: string;
+
+  /** How it is called, e.g. `round(x, digits)`. */
+  readonly signature: string;
+
+  /** What it does, in one English line. */
+  readonly summary: string;
+
+  /** A formula that uses it. */
+  readonly example: string;
+};
+
+/** The functions a formula may call, for the editor's help and completion. */
+export const ALIAS_FORMULA_FUNCTIONS: readonly AliasFormulaFunction[] = [
+  {
+    name: 'avg',
+    signature: 'avg(a, b, …)',
+    summary: 'The average of the numbers; one with no value is left out',
+    example: 'avg(sensor.living_room_temperature, sensor.kitchen_temperature)',
+  },
+  {
+    name: 'min',
+    signature: 'min(a, b, …)',
+    summary: 'The smallest of the numbers',
+    example: 'min(sensor.bedroom_temperature, sensor.office_temperature)',
+  },
+  {
+    name: 'max',
+    signature: 'max(a, b, …)',
+    summary: 'The largest of the numbers',
+    example: 'max(sensor.bedroom_temperature, sensor.office_temperature)',
+  },
+  {
+    name: 'sum',
+    signature: 'sum(a, b, …)',
+    summary: 'The numbers added up',
+    example: 'sum(sensor.solar_power, sensor.battery_power)',
+  },
+  {
+    name: 'abs',
+    signature: 'abs(x)',
+    summary: 'The number without its sign',
+    example: 'abs(sensor.grid_power)',
+  },
+  {
+    name: 'round',
+    signature: 'round(x, digits)',
+    summary: 'The number rounded, to whole units or to that many decimals',
+    example: 'round(sensor.humidity, 1)',
+  },
+  {
+    name: 'clamp',
+    signature: 'clamp(x, low, high)',
+    summary: 'The number kept between two limits',
+    example: 'clamp(sensor.setpoint, 16, 24)',
+  },
+];
+
+/** The functions' names. */
+const FUNCTION_NAMES: ReadonlySet<string> = new Set(
+  ALIAS_FORMULA_FUNCTIONS.map((entry) => entry.name),
+);
 
 /** How far evaluation is allowed to go. */
 export type AliasEvaluateLimits = {
@@ -42,6 +116,9 @@ export type AliasEvaluateErr = {
 /** The result of evaluating one expression. */
 export type AliasEvaluateResult = AliasEvaluateOk | AliasEvaluateErr;
 
+/** A value while an expression is worked out: a scalar, or a binding with no value. */
+type Val = AliasScalar | null;
+
 /** One piece of an expression, as the tokeniser cut it. */
 type Token =
   | { readonly kind: 'number'; readonly value: number }
@@ -50,6 +127,21 @@ type Token =
   | { readonly kind: 'ident'; readonly value: string }
   | { readonly kind: 'op'; readonly value: string }
   | { readonly kind: 'eof' };
+
+/**
+ * Whether a character continues a name, or a segment of an entity id after a dot.
+ *
+ * @param character - One character, or empty past the end.
+ * @returns True for a letter, a digit or an underscore.
+ */
+function isNamePart(character: string): boolean {
+  return (
+    (character >= 'a' && character <= 'z') ||
+    (character >= 'A' && character <= 'Z') ||
+    (character >= '0' && character <= '9') ||
+    character === '_'
+  );
+}
 
 const MAX_EXPRESSION_LENGTH = 2_000;
 const MAX_TEXT_RESULT = 512;
@@ -159,13 +251,17 @@ function tokenise(source: string): Token[] {
     ) {
       let lexeme = advance();
 
-      while (
-        (peek() >= 'a' && peek() <= 'z') ||
-        (peek() >= 'A' && peek() <= 'Z') ||
-        (peek() >= '0' && peek() <= '9') ||
-        peek() === '_'
-      ) {
+      while (isNamePart(peek())) {
         lexeme += advance();
+      }
+
+      // An entity id is one name: `sensor.kitchen`, `climate.hall.current_temperature`.
+      while (peek() === '.' && isNamePart(source[index + 1] ?? '')) {
+        lexeme += advance();
+
+        while (isNamePart(peek())) {
+          lexeme += advance();
+        }
       }
 
       if (lexeme === 'true') {
@@ -194,7 +290,7 @@ function tokenise(source: string): Token[] {
       continue;
     }
 
-    if ('+-*/()<>=!?:'.includes(character)) {
+    if ('+-*/()<>=!?:,'.includes(character)) {
       tokens.push({ kind: 'op', value: advance() });
       continue;
     }
@@ -211,11 +307,14 @@ function tokenise(source: string): Token[] {
  */
 class Evaluator {
   readonly #tokens: readonly Token[];
-  readonly #bindings: ReadonlyMap<string, AliasScalar>;
+  readonly #bindings: ReadonlyMap<string, AliasBinding>;
   readonly #limits: AliasEvaluateLimits;
   readonly #startedAt: number;
   #position = 0;
   #steps = 0;
+
+  /** The last binding read that had no value, to name it when an operator needs one. */
+  #missing: string | undefined;
 
   /**
    * @param tokens - The token stream, including a trailing `eof`.
@@ -224,7 +323,7 @@ class Evaluator {
    */
   public constructor(
     tokens: readonly Token[],
-    bindings: ReadonlyMap<string, AliasScalar>,
+    bindings: ReadonlyMap<string, AliasBinding>,
     limits: AliasEvaluateLimits,
   ) {
     this.#tokens = tokens;
@@ -243,7 +342,7 @@ class Evaluator {
   public evaluate(): AliasScalar {
     const value = this.#parseTernary();
     this.#expect('eof');
-    return this.#finalise(value);
+    return this.#finalise(this.#present(value));
   }
 
   /**
@@ -323,7 +422,7 @@ class Evaluator {
    *
    * @returns The scalar value.
    */
-  #parseTernary(): AliasScalar {
+  #parseTernary(): Val {
     this.#tick();
     let value = this.#parseLogicOr();
 
@@ -332,7 +431,7 @@ class Evaluator {
       const whenTrue = this.#parseTernary();
       this.#expect(':');
       const whenFalse = this.#parseTernary();
-      value = this.#isTruthy(value) ? whenTrue : whenFalse;
+      value = this.#isTruthy(this.#present(value)) ? whenTrue : whenFalse;
     }
 
     return value;
@@ -343,14 +442,14 @@ class Evaluator {
    *
    * @returns The scalar value.
    */
-  #parseLogicOr(): AliasScalar {
+  #parseLogicOr(): Val {
     this.#tick();
     let value = this.#parseLogicAnd();
 
     while (this.#matchOp('||')) {
       this.#advance();
       const right = this.#parseLogicAnd();
-      value = this.#isTruthy(value) || this.#isTruthy(right);
+      value = this.#isTruthy(this.#present(value)) || this.#isTruthy(this.#present(right));
     }
 
     return value;
@@ -361,14 +460,14 @@ class Evaluator {
    *
    * @returns The scalar value.
    */
-  #parseLogicAnd(): AliasScalar {
+  #parseLogicAnd(): Val {
     this.#tick();
     let value = this.#parseEquality();
 
     while (this.#matchOp('&&')) {
       this.#advance();
       const right = this.#parseEquality();
-      value = this.#isTruthy(value) && this.#isTruthy(right);
+      value = this.#isTruthy(this.#present(value)) && this.#isTruthy(this.#present(right));
     }
 
     return value;
@@ -380,7 +479,7 @@ class Evaluator {
    * @returns The scalar value.
    * @throws {ValidationError} When an operand is not of the type the operator takes.
    */
-  #parseEquality(): AliasScalar {
+  #parseEquality(): Val {
     this.#tick();
     let value = this.#parseComparison();
 
@@ -392,7 +491,9 @@ class Evaluator {
         throw new ValidationError('Expected comparison operator');
       }
 
-      value = operator.value === '==' ? value === right : value !== right;
+      const left = this.#present(value);
+      const other = this.#present(right);
+      value = operator.value === '==' ? left === other : left !== other;
     }
 
     return value;
@@ -404,7 +505,7 @@ class Evaluator {
    * @returns The scalar value.
    * @throws {ValidationError} When an operand is not of the type the operator takes.
    */
-  #parseComparison(): AliasScalar {
+  #parseComparison(): Val {
     this.#tick();
     let value = this.#parseTerm();
 
@@ -444,7 +545,7 @@ class Evaluator {
    * @returns The scalar value.
    * @throws {ValidationError} When an operand is not of the type the operator takes.
    */
-  #parseTerm(): AliasScalar {
+  #parseTerm(): Val {
     this.#tick();
     let value = this.#parseFactor();
 
@@ -457,7 +558,7 @@ class Evaluator {
       }
 
       if (operator.value === '+' && (typeof value === 'string' || typeof right === 'string')) {
-        value = String(value) + String(right);
+        value = String(this.#present(value)) + String(this.#present(right));
         continue;
       }
 
@@ -475,7 +576,7 @@ class Evaluator {
    * @returns The scalar value.
    * @throws {ValidationError} When an operand is not of the type the operator takes.
    */
-  #parseFactor(): AliasScalar {
+  #parseFactor(): Val {
     this.#tick();
     let value = this.#parseUnary();
 
@@ -505,12 +606,12 @@ class Evaluator {
    *
    * @returns The scalar value.
    */
-  #parseUnary(): AliasScalar {
+  #parseUnary(): Val {
     this.#tick();
 
     if (this.#matchOp('!')) {
       this.#advance();
-      return !this.#isTruthy(this.#parseUnary());
+      return !this.#isTruthy(this.#present(this.#parseUnary()));
     }
 
     if (this.#matchOp('-')) {
@@ -522,14 +623,15 @@ class Evaluator {
   }
 
   /**
-   * primary → number | string | boolean | ident | '(' ternary ')'
+   * primary → number | string | boolean | ident | function '(' args ')' | '(' ternary ')'
    *
-   * Deliberately no `.`, `[]`, or call forms: a binding is a scalar, not an object.
+   * No `[]` or method forms: a binding is a scalar, not an object; the only calls are the pure
+   * functions of {@link ALIAS_FORMULA_FUNCTIONS}.
    *
-   * @returns The scalar value.
+   * @returns The scalar value, or null for a binding with no value.
    * @throws {ValidationError} When a name is not bound, or the expression ends too soon.
    */
-  #parsePrimary(): AliasScalar {
+  #parsePrimary(): Val {
     this.#tick();
     const token = this.#current();
 
@@ -540,10 +642,23 @@ class Evaluator {
 
     if (token.kind === 'ident') {
       this.#advance();
+
+      if (this.#matchOp('(')) {
+        return this.#call(token.value);
+      }
+
       const bound = this.#bindings.get(token.value);
 
       if (bound === undefined) {
-        throw new ValidationError(`Unknown variable ${token.value}`);
+        throw new ValidationError(
+          token.value.includes('.')
+            ? `${token.value} is not read here`
+            : `Unknown variable ${token.value}`,
+        );
+      }
+
+      if (bound === null) {
+        this.#missing = token.value;
       }
 
       return bound;
@@ -567,12 +682,116 @@ class Evaluator {
    * @returns The number.
    * @throws {ValidationError} When the operand is not numeric.
    */
-  #asNumber(value: AliasScalar, operation: string): number {
+  #asNumber(value: Val, operation: string): number {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
+      this.#present(value);
       throw new ValidationError(`Operand of ${operation} must be a finite number`);
     }
 
     return value;
+  }
+
+  /**
+   * A value an operator needs, which a binding with no value is not.
+   *
+   * @param value - The operand.
+   * @returns It, when it is there.
+   * @throws {ValidationError} When it is a binding with no value, naming it.
+   */
+  #present(value: Val): AliasScalar {
+    if (value === null) {
+      throw new ValidationError(`${this.#missing ?? 'A source'} has no value`);
+    }
+
+    return value;
+  }
+
+  /**
+   * Calls one of the formula functions with the arguments that follow.
+   *
+   * @param name - The function's name.
+   * @returns What it gives.
+   * @throws {ValidationError} When the function is unknown, or its arguments do not fit.
+   */
+  #call(name: string): Val {
+    if (!FUNCTION_NAMES.has(name)) {
+      throw new ValidationError(`Unknown function ${name}`);
+    }
+
+    this.#expect('(');
+    const args: Val[] = [];
+
+    if (!this.#matchOp(')')) {
+      args.push(this.#parseTernary());
+
+      while (this.#matchOp(',')) {
+        this.#advance();
+        args.push(this.#parseTernary());
+      }
+    }
+
+    this.#expect(')');
+
+    /**
+     * The arguments as numbers, those with no value left out.
+     *
+     * @returns The numbers.
+     * @throws {ValidationError} When none has a value, or one is not a number.
+     */
+    const numbers = (): number[] => {
+      const present = args.filter((arg) => arg !== null);
+
+      if (present.length === 0) {
+        throw new ValidationError(`${name}() got no values`);
+      }
+
+      return present.map((arg) => this.#asNumber(arg, `${name}()`));
+    };
+    /**
+     * Requires the call to have as many arguments as the function takes.
+     *
+     * @param low - The fewest.
+     * @param high - The most.
+     * @throws {ValidationError} When the count is off.
+     */
+    const arity = (low: number, high: number): void => {
+      if (args.length < low || args.length > high) {
+        throw new ValidationError(
+          low === high
+            ? `${name}() takes ${String(low)} value${low === 1 ? '' : 's'}`
+            : `${name}() takes ${String(low)} to ${String(high)} values`,
+        );
+      }
+    };
+
+    switch (name) {
+      case 'avg': {
+        const values = numbers();
+        return values.reduce((total, value) => total + value, 0) / values.length;
+      }
+      case 'min':
+        return Math.min(...numbers());
+      case 'max':
+        return Math.max(...numbers());
+      case 'sum':
+        return numbers().reduce((total, value) => total + value, 0);
+      case 'abs':
+        arity(1, 1);
+        return Math.abs(this.#asNumber(args[0] ?? null, 'abs()'));
+      case 'round': {
+        arity(1, 2);
+        const digits = args[1] === undefined ? 0 : this.#asNumber(args[1], 'round()');
+        const factor = 10 ** Math.max(0, Math.min(10, Math.trunc(digits)));
+        return Math.round(this.#asNumber(args[0] ?? null, 'round()') * factor) / factor;
+      }
+      default: {
+        arity(3, 3);
+        const value = this.#asNumber(args[0] ?? null, 'clamp()');
+        const low = this.#asNumber(args[1] ?? null, 'clamp()');
+        const high = this.#asNumber(args[2] ?? null, 'clamp()');
+        return Math.min(high, Math.max(low, value));
+      }
+    }
   }
 
   /**
@@ -621,13 +840,14 @@ class Evaluator {
  * Evaluates an alias expression against named scalar bindings.
  *
  * @param expression - The formula text.
- * @param bindings - Variable names to scalars. Only these names may appear as identifiers.
+ * @param bindings - Names or entity ids to scalars (null: no value now). Only these names may
+ *   appear as identifiers.
  * @param limits - Optional step and time ceilings.
  * @returns The result, or a structured error that never includes source entity state.
  */
 export function evaluateAliasExpression(
   expression: string,
-  bindings: ReadonlyMap<string, AliasScalar>,
+  bindings: ReadonlyMap<string, AliasBinding>,
   limits: AliasEvaluateLimits = DEFAULT_ALIAS_EVALUATE_LIMITS,
 ): AliasEvaluateResult {
   try {
@@ -644,6 +864,38 @@ export function evaluateAliasExpression(
 
     return { ok: false, error: message };
   }
+}
+
+/**
+ * The names a formula reads: its variables and entity ids, without its functions.
+ *
+ * What `core` binds before evaluating, and what an alias reads (its inputs, the entities that
+ * cannot be removed while it reads them). A formula that does not tokenise reads nothing.
+ *
+ * @param expression - The formula text.
+ * @returns The names, in order of first use, each once.
+ */
+export function aliasExpressionNames(expression: string): string[] {
+  let tokens: Token[];
+
+  try {
+    tokens = tokenise(expression);
+  } catch {
+    return [];
+  }
+
+  const names: string[] = [];
+
+  tokens.forEach((token, index) => {
+    const next = tokens[index + 1];
+    const isCall = next?.kind === 'op' && next.value === '(';
+
+    if (token.kind === 'ident' && !isCall && !names.includes(token.value)) {
+      names.push(token.value);
+    }
+  });
+
+  return names;
 }
 
 /**
@@ -701,7 +953,8 @@ export function aliasScalarFromState(state: CapabilityState | undefined): AliasS
 }
 
 /** What one stretch of a formula is, as an editor colours it. */
-export type AliasSpanKind = 'space' | 'number' | 'string' | 'boolean' | 'ident' | 'op' | 'invalid';
+export type AliasSpanKind =
+  'space' | 'number' | 'string' | 'boolean' | 'ident' | 'function' | 'op' | 'invalid';
 
 /** One stretch of a formula: where it starts and ends, and what it is. */
 export type AliasExpressionSpan = {
@@ -805,9 +1058,18 @@ export function scanAliasExpression(source: string): AliasExpressionSpan[] {
         index += 1;
       }
 
-      const word = source.slice(start, index);
+      while (source[index] === '.' && isIdentPart(source[index + 1] ?? '')) {
+        index += 1;
 
-      push(start, word === 'true' || word === 'false' ? 'boolean' : 'ident');
+        while (index < source.length && isIdentPart(source[index] ?? '')) {
+          index += 1;
+        }
+      }
+
+      const word = source.slice(start, index);
+      const isCall = FUNCTION_NAMES.has(word) && /^\s*\(/u.test(source.slice(index));
+
+      push(start, word === 'true' || word === 'false' ? 'boolean' : isCall ? 'function' : 'ident');
       continue;
     }
 
@@ -820,7 +1082,7 @@ export function scanAliasExpression(source: string): AliasExpressionSpan[] {
     }
 
     index += 1;
-    push(start, '+-*/()<>=!?:'.includes(character) ? 'op' : 'invalid');
+    push(start, '+-*/()<>=!?:,'.includes(character) ? 'op' : 'invalid');
   }
 
   return spans;

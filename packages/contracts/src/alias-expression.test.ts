@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateAliasExpression, scanAliasExpression } from './alias-expression.js';
+import {
+  aliasExpressionNames,
+  evaluateAliasExpression,
+  scanAliasExpression,
+} from './alias-expression.js';
 
 /**
  * Evaluates with the given bindings.
@@ -112,5 +116,85 @@ describe('scanAliasExpression', () => {
     ]);
     expect(scanAliasExpression("'open").map((span) => span.kind)).toEqual(['invalid']);
     expect(scanAliasExpression('true').map((span) => span.kind)).toEqual(['boolean']);
+  });
+});
+
+describe('formulas over entity ids', () => {
+  const bindings = new Map<string, number | boolean | string | null>([
+    ['sensor.lr_humidity', 47],
+    ['sensor.purifier_humidity', 49],
+    ['sensor.kitchen_humidity', null],
+    ['climate.hall.current_temperature', 20.4],
+  ]);
+
+  it('reads entity ids and their fields as names', () => {
+    expect(evaluateAliasExpression('climate.hall.current_temperature + 1', bindings)).toEqual({
+      ok: true,
+      value: 21.4,
+    });
+  });
+
+  it('combines with functions, leaving out what has no value', () => {
+    expect(
+      evaluateAliasExpression(
+        'avg(sensor.lr_humidity, sensor.purifier_humidity, sensor.kitchen_humidity)',
+        bindings,
+      ),
+    ).toEqual({ ok: true, value: 48 });
+    expect(evaluateAliasExpression('max(sensor.lr_humidity, 50)', bindings)).toEqual({
+      ok: true,
+      value: 50,
+    });
+    expect(evaluateAliasExpression('round(10 / 3, 2)', bindings)).toEqual({
+      ok: true,
+      value: 3.33,
+    });
+    expect(evaluateAliasExpression('clamp(40, 0, 30)', bindings)).toEqual({ ok: true, value: 30 });
+    expect(evaluateAliasExpression('abs(0 - 4)', bindings)).toEqual({ ok: true, value: 4 });
+    expect(evaluateAliasExpression('sum(1, 2, 3)', bindings)).toEqual({ ok: true, value: 6 });
+  });
+
+  it('names a value that is missing where an operator needs it', () => {
+    expect(evaluateAliasExpression('sensor.kitchen_humidity + 1', bindings)).toEqual({
+      ok: false,
+      error: 'sensor.kitchen_humidity has no value',
+    });
+    expect(evaluateAliasExpression('avg(sensor.kitchen_humidity)', bindings)).toEqual({
+      ok: false,
+      error: 'avg() got no values',
+    });
+    expect(evaluateAliasExpression('sensor.other + 1', bindings)).toEqual({
+      ok: false,
+      error: 'sensor.other is not read here',
+    });
+    expect(evaluateAliasExpression('median(1, 2)', bindings)).toEqual({
+      ok: false,
+      error: 'Unknown function median',
+    });
+  });
+
+  it('lists the names a formula reads, without its functions', () => {
+    expect(
+      aliasExpressionNames(
+        'avg(sensor.a, sensor.b) > t1 ? sensor.a : climate.x.current_temperature',
+      ),
+    ).toEqual(['sensor.a', 'sensor.b', 't1', 'climate.x.current_temperature']);
+    expect(aliasExpressionNames('1 +')).toEqual([]);
+  });
+
+  it('colours entity ids as one name and functions as functions', () => {
+    const text = 'avg(sensor.lr_humidity, 2)';
+
+    expect(
+      scanAliasExpression(text).map((span) => [text.slice(span.start, span.end), span.kind]),
+    ).toEqual([
+      ['avg', 'function'],
+      ['(', 'op'],
+      ['sensor.lr_humidity', 'ident'],
+      [',', 'op'],
+      [' ', 'space'],
+      ['2', 'number'],
+      [')', 'op'],
+    ]);
   });
 });
