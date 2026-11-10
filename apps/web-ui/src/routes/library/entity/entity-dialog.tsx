@@ -82,6 +82,12 @@ type EntityDialogProps = {
 
   /** Called to put it away. */
   readonly onClose: () => void;
+
+  /** Drawn in the page rather than over it: the sheet alone, as an alias's Preview shows it. */
+  readonly isInline?: boolean;
+
+  /** Whether its controls are off, though the person may use them. */
+  readonly isDisabled?: boolean;
 };
 
 /**
@@ -156,6 +162,66 @@ function LoadedEntityDialog(props: EntityDialogProps & { readonly view: EntityDi
     },
   });
 
+  const sheet = (
+    <EntitySheet
+      entity={entity}
+      state={state}
+      reportedAt={view.reportedAt}
+      commander={commander}
+      disabled={props.isDisabled === true || !view.canControl || !view.reading.isAvailable}
+      history={{
+        range,
+        onRange: setRange,
+        window,
+        states: states?.points ?? [],
+        telemetry: telemetry?.points ?? [],
+        isLoading,
+        readGap,
+      }}
+      battery={view.battery}
+      now={now}
+      icon={view.icon}
+      deviceName={view.device?.name ?? null}
+      {...(props.initialView === undefined ? {} : { initialView: props.initialView })}
+      canEdit={view.canEdit}
+      canCreateTags={view.canCreateTags}
+      onClose={onClose}
+      onSave={(change) => {
+        const body = {
+          ...change.update,
+          ...(change.isEnabled === undefined ? {} : { isEnabled: change.isEnabled }),
+        };
+
+        if (Object.keys(body).length > 0) {
+          save.mutate(body);
+        }
+      }}
+      onEnable={() => {
+        save.mutate({ isEnabled: true });
+      }}
+      {...(view.device === undefined
+        ? {}
+        : {
+            /** Goes to its device's page, which puts the dialog away. */
+            onOpenDevice: () => {
+              void navigate(devicePath(view.device?.id ?? ''));
+            },
+          })}
+      {...(entity.linked == null || !view.canLink
+        ? {}
+        : {
+            /** Asks to unlink the reading, in the device page's Unlink dialog. */
+            onUnlink: () => {
+              setUnlinking({ action: 'unlink', target: { scope: 'entity', id: entityId } });
+            },
+          })}
+    />
+  );
+
+  if (props.isInline === true) {
+    return sheet;
+  }
+
   return (
     <>
       <Modal
@@ -165,59 +231,7 @@ function LoadedEntityDialog(props: EntityDialogProps & { readonly view: EntityDi
         // While Unlink asks, Escape is its to answer.
         onClose={unlinking === null ? onClose : () => undefined}
       >
-        <EntitySheet
-          entity={entity}
-          state={state}
-          reportedAt={view.reportedAt}
-          commander={commander}
-          disabled={!view.canControl || !view.reading.isAvailable}
-          history={{
-            range,
-            onRange: setRange,
-            window,
-            states: states?.points ?? [],
-            telemetry: telemetry?.points ?? [],
-            isLoading,
-            readGap,
-          }}
-          battery={view.battery}
-          now={now}
-          icon={view.icon}
-          deviceName={view.device?.name ?? null}
-          {...(props.initialView === undefined ? {} : { initialView: props.initialView })}
-          canEdit={view.canEdit}
-          canCreateTags={view.canCreateTags}
-          onClose={onClose}
-          onSave={(change) => {
-            const body = {
-              ...change.update,
-              ...(change.isEnabled === undefined ? {} : { isEnabled: change.isEnabled }),
-            };
-
-            if (Object.keys(body).length > 0) {
-              save.mutate(body);
-            }
-          }}
-          onEnable={() => {
-            save.mutate({ isEnabled: true });
-          }}
-          {...(view.device === undefined
-            ? {}
-            : {
-                /** Goes to its device's page, which puts the dialog away. */
-                onOpenDevice: () => {
-                  void navigate(devicePath(view.device?.id ?? ''));
-                },
-              })}
-          {...(entity.linked == null || !view.canLink
-            ? {}
-            : {
-                /** Asks to unlink the reading, in the device page's Unlink dialog. */
-                onUnlink: () => {
-                  setUnlinking({ action: 'unlink', target: { scope: 'entity', id: entityId } });
-                },
-              })}
-        />
+        {sheet}
       </Modal>
 
       <LinkDialog
@@ -261,6 +275,28 @@ export function EntityDialog(props: EntityDialogProps) {
   }, [isMissing]);
 
   return view === undefined ? null : <LoadedEntityDialog {...props} view={view} />;
+}
+
+/**
+ * An entity's sheet drawn in the page, as an alias's Preview shows it: nothing while it is read.
+ *
+ * @param props - The entity, and whether its controls are off.
+ * @param props.entityId - The entity.
+ * @param props.isDisabled - Whether its controls are off.
+ * @returns The sheet, or nothing yet.
+ */
+export function EntityPreview(props: { readonly entityId: string; readonly isDisabled?: boolean }) {
+  const { view } = useEntityDialog(props.entityId);
+
+  return view === undefined ? null : (
+    <LoadedEntityDialog
+      entityId={props.entityId}
+      view={view}
+      isInline
+      isDisabled={props.isDisabled === true}
+      onClose={() => undefined}
+    />
+  );
 }
 
 /**

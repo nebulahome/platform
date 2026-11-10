@@ -1,102 +1,111 @@
 /**
- * The last day of a calculated alias that may not be saved yet, for the editor's Preview.
+ * The dashed line of a number part being edited: its new source worked out over the same last
+ * day as the saved line, from its inputs' readings.
  *
- * Reads each source's hourly history once - the same buckets an entity's history charts - and runs
- * the formula over them in the browser ({@link previewSeries}). The histories are cached for five
- * minutes by entity, so typing in the formula costs nothing but the arithmetic; choosing another
- * entity for a source reads that one.
+ * The readings are read once per input and reused while the source is edited, so typing a
+ * formula costs no request per key once its entities are known.
  */
 import { useQueries } from '@tanstack/react-query';
 
-import { previewSeries, type PreviewPoint } from '@/library/alias-preview';
-import type { SourceDraft } from '@/library/alias-sources';
+import {
+  aliasExpressionNames,
+  ENTITY_ID_PATTERN,
+  type AliasPartConfig,
+} from '@nebulahome/contracts';
+
+import {
+  combinedSeries,
+  formulaSeries,
+  type PreviewInput,
+  type PreviewPoint,
+} from '@/library/alias-preview';
 import { fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { telemetryResolutionFor } from '@/library/history-series';
 
 /** How far back the preview reaches. */
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** How long a source's history is reused before it is read again. */
+/** How long an input's readings are reused before they are read again. */
 const STALE_MS = 5 * 60 * 1000;
 
-/** What the preview can show. */
-export type AliasPreview =
-  | { readonly status: 'waiting' }
-  | { readonly status: 'reading' }
-  | { readonly status: 'failed'; readonly error: unknown }
-  | {
-      readonly status: 'ready';
-      readonly points: readonly PreviewPoint[];
-      readonly from: number;
-      readonly to: number;
-    };
+/**
+ * The entities a source reads, for its preview.
+ *
+ * @param config - The source.
+ * @returns Their ids; none for a source with no line to draw.
+ */
+export function previewInputs(config: AliasPartConfig): string[] {
+  switch (config.from) {
+    case 'entity':
+      return [config.entity];
+    case 'entities':
+      return [...config.entities];
+    case 'formula': {
+      try {
+        return [...new Set(aliasExpressionNames(config.formula))].filter((name) =>
+          ENTITY_ID_PATTERN.test(name),
+        );
+      } catch {
+        return [];
+      }
+    }
+    default:
+      return [];
+  }
+}
 
 /**
- * Reads the sources' history and works the formula out over it.
+ * Works a number part's edited source out over the last day.
  *
- * @param expression - The formula as it is typed.
- * @param sources - The source rows.
- * @param isEnabled - False for an alias that is not calculated, or a formula that cannot run.
- * @returns Waiting until every source names an entity, then the preview.
+ * @param config - The edited source, or undefined when nothing is edited.
+ * @returns The series, or undefined while there is none to draw.
  */
-export function useAliasPreview(
-  expression: string,
-  sources: readonly SourceDraft[],
-  isEnabled: boolean,
-): AliasPreview {
-  const chosen = sources.filter(
-    (source) => source.entityId !== '' && source.variableName.trim() !== '',
-  );
-  const isComplete = isEnabled && chosen.length > 0 && chosen.length === sources.length;
-
+export function useEditPreview(config: AliasPartConfig | undefined): PreviewPoint[] | undefined {
+  const ids = config === undefined ? [] : previewInputs(config);
   const histories = useQueries({
-    queries: chosen.map((source) => ({
-      queryKey: [...LIBRARY_QUERY_KEYS.history, source.entityId, 'alias-preview'],
-      enabled: isComplete,
+    queries: ids.map((entityId) => ({
+      queryKey: [...LIBRARY_QUERY_KEYS.history, entityId, 'alias-preview'],
       staleTime: STALE_MS,
 
       /**
-       * Reads the source's last day, by the hour.
+       * Reads the input's last day.
        *
        * @param context - What TanStack Query provides.
        * @param context.signal - Cancels the read.
-       * @returns The window and its readings.
+       * @returns Its readings.
        */
       queryFn: async ({ signal }: { signal: AbortSignal }) => {
-        const to = new Date();
-        const from = new Date(to.getTime() - DAY_MS);
-        const points = await fetchTelemetry({ entityId: source.entityId, from, to }, '1h', signal);
+        const to = Date.now();
+        const window = { from: to - DAY_MS, to };
 
-        return { from: from.getTime(), to: to.getTime(), points };
+        return fetchTelemetry(
+          { entityId, from: new Date(window.from), to: new Date(window.to) },
+          telemetryResolutionFor(window),
+          signal,
+        );
       },
     })),
   });
 
-  if (!isComplete) {
-    return { status: 'waiting' };
+  if (
+    config === undefined ||
+    ids.length === 0 ||
+    histories.some((history) => history.data === undefined)
+  ) {
+    return undefined;
   }
 
-  const failed = histories.find((history) => history.error !== null);
+  const inputs: PreviewInput[] = ids.map((entityId, index) => ({
+    entityId,
+    points: histories[index]?.data ?? [],
+  }));
 
-  if (failed !== undefined) {
-    return { status: 'failed', error: failed.error };
+  switch (config.from) {
+    case 'formula':
+      return formulaSeries(config.formula, inputs);
+    case 'entities':
+      return combinedSeries(config.rule, inputs);
+    default:
+      return inputs[0]?.points.map((point) => ({ at: point.time.getTime(), value: point.value }));
   }
-
-  const loaded = histories.flatMap((history) => (history.data === undefined ? [] : [history.data]));
-
-  if (loaded.length < chosen.length) {
-    return { status: 'reading' };
-  }
-
-  return {
-    status: 'ready',
-    points: previewSeries(
-      expression,
-      chosen.map((source, index) => ({
-        variableName: source.variableName.trim(),
-        points: loaded[index]?.points ?? [],
-      })),
-    ),
-    from: Math.min(...loaded.map((history) => history.from)),
-    to: Math.max(...loaded.map((history) => history.to)),
-  };
 }

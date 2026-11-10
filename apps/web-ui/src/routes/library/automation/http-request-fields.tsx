@@ -32,8 +32,8 @@ import {
 import { numberFormat } from '@/i18n/formatters';
 import { METHOD_TONES } from '@/lib/http-methods';
 import { formatJsonTemplate } from '@/lib/json-template';
-import { sourceColors, VARIABLE_PATTERN } from '@/library/alias-sources';
 import { partialEntityId } from '@/library/automation-draft';
+import { sourceColors, VARIABLE_PATTERN } from '@/library/parameter-colors';
 import {
   AliasFormulaField,
   SOURCE_COLOR_CLASSES,

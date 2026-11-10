@@ -44,8 +44,8 @@ import {
   firstRunSteps,
   useFirstRunStep,
 } from '@/routes/first-run';
-import { AliasEditor } from '@/routes/library/alias-editor';
-import { AliasesPage } from '@/routes/library/aliases-page';
+import { AliasPage } from '@/routes/library/aliases/alias-page';
+import { AliasesPage } from '@/routes/library/aliases/aliases-page';
 import { AreasPage } from '@/routes/library/areas-page';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { AutomationsPage } from '@/routes/library/automations-page';
@@ -310,8 +310,8 @@ export function SessionRoutes() {
         <Route path="/devices" element={<DevicesPage />} />
         <Route path="/devices/:deviceId" element={<DevicePage />} />
         <Route path="/aliases" element={<AliasesPage />} />
-        <Route path="/aliases/new" element={<AliasEditor />} />
-        <Route path="/aliases/:aliasId" element={<AliasEditor />} />
+        <Route path="/aliases/new" element={<AliasesPage isCreating />} />
+        <Route path="/aliases/:aliasId" element={<AliasPage />} />
         <Route
           path="/tags"
           element={

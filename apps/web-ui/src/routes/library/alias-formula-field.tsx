@@ -22,7 +22,7 @@
  * The same field draws a template - an HTTP request's address or body - with each `{{ name }}`
  * in its parameter's colour ({@link templateSegments}).
  */
-import { useRef, type ReactNode } from 'react';
+import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { scanAliasExpression, type AliasSpanKind, type TagColor } from '@nebulahome/contracts';
@@ -67,6 +67,7 @@ const KIND_CLASSES: Readonly<Record<Exclude<AliasSpanKind, 'ident'>, string>> = 
   string: 'text-tag-green',
   boolean: 'text-tag-violet',
   op: 'text-foreground-subtle',
+  function: 'text-violet',
   invalid: 'text-danger underline decoration-danger decoration-wavy underline-offset-4',
 };
 
@@ -127,6 +128,12 @@ export type AliasFormulaFieldProps = {
 
   /** A line inside the frame, under the text: what it reads now, what may be written. */
   readonly footer?: ReactNode;
+
+  /** A key pressed in the text, before it types: a completion list takes the arrows. */
+  readonly onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+
+  /** Where the caret is now, after each change and move. */
+  readonly onCaret?: (caret: number) => void;
 };
 
 /**
@@ -157,6 +164,37 @@ export function formulaSegments(
         }
       : { text, className: cn('token-halo', VARIABLE_TEXT[color]), isUnknown: false };
   });
+}
+
+/**
+ * A painter for formulas that name entities by id: the domain and its dot quiet, the object id in
+ * cyan, an id this house does not have underlined in red, functions in violet.
+ *
+ * @param isKnown - Whether an entity id (or an id and a field) is in the house.
+ * @returns The painter.
+ */
+export function entityFormulaPainter(
+  isKnown: (name: string) => boolean,
+): (value: string) => readonly FormulaSegment[] {
+  return (value) =>
+    scanAliasExpression(value).flatMap((span): FormulaSegment[] => {
+      const text = value.slice(span.start, span.end);
+
+      if (span.kind !== 'ident') {
+        return [{ text, className: KIND_CLASSES[span.kind], isUnknown: false }];
+      }
+
+      if (!isKnown(text)) {
+        return [{ text, className: KIND_CLASSES.invalid, isUnknown: true }];
+      }
+
+      const dot = text.indexOf('.');
+
+      return [
+        { text: text.slice(0, dot + 1), className: 'text-foreground-subtle', isUnknown: false },
+        { text: text.slice(dot + 1), className: 'text-cyan', isUnknown: false },
+      ];
+    });
 }
 
 /** `{{ name }}`, with or without spaces inside the braces. */
@@ -213,6 +251,8 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
     placeholder = t('library.aliasFormulaField.t1T22', '(t1 + t2) / 2'),
     paint = formulaSegments,
     minRows = 3,
+    onKeyDown,
+    onCaret,
   } = props;
   const backdrop = useRef<HTMLDivElement>(null);
   const colors = new Map(
@@ -296,7 +336,12 @@ export function AliasFormulaField(props: AliasFormulaFieldProps) {
               )}
               onChange={(event) => {
                 onChange(event.target.value);
+                onCaret?.(event.target.selectionStart);
               }}
+              onSelect={(event) => {
+                onCaret?.(event.currentTarget.selectionStart);
+              }}
+              {...(onKeyDown === undefined ? {} : { onKeyDown })}
               onScroll={(event) => {
                 if (backdrop.current !== null) {
                   backdrop.current.scrollTop = event.currentTarget.scrollTop;

@@ -9,8 +9,14 @@ import { z } from 'zod';
 
 import {
   activityEntrySchema,
-  aliasPreviewResponseSchema,
+  type aliasCreateSchema,
+  aliasDeleteResultSchema,
+  aliasDetailSchema,
+  aliasFileSchema,
+  aliasListItemSchema,
+  aliasSetupChangeSchema,
   aliasViewSchema,
+  aliasVirtualDeviceSchema,
   areaViewSchema,
   automationHouseSchema,
   automationRunSchema,
@@ -35,11 +41,13 @@ import {
   webhookCallSchema,
   webhookViewSchema,
   type ActivityEntry,
-  type AliasCreate,
-  type AliasPreviewRequest,
-  type AliasPreviewResponse,
+  type AliasDetail,
+  type AliasFile,
+  type AliasListItem,
+  type AliasSetupChange,
   type AliasUpdate,
   type AliasView,
+  type AliasVirtualDevice,
   type AreaCreate,
   type AreaUpdate,
   type AreaView,
@@ -890,13 +898,13 @@ export async function fetchEntities(signal?: AbortSignal): Promise<EntityView[]>
 }
 
 /**
- * Lists every derived entity, with the entities its formula reads.
+ * Lists every alias, as the list shows them.
  *
  * @param signal - Cancels the request.
- * @returns Every alias.
+ * @returns Every alias, by name.
  */
-export async function fetchAliases(signal?: AbortSignal): Promise<AliasView[]> {
-  const { items } = await apiRequest('/aliases', collectionSchema(aliasViewSchema), {
+export async function fetchAliases(signal?: AbortSignal): Promise<AliasListItem[]> {
+  const { items } = await apiRequest('/aliases', collectionSchema(aliasListItemSchema), {
     ...(signal === undefined ? {} : { signal }),
   });
 
@@ -904,52 +912,134 @@ export async function fetchAliases(signal?: AbortSignal): Promise<AliasView[]> {
 }
 
 /**
- * Creates a derived entity or a stored helper.
+ * Reads one alias whole, with what it reads and what uses it.
+ *
+ * @param aliasId - Which one.
+ * @param signal - Cancels the request.
+ * @returns The alias, its inputs, its users and whether code can be changed now.
+ */
+export async function fetchAlias(aliasId: string, signal?: AbortSignal): Promise<AliasDetail> {
+  return apiRequest(`/aliases/${aliasId}`, aliasDetailSchema, {
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+/**
+ * Lists the virtual devices an alias can go on, the shared one first.
+ *
+ * @param signal - Cancels the request.
+ * @returns The devices.
+ */
+export async function fetchAliasDevices(signal?: AbortSignal): Promise<AliasVirtualDevice[]> {
+  const { items } = await apiRequest(
+    '/aliases/devices',
+    collectionSchema(aliasVirtualDeviceSchema),
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+
+  return items;
+}
+
+/**
+ * Reads the changes made to an alias's setup.
+ *
+ * @param aliasId - Which one.
+ * @param days - How far back.
+ * @param signal - Cancels the request.
+ * @returns The changes, newest first.
+ */
+export async function fetchAliasSetupHistory(
+  aliasId: string,
+  days: number,
+  signal?: AbortSignal,
+): Promise<AliasSetupChange[]> {
+  const { items } = await apiRequest(
+    `/aliases/${aliasId}/setup-history?days=${String(days)}`,
+    collectionSchema(aliasSetupChangeSchema),
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+
+  return items;
+}
+
+/**
+ * Creates an alias: every required part starts Stored unless parts are given.
  *
  * @param request - What to create.
  * @returns The alias as it now stands.
  */
-export async function createAlias(request: AliasCreate): Promise<AliasView> {
+export async function createAlias(request: z.input<typeof aliasCreateSchema>): Promise<AliasView> {
   return apiRequest('/aliases', aliasViewSchema, { method: 'POST', body: request });
 }
 
 /**
- * Changes an alias.
- *
- * The entity id is immutable after create. Expression and sources stay calculated-only.
+ * Changes an alias; its type and entity id never change.
  *
  * @param aliasId - Which one.
  * @param request - The fields to change.
  * @returns The alias as it now stands.
  */
 export async function updateAlias(aliasId: string, request: AliasUpdate): Promise<AliasView> {
-  return apiRequest(`/aliases/${aliasId}`, aliasViewSchema, {
-    method: 'PATCH',
-    body: request,
-  });
+  return apiRequest(`/aliases/${aliasId}`, aliasViewSchema, { method: 'PATCH', body: request });
 }
 
 /**
- * Deletes an alias and the entity it produces.
+ * Makes a copy of an alias under another name.
  *
  * @param aliasId - Which one.
- * @returns The alias as it was.
+ * @param name - The copy's name.
+ * @returns The copy.
  */
-export async function deleteAlias(aliasId: string): Promise<AliasView> {
-  return apiRequest(`/aliases/${aliasId}`, aliasViewSchema, { method: 'DELETE' });
+export async function duplicateAlias(aliasId: string, name: string): Promise<AliasView> {
+  return apiRequest(`/aliases/${aliasId}/duplicate`, aliasViewSchema, {
+    method: 'POST',
+    body: { name },
+  });
 }
 
 /**
- * Evaluates a calculated formula without saving it.
+ * Deletes an alias and its entity.
  *
- * @param request - The expression, sources, capability and fallback.
- * @returns The scalar result, or why evaluation failed.
+ * @param aliasId - Which one.
+ * @returns What used it, which now stops working.
  */
-export async function previewAlias(request: AliasPreviewRequest): Promise<AliasPreviewResponse> {
-  return apiRequest('/aliases/preview', aliasPreviewResponseSchema, {
-    method: 'POST',
-    body: request,
-  });
+export async function deleteAlias(
+  aliasId: string,
+): Promise<z.output<typeof aliasDeleteResultSchema>> {
+  return apiRequest(`/aliases/${aliasId}`, aliasDeleteResultSchema, { method: 'DELETE' });
+}
+
+/**
+ * Reads some aliases, or all, as one file.
+ *
+ * @param ids - Which ones; every alias when empty.
+ * @returns The file.
+ */
+export async function exportAliases(ids: readonly string[] = []): Promise<AliasFile> {
+  const query = ids.length === 0 ? '' : `?ids=${ids.join(',')}`;
+
+  return apiRequest(`/aliases/export${query}`, aliasFileSchema);
+}
+
+/**
+ * Brings the picked aliases of a file into the house.
+ *
+ * @param request - The file, the keys picked and the entities to read instead of missing ones.
+ * @param request.file - The file.
+ * @param request.picks - The keys of the aliases to bring in.
+ * @param request.replacements - What to read instead of entities this house has not got.
+ * @returns The aliases created and those replaced.
+ */
+export async function importAliases(request: {
+  readonly file: AliasFile;
+  readonly picks: readonly string[];
+  readonly replacements: Readonly<Record<string, string>>;
+}): Promise<{ created: AliasView[]; replaced: AliasView[] }> {
+  return apiRequest(
+    '/aliases/import',
+    z.object({ created: z.array(aliasViewSchema), replaced: z.array(aliasViewSchema) }),
+    { method: 'POST', body: request },
+  );
 }
 
 /**

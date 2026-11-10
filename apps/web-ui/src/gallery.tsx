@@ -113,8 +113,8 @@ import {
 import { MODBUS_SAMPLE_RELAY_ID, modbusSampleCache } from '@/testing/modbus-samples';
 import { softwareSampleCache } from '@/testing/software-samples';
 
+import { AliasListSamples, AliasPageSamples } from './gallery-aliases';
 import {
-  AliasEditorSample,
   AutomationEditorSample,
   AutomationsListSample,
   EmptyLibrarySample,
@@ -850,8 +850,15 @@ function Gallery() {
           <ScenePageSample />
         </Section>
 
-        <Section title="Alias editor" note="A calculated alias, and a new one.">
-          <AliasEditorSample />
+        <Section title="Aliases" note="The list, its problems, an empty house, New alias.">
+          <AliasListSamples />
+        </Section>
+
+        <Section
+          title="Alias page"
+          note="A thermostat on every tab, a light, a sensor, failing code, read-only code."
+        >
+          <AliasPageSamples />
         </Section>
 
         <Section title="Empty library" note="Automations, scenes and aliases with nothing yet.">

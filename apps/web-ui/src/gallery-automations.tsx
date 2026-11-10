@@ -10,7 +10,6 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 
 import {
   entityIdSchema,
-  type AliasView,
   type AutomationRun,
   type AutomationView,
   type SceneView,
@@ -18,8 +17,7 @@ import {
 
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
-import { AliasEditor } from '@/routes/library/alias-editor';
-import { AliasesPage } from '@/routes/library/aliases-page';
+import { AliasesPage } from '@/routes/library/aliases/aliases-page';
 import { AutomationEditor } from '@/routes/library/automation-editor';
 import { AutomationsPage } from '@/routes/library/automations-page';
 import { ScenePage } from '@/routes/library/scene-page';
@@ -569,47 +567,10 @@ const SCENE_PAGE: SceneView = {
   ],
 };
 
-/** The board's House temperature: a calculated alias over three sources. */
-const HOUSE_TEMPERATURE: AliasView = {
-  id: '00000000-0000-4000-8000-0000000000d1',
-  entityId: entity('sensor.house_temperature'),
-  name: 'House temperature',
-  kind: 'calculated',
-  domain: 'sensor',
-  capability: 'sensor_numeric',
-  capabilities: ['sensor_numeric'],
-  expression: '(t_living + t_lux) / 2',
-  debounceMs: 500,
-  fallbackPolicy: 'ignore_missing',
-  isEnabled: true,
-  lastError: null,
-  lastEvaluatedAt: null,
-  unitOfMeasurement: '°C',
-  deviceClass: 'temperature',
-  min: null,
-  max: null,
-  step: null,
-  sources: [
-    {
-      variableName: 't_living',
-      entityId: entity('sensor.lr_lux'),
-      entityName: 'Living room lux',
-      areaName: 'Living room',
-    },
-    {
-      variableName: 't_lux',
-      entityId: entity('sensor.lr_lux'),
-      entityName: 'Living room lux',
-      areaName: 'Living room',
-    },
-  ],
-};
-
 /** The cache of the list and the editor. */
 const FULL_CACHE = automationCache(AUTOMATIONS);
 
 FULL_CACHE.setQueryData(LIBRARY_QUERY_KEYS.scenes, [SCENE_PAGE]);
-FULL_CACHE.setQueryData(LIBRARY_QUERY_KEYS.aliases, [HOUSE_TEMPERATURE]);
 
 /** The cache of a house with nothing yet. */
 const EMPTY_CACHE = automationCache([]);
@@ -706,23 +667,5 @@ export function ScenePageSample() {
     <Frame path="/scenes/:sceneId" at={`/scenes/${SCENE_PAGE.id}`} cache={FULL_CACHE}>
       <ScenePage />
     </Frame>
-  );
-}
-
-/**
- * The alias editor, on a calculated alias and on a new one.
- *
- * @returns The pages.
- */
-export function AliasEditorSample() {
-  return (
-    <div className="flex w-full flex-col gap-6">
-      <Frame path="/aliases/:aliasId" at={`/aliases/${HOUSE_TEMPERATURE.id}`} cache={FULL_CACHE}>
-        <AliasEditor />
-      </Frame>
-      <Frame path="/aliases/new" at="/aliases/new" cache={FULL_CACHE}>
-        <AliasEditor />
-      </Frame>
-    </div>
   );
 }
