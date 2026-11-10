@@ -146,6 +146,9 @@ function triggerLine(run: AutomationRun): string {
         'Started by another automation',
       );
     }
+    case 'alias': {
+      return translate('automation.lastRuns.startedByAlias', 'Started by an action of an alias');
+    }
     case 'time': {
       return translate('automation.lastRuns.itsTimeCame', 'Its time came');
     }

@@ -13,6 +13,7 @@
  */
 import {
   isConditionGroup,
+  isParamFormula,
   MONTHS,
   type AutomationAction,
   type AutomationTrigger,
@@ -832,6 +833,14 @@ export function conditionsPhrase(
  */
 export function commandPhrase(params: Readonly<Record<string, unknown>>): string {
   const command = typeof params['command'] === 'string' ? params['command'] : '';
+  const formulas = Object.entries(params).flatMap(([key, value]) =>
+    isParamFormula(value) ? [`${key} = ${value.formula}`] : [],
+  );
+
+  if (formulas.length > 0) {
+    // An alias's action works these out as it runs: the formula is what there is to say.
+    return formulas.join(', ');
+  }
 
   switch (command) {
     case 'turn_on': {

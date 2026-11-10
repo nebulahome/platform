@@ -112,7 +112,7 @@ export function readingOf(entity: EntityView | undefined): EntityReading | null 
  * @param props.onChange - Called with the comparison as it now stands.
  * @returns The two fields.
  */
-function Comparison(props: {
+export function Comparison(props: {
   readonly operator: ComparisonOperator;
   readonly value: number;
   readonly reading: EntityReading | null;

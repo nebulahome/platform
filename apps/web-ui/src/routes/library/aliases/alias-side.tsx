@@ -172,6 +172,48 @@ export function InputsBody(props: { readonly inputs: AliasDetail['inputs'] }) {
   );
 }
 
+/**
+ * What the alias's actions act on: the entities they command, the scenes they apply, the
+ * automations they start, each with the parts whose actions name it.
+ *
+ * @param props - The targets.
+ * @param props.targets - The targets.
+ * @returns The list.
+ */
+export function TargetsBody(props: { readonly targets: AliasDetail['targets'] }) {
+  const { t } = useTranslation();
+  const kinds = {
+    entity: t('library.aliasPage.targetEntity', 'Entity'),
+    scene: t('library.aliasPage.targetScene', 'Scene'),
+    automation: t('library.aliasPage.targetAutomation', 'Automation'),
+  };
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {props.targets.map((target) => (
+        <div
+          key={`${target.kind}:${target.id}`}
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3"
+        >
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-ui-sm">{target.name}</span>
+            <span className="truncate font-mono text-mono-caption">
+              {target.kind === 'entity' ? (
+                <Ent id={target.id} isMissing={!target.isPresent} />
+              ) : (
+                <span className={target.isPresent ? 'text-foreground-subtle' : 'text-danger'}>
+                  {target.id}
+                </span>
+              )}
+            </span>
+          </span>
+          <span className="text-caption text-foreground-subtle">{kinds[target.kind]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Where each kind of user lives. */
 const USER_PATHS: Readonly<Record<keyof AliasDetail['usedBy'], string>> = {
   automations: '/automations',

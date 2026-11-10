@@ -14,6 +14,7 @@ import {
   aliasDetailSchema,
   aliasFileSchema,
   aliasListItemSchema,
+  aliasActionRunSchema,
   aliasSetupChangeSchema,
   aliasViewSchema,
   aliasVirtualDeviceSchema,
@@ -44,6 +45,7 @@ import {
   type AliasDetail,
   type AliasFile,
   type AliasListItem,
+  type AliasActionRun,
   type AliasSetupChange,
   type AliasUpdate,
   type AliasView,
@@ -956,6 +958,28 @@ export async function fetchAliasSetupHistory(
   const { items } = await apiRequest(
     `/aliases/${aliasId}/setup-history?days=${String(days)}`,
     collectionSchema(aliasSetupChangeSchema),
+    { ...(signal === undefined ? {} : { signal }) },
+  );
+
+  return items;
+}
+
+/**
+ * The runs of an alias's actions over the last days, newest first.
+ *
+ * @param aliasId - The alias.
+ * @param days - How far back.
+ * @param signal - Cancels the read.
+ * @returns The runs, with who sent each and their steps.
+ */
+export async function fetchAliasActionRuns(
+  aliasId: string,
+  days: number,
+  signal?: AbortSignal,
+): Promise<AliasActionRun[]> {
+  const { items } = await apiRequest(
+    `/aliases/${aliasId}/action-runs?days=${String(days)}`,
+    collectionSchema(aliasActionRunSchema),
     { ...(signal === undefined ? {} : { signal }) },
   );
 

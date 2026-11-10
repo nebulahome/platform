@@ -575,6 +575,14 @@ export function FileFormatBody(props: {
         </span>
       </div>
       <div className="flex flex-col gap-1.5">
+        <Head>{t('library.aliasPage.formatActions', 'Actions · parts.*.actions')}</Head>
+        <span className="flex flex-wrap gap-1">
+          {['when.command', 'when.change', 'then', 'command.*'].map((each) => (
+            <Chip key={each}>{each}</Chip>
+          ))}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5">
         <Head>{t('library.aliasPage.formatDevice', 'Device')}</Head>
         <span className="flex flex-wrap gap-1">
           {FILE_DEVICES.map((each) => (

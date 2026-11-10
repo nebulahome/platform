@@ -282,6 +282,11 @@ function listsInside(block: unknown, path: string): (readonly [string, readonly 
       break;
     }
     default: {
+      // An action of an alias part is no block: its When holds its Then.
+      if (node.type === undefined && node['when'] !== undefined) {
+        add('then');
+      }
+
       break;
     }
   }
@@ -305,9 +310,10 @@ export function dropSlots(draft: AutomationDraft, family: BlockFamily): BlockSlo
    *
    * @param items - The list.
    * @param path - Its path.
+   * @param isHolder - Whether the list holds block lists rather than blocks.
    */
-  const walk = (items: readonly unknown[], path: string): void => {
-    const isOwn = familyOfList(path) === family;
+  const walk = (items: readonly unknown[], path: string, isHolder = false): void => {
+    const isOwn = !isHolder && familyOfList(path) === family;
 
     for (const [index, item] of items.entries()) {
       if (isOwn) {
@@ -324,9 +330,19 @@ export function dropSlots(draft: AutomationDraft, family: BlockFamily): BlockSlo
     }
   };
 
-  walk(draft.triggers, 'triggers');
-  walk(draft.if, 'if');
-  walk(draft.then, 'then');
+  if ('triggers' in draft) {
+    walk(draft.triggers, 'triggers');
+    walk(draft.if, 'if');
+    walk(draft.then, 'then');
+  } else {
+    // Another root - the actions of an alias part - holds its block lists inside its own items:
+    // its lists are walked through, and take no block themselves.
+    for (const [path, items] of Object.entries(draft)) {
+      if (Array.isArray(items)) {
+        walk(items, path, true);
+      }
+    }
+  }
 
   return slots;
 }

@@ -91,17 +91,25 @@ export function paramsOf<TCapability extends CapabilityName>(
 /**
  * Whether anything about an entity can be commanded at all.
  *
- * `core` refuses a command to a disabled entity, to a calculated alias and to the system
- * monitor's readings, and to a capability that only reports; a control drawn for any of those
- * would be a button that always fails.
+ * `core` refuses a command to a disabled entity, to a derived entity that is no alias and to the
+ * system monitor's readings, and to a capability that only reports; a control drawn for any of
+ * those would be a button that always fails. An alias takes commands: its parts keep them, send
+ * them on, or answer them with their actions (a part worked out with no action for the command
+ * refuses it, and says so).
  *
- * @param entity - Its source, whether it is enabled, and its capabilities.
+ * @param entity - Its address, its source, whether it is enabled, and its capabilities.
  * @returns True when at least one of its capabilities takes commands.
  */
 export function isCommandable(
-  entity: Pick<EntityView, 'source' | 'isEnabled' | 'capabilities'>,
+  entity: Pick<EntityView, 'entityId' | 'source' | 'isEnabled' | 'capabilities'>,
 ): boolean {
-  if (!entity.isEnabled || entity.source === 'derived' || entity.source === 'system') {
+  const isAlias = (entity.entityId as string).startsWith('alias.');
+
+  if (
+    !entity.isEnabled ||
+    (entity.source === 'derived' && !isAlias) ||
+    entity.source === 'system'
+  ) {
     return false;
   }
 

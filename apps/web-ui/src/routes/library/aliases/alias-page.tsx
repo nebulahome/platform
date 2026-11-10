@@ -60,6 +60,7 @@ import {
   DetailsBody,
   Fold,
   InputsBody,
+  TargetsBody,
   PreviewBody,
   Side,
   UsedByBody,
@@ -388,6 +389,14 @@ function LoadedAliasPage(props: { readonly detail: AliasDetail; readonly isFetch
         <Fold title={t('library.aliasPage.inputs', 'Inputs')} meta={String(detail.inputs.length)}>
           <InputsBody inputs={detail.inputs} />
         </Fold>
+        {detail.targets.length === 0 ? null : (
+          <Fold
+            title={t('library.aliasPage.targets', 'Targets')}
+            meta={String(detail.targets.length)}
+          >
+            <TargetsBody targets={detail.targets} />
+          </Fold>
+        )}
         {usedBy}
         <Fold title={t('library.aliasPage.details', 'Details')} meta={alias.entityId}>
           <DetailsBody
@@ -612,6 +621,8 @@ function LoadedAliasPage(props: { readonly detail: AliasDetail; readonly isFetch
                 canUseCode={canEditCode}
                 functions={check.functions}
                 onOpenCode={openCode}
+                entityId={alias.entityId}
+                lastActionRuns={detail.lastActionRuns}
               />
               <DisplaySection
                 type={type}

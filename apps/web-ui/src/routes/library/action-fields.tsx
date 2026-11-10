@@ -12,7 +12,7 @@
  * Notify is kept as written and says it cannot run yet. An HTTP request has fields of its own
  * (`automation/http-request-fields.tsx`).
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type {
@@ -22,7 +22,7 @@ import type {
   JsonObject,
   JsonValue,
 } from '@nebulahome/contracts';
-import { CAPABILITIES, commandSchemaFor } from '@nebulahome/contracts';
+import { CAPABILITIES, commandSchemaFor, isParamFormula } from '@nebulahome/contracts';
 import {
   AppIcon,
   Note,
@@ -61,9 +61,11 @@ import {
   warmthGradient,
 } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';
+import { EntityFormulaInput } from '@/routes/library/aliases/entity-formula-input';
 import { DurationField } from '@/routes/library/automation/duration-field';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import { HttpRequestFields } from '@/routes/library/automation/http-request-fields';
+import { useStepFormulas } from '@/routes/library/automation/step-formulas';
 import { EntityField } from '@/routes/library/entity-field';
 
 /** What the fields need. */
@@ -253,6 +255,73 @@ export function ActionFields(props: ActionFieldsProps) {
 }
 
 /**
+ * A number param an alias's action may work out as it runs: its value, or a formula over the
+ * command's own values and entities.
+ *
+ * @param props - The param, its value and how to change it.
+ * @param props.field - The param.
+ * @param props.value - Its value: a number, or `{ formula }`.
+ * @param props.names - What a formula may read besides entities.
+ * @param props.control - The field for a plain value.
+ * @param props.onChange - Called with the new value.
+ * @returns The field and the Value / Formula switch under it.
+ */
+function FormulaParam(props: {
+  readonly field: CommandField;
+  readonly value: unknown;
+  readonly names: readonly string[];
+  readonly control: ReactNode;
+  readonly onChange: (value: JsonValue) => void;
+}) {
+  const { t } = useTranslation();
+  const { field, value, names, control, onChange } = props;
+  const formula = isParamFormula(value) ? value.formula : null;
+  const own = `command.${field.key}`;
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      {formula === null ? (
+        control
+      ) : (
+        <>
+          <span className="text-ui-sm text-foreground-muted">{field.label}</span>
+          <EntityFormulaInput
+            label={field.label}
+            value={formula}
+            extraNames={names}
+            onChange={(next) => {
+              onChange({ formula: next });
+            }}
+          />
+        </>
+      )}
+      <Segmented
+        label={t('library.actionFields.valueOrFormula', 'Value or formula')}
+        size="compact"
+        className="self-start"
+        options={[
+          { value: 'value', label: t('library.actionFields.value', 'Value') },
+          { value: 'formula', label: t('library.actionFields.formula', 'Formula') },
+        ]}
+        value={formula === null ? 'value' : 'formula'}
+        onChange={(mode) => {
+          // A formula starts as the command's own value when it has one: the likeliest meaning.
+          onChange(
+            mode === 'formula'
+              ? {
+                  formula: names.includes(own)
+                    ? own
+                    : (names[0] ?? (typeof value === 'number' ? String(value) : '0')),
+                }
+              : (field.min ?? 0),
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+/**
  * The fields of Set entity: the entity, what to tell it, and that command's own fields.
  *
  * @param props - The action and its change handler.
@@ -281,6 +350,7 @@ function CommandFields(props: {
   const groups = choicesByCapability(choices);
   const siblings = groups.find((group) => group.capability === chosen?.capability)?.commands ?? [];
   const hasDo = siblings.length > 1;
+  const formulaNames = useStepFormulas();
 
   /**
    * Switches to another command, with its fields at their defaults.
@@ -395,18 +465,36 @@ function CommandFields(props: {
               onChange={choose}
             />
           ) : null}
-          {fields.map((field) => (
-            <CommandFieldControl
-              key={field.key}
-              field={field}
-              value={action.params[field.key]}
-              hue={hue}
-              entity={entity}
-              onChange={(value) => {
-                setField(field.key, value);
-              }}
-            />
-          ))}
+          {fields.map((field) => {
+            const control = (
+              <CommandFieldControl
+                key={field.key}
+                field={field}
+                value={action.params[field.key]}
+                hue={hue}
+                entity={entity}
+                onChange={(value) => {
+                  setField(field.key, value);
+                }}
+              />
+            );
+
+            return formulaNames !== null &&
+              (field.kind === 'percent' || field.kind === 'number') ? (
+              <FormulaParam
+                key={field.key}
+                field={field}
+                value={action.params[field.key]}
+                names={formulaNames}
+                control={control}
+                onChange={(value) => {
+                  setField(field.key, value);
+                }}
+              />
+            ) : (
+              control
+            );
+          })}
           {takesColour ? (
             <HexField
               hue={hue}

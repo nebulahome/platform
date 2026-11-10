@@ -184,7 +184,8 @@
       "startedByAnotherAutomation": "Avviata da un'altra automazione",
       "then": "Allora",
       "when": "Quando",
-      "quietTimeCame": "È arrivata l'ora più tranquilla"
+      "quietTimeCame": "È arrivata l'ora più tranquilla",
+      "startedByAlias": "Avviata da un'azione di un alias"
     },
     "stateChoices": {
       "outOfReach": "Irraggiungibile"
@@ -3832,7 +3833,10 @@
         "custom": "Personalizzato"
       },
       "open": "Aperta",
-      "white": "Bianco"
+      "white": "Bianco",
+      "formula": "Formula",
+      "value": "Valore",
+      "valueOrFormula": "Valore o formula"
     },
     "adoptDialog": {
       "adopt": "Adotta",
@@ -5292,7 +5296,17 @@
       "casesFail_other": "{{count}} casi falliscono",
       "entitiesCount_one": "{{count}} entità",
       "entitiesCount_many": "{{count}} entità",
-      "entitiesCount_other": "{{count}} entità"
+      "entitiesCount_other": "{{count}} entità",
+      "action": "Azione",
+      "actions": "Azioni",
+      "commandValue": "Ciò che il comando chiede",
+      "formatActions": "Azioni · parts.*.actions",
+      "steps": "Passi",
+      "stepsTitle": "Azione eseguita · {{when}}",
+      "targetAutomation": "Automazione",
+      "targetEntity": "Entità",
+      "targetScene": "Scena",
+      "targets": "Destinazioni"
     },
     "aliasCode": {
       "cannotRun": "Non può girare",
@@ -5485,6 +5499,53 @@
       "max": "Massimo",
       "sum": "Somma",
       "first": "Prima disponibile"
+    },
+    "aliasActions": {
+      "actions": "Azioni",
+      "add": "Aggiungi un'azione",
+      "added": "Aggiunta",
+      "afterKept": "Dopo che il valore è tenuto",
+      "any": "Qualsiasi",
+      "anyValue": "Qualsiasi valore",
+      "becomes": "Diventa {{to}}",
+      "change": "Cambio",
+      "changeAny": "Cambio · qualunque cosa lo causi",
+      "changes": "Cambia",
+      "command": "Comando",
+      "commandField": "Comando",
+      "commandToday": "Comando · oggi {{today}}",
+      "count": "{{count}} azioni",
+      "defaultEntities": "inviato alle {{count}} entità",
+      "defaultEntity": "inviato a {{name}}",
+      "defaultRefused": "rifiutato",
+      "defaultStored": "imposta il valore",
+      "failed": "Fallita · {{time}}",
+      "fallsBelow": "Scende sotto",
+      "forAtLeast": "Per almeno",
+      "from": "Da",
+      "insteadOfEntities": "Invece di inviarlo alle {{count}} entità",
+      "insteadOfEntity": "Invece di inviarlo a {{name}}",
+      "insteadOfRefusing": "Invece di rifiutarlo",
+      "lastFailed": "Ultima esecuzione {{time}} · {{error}}",
+      "loops": "Imposta questo alias, quindi ogni esecuzione può avviare la successiva.",
+      "none": "Nessuna · un comando è {{today}}",
+      "noneNoCommands": "Nessuna · {{part}} non riceve comandi, solo cambi",
+      "off": "Spento",
+      "on": "Acceso",
+      "onlyWhen": "Solo quando",
+      "ran": "Eseguita {{time}}",
+      "risesAbove": "Sale sopra",
+      "steps": "{{count}} azioni",
+      "then": "Poi",
+      "to": "A",
+      "turnsOff": "Si spegne",
+      "turnsOn": "Si accende",
+      "unanswered": "{{commands}} · {{today}}",
+      "whatever": "Qualunque cosa lo cambi: la scheda, una scena, la sua sorgente",
+      "crossesUp": "{{part}} sale sopra {{value}}",
+      "crossesDown": "{{part}} scende sotto {{value}}",
+      "reaches": "{{part}} raggiunge {{value}}",
+      "leaves": "{{part}} lascia {{value}}"
     }
   },
   "live": {

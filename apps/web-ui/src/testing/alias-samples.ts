@@ -7,6 +7,8 @@
 import { QueryClient } from '@tanstack/react-query';
 
 import type {
+  AliasActionLastRun,
+  AliasTarget,
   AliasDetail,
   AliasListItem,
   AliasSetupChange,
@@ -191,9 +193,88 @@ export const LIGHTS = anAlias({
       from: 'entities',
       entities: ['light.hall', 'light.kitchen', 'light.lounge'].map(id),
       rule: 'average',
+      actions: [
+        {
+          id: 'level',
+          when: { kind: 'command', command: 'set_level' },
+          then: [
+            {
+              type: 'command',
+              entityId: 'light.lounge',
+              capability: 'level',
+              params: { command: 'set_level', level: { formula: 'command.level' } },
+            },
+            {
+              type: 'command',
+              entityId: 'light.kitchen',
+              capability: 'level',
+              params: { command: 'set_level', level: { formula: 'command.level * 0.6' } },
+            },
+          ],
+        },
+        {
+          id: 'bright',
+          when: { kind: 'change', change: { kind: 'numeric', operator: 'gt', value: 60 } },
+          then: [
+            {
+              type: 'command',
+              entityId: 'light.stairs',
+              capability: 'on_off',
+              params: { command: 'turn_off' },
+            },
+          ],
+        },
+      ],
     },
   },
 });
+
+/** What the actions of the samples act on, as the API names them. */
+export const SAMPLE_TARGETS = new Map<AliasView, AliasTarget[]>([
+  [
+    LIGHTS,
+    [
+      {
+        kind: 'entity',
+        id: 'light.lounge',
+        name: 'Lounge',
+        isPresent: true,
+        parts: ['brightness'],
+      },
+      {
+        kind: 'entity',
+        id: 'light.kitchen',
+        name: 'Kitchen',
+        isPresent: true,
+        parts: ['brightness'],
+      },
+      {
+        kind: 'entity',
+        id: 'light.stairs',
+        name: 'Stairs',
+        isPresent: true,
+        parts: ['brightness'],
+      },
+    ],
+  ],
+]);
+
+/** How the actions of the samples last went. */
+export const SAMPLE_LAST_RUNS = new Map<AliasView, AliasActionLastRun[]>([
+  [
+    LIGHTS,
+    [
+      {
+        part: 'brightness',
+        actionId: 'level',
+        at: hoursAgo(1.5),
+        result: 'failed',
+        error: 'Kitchen did not answer in 5 s',
+      },
+      { part: 'brightness', actionId: 'bright', at: hoursAgo(3), result: 'success', error: null },
+    ],
+  ],
+]);
 
 /** The average of three rooms. */
 export const HOUSE_TEMPERATURE = anAlias({
@@ -346,6 +427,8 @@ export function detailOf(alias: AliasView, developerMode = true): AliasDetail {
       dashboards: [{ id: 'd1', name: 'Home' }],
       aliases: [],
     },
+    targets: SAMPLE_TARGETS.get(alias) ?? [],
+    lastActionRuns: SAMPLE_LAST_RUNS.get(alias) ?? [],
     developerMode,
   };
 }
@@ -568,7 +651,16 @@ export function sampleAliasCache(isEmpty: boolean, developerMode = true): QueryC
       [...LIBRARY_QUERY_KEYS.aliases, alias.id, 'setup-history', 7],
       alias === THERMOSTAT ? THERMOSTAT_SETUP : [],
     );
+    client.setQueryData([...LIBRARY_QUERY_KEYS.aliases, alias.id, 'action-runs', 7], []);
   }
+
+  // What the action blocks of a part name: scenes, automations and the house they read.
+  client.setQueryData(LIBRARY_QUERY_KEYS.scenes, []);
+  client.setQueryData(LIBRARY_QUERY_KEYS.automations, []);
+  client.setQueryData(LIBRARY_QUERY_KEYS.automationHouse, {
+    timeZone: 'Europe/Rome',
+    position: { latitude: 41.9, longitude: 12.5 },
+  });
 
   client.setQueryData([...LIBRARY_QUERY_KEYS.aliases, 'devices'], [SHARED_DEVICE]);
   client.setQueryData([...LIBRARY_QUERY_KEYS.aliases, 'house'], {

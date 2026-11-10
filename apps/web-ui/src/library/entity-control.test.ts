@@ -68,6 +68,8 @@ describe('isCommandable', () => {
     expect(isCommandable(anEntity({ isEnabled: false }))).toBe(false);
     expect(isCommandable(anEntity({ source: 'system' }))).toBe(false);
     expect(isCommandable(anEntity({ source: 'derived' }))).toBe(false);
+    // An alias takes commands: its parts keep them, send them on, or answer them with an action.
+    expect(isCommandable(anEntity({ source: 'derived', entityId: 'alias.downstairs' }))).toBe(true);
     expect(
       isCommandable(anEntity({ capabilities: [{ capability: 'sensor_numeric', params: {} }] })),
     ).toBe(false);

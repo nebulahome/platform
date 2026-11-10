@@ -2,13 +2,14 @@
  * The Parts tab: every part of the alias as a row with its last 24 hours, its source under its
  * name and its value now. A row opens in place to change where the part takes its value from -
  * Stored, an Entity, several Entities, a Formula or Code, as many as its kind takes - and that
- * source's settings. Optional parts are added from Add a part (they start Stored) and removed
+ * source's settings, and its actions: what it does when a command reaches it or its value changes
+ * (`alias-actions.tsx`). Optional parts are added from Add a part (they start Stored) and removed
  * from their own row.
  *
  * While a number part's source is being edited, its chart draws the edited source over the same
  * 24 hours as a dashed line beside the saved one.
  */
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -16,12 +17,11 @@ import {
   ALIAS_SOURCES_BY_KIND,
   aliasCodeExpectation,
   aliasEnumValues,
-  aliasExpressionNames,
   defaultAliasPart,
-  ENTITY_ID_PATTERN,
   fitReturn,
   LOCATION_SOURCES,
   NUMBER_MODES,
+  type AliasActionLastRun,
   type AliasDisplay,
   type AliasPartConfig,
   type AliasPartDef,
@@ -60,13 +60,14 @@ import {
 } from '@/library/alias-model';
 import { useEditPreview } from '@/library/use-alias-preview';
 import { useCauseNames } from '@/library/use-cause-names';
-import { AliasFormulaField, entityFormulaPainter } from '@/routes/library/alias-formula-field';
+import { PartActions } from '@/routes/library/aliases/alias-actions';
 import {
   NoValues,
   PartChart,
   partTrack,
   type ChartWindow,
 } from '@/routes/library/aliases/alias-charts';
+import { EntityFormulaInput } from '@/routes/library/aliases/entity-formula-input';
 import { EntityField } from '@/routes/library/entity-field';
 import { EntityPicker } from '@/routes/library/entity-picker/entity-picker';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
@@ -92,6 +93,7 @@ const SETTING_KEYS = [
   'code',
   'speeds',
   'locationSource',
+  'actions',
 ] as const;
 
 /**
@@ -194,6 +196,12 @@ export type AliasPartsProps = {
 
   /** Opens the Code tab at a function; a new one is added from its template first. */
   readonly onOpenCode: (name: string, template?: { readonly def: AliasPartDef }) => void;
+
+  /** The alias entity: an action that commands it is flagged. */
+  readonly entityId: string;
+
+  /** How each action last ran. */
+  readonly lastActionRuns: readonly AliasActionLastRun[];
 };
 
 /**
@@ -414,6 +422,13 @@ function PartRow(props: PartRowProps) {
   }
 
   const chip = sourceChip(config, nameOf);
+  const actionCount = config.actions?.length ?? 0;
+  const hasFailed = props.lastActionRuns.some(
+    (run) =>
+      run.part === def.key &&
+      run.result !== 'success' &&
+      config.actions?.some((action) => action.id === run.actionId) === true,
+  );
   const now = partValueOf(def, state);
   const { track, marks } =
     history === undefined
@@ -457,14 +472,31 @@ function PartRow(props: PartRowProps) {
                 </span>
               ) : null}
             </span>
-            <span
-              title={chip.text}
-              className="flex h-6 max-w-full min-w-0 items-center gap-1.5 self-start rounded-pill border border-border bg-canvas pr-2.5 pl-2 text-caption text-foreground-muted"
-            >
-              <AppIcon id={chip.icon} size={12} className={`shrink-0 ${chip.tone}`} />
-              <span className={`truncate ${chip.isMono ? 'font-mono text-mono-caption' : ''}`}>
-                {chip.text}
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span
+                title={chip.text}
+                className="flex h-6 max-w-full min-w-0 items-center gap-1.5 self-start rounded-pill border border-border bg-canvas pr-2.5 pl-2 text-caption text-foreground-muted"
+              >
+                <AppIcon id={chip.icon} size={12} className={`shrink-0 ${chip.tone}`} />
+                <span className={`truncate ${chip.isMono ? 'font-mono text-mono-caption' : ''}`}>
+                  {chip.text}
+                </span>
               </span>
+              {actionCount === 0 ? null : (
+                <span
+                  title={t('library.aliasActions.count', '{{count}} actions', {
+                    count: actionCount,
+                  })}
+                  className={`flex h-6 shrink-0 items-center gap-1 rounded-pill border bg-canvas px-2 text-caption tabular ${
+                    hasFailed
+                      ? 'border-warning/40 text-warning'
+                      : 'border-border text-foreground-muted'
+                  }`}
+                >
+                  <AppIcon id="zap" size={12} className={hasFailed ? '' : 'text-primary'} />
+                  {actionCount}
+                </span>
+              )}
             </span>
           </span>
         </span>
@@ -621,6 +653,7 @@ type PartEditorProps = PartRowProps & {
 function PartEditor(props: PartEditorProps) {
   const { t } = useTranslation();
   const { def, config, parts, onChange, canEdit, canUseCode, now, onToggle, onRemove } = props;
+  const { nameOf } = useEntityNames();
   const sources = ALIAS_SOURCES_BY_KIND[def.kind].filter(
     (source) => source !== 'code' || canUseCode || config.from === 'code',
   );
@@ -680,6 +713,17 @@ function PartEditor(props: PartEditorProps) {
         <SourceFields {...props} set={set} />
         <SettingFields def={def} config={config} set={set} />
       </fieldset>
+      <PartActions
+        def={def}
+        defs={props.defs}
+        parts={parts}
+        config={config}
+        set={set}
+        canEdit={canEdit}
+        aliasEntityId={props.entityId}
+        lastRuns={props.lastActionRuns.filter((run) => run.part === def.key)}
+        nameOf={nameOf}
+      />
       <div className="flex items-center justify-between border-t border-border pt-3">
         <span className="font-mono text-mono-caption text-foreground-subtle">{def.key}</span>
         <span className="flex items-center gap-2">
@@ -1054,22 +1098,6 @@ function EntitiesSource(
 }
 
 /**
- * The identifier the caret is in, for completion: `sensor.liv` while typing `sensor.living_room`.
- *
- * @param text - The formula.
- * @param caret - Where the caret is.
- * @returns The word and where it starts, or null when the caret is not in one.
- */
-function wordAt(
-  text: string,
-  caret: number,
-): { readonly word: string; readonly start: number } | null {
-  const before = /[a-z_][a-z0-9_]*(?:\.[a-z0-9_]*)?$/u.exec(text.slice(0, caret));
-
-  return before === null ? null : { word: before[0], start: caret - before[0].length };
-}
-
-/**
  * A formula over entities, with entity completion.
  *
  * @param props - The editor's props, the part and how to change it.
@@ -1083,175 +1111,25 @@ function FormulaSource(
 ) {
   const { t } = useTranslation();
   const { config, set, hasPreview } = props;
-  const { entities, entityOf } = useEntityNames();
-  const [caret, setCaret] = useState<number | null>(null);
-  const [active, setActive] = useState(0);
-  const word = caret === null ? null : wordAt(config.formula, caret);
-  const matches =
-    word === null || word.word.length < 2
-      ? []
-      : entities
-          .filter(
-            (entity) =>
-              (entity.entityId as string).startsWith(word.word) ||
-              entity.name.toLowerCase().includes(word.word.toLowerCase()),
-          )
-          .slice(0, 8);
-  /**
-   * Whether a name in the formula is an entity of the house, or one of its fields.
-   *
-   * @param name - The name.
-   * @returns True when known.
-   */
-  const isKnown = (name: string): boolean =>
-    entityOf(name.split('.').slice(0, 2).join('.')) !== undefined;
-  let names: string[] = [];
-  let problem: string | null = null;
-
-  try {
-    names = [...new Set(aliasExpressionNames(config.formula))];
-  } catch (error) {
-    problem = error instanceof Error ? error.message : String(error);
-  }
-
-  const inputs = names.filter((name) =>
-    ENTITY_ID_PATTERN.test(name.split('.').slice(0, 2).join('.')),
-  );
-  const unknown = inputs.filter((name) => !isKnown(name));
-
-  /**
-   * Puts an entity id in place of the word being typed.
-   *
-   * @param entityId - The id.
-   */
-  const insert = (entityId: string): void => {
-    if (word === null) {
-      return;
-    }
-
-    const end = word.start + word.word.length;
-    set({
-      ...config,
-      formula: `${config.formula.slice(0, word.start)}${entityId}${config.formula.slice(end)}`,
-    });
-    setCaret(null);
-  };
-
-  /**
-   * Moves through the completions, or takes one.
-   *
-   * @param event - The key.
-   */
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (matches.length === 0) {
-      return;
-    }
-
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      setActive(
-        (current) =>
-          (current + (event.key === 'ArrowDown' ? 1 : matches.length - 1)) % matches.length,
-      );
-    } else if (event.key === 'Enter' || event.key === 'Tab') {
-      event.preventDefault();
-      insert(matches[Math.min(active, matches.length - 1)]?.entityId ?? '');
-    } else if (event.key === 'Escape') {
-      setCaret(null);
-    }
-  };
 
   return (
     <Field label={t('library.aliasPage.sources.formula', 'Formula')}>
-      <span className="relative block w-full">
-        <AliasFormulaField
-          label={t('library.aliasPage.sources.formula', 'Formula')}
-          isLabelHidden
-          minRows={1}
-          value={config.formula}
-          onChange={(formula) => {
-            set({ ...config, formula });
-            setActive(0);
-          }}
-          sources={[]}
-          paint={entityFormulaPainter(isKnown)}
-          placeholder={FORMULA_EXAMPLE}
-          onKeyDown={onKeyDown}
-          onCaret={setCaret}
-          error={problem ?? undefined}
-        />
-        {matches.length === 0 ? null : (
-          <div
-            role="listbox"
-            aria-label={t('library.aliasPage.entities', 'Entities')}
-            className="absolute top-full left-0 z-30 mt-1.5 flex w-[340px] flex-col rounded-tile border border-border-strong bg-surface p-1 shadow-float"
-          >
-            <span className="px-3 pt-1.5 pb-1 font-mono text-label text-foreground-subtle uppercase">
-              {t('library.aliasPage.entitiesCountHead', 'Entities · {{count}}', {
-                count: matches.length,
-              })}
-            </span>
-            {matches.map((entity, index) => (
-              <button
-                key={entity.entityId}
-                type="button"
-                role="option"
-                aria-selected={index === active}
-                className={`flex items-center gap-3 rounded-field px-3 py-2 text-left transition-colors ${index === active ? 'bg-surface-raised' : 'hover:bg-surface-raised/60'}`}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  insert(entity.entityId);
-                }}
-              >
-                <span className="flex min-w-0 grow flex-col">
-                  <span className="truncate font-mono text-[12px] text-cyan">
-                    {entity.entityId}
-                  </span>
-                  <span className="truncate text-caption text-foreground-subtle">
-                    {entity.name}
-                  </span>
-                </span>
-              </button>
-            ))}
-            <div className="mt-1 flex items-center gap-3 border-t border-border px-3 pt-2 pb-1 text-caption text-foreground-subtle">
-              <span>{t('library.aliasPage.completeChoose', '↑↓ choose')}</span>
-              <span>{t('library.aliasPage.completeInsert', 'Enter insert')}</span>
-            </div>
-          </div>
-        )}
-      </span>
-      {problem === null ? (
-        <span className="flex items-center gap-3 text-caption">
-          {unknown.length > 0 ? (
-            <span className="flex items-center gap-1 text-danger">
-              <AppIcon id="triangle-alert" size={12} />
-              {t('library.aliasPage.notInHouse', 'Not in this house: {{list}}', {
-                list: unknown.join(', '),
-              })}
-            </span>
-          ) : config.formula.trim() === '' ? (
-            <span className="text-foreground-subtle">
-              {t(
-                'library.aliasPage.formulaHelp',
-                'Entity ids, numbers, + − × ÷, comparisons, avg min max sum abs round clamp',
-              )}
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-success">
-              <AppIcon id="check" size={12} />
-              {t('library.aliasPage.validInputs', 'Valid · {{count}} inputs', {
-                count: inputs.length,
-              })}
-            </span>
-          )}
-          {hasPreview ? (
+      <EntityFormulaInput
+        label={t('library.aliasPage.sources.formula', 'Formula')}
+        value={config.formula}
+        onChange={(formula) => {
+          set({ ...config, formula });
+        }}
+        placeholder={FORMULA_EXAMPLE}
+        aside={
+          hasPreview ? (
             <span className="flex items-center gap-1.5 text-foreground-subtle">
               <span className="h-px w-4 border-t border-dashed border-violet" />
               {t('library.aliasPage.editedOver', 'Edited, over the same 24 h')}
             </span>
-          ) : null}
-        </span>
-      ) : null}
+          ) : null
+        }
+      />
     </Field>
   );
 }
