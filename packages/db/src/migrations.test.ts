@@ -57,6 +57,7 @@ describe('the migration set', () => {
       '0007_entity_capabilities_more.sql',
       '0008_no_fades.sql',
       '0009_aliases_parts.sql',
+      '0010_aliases_grants.sql',
     ]);
   });
 
@@ -76,8 +77,20 @@ describe('the migration set', () => {
 
 describe('the brokers migrations', () => {
   // Each later migration adds a broker's tables, written by `hub` alone; 0009 rebuilds the
-  // aliases, which `core` and `api` write under the registry's default privileges.
+  // aliases, which `core` and `api` write, granted by 0010.
   const later = files.slice(1).filter(({ name }) => name !== '0009_aliases_parts.sql');
+
+  it('grants core and api every table the aliases migration creates', () => {
+    // Default privileges only cover tables `nebula_migrator` creates; migrations run as `nebula`.
+    const aliases = files.find(({ name }) => name === '0009_aliases_parts.sql')?.sql ?? '';
+    const grants = files.find(({ name }) => name === '0010_aliases_grants.sql')?.sql ?? '';
+
+    for (const [, table] of aliases.matchAll(/CREATE TABLE (\w+\.\w+) \(/g)) {
+      expect(grants).toContain(String(table));
+    }
+
+    expect(grants).toContain('TO nebula_core, nebula_api;');
+  });
 
   it.each(later)(
     '$name touches updated_at and lets hub write every table it creates',
