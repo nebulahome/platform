@@ -16,6 +16,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  aliasActionRunSchema,
   aliasDetailSchema,
   aliasFileSchema,
   aliasViewSchema,
@@ -38,6 +39,9 @@ const slug = `als_${randomUUID().slice(0, 8).replaceAll('-', '_')}`;
 
 /** The sensor the calculated alias reads. */
 const sourceEntityId = `sensor.${slug}_power`;
+
+/** The lamp an action of the thermostat commands. */
+const lampEntityId = `light.${slug}_lamp`;
 
 /** The user the aliases are recorded as made by. */
 const userId = randomUUID();
@@ -102,6 +106,15 @@ beforeAll(async () => {
     .insert(schema.registry.entityCapabilities)
     .values({ entityId: source?.id ?? '', capability: 'sensor_numeric', params: {} });
 
+  const [lamp] = await database.db
+    .insert(schema.registry.entities)
+    .values({ entityId: lampEntityId, source: 'derived', name: 'Lamp' })
+    .returning({ id: schema.registry.entities.id });
+
+  await database.db
+    .insert(schema.registry.entityCapabilities)
+    .values({ entityId: lamp?.id ?? '', capability: 'level', params: {} });
+
   server = await buildTestServer(true, database.db);
 });
 
@@ -114,7 +127,10 @@ afterAll(async () => {
     .where(inArray(schema.registry.entities.entityId, [thermostat.entityId, double.entityId]));
   await database.db
     .delete(schema.registry.entities)
-    .where(eq(schema.registry.entities.entityId, sourceEntityId));
+    .where(inArray(schema.registry.entities.entityId, [sourceEntityId, lampEntityId]));
+  await database.db
+    .delete(schema.history.aliasActionRuns)
+    .where(eq(schema.history.aliasActionRuns.aliasId, thermostat.id));
   await database.db.delete(schema.auth.users).where(eq(schema.auth.users.id, userId));
   await database.close();
 });
@@ -269,6 +285,109 @@ describe('changing an alias', () => {
   });
 });
 
+describe('the actions of a part', () => {
+  /**
+   * An action of the target temperature: the lamp at twice the temperature asked.
+   *
+   * @param command - The command it answers.
+   * @returns The action.
+   */
+  const action = (command: string) => ({
+    id: 'valve',
+    when: { kind: 'command', command },
+    then: [
+      {
+        type: 'command',
+        entityId: lampEntityId,
+        capability: 'level',
+        params: { command: 'set_level', level: { formula: 'command.temperature * 2' } },
+      },
+    ],
+  });
+  /**
+   * The thermostat's parts with that action on its target temperature.
+   *
+   * @param command - The command it answers.
+   * @returns The change to send.
+   */
+  const withAction = (command: string) => ({
+    parts: {
+      ...thermostat.parts,
+      target_temperature: { ...thermostat.parts['target_temperature'], actions: [action(command)] },
+    },
+  });
+
+  it('refuses an action on a command the part does not take', async () => {
+    const { status } = await call(
+      [...AUTHOR, 'entity:control'],
+      'PATCH',
+      `/aliases/${thermostat.id}`,
+      withAction('set_mode'),
+    );
+
+    expect(status).toBe(400);
+  });
+
+  it('needs entity:control on every entity an action commands', async () => {
+    const refused = await call(
+      AUTHOR,
+      'PATCH',
+      `/aliases/${thermostat.id}`,
+      withAction('set_target'),
+    );
+    const saved = await call(
+      [...AUTHOR, 'entity:control'],
+      'PATCH',
+      `/aliases/${thermostat.id}`,
+      withAction('set_target'),
+    );
+
+    expect(refused.status).toBe(403);
+    expect(saved.status).toBe(200);
+  });
+
+  it('shows what its actions act on, and their runs with who sent them', async () => {
+    await database.db.insert(schema.history.aliasActionRuns).values({
+      time: new Date(),
+      aliasId: thermostat.id,
+      part: 'target_temperature',
+      actionId: 'valve',
+      when: { kind: 'command', command: { command: 'set_target', temperature: 21 } },
+      origin: { type: 'user', id: userId },
+      result: 'success',
+      finishedAt: new Date(),
+      durationMs: 12,
+      trace: [],
+      error: null,
+    });
+
+    const detail = aliasDetailSchema.parse(
+      (await call(AUTHOR, 'GET', `/aliases/${thermostat.id}`)).body,
+    );
+
+    expect(detail.targets).toEqual([
+      {
+        kind: 'entity',
+        id: lampEntityId,
+        name: 'Lamp',
+        isPresent: true,
+        parts: ['target_temperature'],
+      },
+    ]);
+    expect(detail.lastActionRuns).toMatchObject([
+      { part: 'target_temperature', actionId: 'valve', result: 'success' },
+    ]);
+
+    const runs = await call(AUTHOR, 'GET', `/aliases/${thermostat.id}/action-runs`);
+    const [run] = (runs.body as { items: unknown[] }).items.map((item) =>
+      aliasActionRunSchema.parse(item),
+    );
+
+    expect(runs.status).toBe(200);
+    expect(run?.origin).toEqual({ type: 'user', id: userId, name: 'Alias tester' });
+  });
+});
+
 describe('files', () => {
   it('exports aliases as one file, and imports it back over them', async () => {
     const exported = await call(AUTHOR, 'GET', `/aliases/export?ids=${thermostat.id}`);
@@ -276,7 +395,8 @@ describe('files', () => {
 
     expect(file.aliases.map((entry) => entry.key)).toEqual([thermostat.key]);
 
-    const imported = await call(AUTHOR, 'POST', '/aliases/import', {
+    // The thermostat's action commands the lamp: bringing it back takes control of the lamp.
+    const imported = await call([...AUTHOR, 'entity:control'], 'POST', '/aliases/import', {
       file: {
         ...file,
         aliases: file.aliases.map((entry) => ({ ...entry, name: `Renamed ${slug}` })),

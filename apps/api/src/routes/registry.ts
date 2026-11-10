@@ -21,6 +21,7 @@ import {
   aliasFileSchema,
   aliasListItemSchema,
   aliasObjectIdSchema,
+  aliasActionRunSchema,
   aliasSetupChangeSchema,
   aliasUpdateSchema,
   aliasViewSchema,
@@ -45,6 +46,7 @@ import {
   type AliasDetail,
   type AliasFile,
   type AliasListItem,
+  type AliasActionRun,
   type AliasSetupChange,
   type AliasUsedBy,
   type AliasView,
@@ -72,6 +74,7 @@ import {
   exportAliases,
   importAliases,
   listAliases,
+  actionRuns,
   setupHistory,
   updateAlias,
   virtualDevices,
@@ -881,6 +884,32 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       const since = new Date(Date.now() - route.query.days * 86_400_000);
 
       return { items: await setupHistory(context.db, route.params.aliasId, since) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/aliases/:aliasId/action-runs',
+      summary: "List the runs of an alias's actions",
+      tag: 'Library',
+      permission: 'alias:read',
+      params: z.object({ aliasId: z.uuid() }),
+      query: z.object({ days: z.coerce.number().int().min(1).max(30).default(7) }),
+      response: collectionSchema(aliasActionRunSchema),
+    },
+
+    /**
+     * The runs of one alias's actions, newest first.
+     *
+     * @param route - Who is asking, which alias and how far back.
+     * @returns The runs, with who sent each and their steps.
+     */
+    async (route): Promise<{ items: AliasActionRun[] }> => {
+      requirePermission(route.identity, 'alias:read');
+
+      return { items: await actionRuns(context.db, route.params.aliasId, route.query.days) };
     },
   );
 

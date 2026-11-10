@@ -15,7 +15,7 @@
  * writer of entity state (ARCHITECTURE.md 4.3). Removing an alias goes through `core`, because
  * the entity must leave its memory in the same step as its rows.
  */
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 
 import type { BusClient } from '@nebulahome/bus';
 import {
@@ -27,10 +27,13 @@ import {
   aliasFileEntry,
   aliasesFile,
   aliasErrorSchema,
+  aliasActionRunSchema,
   aliasPartIssues,
   aliasPartsReads,
   aliasPartsSchema,
   aliasCaseSchema,
+  aliasStepReads,
+  aliasStepTargets,
   aliasType,
   aliasTypeParts,
   ALIAS_FALLBACK_POLICIES,
@@ -51,6 +54,8 @@ import {
   replaceAliasEntity,
   syncAliasReplySchema,
   ValidationError,
+  type AliasActionLastRun,
+  type AliasActionRun,
   type AliasCreate,
   type AliasCustomField,
   type AliasCustomType,
@@ -64,6 +69,7 @@ import {
   type AliasListItem,
   type AliasParts,
   type AliasSetupChange,
+  type AliasTarget,
   type AliasTypeDef,
   type AliasTypeId,
   type AliasUpdate,
@@ -411,13 +417,256 @@ export async function readAlias(db: Database, id: string): Promise<AliasView> {
  */
 export async function aliasDetail(db: Database, id: string): Promise<AliasDetail> {
   const alias = await readAlias(db, id);
-  const [inputs, usedBy, developerMode] = await Promise.all([
+  const [inputs, usedBy, developerMode, targets, lastActionRuns] = await Promise.all([
     inputsOf(db, alias.reads),
     usedByOf(db, alias.entityId),
     isDeveloperMode(db),
+    targetsOf(db, alias.parts),
+    lastActionRunsOf(db, id),
   ]);
 
-  return { alias, inputs, usedBy, developerMode };
+  return { alias, inputs, usedBy, developerMode, targets, lastActionRuns };
+}
+
+/**
+ * What an alias's actions act on - the entities they command, the scenes they apply, the
+ * automations they start - named, and whether each is in the house.
+ *
+ * @param db - The database.
+ * @param parts - The alias's parts.
+ * @returns The targets: entities first, then scenes, then automations, each by the parts naming it.
+ */
+async function targetsOf(db: Database, parts: AliasParts): Promise<AliasTarget[]> {
+  const byKind: Record<AliasTarget['kind'], Map<string, string[]>> = {
+    entity: new Map(),
+    scene: new Map(),
+    automation: new Map(),
+  };
+
+  for (const [part, config] of Object.entries(parts)) {
+    for (const action of config.actions ?? []) {
+      const found = aliasStepTargets(action.then);
+
+      for (const [kind, ids] of [
+        ['entity', found.entities],
+        ['scene', found.scenes],
+        ['automation', found.automations],
+      ] as const) {
+        for (const targetId of ids) {
+          const naming = byKind[kind].get(targetId) ?? [];
+
+          if (!naming.includes(part)) {
+            naming.push(part);
+          }
+
+          byKind[kind].set(targetId, naming);
+        }
+      }
+    }
+  }
+
+  const { entities, scenes, automations } = schema.registry;
+  const entityIds = [...byKind.entity.keys()];
+  const sceneKeys = [...byKind.scene.keys()];
+  const automationKeys = [...byKind.automation.keys()];
+  const [entityRows, sceneRows, automationRows] = await Promise.all([
+    entityIds.length === 0
+      ? []
+      : db
+          .select({ id: entities.entityId, name: entities.name })
+          .from(entities)
+          .where(inArray(entities.entityId, entityIds)),
+    sceneKeys.length === 0
+      ? []
+      : db
+          .select({ id: scenes.key, name: scenes.name })
+          .from(scenes)
+          .where(inArray(scenes.key, sceneKeys)),
+    automationKeys.length === 0
+      ? []
+      : db
+          .select({ id: automations.key, name: automations.name })
+          .from(automations)
+          .where(inArray(automations.key, automationKeys)),
+  ]);
+  /**
+   * Names by id.
+   *
+   * @param rows - The rows found.
+   * @returns Their names.
+   */
+  const named = (rows: readonly { id: string; name: string }[]) =>
+    new Map(rows.map((row) => [row.id, row.name]));
+  const names = {
+    entity: named(entityRows),
+    scene: named(sceneRows),
+    automation: named(automationRows),
+  };
+
+  return (['entity', 'scene', 'automation'] as const).flatMap((kind) =>
+    [...byKind[kind]].map(([targetId, naming]) => ({
+      kind,
+      id: targetId,
+      name: names[kind].get(targetId) ?? targetId,
+      isPresent: names[kind].has(targetId),
+      parts: naming,
+    })),
+  );
+}
+
+/**
+ * How the last run of each of an alias's actions went.
+ *
+ * @param db - The database.
+ * @param id - The alias.
+ * @returns One per action that has run, newest first.
+ */
+async function lastActionRunsOf(db: Database, id: string): Promise<AliasActionLastRun[]> {
+  const runs = schema.history.aliasActionRuns;
+  const rows = await db
+    .selectDistinctOn([runs.part, runs.actionId], {
+      part: runs.part,
+      actionId: runs.actionId,
+      time: runs.time,
+      result: runs.result,
+      error: runs.error,
+    })
+    .from(runs)
+    .where(eq(runs.aliasId, id))
+    .orderBy(runs.part, runs.actionId, desc(runs.time));
+
+  return rows
+    .map((row) => ({
+      part: row.part,
+      actionId: row.actionId,
+      at: row.time,
+      result: row.result as AliasActionLastRun['result'],
+      error: row.error,
+    }))
+    .toSorted((left, right) => right.at.getTime() - left.at.getTime());
+}
+
+/**
+ * The runs of an alias's actions over the last days, newest first, with who sent each.
+ *
+ * @param db - The database.
+ * @param id - The alias.
+ * @param days - How many days back.
+ * @returns The runs, at most 200.
+ * @throws {NotFoundError} When there is no such alias.
+ */
+export async function actionRuns(
+  db: Database,
+  id: string,
+  days: number,
+): Promise<AliasActionRun[]> {
+  await readAlias(db, id);
+
+  const { aliasActionRuns } = schema.history;
+  const since = new Date(Date.now() - days * 86_400_000);
+  const rows = await db
+    .select()
+    .from(aliasActionRuns)
+    .where(and(eq(aliasActionRuns.aliasId, id), gte(aliasActionRuns.time, since)))
+    .orderBy(desc(aliasActionRuns.time))
+    .limit(200);
+  const origins = await originNames(
+    db,
+    rows.map((row) => row.origin),
+  );
+
+  return rows.map((row) => {
+    const origin = row.origin as { type?: unknown; id?: unknown };
+    const originId = typeof origin.id === 'string' ? origin.id : null;
+
+    return aliasActionRunSchema.parse({
+      id: row.id,
+      aliasId: row.aliasId,
+      part: row.part,
+      actionId: row.actionId,
+      time: row.time.toISOString(),
+      when: row.when,
+      origin: {
+        type: typeof origin.type === 'string' ? origin.type : 'alias',
+        id: originId,
+        name: originId === null ? null : (origins.get(originId) ?? null),
+      },
+      result: row.result,
+      finishedAt: row.finishedAt?.toISOString() ?? null,
+      durationMs: row.durationMs,
+      trace: row.trace,
+      error: row.error,
+    });
+  });
+}
+
+/**
+ * The names of what sent the commands: a person, an automation (by the id of its run), a scene,
+ * an alias. Anything else has no name to give.
+ *
+ * @param db - The database.
+ * @param origins - The change contexts, as stored.
+ * @returns The names, by id.
+ */
+async function originNames(
+  db: Database,
+  origins: readonly unknown[],
+): Promise<Map<string, string>> {
+  /**
+   * The ids of one kind of origin, each once.
+   *
+   * @param type - The kind: user, automation, scene, alias.
+   * @returns The ids.
+   */
+  const ids = (type: string) => [
+    ...new Set(
+      origins.flatMap((origin) => {
+        const context = origin as { type?: unknown; id?: unknown };
+
+        return context.type === type && typeof context.id === 'string' ? [context.id] : [];
+      }),
+    ),
+  ];
+  const { users } = schema.auth;
+  const { scenes, automations, aliases, entities } = schema.registry;
+  const [userIds, runIds, sceneIds, aliasIds] = [
+    ids('user'),
+    ids('automation'),
+    ids('scene'),
+    ids('alias'),
+  ];
+  const [userRows, runRows, sceneRows, aliasRows] = await Promise.all([
+    userIds.length === 0
+      ? []
+      : db
+          .select({ id: users.id, name: users.displayName })
+          .from(users)
+          .where(inArray(users.id, userIds)),
+    runIds.length === 0
+      ? []
+      : db
+          .select({ id: schema.history.automationRuns.id, name: automations.name })
+          .from(schema.history.automationRuns)
+          .innerJoin(automations, eq(automations.id, schema.history.automationRuns.automationId))
+          .where(inArray(schema.history.automationRuns.id, runIds)),
+    sceneIds.length === 0
+      ? []
+      : db
+          .select({ id: scenes.id, name: scenes.name })
+          .from(scenes)
+          .where(inArray(scenes.id, sceneIds)),
+    aliasIds.length === 0
+      ? []
+      : db
+          .select({ id: aliases.id, name: entities.name })
+          .from(aliases)
+          .innerJoin(entities, eq(entities.id, aliases.entityId))
+          .where(inArray(aliases.id, aliasIds)),
+  ]);
+
+  return new Map(
+    [...userRows, ...runRows, ...sceneRows, ...aliasRows].map((row) => [row.id, row.name]),
+  );
 }
 
 /**
@@ -483,7 +732,7 @@ async function inputsOf(db: Database, reads: readonly string[]): Promise<AliasIn
 export async function usedByOf(db: Database, entityId: string): Promise<AliasUsedBy> {
   const { automations, scenes, sceneEntities, entities, dashboards, aliases, aliasReads } =
     schema.registry;
-  const [automationRows, sceneRows, dashboardRows, readerRows] = await Promise.all([
+  const [automationRows, sceneRows, dashboardRows, readerRows, aliasRows] = await Promise.all([
     db
       .select({ id: automations.id, name: automations.name, definition: automations.definition })
       .from(automations),
@@ -502,7 +751,20 @@ export async function usedByOf(db: Database, entityId: string): Promise<AliasUse
       .innerJoin(aliases, eq(aliases.id, aliasReads.aliasId))
       .innerJoin(entities, eq(entities.id, aliases.entityId))
       .where(eq(aliasReads.entityId, entityId)),
+    db
+      .select({ id: aliases.id, name: entities.name, parts: aliases.parts })
+      .from(aliases)
+      .innerJoin(entities, eq(entities.id, aliases.entityId)),
   ]);
+  const commanders = aliasRows.filter(
+    (row) =>
+      !readerRows.some((reader) => reader.id === row.id) &&
+      Object.values(aliasPartsSchema.safeParse(row.parts).data ?? {}).some((config) =>
+        (config.actions ?? []).some((action) =>
+          aliasStepTargets(action.then).entities.includes(entityId),
+        ),
+      ),
+  );
 
   return {
     automations: automationRows
@@ -512,7 +774,7 @@ export async function usedByOf(db: Database, entityId: string): Promise<AliasUse
     dashboards: dashboardRows
       .filter((row) => mentions(row.layout, entityId) > 0)
       .map((row) => ({ id: row.id, name: row.name })),
-    aliases: readerRows.map((row) => ({ id: row.id, name: row.name })),
+    aliases: [...readerRows, ...commanders].map((row) => ({ id: row.id, name: row.name })),
   };
 }
 
@@ -556,6 +818,27 @@ async function requireReadable(
   identity: Identity,
   reads: readonly string[],
 ): Promise<void> {
+  await requirePermitted(db, identity, reads, 'entity:read');
+}
+
+/**
+ * Ensures the caller holds a permission on every one of some entities, and that each is in the
+ * house: `entity:read` on what an alias reads, `entity:control` on what its actions command (who
+ * can command the alias can then command them). Refusals never include an entity's value.
+ *
+ * @param db - The database.
+ * @param identity - Who is asking.
+ * @param reads - The entity ids.
+ * @param permission - The permission each needs.
+ * @throws {NotFoundError} When one is not in the house.
+ * @throws {PermissionError} When the caller lacks the permission on one of them.
+ */
+async function requirePermitted(
+  db: Database,
+  identity: Identity,
+  reads: readonly string[],
+  permission: 'entity:read' | 'entity:control',
+): Promise<void> {
   if (reads.length === 0) {
     return;
   }
@@ -587,13 +870,16 @@ async function requireReadable(
     if (
       !isPermitted(
         identity.permissions,
-        'entity:read',
+        permission,
         entityScopes(row.entityId, row.areaKey, tags.get(row.rowId) ?? []),
       )
     ) {
-      throw new PermissionError('This action requires entity:read on every entity an alias reads', {
-        details: { permission: 'entity:read', entityId },
-      });
+      throw new PermissionError(
+        permission === 'entity:read'
+          ? 'This action requires entity:read on every entity an alias reads'
+          : 'This action requires entity:control on every entity the actions of an alias command',
+        { details: { permission, entityId } },
+      );
     }
   }
 }
@@ -791,8 +1077,19 @@ async function prepare(
   }
 
   const reads = [...new Set([...partReads, ...checked.reads])].sort();
+  const actions = Object.values(parts).flatMap((config) => config.actions ?? []);
+  const commanded = [
+    ...new Set(actions.flatMap((action) => aliasStepTargets(action.then).entities)),
+  ].sort();
 
-  await requireReadable(db, identity, reads);
+  // What the actions' formulas read is read when a command comes, not to work the alias out: it
+  // must be there and readable, but it is no input and makes no cycle.
+  const actionReads = actions
+    .flatMap((action) => aliasStepReads(action.then))
+    .map((name) => name.split('.').slice(0, 2).join('.'));
+
+  await requireReadable(db, identity, [...new Set([...reads, ...actionReads])].sort());
+  await requirePermitted(db, identity, commanded, 'entity:control');
   await assertNoCycle(db, aliasEntityId, reads);
 
   const capabilities = aliasCapabilities(type, Object.keys(parts));
