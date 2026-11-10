@@ -58,6 +58,7 @@ describe('the migration set', () => {
       '0008_no_fades.sql',
       '0009_aliases_parts.sql',
       '0010_aliases_grants.sql',
+      '0011_alias_action_runs.sql',
     ]);
   });
 
@@ -77,8 +78,16 @@ describe('the migration set', () => {
 
 describe('the brokers migrations', () => {
   // Each later migration adds a broker's tables, written by `hub` alone; 0009 rebuilds the
-  // aliases, which `core` and `api` write, granted by 0010.
-  const later = files.slice(1).filter(({ name }) => name !== '0009_aliases_parts.sql');
+  // aliases, which `core` and `api` write, granted by 0010; 0011 keeps the runs of their actions.
+  const ALIAS_MIGRATIONS = ['0009_aliases_parts.sql', '0011_alias_action_runs.sql'];
+  const later = files.slice(1).filter(({ name }) => !ALIAS_MIGRATIONS.includes(name));
+
+  it('grants core and api the table of alias action runs', () => {
+    const runs = files.find(({ name }) => name === '0011_alias_action_runs.sql')?.sql ?? '';
+
+    expect(runs).toContain('ON history.alias_action_runs TO nebula_core;');
+    expect(runs).toContain('GRANT SELECT ON history.alias_action_runs TO nebula_api;');
+  });
 
   it('grants core and api every table the aliases migration creates', () => {
     // Default privileges only cover tables `nebula_migrator` creates; migrations run as `nebula`.

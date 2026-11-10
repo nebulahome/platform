@@ -117,6 +117,40 @@ export const automationRuns = historySchema.table(
 );
 
 /**
+ * What an alias's actions did: one row per run, as `automation_runs` keeps an automation's. Written
+ * by `core`, which runs a part's actions when a command reaches it or its value changes.
+ */
+export const aliasActionRuns = historySchema.table(
+  'alias_action_runs',
+  {
+    /** When the run started. */
+    time: timestamp('time', { withTimezone: true }).notNull(),
+
+    id: uuid('id').notNull().defaultRandom(),
+    aliasId: uuid('alias_id').notNull(),
+
+    /** The part the action belongs to, and its id within it. */
+    part: text('part').notNull(),
+    actionId: text('action_id').notNull(),
+
+    /** The command with its values, or the change. */
+    when: jsonb('when').notNull(),
+
+    /** Who or what sent it: the change context. */
+    origin: jsonb('origin').notNull(),
+
+    result: text('result').notNull(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    durationMs: integer('duration_ms'),
+    trace: jsonb('trace')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    error: text('error'),
+  },
+  (table) => [index('alias_action_runs_alias_id_time_idx').on(table.aliasId, table.time.desc())],
+);
+
+/**
  * Every call a webhook address received, and what it was answered. Written by `core`, which
  * decides the answer; the body is never kept, and secret header values are hidden.
  */
