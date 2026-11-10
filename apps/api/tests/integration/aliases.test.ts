@@ -1,10 +1,10 @@
 /**
- * Aliases against a real database: what the API writes, what it leaves to `core`, and how a
- * deletion another alias blocks is refused.
+ * Aliases against a real database: what the API writes, what it leaves to `core`, and what a
+ * deletion says stops working.
  *
- * The API writes an alias's definition and asks `core` to take it in; it never writes the
- * entity's state, which is `core`'s alone. Deleting goes through `core`. The fake `core` in the
- * harness records what it was asked, and can be made to refuse.
+ * The API writes an alias's setup - its parts, what it reads, its capabilities - and asks `core`
+ * to take it in; it never writes the entity's state, which is `core`'s alone. Deleting goes
+ * through `core`. The fake `core` in the harness records what it was asked.
  *
  * Needs the development stack: `pnpm infra:up` and
  * `pnpm db:migrate`. Every row is scoped to an id unique to the run and removed afterwards.
@@ -15,7 +15,12 @@ import { eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { aliasViewSchema, ConflictError, type AliasView } from '@nebulahome/contracts';
+import {
+  aliasDetailSchema,
+  aliasFileSchema,
+  aliasViewSchema,
+  type AliasView,
+} from '@nebulahome/contracts';
 import { createDatabase, schema } from '@nebulahome/db';
 
 import {
@@ -23,7 +28,6 @@ import {
   aliasesSynced,
   bearerFor,
   buildTestServer,
-  makeCoreRefuse,
   stopHub,
 } from '@/testing/hub-harness.js';
 
@@ -39,8 +43,8 @@ const userId = randomUUID();
 
 let database: ReturnType<typeof createDatabase>;
 let server: FastifyInstance;
-let calculated: AliasView;
-let helper: AliasView;
+let thermostat: AliasView;
+let double: AliasView;
 
 /**
  * Calls the API with a given set of permissions, each everywhere.
@@ -53,7 +57,7 @@ let helper: AliasView;
  */
 async function call(
   permissions: readonly string[],
-  method: 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   url: string,
   payload?: Record<string, unknown>,
 ): Promise<{ status: number; body: unknown }> {
@@ -104,12 +108,9 @@ afterAll(async () => {
   stopHub();
   await server.close();
 
-  // Aliases first: they restrict the deletion of what they read.
   await database.db
     .delete(schema.registry.entities)
-    .where(
-      inArray(schema.registry.entities.entityId, [`alias.${slug}_double`, `alias.${slug}_lamp`]),
-    );
+    .where(inArray(schema.registry.entities.entityId, [thermostat.entityId, double.entityId]));
   await database.db
     .delete(schema.registry.entities)
     .where(eq(schema.registry.entities.entityId, sourceEntityId));
@@ -118,21 +119,20 @@ afterAll(async () => {
 });
 
 describe('creating an alias', () => {
-  it('writes the definition, asks core to take it in, and writes no state of its own', async () => {
+  it('starts every required part Stored, asks core to take it in, and writes no state', async () => {
     aliasesSynced.length = 0;
 
     const { status, body } = await call(AUTHOR, 'POST', '/aliases', {
-      kind: 'calculated',
-      objectId: `${slug}_double`,
-      name: 'Double',
-      capability: 'sensor_numeric',
-      expression: 'p * 2',
-      sources: [{ variableName: 'p', entityId: sourceEntityId }],
+      name: `Thermostat ${slug}`,
+      behavesAs: 'thermostat',
     });
 
     expect(status).toBe(201);
-    calculated = aliasViewSchema.parse(body);
-    expect(aliasesSynced).toEqual([calculated.entityId]);
+    thermostat = aliasViewSchema.parse(body);
+    expect(Object.keys(thermostat.parts)).toEqual(['target_temperature', 'mode', 'action']);
+    expect(Object.values(thermostat.parts).every((part) => part.from === 'stored')).toBe(true);
+    expect(thermostat.device.isShared).toBe(true);
+    expect(aliasesSynced).toEqual([thermostat.entityId]);
 
     const states = await database.db
       .select({ id: schema.registry.entityStates.entityId })
@@ -141,25 +141,9 @@ describe('creating an alias', () => {
         schema.registry.entities,
         eq(schema.registry.entities.id, schema.registry.entityStates.entityId),
       )
-      .where(eq(schema.registry.entities.entityId, calculated.entityId));
+      .where(eq(schema.registry.entities.entityId, thermostat.entityId));
 
     expect(states).toEqual([]);
-  });
-
-  it('gives a helper the limits its capabilities need when the form sends none', async () => {
-    const { status, body } = await call(AUTHOR, 'POST', '/aliases', {
-      kind: 'stored',
-      objectId: `${slug}_lamp`,
-      name: 'Lamp',
-      domain: 'light',
-      capabilities: [
-        { capability: 'on_off', params: {} },
-        { capability: 'color_temp', params: {} },
-      ],
-    });
-
-    expect(status).toBe(201);
-    helper = aliasViewSchema.parse(body);
 
     const params = await database.db
       .select({ params: schema.registry.entityCapabilities.params })
@@ -168,69 +152,123 @@ describe('creating an alias', () => {
         schema.registry.entities,
         eq(schema.registry.entities.id, schema.registry.entityCapabilities.entityId),
       )
-      .where(eq(schema.registry.entities.entityId, helper.entityId));
+      .where(eq(schema.registry.entities.entityId, thermostat.entityId));
 
-    expect(params.map((row) => row.params)).toContainEqual({ minMireds: 153, maxMireds: 500 });
+    expect(params[0]?.params).toMatchObject({ minTemperature: 5, maxTemperature: 35 });
+  });
+
+  it('records what a formula reads, and refuses one over an entity not in the house', async () => {
+    const { status, body } = await call(AUTHOR, 'POST', '/aliases', {
+      name: `Double ${slug}`,
+      behavesAs: 'sensor',
+      parts: { value: { from: 'formula', formula: `${sourceEntityId} * 2` } },
+    });
+
+    expect(status).toBe(201);
+    double = aliasViewSchema.parse(body);
+    expect(double.reads).toEqual([sourceEntityId]);
+
+    const missing = await call(AUTHOR, 'POST', '/aliases', {
+      name: `Ghost ${slug}`,
+      behavesAs: 'sensor',
+      parts: { value: { from: 'formula', formula: 'sensor.not_here_at_all * 2' } },
+    });
+
+    expect(missing.status).toBe(404);
+  });
+
+  it('refuses a part the type does not have, or a source its kind cannot take', async () => {
+    const wrongPart = await call(AUTHOR, 'POST', '/aliases', {
+      name: `Wrong ${slug}`,
+      behavesAs: 'switch',
+      parts: { on: { from: 'stored', value: false }, wings: { from: 'stored', value: 2 } },
+    });
+    const wrongSource = await call(AUTHOR, 'POST', '/aliases', {
+      name: `Wrong ${slug}`,
+      behavesAs: 'image',
+      parts: { picture: { from: 'stored', value: null } },
+    });
+
+    expect(wrongPart.status).toBe(400);
+    expect(wrongSource.status).toBe(400);
   });
 });
 
 describe('changing an alias', () => {
-  it('refuses a formula on a stored helper', async () => {
-    const { status } = await call(AUTHOR, 'PATCH', `/aliases/${helper.id}`, {
-      expression: '1',
+  it('refuses code while developer mode is off', async () => {
+    const { status } = await call(AUTHOR, 'PATCH', `/aliases/${thermostat.id}`, {
+      parts: { ...thermostat.parts, action: { from: 'code', function: 'action' } },
+      code: ['def action():', '    return "idle"', ''].join('\n'),
+    });
+
+    expect(status).toBe(403);
+  });
+
+  it('refuses reads that make an alias read itself', async () => {
+    const { status } = await call(AUTHOR, 'PATCH', `/aliases/${double.id}`, {
+      parts: { value: { from: 'formula', formula: `${double.entityId} + 1` } },
     });
 
     expect(status).toBe(400);
   });
 
-  it('refuses capabilities a helper of its domain cannot carry', async () => {
-    const { status } = await call(AUTHOR, 'PATCH', `/aliases/${helper.id}`, {
-      capabilities: [{ capability: 'lock', params: {} }],
-    });
-
-    expect(status).toBe(400);
-  });
-
-  it('asks core to take a change in', async () => {
+  it('asks core to take a change in, and keeps it for the history', async () => {
     aliasesSynced.length = 0;
 
-    const { status } = await call(AUTHOR, 'PATCH', `/aliases/${calculated.id}`, {
-      expression: 'p * 3',
+    const { status } = await call(AUTHOR, 'PATCH', `/aliases/${thermostat.id}`, {
+      parts: {
+        ...thermostat.parts,
+        current_temperature: { from: 'entity', entity: sourceEntityId },
+      },
     });
 
     expect(status).toBe(200);
-    expect(aliasesSynced).toEqual([calculated.entityId]);
+    expect(aliasesSynced).toEqual([thermostat.entityId]);
+
+    const history = await call(AUTHOR, 'GET', `/aliases/${thermostat.id}/setup-history`);
+
+    expect(history.status).toBe(200);
+    expect(JSON.stringify(history.body)).toContain('current_temperature');
+  });
+
+  it('shows what it reads and what uses it', async () => {
+    const { status, body } = await call(AUTHOR, 'GET', `/aliases/${thermostat.id}`);
+    const detail = aliasDetailSchema.parse(body);
+
+    expect(status).toBe(200);
+    expect(detail.inputs.map((input) => input.entityId)).toEqual([sourceEntityId]);
+    expect(detail.usedBy.automations).toEqual([]);
+  });
+});
+
+describe('files', () => {
+  it('exports aliases as one file, and imports it back over them', async () => {
+    const exported = await call(AUTHOR, 'GET', `/aliases/export?ids=${thermostat.id}`);
+    const file = aliasFileSchema.parse(exported.body);
+
+    expect(file.aliases.map((entry) => entry.key)).toEqual([thermostat.key]);
+
+    const imported = await call(AUTHOR, 'POST', '/aliases/import', {
+      file: {
+        ...file,
+        aliases: file.aliases.map((entry) => ({ ...entry, name: `Renamed ${slug}` })),
+      },
+      picks: [thermostat.key],
+    });
+
+    expect(imported.status).toBe(201);
+    expect(JSON.stringify(imported.body)).toContain(`Renamed ${slug}`);
   });
 });
 
 describe('deleting an alias', () => {
-  it('passes core refusing on as a conflict naming the readers, to somebody who may see them', async () => {
-    makeCoreRefuse(
-      new ConflictError('Other aliases still read this one', {
-        details: { dependents: [{ entityId: 'alias.reader', name: 'Reader' }] },
-      }),
-    );
-
-    try {
-      const visible = await call(AUTHOR, 'DELETE', `/aliases/${calculated.id}`);
-      const hidden = await call(['alias:write'], 'DELETE', `/aliases/${calculated.id}`);
-
-      expect(visible.status).toBe(409);
-      expect(JSON.stringify(visible.body)).toContain('alias.reader');
-      expect(hidden.status).toBe(409);
-      expect(JSON.stringify(hidden.body)).not.toContain('alias.reader');
-    } finally {
-      makeCoreRefuse(null);
-    }
-  });
-
-  it('goes through core, and answers with what was deleted', async () => {
+  it('goes through core, and says what used it', async () => {
     aliasesRemoved.length = 0;
 
-    const { status, body } = await call(AUTHOR, 'DELETE', `/aliases/${helper.id}`);
+    const { status, body } = await call(AUTHOR, 'DELETE', `/aliases/${double.id}`);
 
     expect(status).toBe(200);
-    expect(aliasViewSchema.parse(body).entityId).toBe(helper.entityId);
-    expect(aliasesRemoved).toEqual([helper.entityId]);
+    expect(JSON.stringify(body)).toContain('usedBy');
+    expect(aliasesRemoved).toEqual([double.entityId]);
   });
 });

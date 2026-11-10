@@ -447,22 +447,22 @@ describe('removing a device through the route', () => {
     // Refused by `core` alone, the device would already be stopped by the time the refusal
     // came back: the hub is asked first. The API asks the same question before either.
     const aliasEntityId = `alias.${instanceId.replaceAll('-', '_')}_watts`;
-    const [source] = await database.db
-      .select({ id: schema.registry.entities.id })
-      .from(schema.registry.entities)
-      .where(eq(schema.registry.entities.entityId, powerEntityId));
     const [aliasEntity] = await database.db
       .insert(schema.registry.entities)
       .values({ entityId: aliasEntityId, source: 'derived', name: 'Watts' })
       .returning({ id: schema.registry.entities.id });
     const [alias] = await database.db
       .insert(schema.registry.aliases)
-      .values({ entityId: aliasEntity?.id ?? '', capability: 'sensor_numeric', expression: 'w' })
+      .values({
+        entityId: aliasEntity?.id ?? '',
+        behavesAs: 'sensor',
+        parts: { value: { from: 'entity', entity: powerEntityId } },
+      })
       .returning({ id: schema.registry.aliases.id });
 
     await database.db
-      .insert(schema.registry.aliasSources)
-      .values({ aliasId: alias?.id ?? '', variableName: 'w', entityId: source?.id ?? '' });
+      .insert(schema.registry.aliasReads)
+      .values({ aliasId: alias?.id ?? '', entityId: powerEntityId });
 
     forgotten.length = 0;
     unregistered.length = 0;

@@ -289,7 +289,7 @@ const NO_USE: LinkUse = { automations: [], scenes: [], aliases: [], cards: [] };
  * @param address - The address.
  * @returns How many times it names it.
  */
-function mentions(value: unknown, address: string): number {
+export function mentions(value: unknown, address: string): number {
   if (typeof value === 'string') {
     return value === address ? 1 : 0;
   }
@@ -323,7 +323,7 @@ async function usesOf(
     return used;
   }
 
-  const { automations, scenes, sceneEntities, aliases, aliasSources, entities, dashboards } =
+  const { automations, scenes, sceneEntities, aliases, aliasReads, entities, dashboards } =
     schema.registry;
   const rowIds = rows.map((row) => row.rowId);
   const [automationRows, sceneRows, aliasRows, dashboardRows] = await Promise.all([
@@ -334,11 +334,16 @@ async function usesOf(
       .innerJoin(scenes, eq(scenes.id, sceneEntities.sceneId))
       .where(inArray(sceneEntities.entityId, rowIds)),
     db
-      .select({ name: entities.name, rowId: aliasSources.entityId })
-      .from(aliasSources)
-      .innerJoin(aliases, eq(aliases.id, aliasSources.aliasId))
+      .select({ name: entities.name, address: aliasReads.entityId })
+      .from(aliasReads)
+      .innerJoin(aliases, eq(aliases.id, aliasReads.aliasId))
       .innerJoin(entities, eq(entities.id, aliases.entityId))
-      .where(inArray(aliasSources.entityId, rowIds)),
+      .where(
+        inArray(
+          aliasReads.entityId,
+          rows.map((row) => row.entityId),
+        ),
+      ),
     db.select({ name: dashboards.name, layout: dashboards.layout }).from(dashboards),
   ]);
 
@@ -351,7 +356,7 @@ async function usesOf(
         ...new Set(sceneRows.filter((scene) => scene.rowId === row.rowId).map((s) => s.name)),
       ],
       aliases: [
-        ...new Set(aliasRows.filter((alias) => alias.rowId === row.rowId).map((a) => a.name)),
+        ...new Set(aliasRows.filter((alias) => alias.address === row.entityId).map((a) => a.name)),
       ],
       cards: dashboardRows.flatMap((dashboard) => {
         const count = mentions(dashboard.layout, row.entityId);

@@ -250,16 +250,16 @@ async function assertNotReadByAliases(
 
   const read = await context.db
     .selectDistinct({ entityId: schema.registry.entities.entityId })
-    .from(schema.registry.aliasSources)
+    .from(schema.registry.aliasReads)
     .innerJoin(
       schema.registry.entities,
-      eq(schema.registry.entities.id, schema.registry.aliasSources.entityId),
+      eq(schema.registry.entities.entityId, schema.registry.aliasReads.entityId),
     )
     .where(inArray(schema.registry.entities.integrationId, [...deviceIds]))
     .orderBy(asc(schema.registry.entities.entityId));
 
   if (read.length > 0) {
-    throw new ConflictError("Derived entities still read this integration's devices", {
+    throw new ConflictError("Aliases still read this integration's devices", {
       details: { vendorId, entityIds: read.map((row) => row.entityId) },
     });
   }

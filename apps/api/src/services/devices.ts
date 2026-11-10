@@ -343,7 +343,26 @@ async function entityIdsOf(
     )
     .orderBy(asc(schema.registry.entities.entityId));
 
-  for (const row of rows) {
+  // An alias put on a device is one of its entities too, though no integration owns it.
+  const aliases = await context.db
+    .select({
+      integrationId: schema.registry.devices.integrationId,
+      entityId: schema.registry.entities.entityId,
+    })
+    .from(schema.registry.entities)
+    .innerJoin(
+      schema.registry.devices,
+      eq(schema.registry.devices.id, schema.registry.entities.deviceId),
+    )
+    .where(
+      and(
+        eq(schema.registry.entities.source, 'derived'),
+        inArray(schema.registry.devices.integrationId, [...ids]),
+      ),
+    )
+    .orderBy(asc(schema.registry.entities.entityId));
+
+  for (const row of [...rows, ...aliases]) {
     if (row.integrationId !== null) {
       byDevice.set(row.integrationId, [...(byDevice.get(row.integrationId) ?? []), row.entityId]);
     }
@@ -1163,16 +1182,16 @@ async function updatePlatformDevice(
 async function assertNotReadByAliases(context: DevicesContext, id: string): Promise<void> {
   const read = await context.db
     .selectDistinct({ entityId: schema.registry.entities.entityId })
-    .from(schema.registry.aliasSources)
+    .from(schema.registry.aliasReads)
     .innerJoin(
       schema.registry.entities,
-      eq(schema.registry.entities.id, schema.registry.aliasSources.entityId),
+      eq(schema.registry.entities.entityId, schema.registry.aliasReads.entityId),
     )
     .where(eq(schema.registry.entities.integrationId, id))
     .orderBy(asc(schema.registry.entities.entityId));
 
   if (read.length > 0) {
-    throw new ConflictError('Derived entities still read this device', {
+    throw new ConflictError('Aliases still read this device', {
       details: { integrationId: id, entityIds: read.map((row) => row.entityId) },
     });
   }

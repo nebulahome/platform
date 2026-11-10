@@ -15,10 +15,17 @@ import { z } from 'zod';
 
 import {
   aliasCreateSchema,
-  aliasPreviewRequestSchema,
-  aliasPreviewResponseSchema,
+  aliasDeleteResultSchema,
+  aliasDetailSchema,
+  aliasDuplicateSchema,
+  aliasFileSchema,
+  aliasListItemSchema,
+  aliasObjectIdSchema,
+  aliasSetupChangeSchema,
   aliasUpdateSchema,
   aliasViewSchema,
+  aliasVirtualDeviceSchema,
+  entityIdSchema,
   automationCreateSchema,
   automationHouseSchema,
   automationRunSchema,
@@ -35,8 +42,13 @@ import {
   sceneCreateSchema,
   sceneUpdateSchema,
   sceneViewSchema,
-  type AliasPreviewResponse,
+  type AliasDetail,
+  type AliasFile,
+  type AliasListItem,
+  type AliasSetupChange,
+  type AliasUsedBy,
   type AliasView,
+  type AliasVirtualDevice,
   type AutomationHouse,
   type AutomationRun,
   type AutomationTestReply,
@@ -47,16 +59,22 @@ import {
   type TriggerAutomationReply,
 } from '@nebulahome/contracts';
 
-import { isPermitted, requirePermission } from '../auth/permissions.js';
+import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { collectionSchema } from '../http/collection.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
+  aliasDetail,
+  auditEntryOf,
   createAlias,
   deleteAlias,
+  duplicateAlias,
+  exportAliases,
+  importAliases,
   listAliases,
-  previewAlias,
+  setupHistory,
   updateAlias,
+  virtualDevices,
   type AliasesContext,
 } from '../services/aliases.js';
 import { sealSecrets } from '../services/automation-secrets.js';
@@ -740,19 +758,19 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     {
       method: 'GET',
       url: '/aliases',
-      summary: 'List derived entities',
+      summary: 'List aliases',
       tag: 'Library',
       permission: 'alias:read',
-      response: collectionSchema(aliasViewSchema),
+      response: collectionSchema(aliasListItemSchema),
     },
 
     /**
      * Lists aliases.
      *
      * @param route - Who is asking.
-     * @returns Every alias, with the entities its formula reads.
+     * @returns Every alias, with what it behaves as, its device, how it is doing and what it reads.
      */
-    async (route): Promise<{ items: AliasView[] }> => {
+    async (route): Promise<{ items: AliasListItem[] }> => {
       requirePermission(route.identity, 'alias:read');
 
       return { items: await listAliases(context.db) };
@@ -762,28 +780,107 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
   defineRoute(
     environment,
     {
-      method: 'POST',
-      url: '/aliases/preview',
-      summary: 'Preview a calculated alias formula',
+      method: 'GET',
+      url: '/aliases/export',
+      summary: 'Export aliases as one file',
       tag: 'Library',
-      permission: 'alias:write',
-      body: aliasPreviewRequestSchema,
-      response: aliasPreviewResponseSchema,
-
-      // Nothing is saved: a `201` would say otherwise.
-      successStatus: 200,
+      permission: 'alias:read',
+      query: z.object({ ids: z.string().max(4_000).optional() }),
+      response: aliasFileSchema,
     },
 
     /**
-     * Evaluates a formula without saving it.
+     * The aliases file of some aliases, or of all.
      *
-     * @param route - Who is asking, and the formula.
-     * @returns The scalar result, or an error that never includes source values.
+     * @param route - Who is asking, and which (comma-separated ids; all when none).
+     * @returns The file.
      */
-    async (route): Promise<AliasPreviewResponse> => {
-      requirePermission(route.identity, 'alias:write');
+    async (route): Promise<AliasFile> => {
+      requirePermission(route.identity, 'alias:read');
 
-      return previewAlias(context.db, route.body, route.identity);
+      const ids = (route.query.ids ?? '')
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => z.uuid().safeParse(id).success);
+
+      return exportAliases(context.db, ids);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/aliases/devices',
+      summary: 'List the virtual devices an alias can go on',
+      tag: 'Library',
+      permission: 'alias:read',
+      response: collectionSchema(aliasVirtualDeviceSchema),
+    },
+
+    /**
+     * The virtual devices, the shared one first.
+     *
+     * @param route - Who is asking.
+     * @returns The devices.
+     */
+    async (route): Promise<{ items: AliasVirtualDevice[] }> => {
+      requirePermission(route.identity, 'alias:read');
+
+      return { items: await virtualDevices(context.db) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/aliases/:aliasId',
+      summary: 'Read an alias with what it reads and what uses it',
+      tag: 'Library',
+      permission: 'alias:read',
+      params: z.object({ aliasId: z.uuid() }),
+      response: aliasDetailSchema,
+    },
+
+    /**
+     * Reads one alias, its inputs and its users.
+     *
+     * @param route - Who is asking, and which.
+     * @returns The alias whole.
+     */
+    async (route): Promise<AliasDetail> => {
+      requirePermission(route.identity, 'alias:read');
+
+      return aliasDetail(context.db, route.params.aliasId);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/aliases/:aliasId/setup-history',
+      summary: "List the changes made to an alias's setup",
+      tag: 'Library',
+      permission: 'alias:read',
+      params: z.object({ aliasId: z.uuid() }),
+      query: z.object({ days: z.coerce.number().int().min(1).max(365).default(7) }),
+      response: collectionSchema(aliasSetupChangeSchema),
+    },
+
+    /**
+     * The setup changes of one alias, newest first.
+     *
+     * @param route - Who is asking, which alias and how far back.
+     * @returns The changes, with the setup before and after each.
+     */
+    async (route): Promise<{ items: AliasSetupChange[] }> => {
+      requirePermission(route.identity, 'alias:read');
+
+      const since = new Date(Date.now() - route.query.days * 86_400_000);
+
+      return { items: await setupHistory(context.db, route.params.aliasId, since) };
     },
   );
 
@@ -792,7 +889,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     {
       method: 'POST',
       url: '/aliases',
-      summary: 'Create a derived entity',
+      summary: 'Create an alias',
       tag: 'Library',
       permission: 'alias:write',
       body: aliasCreateSchema,
@@ -800,9 +897,9 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     },
 
     /**
-     * Creates an alias.
+     * Creates an alias: its required parts Stored unless the body gives them.
      *
-     * @param route - Who is creating it, and what to create.
+     * @param route - Who is creating it, and what.
      * @returns The alias as stored.
      */
     async (route): Promise<AliasView> => {
@@ -822,7 +919,135 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         identity: route.identity,
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
-        details: { entityId: alias.entityId, kind: alias.kind, name: alias.name },
+        details: {
+          entityId: alias.entityId,
+          name: alias.name,
+          before: null,
+          after: auditEntryOf(alias),
+        },
+      });
+
+      return alias;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/aliases/import',
+      summary: 'Import aliases from a file',
+      tag: 'Library',
+      permission: 'alias:write',
+      body: z.object({
+        file: aliasFileSchema,
+        picks: z.array(aliasObjectIdSchema).max(500),
+        replacements: z.record(entityIdSchema, entityIdSchema).default({}),
+      }),
+      response: z.object({ created: z.array(aliasViewSchema), replaced: z.array(aliasViewSchema) }),
+    },
+
+    /**
+     * Imports the aliases picked from a file: each replaces the alias of its key, or is created.
+     *
+     * @param route - Who is importing, the file, the picks and the replacements of entities.
+     * @returns The aliases created and replaced.
+     */
+    async (route): Promise<{ created: AliasView[]; replaced: AliasView[] }> => {
+      requirePermission(route.identity, 'alias:write');
+
+      const result = await importAliases(
+        aliasesContext(route.request.traceId),
+        route.body,
+        route.identity,
+      );
+
+      for (const alias of result.created) {
+        // eslint-disable-next-line no-await-in-loop -- one audit line per alias
+        await context.audit.record({
+          action: 'alias.import',
+          resourceType: 'alias',
+          resourceId: alias.id,
+          result: 'success',
+          identity: route.identity,
+          ipAddress: route.request.ip,
+          traceId: route.request.traceId,
+          details: {
+            entityId: alias.entityId,
+            name: alias.name,
+            before: null,
+            after: auditEntryOf(alias),
+          },
+        });
+      }
+
+      for (const { before, after } of result.replaced) {
+        // eslint-disable-next-line no-await-in-loop -- as above
+        await context.audit.record({
+          action: 'alias.import',
+          resourceType: 'alias',
+          resourceId: after.id,
+          result: 'success',
+          identity: route.identity,
+          ipAddress: route.request.ip,
+          traceId: route.request.traceId,
+          details: {
+            entityId: after.entityId,
+            name: after.name,
+            before: auditEntryOf(before),
+            after: auditEntryOf(after),
+          },
+        });
+      }
+
+      return { created: result.created, replaced: result.replaced.map((pair) => pair.after) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
+      url: '/aliases/:aliasId/duplicate',
+      summary: 'Duplicate an alias',
+      tag: 'Library',
+      permission: 'alias:write',
+      params: z.object({ aliasId: z.uuid() }),
+      body: aliasDuplicateSchema,
+      response: aliasViewSchema,
+    },
+
+    /**
+     * Makes a copy of an alias under another name.
+     *
+     * @param route - Who is copying it, which, and the copy's name.
+     * @returns The copy.
+     */
+    async (route): Promise<AliasView> => {
+      requirePermission(route.identity, 'alias:write');
+
+      const alias = await duplicateAlias(
+        aliasesContext(route.request.traceId),
+        route.params.aliasId,
+        route.body.name,
+        route.identity,
+      );
+
+      await context.audit.record({
+        action: 'alias.create',
+        resourceType: 'alias',
+        resourceId: alias.id,
+        result: 'success',
+        identity: route.identity,
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+        details: {
+          entityId: alias.entityId,
+          name: alias.name,
+          copyOf: route.params.aliasId,
+          before: null,
+          after: auditEntryOf(alias),
+        },
       });
 
       return alias;
@@ -834,7 +1059,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     {
       method: 'PATCH',
       url: '/aliases/:aliasId',
-      summary: 'Update a derived entity',
+      summary: 'Change an alias',
       tag: 'Library',
       permission: 'alias:write',
       params: z.object({ aliasId: z.uuid() }),
@@ -843,15 +1068,15 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     },
 
     /**
-     * Updates an alias. The entity id is immutable.
+     * Changes an alias: its name, its place, its parts, its code, its cases, whether it runs.
      *
-     * @param route - Who is changing it.
+     * @param route - Who is changing it, which, and what.
      * @returns The alias as stored.
      */
     async (route): Promise<AliasView> => {
       requirePermission(route.identity, 'alias:write');
 
-      const alias = await updateAlias(
+      const { before, after } = await updateAlias(
         aliasesContext(route.request.traceId),
         route.params.aliasId,
         route.body,
@@ -861,15 +1086,20 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
       await context.audit.record({
         action: 'alias.update',
         resourceType: 'alias',
-        resourceId: alias.id,
+        resourceId: after.id,
         result: 'success',
         identity: route.identity,
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
-        details: { entityId: alias.entityId, name: alias.name },
+        details: {
+          entityId: after.entityId,
+          name: after.name,
+          before: auditEntryOf(before),
+          after: auditEntryOf(after),
+        },
       });
 
-      return alias;
+      return after;
     },
   );
 
@@ -878,44 +1108,45 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     {
       method: 'DELETE',
       url: '/aliases/:aliasId',
-      summary: 'Delete a derived entity',
+      summary: 'Delete an alias',
       tag: 'Library',
       permission: 'alias:write',
       params: z.object({ aliasId: z.uuid() }),
-      response: aliasViewSchema,
+      response: aliasDeleteResultSchema,
     },
 
     /**
-     * Deletes an alias, through `core`.
+     * Deletes an alias, through `core`, saying what used it: those things stop working until
+     * they are pointed elsewhere.
      *
-     * A deletion another alias blocks is a `CONFLICT`, like every refusal of a write that would
-     * leave something dangling; its details name the aliases that read this one when the
-     * caller may see aliases.
-     *
-     * @param route - Who is deleting it.
-     * @returns The alias as it was.
+     * @param route - Who is deleting it, and which.
+     * @returns The alias's id and what used it.
      */
-    async (route): Promise<AliasView> => {
+    async (route): Promise<{ id: string; usedBy: AliasUsedBy }> => {
       requirePermission(route.identity, 'alias:write');
 
-      const deleted = await deleteAlias(
+      const { alias, usedBy } = await deleteAlias(
         aliasesContext(route.request.traceId),
         route.params.aliasId,
-        isPermitted(route.identity.permissions, 'alias:read'),
       );
 
       await context.audit.record({
         action: 'alias.delete',
         resourceType: 'alias',
-        resourceId: deleted.id,
+        resourceId: alias.id,
         result: 'success',
         identity: route.identity,
         ipAddress: route.request.ip,
         traceId: route.request.traceId,
-        details: { entityId: deleted.entityId, name: deleted.name },
+        details: {
+          entityId: alias.entityId,
+          name: alias.name,
+          before: auditEntryOf(alias),
+          after: null,
+        },
       });
 
-      return deleted;
+      return { id: alias.id, usedBy };
     },
   );
 }
