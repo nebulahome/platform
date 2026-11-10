@@ -319,6 +319,16 @@ export class CoreService {
       code: aliasCode,
 
       /**
+       * Runs the steps of an alias's action. The automation engine is built after the alias engine
+       * (the dispatcher needs the one, and the other needs the dispatcher), so it is looked up as
+       * each run starts.
+       *
+       * @param request - The steps and on whose behalf.
+       * @returns How it went, or undefined before the automation engine is there.
+       */
+      runActions: async (request) => this.#automationEngine?.runActions(request),
+
+      /**
        * The fields of a package entity type, for a custom alias.
        *
        * @param packageId - The package.

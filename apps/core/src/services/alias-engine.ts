@@ -6,7 +6,9 @@
  * every part out, puts the capability states together, and writes them through ingest like any
  * other entity's (ARCHITECTURE.md §6.3). A command to an alias goes to the parts it touches: a
  * stored part takes the new value here, an entity part has the command forwarded to its entity,
- * and a formula or code part refuses it, since nothing can set what is worked out.
+ * and a formula or code part refuses it, since nothing can set what is worked out - unless the part
+ * has an action for that command: then only the action runs (a stored part still keeps the value).
+ * A part's actions also run when its value changes ({@link AliasActions}).
  *
  * **An alias changes while `core` runs.** The API writes an alias's rows and then asks the
  * engine to take them in ({@link AliasEngine.sync}); removing one goes through the engine
@@ -65,6 +67,7 @@ import {
 } from '../persistence/alias-loader.js';
 import { loadEntityRecord } from '../persistence/registry-loader.js';
 
+import { AliasActions, type RunActions } from './alias-actions.js';
 import { ingestReport, type StateIngestOptions } from './state-ingest.js';
 
 /** What runs an alias's code parts (`alias-code-runtime.ts`). */
@@ -117,6 +120,9 @@ export type AliasEngineOptions = {
 
   /** Runs code parts; without it a code part fails, saying so. */
   readonly code?: AliasCodeRunner;
+
+  /** Runs the steps of a part's actions; without it the actions do nothing. */
+  readonly runActions?: RunActions;
 };
 
 /** Sends a command on to another entity, as the dispatcher does. */
@@ -170,6 +176,12 @@ export class AliasEngine {
   /** For a lamp with a colour and a colour temperature: the one set last. */
   readonly #active = new Map<EntityId, 'color' | 'color_temp'>();
 
+  /** The aliases worked out at least once since `core` started: a change before that is none. */
+  readonly #seen = new Set<string>();
+
+  /** The actions of their parts. */
+  readonly #actions: AliasActions;
+
   #minuteTimer: ReturnType<typeof setInterval> | undefined;
 
   /**
@@ -177,6 +189,27 @@ export class AliasEngine {
    */
   public constructor(options: AliasEngineOptions) {
     this.#options = options;
+    this.#actions = new AliasActions({
+      db: options.db,
+      logger: options.logger,
+      run: options.runActions,
+      /**
+       * An entity's reading, for a name an action's formula reads.
+       *
+       * @param name - The name.
+       * @returns The reading, or null when there is none now.
+       */
+      bind: (name) => this.#binding(name, 'ignore_missing'),
+      /**
+       * Says something on the bus.
+       *
+       * @param subject - Where.
+       * @param event - What.
+       */
+      publish: (subject, event) => {
+        options.ingest.client.publish(subject, event);
+      },
+    });
   }
 
   /**
@@ -203,8 +236,10 @@ export class AliasEngine {
     return aliases.length;
   }
 
-  /** Stops the minute timer and every pending run's timer. */
+  /** Stops the minute timer, every pending run's timer, and every action going. */
   public stop(): void {
+    this.#actions.stop();
+
     if (this.#minuteTimer !== undefined) {
       clearInterval(this.#minuteTimer);
       this.#minuteTimer = undefined;
@@ -243,6 +278,9 @@ export class AliasEngine {
     }
 
     this.#options.code?.forget(alias.id);
+    this.#actions.forget(alias.id);
+    // A new setup: what the edit itself changes is not a change its actions answer.
+    this.#seen.delete(alias.id);
     this.#options.directory.set(record);
     this.#options.catalog.upsert(alias);
 
@@ -268,7 +306,9 @@ export class AliasEngine {
 
     if (alias !== undefined) {
       this.#options.code?.forget(alias.id);
+      this.#actions.forget(alias.id);
       this.#failing.delete(alias.id);
+      this.#seen.delete(alias.id);
     }
   }
 
@@ -290,7 +330,8 @@ export class AliasEngine {
   }
 
   /**
-   * Applies a command to an alias: stored parts take it here, entity parts have it forwarded.
+   * Applies a command to an alias: stored parts take it here, entity parts have it forwarded, and
+   * a part with an action for it runs that action instead of forwarding or refusing it.
    *
    * @param entityId - The alias entity.
    * @param capability - The capability named in the command.
@@ -345,9 +386,10 @@ export class AliasEngine {
     }
 
     const touched = partsTouchedBy(alias.defs, alias.parts, capability, name);
+    const acting = this.#actions.forCommand(alias, touched, command, context);
     const readOnly = touched.find((def) => {
       const from = alias.parts[def.key]?.from;
-      return from === 'formula' || from === 'code';
+      return !acting.has(def.key) && (from === 'formula' || from === 'code');
     });
 
     if (readOnly !== undefined) {
@@ -362,6 +404,11 @@ export class AliasEngine {
 
     for (const def of touched) {
       const config = alias.parts[def.key];
+
+      if (acting.has(def.key)) {
+        // Its action does what the command does: sending it on is the action's, if it wants.
+        continue;
+      }
 
       if (config?.from === 'entity') {
         targets.add(config.entity);
@@ -428,6 +475,8 @@ export class AliasEngine {
         context,
       );
     }
+
+    this.#actions.startForCommand(alias, acting, command, context);
   }
 
   /**
@@ -532,6 +581,11 @@ export class AliasEngine {
       attributes: {},
     };
 
+    if (this.#seen.has(alias.id)) {
+      this.#actions.onValues(alias, (def) => readPart(def, previous?.state), values, context);
+    }
+
+    this.#seen.add(alias.id);
     ingestReport(
       this.#options.ingest,
       record,

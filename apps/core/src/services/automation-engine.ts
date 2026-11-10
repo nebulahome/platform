@@ -50,6 +50,7 @@ import {
   type ConditionNode,
   type EntityId,
   type EntityState,
+  type JsonObject,
   type RemoveAutomationReply,
   type SyncAutomationReply,
   type SyncHouseReply,
@@ -163,6 +164,38 @@ type PortsScope = {
 
   /** How long a scene applied from here may still take. */
   readonly remainingMs: () => number;
+
+  /** Works out a command's params just before it is sent: an alias's action fills in its formulas. */
+  readonly resolveParams?: ((capability: string, params: JsonObject) => JsonObject) | undefined;
+};
+
+/** One run of an alias's action: its steps, on behalf of the alias. */
+export type ActionsRunRequest = {
+  readonly steps: readonly AutomationAction[];
+
+  /** The cause the commands carry: the alias. */
+  readonly context: ChangeContext;
+
+  /** What another automation started from here records as having woken it. */
+  readonly startedBy: AutomationRunTrigger;
+
+  /** Ends the run: a newer one replacing it, the alias going. */
+  readonly signal: AbortSignal;
+
+  /** How long it may take. */
+  readonly maxMs: number;
+
+  /** Works out a command's params just before it is sent. */
+  readonly resolveParams?: ((capability: string, params: JsonObject) => JsonObject) | undefined;
+};
+
+/** How a run of an alias's action went. */
+export type ActionsRunOutcome = {
+  readonly result: AutomationRunResult;
+  readonly error: string | null;
+  readonly steps: TraceStep[];
+  readonly startedAt: Date;
+  readonly finishedAt: Date;
 };
 
 /** Where a tested block sits: its steps' paths are given relative to it. */
@@ -299,6 +332,9 @@ function triggerDetail(trigger: AutomationRunTrigger): string {
     }
     case 'automation': {
       return 'started by another automation';
+    }
+    case 'alias': {
+      return 'started by an action of an alias';
     }
     case 'webhook': {
       return 'its webhook was called';
@@ -646,6 +682,65 @@ export class AutomationEngine {
   }
 
   // --- testing ---------------------------------------------------------------------------
+
+  /**
+   * Runs the steps of an alias's action, as a run no automation owns.
+   *
+   * Its commands carry the alias as their cause; it ends when its steps do, when the caller's signal
+   * aborts it (a newer run of the same action), or when its time is up. Recording it is the
+   * caller's: an alias keeps its own runs.
+   *
+   * @param request - The steps and on whose behalf.
+   * @returns How it went, step by step.
+   */
+  public async runActions(request: ActionsRunRequest): Promise<ActionsRunOutcome> {
+    const controller = new AbortController();
+    const startedAt = this.#now();
+    const trace = new TraceRecorder();
+    /**
+     * Passes the caller's abort on to the run.
+     */
+    const cancel = (): void => {
+      controller.abort('cancelled');
+    };
+    const timeout = setTimeout(() => {
+      controller.abort('timeout');
+    }, request.maxMs);
+    const ports = this.#ports({
+      context: request.context,
+      traceId: this.#options.newTraceId(),
+      chain: [],
+      automationId: null,
+      startedBy: request.startedBy,
+      /**
+       * What is left of the run's time.
+       *
+       * @returns Milliseconds.
+       */
+      remainingMs: () => request.maxMs - (this.#now().getTime() - startedAt.getTime()),
+      resolveParams: request.resolveParams,
+    });
+    let ending: RunEnding = { result: 'success', error: null };
+
+    if (request.signal.aborted) {
+      cancel();
+    } else {
+      request.signal.addEventListener('abort', cancel, { once: true });
+    }
+
+    try {
+      await new Executor(ports, trace).run(request.steps, 'then', controller.signal);
+    } catch (error: unknown) {
+      ending = this.#endingOf(error);
+    } finally {
+      clearTimeout(timeout);
+      request.signal.removeEventListener('abort', cancel);
+    }
+
+    const finishedAt = this.#now();
+
+    return { ...ending, steps: trace.steps(finishedAt), startedAt, finishedAt };
+  }
 
   /**
    * Runs one action on its own, now.
@@ -1478,7 +1573,7 @@ export class AutomationEngine {
         await this.#options.dispatcher.dispatch({
           entityId: entityId as EntityId,
           capability,
-          command: params,
+          command: scope.resolveParams?.(capability, params) ?? params,
           context,
           traceId,
           logger,

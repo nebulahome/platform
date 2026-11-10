@@ -15,7 +15,7 @@
 import { Writable } from 'node:stream';
 
 import { eq, inArray } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
@@ -43,6 +43,7 @@ import {
 import { AliasCodeRuntime } from '@/services/alias-code-runtime.js';
 import { AliasEngine } from '@/services/alias-engine.js';
 import { startAliasService } from '@/services/alias-service.js';
+import type { ActionsRunRequest } from '@/services/automation-engine.js';
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
 const NATS_URL = 'nats://localhost:4222';
@@ -51,6 +52,7 @@ const suffix = ulid().toLowerCase().slice(0, 10);
 const helper = parseEntityId(`alias.helper_${suffix}`);
 const doubled = parseEntityId(`alias.doubled_${suffix}`);
 const counter = parseEntityId(`alias.counter_${suffix}`);
+const acting = parseEntityId(`alias.acting_${suffix}`);
 
 let helperRowId: string | undefined;
 let code: AliasCodeRuntime;
@@ -62,6 +64,11 @@ let registry: EntityRegistry;
 let catalog: AliasCatalog;
 let stateCache: BatchWriter<EntityStateRow>;
 let serving: { unsubscribe: () => void }[];
+let engine: AliasEngine;
+let actingAliasId: string | undefined;
+
+/** The steps of every action run `core` started, as the automation engine would get them. */
+const actionRuns: ActionsRunRequest[] = [];
 
 /**
  * A logger that writes nowhere.
@@ -204,7 +211,7 @@ beforeAll(async () => {
 
   code = new AliasCodeRuntime({ db: database.db, registry, directory, logger });
 
-  const engine = new AliasEngine({
+  engine = new AliasEngine({
     db: database.db,
     directory,
     registry,
@@ -220,6 +227,24 @@ beforeAll(async () => {
     logger,
     newTraceId: () => ulid(),
     code,
+    /**
+     * Records an action run and says it went well, as the automation engine would.
+     *
+     * @param request - The steps and on whose behalf.
+     * @returns A run that succeeded at once.
+     */
+    runActions: (request) => {
+      actionRuns.push(request);
+      const now = new Date();
+
+      return Promise.resolve({
+        result: 'success',
+        error: null,
+        steps: [],
+        startedAt: now,
+        finishedAt: now,
+      });
+    },
   });
 
   caller = new BusClient({
@@ -238,7 +263,13 @@ afterAll(async () => {
 
   await database.db
     .delete(schema.registry.entities)
-    .where(inArray(schema.registry.entities.entityId, [helper, doubled, counter]));
+    .where(inArray(schema.registry.entities.entityId, [helper, doubled, counter, acting]));
+
+  if (actingAliasId !== undefined) {
+    await database.db
+      .delete(schema.history.aliasActionRuns)
+      .where(eq(schema.history.aliasActionRuns.aliasId, actingAliasId));
+  }
 
   if (helperRowId !== undefined) {
     await database.db
@@ -293,6 +324,56 @@ describe('taking in an alias the API wrote', () => {
 
     expect(await sync(ghost)).toBe(false);
     expect(directory.get(ghost)).toBeUndefined();
+  });
+});
+
+describe('the actions of a part', () => {
+  it('runs the action a command names instead of refusing it, and records the run', async () => {
+    const scene = { type: 'scene', sceneKey: 'evening' };
+
+    await writeAlias(acting, {
+      behavesAs: 'switch',
+      parts: {
+        on: {
+          from: 'formula',
+          formula: 'true',
+          actions: [{ id: 'off', when: { kind: 'command', command: 'turn_off' }, then: [scene] }],
+        },
+      },
+      capabilities: { on_off: { isAssumed: false } },
+    });
+    expect(await sync(acting)).toBe(true);
+
+    // Without an action, a part worked out by a formula still refuses what it has none for.
+    await expect(
+      engine.applyCommand(acting, 'on_off', { command: 'turn_on' }, undefined, () =>
+        Promise.resolve(),
+      ),
+    ).rejects.toThrow(/cannot be set/u);
+
+    await engine.applyCommand(acting, 'on_off', { command: 'turn_off' }, { type: 'user' }, () =>
+      Promise.reject(new Error('Nothing is forwarded')),
+    );
+
+    expect(actionRuns.at(-1)?.steps).toEqual([scene]);
+
+    const aliasId = catalog.getByEntity(acting)?.id ?? '';
+
+    actingAliasId = aliasId;
+
+    await vi.waitFor(async () => {
+      const rows = await database.db
+        .select()
+        .from(schema.history.aliasActionRuns)
+        .where(eq(schema.history.aliasActionRuns.aliasId, aliasId));
+
+      expect(rows).toEqual([
+        expect.objectContaining({ part: 'on', actionId: 'off', result: 'success' }),
+      ]);
+    });
+
+    // Gone again, with the state it left waiting to be written.
+    expect(await remove(acting)).toBe(acting);
   });
 });
 
