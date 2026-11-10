@@ -172,6 +172,11 @@ describe('creating an alias', () => {
       .where(eq(schema.registry.entities.entityId, thermostat.entityId));
 
     expect(params[0]?.params).toMatchObject({ minTemperature: 5, maxTemperature: 35 });
+
+    // Drawn as what it behaves as everywhere the house reads its kind.
+    const entity = await call(AUTHOR, 'GET', `/entities/${thermostat.entityId}`);
+
+    expect(entity.body).toMatchObject({ entityId: thermostat.entityId, domain: 'climate' });
   });
 
   it('records what a formula reads, and refuses one over an entity not in the house', async () => {

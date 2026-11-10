@@ -153,7 +153,7 @@ export function SettingsSheet(props: SettingsSheetProps) {
   // What it may be shown as, besides what its integration says: never an alias.
   const original = entity.original ?? { domain: entity.domain, deviceClass: entity.deviceClass };
   const choices = new Map(
-    (entity.domain === 'alias'
+    (entity.entityId.startsWith('alias.')
       ? []
       : shownAsOptions(
           original,

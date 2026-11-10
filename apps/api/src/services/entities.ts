@@ -15,6 +15,7 @@ import { and, asc, eq, gt, ilike, inArray, isNull, or, sql, type SQL } from 'dri
 
 import type { BusClient } from '@nebulahome/bus';
 import {
+  ALIAS_TYPES,
   busSubjects,
   containerDeviceId,
   CORE_LINK_SOURCES_METHOD,
@@ -99,6 +100,9 @@ type EntityRow = {
   /** Its instance's driver and transport. */
   kind: string | null;
   instanceTransport: string | null;
+
+  /** For an alias, the type it behaves as. */
+  aliasBehavesAs: string | null;
 };
 
 /**
@@ -150,6 +154,9 @@ const ENTITY_COLUMNS = {
     ${schema.registry.devices.preferredTransport})`,
   kind: schema.registry.integrations.kind,
   instanceTransport: schema.registry.integrations.transport,
+  aliasBehavesAs: sql<
+    string | null
+  >`(SELECT a.behaves_as FROM registry.aliases a WHERE a.entity_id = ${schema.registry.entities.id})`,
 } as const;
 
 /**
@@ -386,8 +393,13 @@ function toView(
 
     // The column is nullable, but an entity id is always `<domain>.<object_id>` - the pattern
     // is a CHECK constraint - so the prefix is the domain whenever the column was left empty.
-    // What the owner shows it as stands in for it everywhere the house reads its kind.
-    domain: row.shownDomain ?? row.domain ?? row.entityId.split('.')[0],
+    // What the owner shows it as stands in for it everywhere the house reads its kind; an alias
+    // is drawn as what it behaves as - a light alias is a light, not a switch.
+    domain:
+      row.shownDomain ??
+      ALIAS_TYPES.find((type) => type.id === row.aliasBehavesAs)?.domain ??
+      row.domain ??
+      row.entityId.split('.')[0],
     name: row.name,
     icon: row.icon,
     areaKey: row.areaKey,
