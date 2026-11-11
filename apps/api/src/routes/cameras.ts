@@ -31,18 +31,21 @@ import {
   HUB_CAMERA_OPEN_METHOD,
   HUB_CAMERA_SNAPSHOT_METHOD,
   HUB_SERVICE,
+  isNebulaError,
   NotFoundError,
   WS_AUTH_TIMEOUT_MS,
   WS_CLOSE_TOKEN_EXPIRED,
   WS_CLOSE_UNAUTHENTICATED,
   type CameraSocketMessage,
   type EntityId,
+  type Identity,
 } from '@nebulahome/contracts';
 
+import { isPermitted } from '../auth/permissions.js';
 import { verifyAccessToken } from '../auth/tokens.js';
 import type { ApiContext } from '../context.js';
 import { requireIdentity } from '../http/guard.js';
-import { readableEntityIds } from '../services/entities.js';
+import { findEntity } from '../services/entities.js';
 
 /** How much may wait in a viewer's socket before frames are dropped. */
 const MAXIMUM_BUFFERED_BYTES = 4 * 1024 * 1024;
@@ -55,6 +58,25 @@ const WS_CLOSE_UNAVAILABLE = 4404;
 
 /** The camera, in the path. */
 const cameraParamsSchema = z.object({ entityId: entityIdSchema });
+
+/**
+ * Says whether someone may watch a camera: whether they may read its entity, as the entity's own
+ * route decides - by that one entity, not by reading every entity in the house.
+ *
+ * @param context - The service's collaborators.
+ * @param identity - Who asks.
+ * @param entityId - The camera.
+ * @returns True when they may.
+ */
+async function mayReadCamera(
+  context: ApiContext,
+  identity: Identity,
+  entityId: string,
+): Promise<boolean> {
+  const found = await findEntity(context.db, entityId);
+
+  return found !== undefined && isPermitted(identity.permissions, 'entity:read', found.scopes);
+}
 
 /**
  * Registers the camera routes.
@@ -82,7 +104,7 @@ export function registerCameraRoutes(
       const identity = requireIdentity(request);
       const { entityId } = cameraParamsSchema.parse(request.params);
 
-      if (!(await readableEntityIds(context.db, identity)).has(entityId)) {
+      if (!(await mayReadCamera(context, identity, entityId))) {
         throw new NotFoundError('No entity has that id', { details: { entityId } });
       }
 
@@ -181,7 +203,7 @@ export function registerCameraRoutes(
             const claims = await verifyAccessToken(auth.data.token, context.jwtSecret);
             const identity = await context.authenticator.authenticate(auth.data.token);
 
-            if (!(await readableEntityIds(context.db, identity)).has(entityId)) {
+            if (!(await mayReadCamera(context, identity, entityId))) {
               refuse(WS_CLOSE_UNAVAILABLE, 'No camera has that id');
 
               return;
@@ -264,9 +286,12 @@ export function registerCameraRoutes(
           try {
             await open();
           } catch (error: unknown) {
+            context.logger.debug({ err: error, entityId }, 'Camera could not be opened');
+            // A platform error says what a viewer may read, as over HTTP; anything else stays in
+            // the log, since its text was written for a developer and may name an address.
             refuse(
               WS_CLOSE_UNAVAILABLE,
-              error instanceof Error ? error.message : 'The camera could not be opened',
+              isNebulaError(error) ? error.message : 'The camera could not be opened',
             );
 
             return;

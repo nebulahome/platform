@@ -367,10 +367,47 @@ export async function findRefreshToken(
 }
 
 /**
+ * Issues one more refresh token in a session and records that the session was seen.
+ *
+ * @param tx - The database, or a transaction inside it.
+ * @param input - The family and the digest of the new token.
+ * @param input.sessionId - The family the token belongs to.
+ * @param input.digest - The digest of the token.
+ * @param input.now - The moment it is issued.
+ * @returns The new token's id.
+ */
+export async function issueRefreshToken(
+  tx: Pick<Database, 'insert' | 'update'>,
+  input: { sessionId: string; digest: Buffer; now: Date },
+): Promise<string> {
+  const [next] = await tx
+    .insert(schema.auth.refreshTokens)
+    .values({
+      sessionId: input.sessionId,
+      tokenHash: input.digest,
+      issuedAt: input.now,
+      expiresAt: new Date(input.now.getTime() + REFRESH_TOKEN_TTL_SECONDS * 1000),
+    })
+    .returning({ id: schema.auth.refreshTokens.id });
+
+  if (next === undefined) {
+    throw new Error('Refresh token insert returned no row');
+  }
+
+  await tx
+    .update(schema.auth.sessions)
+    .set({ lastSeenAt: input.now })
+    .where(eq(schema.auth.sessions.id, input.sessionId));
+
+  return next.id;
+}
+
+/**
  * Rotates a refresh token: marks the old one used and issues its replacement.
  *
  * One transaction, because the window between the two writes is exactly the window in which the
- * old token is spent and the new one does not exist.
+ * old token is spent and the new one does not exist. The old one is spent only while it is still
+ * unspent, so of two callers presenting it at once exactly one rotates it.
  *
  * @param db - The database.
  * @param input - The token being replaced and the digest of its replacement.
@@ -378,38 +415,36 @@ export async function findRefreshToken(
  * @param input.sessionId - The family both tokens belong to.
  * @param input.digest - The digest of the replacement.
  * @param input.now - The moment of the rotation.
- * @returns The new token's id.
+ * @returns The new token's id, or undefined when another caller spent the old one first.
  */
 export async function rotateRefreshToken(
   db: Database,
   input: { previousId: string; sessionId: string; digest: Buffer; now: Date },
-): Promise<string> {
+): Promise<string | undefined> {
   return db.transaction(async (tx) => {
-    const [next] = await tx
-      .insert(schema.auth.refreshTokens)
-      .values({
-        sessionId: input.sessionId,
-        tokenHash: input.digest,
-        issuedAt: input.now,
-        expiresAt: new Date(input.now.getTime() + REFRESH_TOKEN_TTL_SECONDS * 1000),
-      })
+    const spent = await tx
+      .update(schema.auth.refreshTokens)
+      .set({ usedAt: input.now })
+      .where(
+        and(
+          eq(schema.auth.refreshTokens.id, input.previousId),
+          isNull(schema.auth.refreshTokens.usedAt),
+        ),
+      )
       .returning({ id: schema.auth.refreshTokens.id });
 
-    if (next === undefined) {
-      throw new Error('Refresh token insert returned no row');
+    if (spent.length === 0) {
+      return undefined;
     }
+
+    const nextId = await issueRefreshToken(tx, input);
 
     await tx
       .update(schema.auth.refreshTokens)
-      .set({ usedAt: input.now, replacedBy: next.id })
+      .set({ replacedBy: nextId })
       .where(eq(schema.auth.refreshTokens.id, input.previousId));
 
-    await tx
-      .update(schema.auth.sessions)
-      .set({ lastSeenAt: input.now })
-      .where(eq(schema.auth.sessions.id, input.sessionId));
-
-    return next.id;
+    return nextId;
   });
 }
 
@@ -482,38 +517,58 @@ export async function revokeAllSessions(
 }
 
 /**
- * Records the outcome of a sign-in attempt on the user row.
+ * Records a successful sign-in on the user row: the failures counted so far are forgiven.
+ *
+ * @param db - The database.
+ * @param userId - Who signed in.
+ * @param now - When.
+ */
+export async function recordLoginSuccess(db: Database, userId: string, now: Date): Promise<void> {
+  await db
+    .update(schema.auth.users)
+    .set({ failedLoginCount: 0, lockedUntil: null, lastLoginAt: now, updatedAt: now })
+    .where(eq(schema.auth.users.id, userId));
+}
+
+/**
+ * Counts a failed sign-in on the user row, and locks the account when it reaches the limit.
+ *
+ * One statement, counting from the row as it is when written rather than as it was read before
+ * the password was hashed: guesses sent in parallel would otherwise all count from the same
+ * number and never reach the lock. A lock that has run out starts the count again, so one wrong
+ * password after it does not lock the account at once.
  *
  * @param db - The database.
  * @param userId - Who tried.
- * @param outcome - Whether it worked, and until when to lock the account if it did not.
- * @param outcome.succeeded - Whether the credentials were accepted.
- * @param outcome.lockedUntil - When the lock lifts, when this failure caused one.
  * @param now - When.
+ * @param policy - How many failures lock the account, and for how long.
+ * @param policy.limit - The failures that lock it.
+ * @param policy.lockSeconds - How long it stays locked.
+ * @returns The failures counted now, and until when the account is locked.
  */
-export async function recordLoginAttempt(
+export async function recordLoginFailure(
   db: Database,
   userId: string,
-  outcome: { succeeded: boolean; lockedUntil?: Date | null },
   now: Date,
-): Promise<void> {
-  if (outcome.succeeded) {
-    await db
-      .update(schema.auth.users)
-      .set({ failedLoginCount: 0, lockedUntil: null, lastLoginAt: now, updatedAt: now })
-      .where(eq(schema.auth.users.id, userId));
+  policy: { limit: number; lockSeconds: number },
+): Promise<{ failedLoginCount: number; lockedUntil: Date | null }> {
+  const { failedLoginCount, lockedUntil } = schema.auth.users;
+  const at = sql`${now.toISOString()}::timestamptz`;
+  const until = sql`${new Date(now.getTime() + policy.lockSeconds * 1000).toISOString()}::timestamptz`;
+  const hasLockRunOut = sql`${lockedUntil} IS NOT NULL AND ${lockedUntil} <= ${at}`;
+  const attempts = sql`CASE WHEN ${hasLockRunOut} THEN 1 ELSE ${failedLoginCount} + 1 END`;
 
-    return;
-  }
-
-  await db
+  const [row] = await db
     .update(schema.auth.users)
     .set({
-      failedLoginCount: sql`${schema.auth.users.failedLoginCount} + 1`,
-      lockedUntil: outcome.lockedUntil ?? null,
+      failedLoginCount: attempts,
+      lockedUntil: sql`CASE WHEN ${attempts} >= ${policy.limit}::int THEN ${until} WHEN ${hasLockRunOut} THEN NULL ELSE ${lockedUntil} END`,
       updatedAt: now,
     })
-    .where(eq(schema.auth.users.id, userId));
+    .where(eq(schema.auth.users.id, userId))
+    .returning({ failedLoginCount, lockedUntil });
+
+  return row ?? { failedLoginCount: 0, lockedUntil: null };
 }
 
 /**

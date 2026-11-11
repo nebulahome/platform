@@ -20,7 +20,7 @@ import { CURRENT_API_VERSION, MaintenanceError } from '@nebulahome/contracts';
 import { readBearer } from './auth/authenticator.js';
 import type { ApiContext } from './context.js';
 import { registerTracing } from './http/context.js';
-import { createErrorHandler, handleNotFound } from './http/errors.js';
+import { createErrorHandler, handleNotFound, loggedPath } from './http/errors.js';
 import { RouteRegistry, type RouteEnvironment } from './http/route.js';
 import { registerActivityRoutes } from './routes/activity.js';
 import { registerAreaRoutes } from './routes/areas.js';
@@ -247,7 +247,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
         {
           traceId: request.traceId,
           method: request.method,
-          path: request.url,
+          path: loggedPath(request.url),
           status: reply.statusCode,
           durationMs: Math.round(reply.elapsedTime),
           userId: request.identity?.userId,

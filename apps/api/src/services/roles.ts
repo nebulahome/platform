@@ -169,13 +169,14 @@ async function permissionIds(db: Writer, keys: readonly string[]): Promise<strin
 }
 
 /**
- * Refuses a role gaining a permission the caller does not hold unscoped.
+ * Refuses a role gaining a permission the caller does not hold unscoped - or a person being given
+ * a role that grants one.
  *
  * @param identity - Who is asking.
- * @param gained - The permissions the role would gain.
+ * @param gained - The permissions the role would gain, or grants.
  * @throws {PermissionError} Naming the first one.
  */
-function refuseEscalation(identity: Identity, gained: readonly string[]): void {
+export function refuseEscalation(identity: Identity, gained: readonly string[]): void {
   const missing = gained.filter((key) => !isPermitted(identity.permissions, key));
 
   if (missing.length > 0) {

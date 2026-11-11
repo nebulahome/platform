@@ -86,7 +86,22 @@ export type RouteDefinition = {
 
   /** What a success returns. */
   readonly response?: z.ZodType;
+
+  /** A budget of its own, tighter than the server's: for a route where a password is guessed. */
+  readonly rateLimit?: { readonly max: number; readonly timeWindow: number };
 };
+
+/**
+ * The route options that give a route its own rate limit, when it declares one.
+ *
+ * @param definition - What the route declares.
+ * @returns The options to spread into the route.
+ */
+function rateLimitOf(definition: Pick<RouteDefinition, 'rateLimit'>): {
+  config?: { rateLimit: { max: number; timeWindow: number } };
+} {
+  return definition.rateLimit === undefined ? {} : { config: { rateLimit: definition.rateLimit } };
+}
 
 /**
  * Everything the server serves, in declaration order.
@@ -180,6 +195,7 @@ export function defineRoute<TShapes extends Shapes>(
   environment.server.route({
     method: definition.method,
     url: `${environment.basePath}${definition.url}`,
+    ...rateLimitOf(definition),
 
     /**
      * Validates, authorises and runs the route.
@@ -244,7 +260,7 @@ export function definePublicRoute<TShapes extends Shapes>(
     >,
   ) => Promise<unknown>,
 ): void {
-  const successStatus = definition.successStatus ?? (definition.method === 'POST' ? 200 : 200);
+  const successStatus = definition.successStatus ?? 200;
 
   environment.registry.add(environment.basePath, {
     ...definition,
@@ -256,6 +272,7 @@ export function definePublicRoute<TShapes extends Shapes>(
   environment.server.route({
     method: definition.method,
     url: `${environment.basePath}${definition.url}`,
+    ...rateLimitOf(definition),
 
     /**
      * Validates and runs the route.

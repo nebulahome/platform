@@ -25,8 +25,12 @@ import {
   findUserById,
   readAccessTokenGrants,
   readIdentityGrants,
+  touchAccessToken,
 } from './repository.js';
 import { hashOpaqueToken, verifyAccessToken } from './tokens.js';
+
+/** How often a personal access token's last use is written at most, in milliseconds. */
+const TOUCH_EVERY_MS = 60_000;
 
 /** What the authenticator needs to do its work. */
 export type AuthenticatorOptions = {
@@ -74,6 +78,9 @@ export class Authenticator {
    * users and their sessions are the archive's.
    */
   #tokensValidFrom: Date | null = null;
+
+  /** When each personal access token's last use was last written, in epoch milliseconds. */
+  readonly #touchedAt = new Map<string, number>();
 
   /**
    * Creates the authenticator.
@@ -188,6 +195,13 @@ export class Authenticator {
       ),
       readAccessTokenGrants(this.#db, record.id),
     ]);
+
+    // Once a minute at most: the time is for the token list to show, not worth a write a request.
+    if (now.getTime() - (this.#touchedAt.get(record.id) ?? 0) >= TOUCH_EVERY_MS) {
+      this.#touchedAt.set(record.id, now.getTime());
+      // Not awaited, and a failed write only leaves the time older than it is.
+      touchAccessToken(this.#db, record.id, now).catch(() => undefined);
+    }
 
     return {
       userId: user.id,

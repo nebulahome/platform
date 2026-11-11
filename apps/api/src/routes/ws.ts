@@ -41,7 +41,10 @@ type SocketState = {
   /** Who it belongs to, once authenticated. */
   identity: Identity | undefined;
 
-  /** Which entity identifiers it may be told about. */
+  /** Which entity identifiers its permissions let it read. */
+  permitted: Set<string>;
+
+  /** Which entity identifiers it is told about: the permitted, narrowed by what it asked for. */
   readable: Set<string>;
 
   /** The entities it asked to be narrowed to, when it asked. */
@@ -155,6 +158,101 @@ export function handlePackageLive(
 }
 
 /**
+ * What following a topic takes: the permission the page that lists the same things takes.
+ *
+ * Not `devices`: an entity's reader without `device:read` learns of the entities a device brings
+ * from its events. Nor `state`, filtered per entity, nor `library` and `system`, which carry no
+ * more than a kind of list and a restart that every page shows.
+ */
+const TOPIC_PERMISSIONS: Partial<Record<WsTopic, string>> = {
+  automations: 'automation:read',
+  discovery: 'device:read',
+  containers: 'container:read',
+  backups: 'settings:read',
+  packages: 'package:read',
+};
+
+/**
+ * Says whether someone may follow a topic.
+ *
+ * @param identity - Who asks.
+ * @param topic - The topic.
+ * @returns The permission they lack, or undefined when they may.
+ */
+export function missingTopicPermission(identity: Identity, topic: WsTopic): string | undefined {
+  const permission = TOPIC_PERMISSIONS[topic];
+
+  return permission === undefined || isPermitted(identity.permissions, permission)
+    ? undefined
+    : permission;
+}
+
+/**
+ * The entities a socket is told about: those it may read, narrowed to those it asked for.
+ *
+ * @param permitted - What its permissions let it read.
+ * @param requested - What it asked for, or undefined for everything.
+ * @returns The set.
+ */
+export function narrowReadable(
+  permitted: ReadonlySet<string>,
+  requested: ReadonlySet<string> | undefined,
+): Set<string> {
+  return requested === undefined
+    ? new Set(permitted)
+    : new Set([...permitted].filter((entityId) => requested.has(entityId)));
+}
+
+/**
+ * Runs a task one at a time: asked again while it runs, it runs once more afterwards, however
+ * many times it was asked, so the last run always starts after the last request.
+ *
+ * @param task - The task.
+ * @param onError - Told of a run that failed.
+ * @returns What asks for a run.
+ */
+export function singleFlight(
+  task: () => Promise<void>,
+  onError: (error: unknown) => void,
+): () => void {
+  let isRunning = false;
+  let isAskedAgain = false;
+
+  /**
+   * Runs the task, and once more when it was asked for meanwhile.
+   *
+   * @returns Once no run is left to do.
+   */
+  const run = async (): Promise<void> => {
+    try {
+      await task();
+    } catch (error: unknown) {
+      onError(error);
+    }
+
+    if (isAskedAgain) {
+      isAskedAgain = false;
+      await run();
+
+      return;
+    }
+
+    isRunning = false;
+  };
+
+  return (): void => {
+    if (isRunning) {
+      isAskedAgain = true;
+
+      return;
+    }
+
+    isRunning = true;
+    void run();
+  };
+}
+
+/**
  * Takes one message from a socket's budget: a bucket {@link WS_CLIENT_MESSAGES_PER_SECOND} deep,
  * filled at that rate.
  *
@@ -205,6 +303,7 @@ export function registerWebSocket(
     (socket: WebSocket, request: FastifyRequest): void => {
       const state: SocketState = {
         identity: undefined,
+        permitted: new Set<string>(),
         readable: new Set<string>(),
         requested: undefined,
         topics: new Set<WsTopic>(),
@@ -238,24 +337,18 @@ export function registerWebSocket(
           return;
         }
 
-        const permitted = await readableEntityIds(context.db, state.identity);
-        const { requested } = state;
-
-        state.readable =
-          requested === undefined
-            ? permitted
-            : new Set([...permitted].filter((entityId) => requested.has(entityId)));
+        state.permitted = await readableEntityIds(context.db, state.identity);
+        state.readable = narrowReadable(state.permitted, state.requested);
       };
 
-      /** Decides again, reporting rather than throwing when the registry cannot be read. */
-      const rereadReadable = (): void => {
-        refreshReadable().catch((error: unknown) => {
-          context.logger.warn(
-            { err: error, traceId: request.traceId },
-            'Could not re-read which entities a socket may hear about',
-          );
-        });
-      };
+      // One read at a time, and a burst of registry changes is one more read rather than a read
+      // each - which could also finish out of order and leave an older set in place.
+      const rereadReadable = singleFlight(refreshReadable, (error: unknown) => {
+        context.logger.warn(
+          { err: error, traceId: request.traceId },
+          'Could not re-read which entities a socket may hear about',
+        );
+      });
 
       const authTimer = setTimeout(() => {
         if (state.identity === undefined) {
@@ -329,7 +422,8 @@ export function registerWebSocket(
               const identity = await context.authenticator.authenticate(message.data.accessToken);
 
               state.identity = identity;
-              state.readable = await readableEntityIds(context.db, identity);
+              state.permitted = await readableEntityIds(context.db, identity);
+              state.readable = narrowReadable(state.permitted, state.requested);
               clearTimeout(authTimer);
 
               const expiresAt = new Date(claims.exp * 1000);
@@ -419,32 +513,30 @@ export function registerWebSocket(
             return;
           }
 
-          if (
-            message.data.type === 'subscribe' &&
-            message.data.topic === 'automations' &&
-            !isPermitted(state.identity.permissions, 'automation:read')
-          ) {
-            // Runs say what the house did and when; they are for those who may read automations.
+          const missing =
+            message.data.type === 'subscribe'
+              ? missingTopicPermission(state.identity, message.data.topic)
+              : undefined;
+
+          if (missing !== undefined) {
+            // What a topic says is for those who may read the page that lists the same things.
             send({
               type: 'error',
               code: 'PERMISSION',
-              message: 'Reading automations is not permitted',
+              message: `Following this topic requires ${missing}`,
             });
 
             return;
           }
 
           if (message.data.type === 'subscribe') {
-            // A filter only ever narrows what the identity may already see: the readable set was
-            // computed from permissions when the socket authenticated, and intersecting with it
-            // is what stops a client subscribing itself to a room it cannot read.
-            if (message.data.topic === 'state' && message.data.filter?.entityIds !== undefined) {
-              const requested = new Set<string>(message.data.filter.entityIds);
+            // A filter only ever narrows what the identity may already see, and is applied to
+            // that rather than to the last filter, so a wider one, or none, widens it again.
+            if (message.data.topic === 'state') {
+              const entityIds = message.data.filter?.entityIds;
 
-              state.requested = requested;
-              state.readable = new Set(
-                [...state.readable].filter((entityId) => requested.has(entityId)),
-              );
+              state.requested = entityIds === undefined ? undefined : new Set<string>(entityIds);
+              state.readable = narrowReadable(state.permitted, state.requested);
             }
 
             state.topics.add(message.data.topic);

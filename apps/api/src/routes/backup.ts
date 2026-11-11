@@ -13,7 +13,6 @@ import { z } from 'zod';
 
 import { resolveDataLayout } from '@nebulahome/config';
 import {
-  AuthenticationError,
   BACKUP_METHODS,
   ValidationError,
   backupArchiveListSchema,
@@ -41,7 +40,9 @@ import { openSecret, sealSecret } from '@nebulahome/db';
 import { verifyPassword } from '../auth/password.js';
 import { requirePermission } from '../auth/permissions.js';
 import { findUserById } from '../auth/repository.js';
+import { loginRateLimit } from '../config.js';
 import type { ApiContext } from '../context.js';
+import { requireSession } from '../http/guard.js';
 import { definePublicRoute, defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
   askBackup,
@@ -66,11 +67,17 @@ const runParamsSchema = z.object({ runId: z.uuid() });
 const runsQuerySchema = z.object({ limit: z.coerce.number().int().min(1).max(100).default(20) });
 
 /**
- * Checks that whoever asks is who they say, again: their password, on a signed-in session.
+ * Checks that whoever asks is who they say, again: their password, on a signed-in session. A
+ * refusal is written down, as a wrong password at sign-in is.
  *
  * @param context - The service's collaborators.
  * @param identity - Who is asking.
  * @param password - What they typed.
+ * @param attempt - What the password was typed for, for the audit entry of a refusal.
+ * @param attempt.action - The audit action.
+ * @param attempt.resourceType - The audit resource type.
+ * @param attempt.ipAddress - Where the request came from.
+ * @param attempt.traceId - The request's trace id.
  * @throws {AuthenticationError} With a personal access token, which is never enough for this.
  * @throws {ValidationError} When the password is not theirs.
  */
@@ -78,17 +85,22 @@ async function confirmPassword(
   context: ApiContext,
   identity: Identity,
   password: string,
+  attempt: { action: string; resourceType: string; ipAddress: string; traceId: string },
 ): Promise<void> {
-  if (identity.credential !== 'session') {
-    throw new AuthenticationError('This needs a signed-in session, not an access token');
-  }
+  try {
+    requireSession(identity);
 
-  const user = await findUserById(context.db, identity.userId);
+    const user = await findUserById(context.db, identity.userId);
 
-  if (user === undefined || !(await verifyPassword(user.passwordHash, password))) {
-    throw new ValidationError('The password is not correct', {
-      details: { issues: [{ path: 'password', message: 'The password is not correct' }] },
-    });
+    if (user === undefined || !(await verifyPassword(user.passwordHash, password))) {
+      throw new ValidationError('The password is not correct', {
+        details: { issues: [{ path: 'password', message: 'The password is not correct' }] },
+      });
+    }
+  } catch (error: unknown) {
+    await context.audit.record({ ...attempt, result: 'failure', identity });
+
+    throw error;
   }
 }
 
@@ -485,6 +497,7 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
       body: backupKeyRequestSchema,
       response: backupKeyFileSchema,
       successStatus: 200,
+      rateLimit: loginRateLimit(context.config),
     },
 
     /**
@@ -495,21 +508,12 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
      */
     async (route): Promise<BackupKeyFile> => {
       requirePermission(route.identity, 'backup:restore');
-
-      try {
-        await confirmPassword(context, route.identity, route.body.password);
-      } catch (error: unknown) {
-        await context.audit.record({
-          action: 'backup.key_download',
-          resourceType: 'backup_key',
-          result: 'failure',
-          identity: route.identity,
-          ipAddress: route.request.ip,
-          traceId: route.request.traceId,
-        });
-
-        throw error;
-      }
+      await confirmPassword(context, route.identity, route.body.password, {
+        action: 'backup.key_download',
+        resourceType: 'backup_key',
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+      });
 
       const reply = await askBackup(
         { bus: context.bus, traceId: route.request.traceId },
@@ -554,6 +558,7 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
       body: backupRestoreRequestSchema,
       response: backupRunStartedSchema,
       successStatus: 202,
+      rateLimit: loginRateLimit(context.config),
     },
 
     /**
@@ -565,7 +570,12 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
      */
     async (route) => {
       requirePermission(route.identity, 'backup:restore');
-      await confirmPassword(context, route.identity, route.body.password);
+      await confirmPassword(context, route.identity, route.body.password, {
+        action: 'backup.restore',
+        resourceType: 'backup_run',
+        ipAddress: route.request.ip,
+        traceId: route.request.traceId,
+      });
 
       let sealedKeyFile: string | undefined;
 

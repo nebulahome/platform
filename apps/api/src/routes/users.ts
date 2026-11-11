@@ -31,6 +31,7 @@ import {
   userViewSchema,
   type AccessTokenView,
   type CreateAccessTokenResponse,
+  type Identity,
   type SessionView,
   type SupportedLocale,
   type TwoFactorConfirmResponse,
@@ -41,7 +42,12 @@ import { schema } from '@nebulahome/db';
 
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { isPermitted, requirePermission } from '../auth/permissions.js';
-import { findUserById, revokeAllSessions, revokeSession } from '../auth/repository.js';
+import {
+  findUserById,
+  readRoleGrants,
+  revokeAllSessions,
+  revokeSession,
+} from '../auth/repository.js';
 import { generateOpaqueToken, hashOpaqueToken } from '../auth/tokens.js';
 import {
   decryptSecret,
@@ -52,24 +58,17 @@ import {
   verifyTotp,
 } from '../auth/totp.js';
 import type { ApiContext } from '../context.js';
+import { collectionSchema } from '../http/collection.js';
+import { requireSession } from '../http/guard.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { deleteAvatar, readAvatarUrl, readAvatarUrls, writeAvatar } from '../services/avatars.js';
+import { refuseEscalation } from '../services/roles.js';
 
 /** The path parameters of the per-user routes. */
 const userParamsSchema = z.object({ userId: z.uuid() });
 
 /** The path parameters of routes addressing one of the caller's own things. */
 const idParamsSchema = z.object({ id: z.uuid() });
-
-/**
- * A collection response.
- *
- * @param item - What one entry looks like.
- * @returns The schema of a whole collection of them.
- */
-const collectionSchema = <TItem extends z.ZodType>(
-  item: TItem,
-): z.ZodObject<{ items: z.ZodArray<TItem> }> => z.object({ items: z.array(item) });
 
 /** The name shown in an authenticator app. */
 const TOTP_ISSUER = 'Nebula Home';
@@ -130,14 +129,21 @@ async function readUserView(context: ApiContext, userId: string): Promise<UserVi
 }
 
 /**
- * Finds a role by its key.
+ * Finds a role the caller may hand out: one granting nothing they do not hold themselves. Without
+ * that, `user:manage` alone would make anyone, themselves included, the owner.
  *
  * @param context - The service context.
+ * @param identity - Who is handing it out.
  * @param key - The role key.
  * @returns The role's id.
  * @throws {ValidationError} When no role has that key.
+ * @throws {PermissionError} When the role grants something the caller does not hold.
  */
-async function requireRoleId(context: ApiContext, key: string): Promise<string> {
+async function requireAssignableRoleId(
+  context: ApiContext,
+  identity: Identity,
+  key: string,
+): Promise<string> {
   const rows = await context.db
     .select({ id: schema.auth.roles.id })
     .from(schema.auth.roles)
@@ -149,6 +155,11 @@ async function requireRoleId(context: ApiContext, key: string): Promise<string> 
   if (role === undefined) {
     throw new ValidationError(`No role ${key}`, { details: { role: key } });
   }
+
+  refuseEscalation(
+    identity,
+    (await readRoleGrants(context.db, role.id)).map((grant) => grant.key),
+  );
 
   return role.id;
 }
@@ -245,7 +256,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
     async (route): Promise<UserView> => {
       requirePermission(route.identity, 'user:manage');
 
-      const roleId = await requireRoleId(context, route.body.role);
+      const roleId = await requireAssignableRoleId(context, route.identity, route.body.role);
       const now = context.now();
 
       const existing = await context.db
@@ -405,7 +416,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
       }
 
       if (route.body.role !== undefined) {
-        values['roleId'] = await requireRoleId(context, route.body.role);
+        values['roleId'] = await requireAssignableRoleId(context, route.identity, route.body.role);
       }
 
       const updated = await context.db
@@ -531,12 +542,15 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
     },
 
     /**
-     * Replaces the caller's password and signs every other session out.
+     * Replaces the caller's password and signs every session out, this one included.
      *
      * @param route - The parsed body and who is asking.
+     * @throws {AuthenticationError} With a personal access token.
      * @throws {ValidationError} When the current password is wrong.
      */
     async (route): Promise<void> => {
+      requireSession(route.identity);
+
       const user = await findUserById(context.db, route.identity.userId);
 
       if (user === undefined) {
@@ -558,8 +572,9 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         })
         .where(eq(schema.auth.users.id, user.id));
 
-      // Every session but this one: changing a password is what someone does after suspecting
-      // it was learned, and leaving the other sessions alive would leave the suspicion standing.
+      // Every session, this one too, so the caller signs in again with the new password: changing
+      // a password is what someone does after suspecting it was learned, and leaving the other
+      // sessions alive would leave the suspicion standing.
       await revokeAllSessions(context.db, user.id, 'password_change', now);
 
       await context.audit.record({
@@ -746,11 +761,14 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
      *
      * @param route - The parsed body and who is asking.
      * @returns The token, with its secret shown exactly once.
+     * @throws {AuthenticationError} With a personal access token: a token does not mint tokens.
      * @throws {PermissionError} When the token would declare something the caller cannot do.
      * Refused rather than silently narrowed: a token that quietly does less than it was asked
      * for fails later, somewhere else, for reasons nobody can see.
      */
     async (route): Promise<CreateAccessTokenResponse> => {
+      requireSession(route.identity);
+
       for (const declared of route.body.permissions) {
         if (
           !isPermitted(
@@ -909,12 +927,17 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
      *
      * @param route - Who is asking.
      * @returns The secret and the URI to scan.
+     * @throws {AuthenticationError} With a personal access token.
+     * @throws {ConflictError} When a second factor is already on: storing an unconfirmed secret
+     * over it would turn it off without a word, since sign-in only asks for a confirmed one.
      */
     async (route): Promise<TwoFactorSetupResponse> => {
+      requireSession(route.identity);
+
       const secret = generateTotpSecret();
       const now = context.now();
 
-      await context.db
+      const stored = await context.db
         .insert(schema.auth.totpSecrets)
         .values({
           userId: route.identity.userId,
@@ -930,7 +953,14 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
             confirmedAt: null,
             updatedAt: now,
           },
-        });
+          // Only an enrolment never confirmed is started over.
+          setWhere: isNull(schema.auth.totpSecrets.confirmedAt),
+        })
+        .returning({ userId: schema.auth.totpSecrets.userId });
+
+      if (stored.length === 0) {
+        throw new ConflictError('Two-factor authentication is already on; turn it off first');
+      }
 
       return twoFactorSetupResponseSchema.parse({
         secret: secret.toString('base64'),
@@ -957,9 +987,12 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
      *
      * @param route - The parsed body and who is asking.
      * @returns The recovery codes, shown exactly once.
+     * @throws {AuthenticationError} With a personal access token.
      * @throws {ValidationError} When enrolment was never started, or the code is wrong.
      */
     async (route): Promise<TwoFactorConfirmResponse> => {
+      requireSession(route.identity);
+
       const rows = await context.db
         .select({ secret: schema.auth.totpSecrets.secret })
         .from(schema.auth.totpSecrets)
@@ -1029,8 +1062,11 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
      * Removes the caller's second factor.
      *
      * @param route - Who is asking.
+     * @throws {AuthenticationError} With a personal access token.
      */
     async (route): Promise<void> => {
+      requireSession(route.identity);
+
       await context.db.transaction(async (tx) => {
         await tx
           .delete(schema.auth.totpSecrets)

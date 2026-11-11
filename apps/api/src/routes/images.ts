@@ -20,9 +20,10 @@ import {
   NotFoundError,
 } from '@nebulahome/contracts';
 
+import { isPermitted } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { requireIdentity } from '../http/guard.js';
-import { readableEntityIds } from '../services/entities.js';
+import { findEntity } from '../services/entities.js';
 
 /** How long the hub has to answer: the picture is in its memory. */
 const IMAGE_TIMEOUT_MS = 5000;
@@ -56,7 +57,9 @@ export function registerImageRoutes(
       const identity = requireIdentity(request);
       const { entityId } = imageParamsSchema.parse(request.params);
 
-      if (!(await readableEntityIds(context.db, identity)).has(entityId)) {
+      const found = await findEntity(context.db, entityId);
+
+      if (found === undefined || !isPermitted(identity.permissions, 'entity:read', found.scopes)) {
         throw new NotFoundError('No entity has that id', { details: { entityId } });
       }
 

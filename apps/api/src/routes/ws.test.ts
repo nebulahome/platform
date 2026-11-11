@@ -19,7 +19,14 @@ import { createLogger } from '@nebulahome/logging';
 
 import { EventFanout, liveKey } from '../services/events.js';
 
-import { handlePackageLive, spend, type PackageLiveSocket } from './ws.js';
+import {
+  handlePackageLive,
+  missingTopicPermission,
+  narrowReadable,
+  singleFlight,
+  spend,
+  type PackageLiveSocket,
+} from './ws.js';
 
 const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
 
@@ -173,6 +180,68 @@ describe('a package’s live channel on the socket', () => {
     ]);
     expect(stranger.socket.packageTopics.size).toBe(0);
     expect(reader.told).toEqual([]);
+  });
+});
+
+describe('the topics a socket may follow', () => {
+  it('take what the page listing the same things takes, and leave the rest open', () => {
+    const guest = identityWith('entity:read', 'area:read');
+    const admin = identityWith('device:read', 'container:read', 'settings:read', 'package:read');
+
+    for (const topic of [
+      'discovery',
+      'containers',
+      'backups',
+      'packages',
+      'automations',
+    ] as const) {
+      expect(missingTopicPermission(guest, topic)).toBeDefined();
+    }
+
+    expect(missingTopicPermission(admin, 'containers')).toBeUndefined();
+    expect(missingTopicPermission(admin, 'automations')).toBe('automation:read');
+
+    for (const topic of ['state', 'devices', 'library', 'system'] as const) {
+      expect(missingTopicPermission(guest, topic)).toBeUndefined();
+    }
+  });
+});
+
+describe('the entities a socket is told about', () => {
+  it('are narrowed from what it may read, so a wider filter widens them again', () => {
+    const permitted = new Set(['light.hall', 'light.porch', 'switch.fan']);
+
+    expect(narrowReadable(permitted, new Set(['light.hall', 'lock.door']))).toEqual(
+      new Set(['light.hall']),
+    );
+    expect(narrowReadable(permitted, new Set(['light.hall', 'light.porch']))).toEqual(
+      new Set(['light.hall', 'light.porch']),
+    );
+    expect(narrowReadable(permitted, undefined)).toEqual(permitted);
+  });
+
+  it('are read again one at a time, a burst of changes making one more read', async () => {
+    let reads = 0;
+    let finish: () => void = () => undefined;
+    const reread = singleFlight(
+      async () => {
+        reads += 1;
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+      },
+      () => undefined,
+    );
+
+    reread();
+    reread();
+    reread();
+    finish();
+    await until(() => reads === 2);
+    finish();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(reads).toBe(2);
   });
 });
 

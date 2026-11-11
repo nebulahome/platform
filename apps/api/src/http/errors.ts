@@ -11,6 +11,8 @@ import { z } from 'zod';
 import { ERROR_CODES, isNebulaError, type ApiError, type ErrorCode } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
+import { HOOK_PATH_PREFIX } from '../routes/webhooks.js';
+
 /** The status returned when nothing more specific applies. */
 const INTERNAL_STATUS = 500;
 
@@ -25,6 +27,20 @@ const BAD_REQUEST_STATUS = 400;
  * should learn from a 500.
  */
 const INTERNAL_MESSAGE = 'The request could not be completed';
+
+/** A webhook's address, whose last segment is its credential. */
+const HOOK_ID = new RegExp(`^(${HOOK_PATH_PREFIX})[^/?]+`, 'u');
+
+/**
+ * A request's path as it may be written to a log: without the query, which may carry a token,
+ * and with a webhook's id hidden, since knowing it is all calling the hook takes.
+ *
+ * @param url - The request URL.
+ * @returns The path.
+ */
+export function loggedPath(url: string): string {
+  return (url.split('?')[0] ?? '').replace(HOOK_ID, '$1***');
+}
 
 /** One field that failed validation. */
 type ValidationIssue = {
@@ -152,7 +168,12 @@ export function createErrorHandler(
     // already told them not to do, and logging a stack for each one buries the real failures.
     if (shape.status >= INTERNAL_STATUS) {
       logger.error(
-        { err: error, status: shape.status, traceId: request.traceId, path: request.url },
+        {
+          err: error,
+          status: shape.status,
+          traceId: request.traceId,
+          path: loggedPath(request.url),
+        },
         'Request failed',
       );
     } else {

@@ -119,3 +119,14 @@ export const apiEnvSchema = runtimeEnvSchema
 
 /** Everything `api` needs from the environment. */
 export type ApiConfig = z.output<typeof apiEnvSchema>;
+
+/**
+ * The budget of every route where a password or a code is guessed: signing in, its second step,
+ * and typing the password again for the backup key or a restore.
+ *
+ * @param config - The configuration.
+ * @returns The per-route rate limit: {@link ApiConfig.API_LOGIN_RATE_LIMIT_MAX} a minute.
+ */
+export function loginRateLimit(config: ApiConfig): { max: number; timeWindow: number } {
+  return { max: config.API_LOGIN_RATE_LIMIT_MAX, timeWindow: 60_000 };
+}

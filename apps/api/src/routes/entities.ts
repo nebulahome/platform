@@ -294,7 +294,9 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
         );
       }
 
-      if (context.bus === undefined) {
+      const { bus } = context;
+
+      if (bus === undefined) {
         throw new DeviceUnavailableError('The message bus is not reachable', {
           details: { entityId: route.params.entityId },
         });
@@ -308,55 +310,54 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
           ? null
           : IdempotencyStore.keyFor(route.identity.userId, 'entities.command', idempotencyKey);
 
-      if (storeKey !== null) {
-        const replayed = context.idempotency.lookup(storeKey, digest);
-
-        if (replayed !== undefined) {
-          void route.reply.status(replayed.status);
-
-          return replayed.body as EntityCommandResponse;
-        }
-      }
-
-      const ack = await sendCommand({
-        client: context.bus,
-        entityId: parseEntityId(route.params.entityId),
-        capability,
-        command: route.body.command,
-        identity: route.identity,
-        traceId: route.request.traceId,
-        // An update in the way is waited for rather than failed: see COMMAND_UPDATE_WAIT_MS.
-        timeoutMs: context.config.API_BUS_TIMEOUT_MS + COMMAND_UPDATE_WAIT_MS,
-      });
-
-      const body = entityCommandResponseSchema.parse({
-        entityId: ack.entityId,
-        capability: ack.capability,
-        acceptedAt: ack.acceptedAt,
-        idempotencyKey,
-      });
-
-      if (storeKey !== null) {
-        context.idempotency.record(storeKey, digest, COMMAND_ACCEPTED_STATUS, body);
-      }
-
-      if (isAuditedCapability(capability)) {
-        await context.audit.record({
-          action: 'entity.command',
-          resourceType: 'entity',
-          resourceId: route.params.entityId,
-          result: 'success',
+      /**
+       * Sends the command, and writes it down when it is one worth auditing.
+       *
+       * @returns The acknowledgement.
+       */
+      const command = async (): Promise<EntityCommandResponse> => {
+        const ack = await sendCommand({
+          client: bus,
+          entityId: parseEntityId(route.params.entityId),
+          capability,
+          command: route.body.command,
           identity: route.identity,
-          ipAddress: route.request.ip,
-          userAgent: route.request.headers['user-agent'] ?? null,
           traceId: route.request.traceId,
-          details: { capability, command: route.body.command },
+          // An update in the way is waited for rather than failed: see COMMAND_UPDATE_WAIT_MS.
+          timeoutMs: context.config.API_BUS_TIMEOUT_MS + COMMAND_UPDATE_WAIT_MS,
         });
-      }
 
-      void route.reply.status(COMMAND_ACCEPTED_STATUS);
+        if (isAuditedCapability(capability)) {
+          await context.audit.record({
+            action: 'entity.command',
+            resourceType: 'entity',
+            resourceId: route.params.entityId,
+            result: 'success',
+            identity: route.identity,
+            ipAddress: route.request.ip,
+            userAgent: route.request.headers['user-agent'] ?? null,
+            traceId: route.request.traceId,
+            details: { capability, command: route.body.command },
+          });
+        }
 
-      return body;
+        return entityCommandResponseSchema.parse({
+          entityId: ack.entityId,
+          capability: ack.capability,
+          acceptedAt: ack.acceptedAt,
+          idempotencyKey,
+        });
+      };
+
+      // A retry or a second click while the first still waits for the device joins it.
+      const answer =
+        storeKey === null
+          ? { status: COMMAND_ACCEPTED_STATUS, body: await command() }
+          : await context.idempotency.once(storeKey, digest, COMMAND_ACCEPTED_STATUS, command);
+
+      void route.reply.status(answer.status);
+
+      return answer.body as EntityCommandResponse;
     },
   );
 }

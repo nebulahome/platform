@@ -1,22 +1,33 @@
 /**
- * The image route against a hub that holds one picture, and a database that lists its entity.
+ * The image route against a hub that holds one picture, and a registry that knows its entity.
  *
  * What is asserted is who may read the picture, that it is served as the integration drew it and
  * with the headers that keep it inert, and that a browser holding it already is told so.
  */
 import type { FastifyInstance } from 'fastify';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type * as Entities from '../services/entities.js';
 import {
   bearer,
   buildTestServer,
-  databaseAnswering,
+  emptyDatabase,
   HALL_MAP_SVG,
+  scopedBearer,
   stopHub,
 } from '../testing/hub-harness.js';
 
-/** The map's entity, as the registry lists it. */
-const MAP_ROW = { rowId: 'row-map', entityId: 'image.hall_map', deviceId: null, areaKey: null };
+// The one entity is looked up by itself, as the entity route does, rather than out of all of them.
+vi.mock('../services/entities.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof Entities>()),
+  findEntity: vi.fn((db: unknown, entityId: string) =>
+    Promise.resolve(
+      entityId === 'image.hall_map' || entityId === 'image.garden_map'
+        ? { view: {}, scopes: [`entity.${entityId}`], rowId: 'row-map' }
+        : undefined,
+    ),
+  ),
+}));
 
 let server: FastifyInstance | undefined;
 
@@ -27,12 +38,12 @@ afterEach(async () => {
 });
 
 /**
- * A server whose registry lists the map.
+ * A server whose registry lists the maps.
  *
  * @returns The server.
  */
 async function serving(): Promise<FastifyInstance> {
-  server = await buildTestServer(true, databaseAnswering([MAP_ROW]));
+  server = await buildTestServer(true, emptyDatabase());
 
   return server;
 }
@@ -78,25 +89,21 @@ describe('an image entity’s picture', () => {
       url: '/api/v1/entities/image.hall_map/image',
       headers: { authorization: await bearer('device:read') },
     });
-
-    expect(hidden.statusCode).toBe(404);
-
-    stopHub();
-    await app.close();
-
-    const listed = await buildTestServer(
-      true,
-      databaseAnswering([{ ...MAP_ROW, entityId: 'image.garden_map' }]),
-    );
-
-    server = listed;
-
-    const blank = await listed.inject({
+    const elsewhere = await app.inject({
+      method: 'GET',
+      url: '/api/v1/entities/image.hall_map/image',
+      headers: {
+        authorization: await scopedBearer({ key: 'entity:read', scope: 'entity.image.garden_map' }),
+      },
+    });
+    const blank = await app.inject({
       method: 'GET',
       url: '/api/v1/entities/image.garden_map/image',
       headers: { authorization: await bearer('entity:read') },
     });
 
+    expect(hidden.statusCode).toBe(404);
+    expect(elsewhere.statusCode).toBe(404);
     expect(blank.statusCode).toBe(404);
   });
 });

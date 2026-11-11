@@ -18,7 +18,14 @@ import {
   ValidationError,
 } from '@nebulahome/contracts';
 
-import { toErrorBody, toErrorShape, toValidationIssues } from './errors.js';
+import { loggedPath, toErrorBody, toErrorShape, toValidationIssues } from './errors.js';
+
+describe('loggedPath', () => {
+  it('leaves out the query, and hides the id that is a webhook’s credential', () => {
+    expect(loggedPath('/api/v1/entities?cursor=abc&token=x')).toBe('/api/v1/entities');
+    expect(loggedPath('/api/hooks/0123456789abcdef0123456789abcdef?key=1')).toBe('/api/hooks/***');
+  });
+});
 
 describe('toErrorShape', () => {
   it('keeps a platform error whole', () => {

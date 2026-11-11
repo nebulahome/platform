@@ -7,7 +7,8 @@
  *    same amount of work, because the username path hashes against a decoy.
  * 2. **Reuse detection.** A refresh token is single-use. Presenting a spent one means it was
  *    copied, so the whole session family is revoked rather than the request merely refused - the
- *    legitimate holder is signed out too, which is the point: they find out.
+ *    legitimate holder is signed out too, which is the point: they find out. Only once a short
+ *    grace has passed since it was spent: before that it is another tab of the same browser.
  * 3. **The second factor is not optional once enabled.** The password step hands back a
  *    challenge id and nothing else. There is no token to intercept, and no branch that issues one
  *    before the code is checked.
@@ -42,10 +43,12 @@ import {
   findUserById,
   findUserByUsername,
   hasConfirmedTotp,
+  issueRefreshToken,
   openSession,
   readIdentityGrants,
   readTotpSecret,
-  recordLoginAttempt,
+  recordLoginFailure,
+  recordLoginSuccess,
   revokeAllSessions,
   revokeSession,
   rotateRefreshToken,
@@ -54,13 +57,22 @@ import {
 } from '../auth/repository.js';
 import { generateOpaqueToken, hashOpaqueToken, signAccessToken } from '../auth/tokens.js';
 import { decryptSecret, verifyTotp } from '../auth/totp.js';
+import { loginRateLimit } from '../config.js';
 import type { ApiContext } from '../context.js';
+import { requireSession } from '../http/guard.js';
 import { definePublicRoute, defineRoute, type RouteEnvironment } from '../http/route.js';
 import { readAvatarUrl } from '../services/avatars.js';
 import { readHouseLocale } from '../services/settings.js';
 
 /** One message for every way a sign-in can fail, so none of them is an oracle. */
 const REJECTED = 'Username or password is not correct';
+
+/**
+ * How long after a refresh token was spent presenting it again is taken for a second tab, not a
+ * copy: the tabs of one browser share the stored token, and one that read it just before another
+ * rotated it presents a token spent a moment ago.
+ */
+const REFRESH_REUSE_GRACE_MS = 20_000;
 
 /**
  * Builds the user object the interface needs.
@@ -141,7 +153,7 @@ async function issueSession(
     context.now,
   );
 
-  await recordLoginAttempt(context.db, user.id, { succeeded: true }, now);
+  await recordLoginSuccess(context.db, user.id, now);
 
   return authenticatedResponseSchema.parse({
     tokens: {
@@ -201,12 +213,19 @@ async function verifySecondFactor(
     return false;
   }
 
-  await context.db
+  // Only while still unused: of two sign-ins racing with one code, one gets in.
+  const burned = await context.db
     .update(schema.auth.totpRecoveryCodes)
     .set({ usedAt: context.now() })
-    .where(eq(schema.auth.totpRecoveryCodes.id, match.id));
+    .where(
+      and(
+        eq(schema.auth.totpRecoveryCodes.id, match.id),
+        isNull(schema.auth.totpRecoveryCodes.usedAt),
+      ),
+    )
+    .returning({ id: schema.auth.totpRecoveryCodes.id });
 
-  return true;
+  return burned.length > 0;
 }
 
 /**
@@ -225,6 +244,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
       tag: 'Authentication',
       body: loginRequestSchema,
       response: loginResponseSchema,
+      rateLimit: loginRateLimit(context.config),
     },
 
     /**
@@ -278,20 +298,10 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
       const isCorrect = await verifyPassword(user.passwordHash, route.body.password);
 
       if (!isCorrect || !user.isActive) {
-        const attempts = user.failedLoginCount + 1;
-
-        await recordLoginAttempt(
-          context.db,
-          user.id,
-          {
-            succeeded: false,
-            lockedUntil:
-              attempts >= FAILED_LOGIN_LIMIT
-                ? new Date(now.getTime() + ACCOUNT_LOCK_SECONDS * 1000)
-                : null,
-          },
-          now,
-        );
+        const { failedLoginCount: attempts } = await recordLoginFailure(context.db, user.id, now, {
+          limit: FAILED_LOGIN_LIMIT,
+          lockSeconds: ACCOUNT_LOCK_SECONDS,
+        });
 
         await context.audit.record({
           action: 'auth.login',
@@ -350,6 +360,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
       tag: 'Authentication',
       body: twoFactorRequestSchema,
       response: authenticatedResponseSchema,
+      rateLimit: loginRateLimit(context.config),
     },
 
     /**
@@ -426,8 +437,9 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
      *
      * @param route - The parsed body and the raw request.
      * @returns A new pair of tokens and the current user.
-     * @throws {AuthenticationError} When the token is unknown, expired, revoked, or has already
-     * been used - the last of which also revokes the entire session.
+     * @throws {AuthenticationError} When the token is unknown, expired, revoked, or was used
+     * longer than {@link REFRESH_REUSE_GRACE_MS} ago - the last of which also revokes the entire
+     * session.
      */
     async (route): Promise<AuthenticatedResponse> => {
       const now = context.now();
@@ -437,7 +449,10 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
         throw new AuthenticationError('That refresh token is not valid');
       }
 
-      if (record.usedAt !== null) {
+      if (
+        record.usedAt !== null &&
+        now.getTime() - record.usedAt.getTime() > REFRESH_REUSE_GRACE_MS
+      ) {
         // A spent token being presented again means two parties hold it, and only one of them
         // is supposed to. There is no way to tell which, so the session ends for both.
         await revokeSession(context.db, record.sessionId, 'token_reuse', now);
@@ -485,13 +500,24 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
       }
 
       const next = generateOpaqueToken();
+      const rotated =
+        record.usedAt === null &&
+        (await rotateRefreshToken(context.db, {
+          previousId: record.id,
+          sessionId: record.sessionId,
+          digest: next.digest,
+          now,
+        })) !== undefined;
 
-      await rotateRefreshToken(context.db, {
-        previousId: record.id,
-        sessionId: record.sessionId,
-        digest: next.digest,
-        now,
-      });
+      // Spent a moment ago - by another tab, or by a request racing this one: a pair of its own
+      // in the same session, rather than signing every tab out.
+      if (!rotated) {
+        await issueRefreshToken(context.db, {
+          sessionId: record.sessionId,
+          digest: next.digest,
+          now,
+        });
+      }
 
       const [permissions, isTwoFactorEnabled] = await Promise.all([
         readIdentityGrants(context.db, user, (roleGrants, userGrants) =>
@@ -542,11 +568,14 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
      * Revokes the caller's session or all of them.
      *
      * @param route - The parsed body and who is asking.
+     * @throws {AuthenticationError} When a personal access token asks to end every session.
      */
     async (route): Promise<void> => {
       const now = context.now();
 
       if (route.body.allSessions) {
+        requireSession(route.identity);
+
         const count = await revokeAllSessions(context.db, route.identity.userId, 'logout', now);
 
         await context.audit.record({

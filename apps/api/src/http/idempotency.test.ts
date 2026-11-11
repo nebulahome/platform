@@ -106,4 +106,48 @@ describe('IdempotencyStore', () => {
     expect(mine).not.toBe(theirs);
     expect(mine).not.toBe(elsewhere);
   });
+
+  it('has a repeat sent while the first still waits join it, rather than do it again', async () => {
+    const { store } = storeAt(0);
+    let done: (body: unknown) => void = () => undefined;
+    let runs = 0;
+
+    /**
+     * Work that waits until the test lets it finish.
+     *
+     * @returns Its answer.
+     */
+    const work = async (): Promise<unknown> => {
+      runs += 1;
+
+      return new Promise((resolve) => {
+        done = resolve;
+      });
+    };
+
+    const first = store.once('k', 'f', 202, work);
+    const second = store.once('k', 'f', 202, work);
+
+    await expect(store.once('k', 'other', 202, work)).rejects.toBeInstanceOf(ConflictError);
+
+    done({ ok: true });
+
+    expect(await first).toEqual({ status: 202, body: { ok: true } });
+    expect(await second).toEqual({ status: 202, body: { ok: true } });
+    expect(runs).toBe(1);
+    expect(store.lookup('k', 'f')).toEqual({ status: 202, body: { ok: true } });
+  });
+
+  it('forgets work that failed, so a retry does it again', async () => {
+    const { store } = storeAt(0);
+
+    await expect(
+      store.once('k', 'f', 202, () => Promise.reject(new Error('no answer'))),
+    ).rejects.toThrow('no answer');
+
+    expect(await store.once('k', 'f', 202, () => Promise.resolve('sent'))).toEqual({
+      status: 202,
+      body: 'sent',
+    });
+  });
 });
