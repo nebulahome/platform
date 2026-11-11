@@ -8,7 +8,7 @@
  */
 import { Writable } from 'node:stream';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import type { DiscoveredDevice, JsonObject, MatterIdentity } from '@nebulahome/contracts';
@@ -1005,6 +1005,42 @@ describe('DiscoveryService', () => {
     await until(() => service.list().length > 0);
 
     expect(service.list().map((device) => device.address)).toEqual(['192.168.1.61']);
+  });
+
+  it("stops even when a vendor's module ignores the abort", async () => {
+    // A swap awaits the stop: one module that never ends must not hold up every later install.
+    const module: DiscoverySource = {
+      listen: async function* listen(): AsyncGenerator<Sighting> {
+        yield* [];
+        await new Promise<void>(() => undefined);
+      },
+    };
+    const { service } = await start({
+      vendor: acme(
+        {
+          listen: [{ module: './cloud/discovery.js', lan: false }],
+          identity: { externalId: 'device', model: 'sku' },
+        },
+        [{ kind: 'module', file: './cloud/discovery.js', source: module, lan: false }],
+      ),
+    });
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+    try {
+      let isStopped = false;
+      const stopping = service.stop().then(() => {
+        isStopped = true;
+      });
+
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(isStopped).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await stopping;
+      expect(isStopped).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

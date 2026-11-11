@@ -76,6 +76,23 @@ function messageOf(error: unknown): string {
 }
 
 /**
+ * A socket's address as it may be logged: without a username, password or query, any of which
+ * can carry a token.
+ *
+ * @param url - The address.
+ * @returns It without them, or a placeholder when it does not parse.
+ */
+function withoutSecrets(url: string): string {
+  try {
+    const parsed = new URL(url);
+
+    return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+  } catch {
+    return '(an address that does not parse)';
+  }
+}
+
+/**
  * Reads a frame as text, however `ws` handed it over.
  *
  * @param data - The frame.
@@ -149,6 +166,7 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
     throw new RangeError('A ping needs an interval and a timeout above zero');
   }
 
+  const shown = withoutSecrets(url);
   let current: WebSocket | null = null;
   let isFinal = false;
   let pauseMs = reconnect?.minMs ?? 0;
@@ -166,6 +184,21 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
   let failedAttempts = 0;
 
   /**
+   * Runs one of the bundle's callbacks, logging what it throws: a bundle that cannot read one
+   * frame must not take the hub, and every other device, down with it.
+   *
+   * @param what - Which callback, for the log.
+   * @param callback - The call.
+   */
+  const guarded = (what: string, callback: () => void): void => {
+    try {
+      callback();
+    } catch (error: unknown) {
+      logger.warn({ err: error, url: shown }, `A bundle failed on a socket's ${what}`);
+    }
+  };
+
+  /**
    * Arranges the next attempt, unless this socket is finished or one-shot.
    */
   const schedule = (): void => {
@@ -173,10 +206,14 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
       return;
     }
 
-    timer = setTimeout(() => {
-      timer = null;
-      connect();
-    }, pauseMs);
+    // Up to half off at random: sockets one outage dropped together do not all knock together.
+    timer = setTimeout(
+      () => {
+        timer = null;
+        connect();
+      },
+      pauseMs * (1 - Math.random() / 2),
+    );
     timer.unref();
     pauseMs = Math.min(pauseMs * 2, reconnect.maxMs);
   };
@@ -210,10 +247,10 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
     const { code, status } = details;
 
     if (reconnect !== null && wasOpen) {
-      logger.info({ url, reason, code }, 'Socket dropped; reconnecting');
+      logger.info({ url: shown, reason, code }, 'Socket dropped; reconnecting');
     } else {
       logger.debug(
-        { url, role, reason, code, status, attempt: failedAttempts + 1 },
+        { url: shown, role, reason, code, status, attempt: failedAttempts + 1 },
         wasOpen ? 'Socket closed' : 'Socket did not open',
       );
     }
@@ -223,7 +260,9 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
     }
 
     wasOpen = false;
-    onClose(reason, details);
+    guarded('close', () => {
+      onClose(reason, details);
+    });
     schedule();
   };
 
@@ -321,14 +360,14 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
       hasOpened = true;
 
       if (reconnect !== null && failedAttempts > 0) {
-        logger.info({ url, attempts: failedAttempts }, 'Socket reopened');
+        logger.info({ url: shown, attempts: failedAttempts }, 'Socket reopened');
       }
 
       pauseMs = reconnect?.minMs ?? 0;
       failedAttempts = 0;
       wasOpen = true;
       startPinging(socket);
-      onOpen();
+      guarded('open', onOpen);
     });
 
     socket.on('message', (data) => {
@@ -336,7 +375,9 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
         return;
       }
 
-      onMessage(textOf(data));
+      guarded('message', () => {
+        onMessage(textOf(data));
+      });
     });
 
     socket.on('pong', () => {
@@ -452,7 +493,7 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
      */
     send: (text: string): void => {
       if (current?.readyState !== WebSocket.OPEN) {
-        throw new Error(`The socket to ${url} is not open`);
+        throw new Error(`The socket to ${shown} is not open`);
       }
 
       current.send(text);
@@ -472,10 +513,12 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
 
       current = null;
       stopPinging();
-      logger.debug({ url, reason }, 'Socket reset');
+      logger.debug({ url: shown, reason }, 'Socket reset');
       wasOpen = false;
       socket.close(NORMAL_CLOSURE, clipReason(reason));
-      onClose(reason, {});
+      guarded('close', () => {
+        onClose(reason, {});
+      });
       schedule();
     },
 

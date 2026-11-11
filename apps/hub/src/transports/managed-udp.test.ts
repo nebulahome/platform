@@ -76,6 +76,27 @@ describe('createUdpSockets', () => {
     await sockets.closeAll();
   });
 
+  it('keeps listening when the bundle throws on a datagram', async () => {
+    // A vendor's JSON.parse on an odd datagram must not reach the socket's event and end the hub.
+    const sockets = createUdpSockets(silent());
+    const parsed: unknown[] = [];
+    const listener = sockets.open({
+      onMessage: (message) => {
+        parsed.push(JSON.parse(message.toString()));
+      },
+    });
+    const sender = sockets.open({ onMessage: () => undefined });
+    const port = await portOf(listener);
+
+    await sender.send('{', port, '127.0.0.1');
+    await sender.send('{"ok":true}', port, '127.0.0.1');
+    await until(() => parsed.length > 0);
+
+    expect(parsed).toEqual([{ ok: true }]);
+
+    await sockets.closeAll();
+  });
+
   it('listens on the port a bundle asks for, as a device answering to a fixed port needs', async () => {
     const free = await freePort();
     const sockets = createUdpSockets(silent());

@@ -138,6 +138,9 @@ const PLATFORM_NAME = 'Nebula';
 /** How many advertisements a scanner's minute keeps count of, at most. */
 const MAXIMUM_PER_MINUTE = 100_000;
 
+/** How many addresses are kept heard, at most, before the oldest no one uses are dropped. */
+const MAXIMUM_HEARD = 10_000;
+
 /** The makers of the company ids heard most, as Nearby names them. */
 const MAKERS: Readonly<Record<number, string>> = {
   6: 'Microsoft',
@@ -1578,6 +1581,39 @@ export class BluetoothBroker {
   }
 
   /**
+   * Drops the addresses heard longest ago once there are too many, down to nine tenths of the
+   * limit: phones rotate their private address every quarter hour, which the days alone let pile
+   * up. Never one the house follows, is adding, was told to ignore, or an integration recognises.
+   */
+  #trim(): void {
+    if (this.#heard.size <= MAXIMUM_HEARD) {
+      return;
+    }
+
+    let excess = this.#heard.size - Math.floor(MAXIMUM_HEARD * 0.9);
+    const oldest = [...this.#heard.values()].sort((left, right) => left.lastAt - right.lastAt);
+
+    for (const entry of oldest) {
+      if (excess <= 0) {
+        break;
+      }
+
+      if (
+        this.#followed.has(entry.address) ||
+        this.#adding.has(entry.address) ||
+        this.#refreshes.has(entry.address) ||
+        this.#ignored.has(entry.address) ||
+        this.#claimsOf(entry.identity).length > 0
+      ) {
+        continue;
+      }
+
+      this.#heard.delete(entry.address);
+      excess -= 1;
+    }
+  }
+
+  /**
    * Takes what a proxy reported, as heard by it.
    *
    * @param options - The proxy's scanner.
@@ -1658,6 +1694,10 @@ export class BluetoothBroker {
     entry.hearings.set(scannerId, { rssi: advert.rssi, at: now });
     this.#heard.set(advert.address, entry);
     this.#noteScanner(scannerId, true);
+
+    if (kept === undefined) {
+      this.#trim();
+    }
 
     // The proxy asked to refresh this device heard it while scanning actively: back to rest.
     if (

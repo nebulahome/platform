@@ -626,6 +626,13 @@ export function createMdnsSource(options: MdnsSourceOptions): MdnsSource {
         hosts.delete(key);
       }
     }
+
+    // Past the gap a mark no longer holds a question back, and every new target would keep one.
+    for (const [target, askedAtMs] of hostsAskedAt) {
+      if (nowMs - askedAtMs >= FOLLOW_UP_GAP_MS) {
+        hostsAskedAt.delete(target);
+      }
+    }
   };
 
   return {

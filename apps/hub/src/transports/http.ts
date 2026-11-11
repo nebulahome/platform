@@ -321,20 +321,21 @@ async function withDispatcher<T>(
  *
  * @param config - The connection settings.
  * @returns The key. HTTP shares no socket, so this is only about not running two identical
- * polling loops when an owner configures the same devices twice. The token is in it as a digest,
- * since a key ends up in logs.
+ * polling loops when an owner configures the same devices twice. The token and the password are in
+ * it as digests, since a key ends up in logs - and in it at all, or two instances differing only by
+ * them would share the first one's settings.
  */
 function connectionKey(config: HttpConfig): string {
-  const token =
-    config.token === undefined
-      ? ''
-      : createHash('sha256').update(config.token).digest('hex').slice(0, 16);
+  const [token, password] = [config.token, config.password].map((secret) =>
+    secret === undefined ? '' : createHash('sha256').update(secret).digest('hex').slice(0, 16),
+  );
 
   return `http:${JSON.stringify([
     config.host,
     config.isSecure,
     config.shouldVerifyCertificate,
     config.username ?? '',
+    password,
     token,
     config.tokenHeader ?? '',
     config.pathPrefix ?? '',
@@ -425,8 +426,21 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
         const deviceKey = typeof wanted === 'string' ? wanted : '';
         const everyMs = Math.max(Number(subscription.args['everyMs'] ?? 5000), MIN_POLL_MS);
 
-        /** Reads the device once and delivers what it said. */
+        let isBusy = false;
+        let isAgain = false;
+
+        /**
+         * Reads the device once and delivers what it said. Asked while a read is still out - a
+         * command's follow-up - it reads once more after it, so the change is not missed.
+         */
         const poll = (): void => {
+          if (isBusy) {
+            isAgain = true;
+
+            return;
+          }
+
+          isBusy = true;
           // Deliberately not awaited: a poll that hangs must not delay the next one for a
           // different device, and the request has its own timeout.
           void Promise.resolve()
@@ -448,10 +462,24 @@ function open(config: HttpConfig, context: TransportContext): Promise<TransportC
               // logged at debug and the entity goes stale, which is what `core` reads as
               // unavailable.
               context.logger.debug({ err: error, deviceKey }, 'Poll failed');
+            })
+            .finally(() => {
+              isBusy = false;
+
+              if (isAgain && timers.has(id)) {
+                isAgain = false;
+                poll();
+              }
             });
         };
 
-        const timer = setInterval(poll, everyMs);
+        // A tick while a slow device is still answering is skipped: otherwise requests pile up,
+        // one per interval for as long as the timeout.
+        const timer = setInterval(() => {
+          if (!isBusy) {
+            poll();
+          }
+        }, everyMs);
 
         timer.unref();
         timers.set(id, timer);

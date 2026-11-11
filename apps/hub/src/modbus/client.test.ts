@@ -1,3 +1,5 @@
+import { createServer, type AddressInfo } from 'node:net';
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { startModbusServer, type FakeModbusServer } from '../testing/modbus-server.js';
@@ -135,6 +137,32 @@ describe('the client', () => {
     pool!.release(client);
     expect(pool!.isHeld(address)).toBe(false);
     expect(pool!.traffic().gateways).toBe(0);
+  });
+
+  it('resets on an MBAP frame declaring no length instead of throwing', async () => {
+    const broken = createServer((socket) => {
+      socket.on('data', () => {
+        socket.write(Buffer.from([0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00]));
+      });
+    });
+
+    await new Promise<void>((resolve) => broken.listen(0, '127.0.0.1', resolve));
+    pool = new ModbusPool({ gapMs: 0 });
+
+    const { port } = broken.address() as AddressInfo;
+
+    await expect(
+      pool.read(
+        { host: '127.0.0.1', port, framing: 'tcp' },
+        { unitId: 1, function: 3, address: 0, count: 1, timeoutMs: 2000 },
+      ),
+    ).rejects.toThrow('malformed frame');
+    pool.closeAll();
+    await new Promise<void>((resolve) => {
+      broken.close(() => {
+        resolve();
+      });
+    });
   });
 
   it('says no connection when nothing listens', async () => {

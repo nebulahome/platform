@@ -107,7 +107,12 @@ export function createUdpSockets(logger: PlatformLogger): UdpSockets {
      */
     const report = (error: Error): void => {
       logger.warn({ err: error, port: options.port }, 'A bundle UDP socket failed');
-      options.onError?.(error);
+
+      try {
+        options.onError?.(error);
+      } catch (thrown: unknown) {
+        logger.warn({ err: thrown, port: options.port }, 'A bundle failed on a UDP socket error');
+      }
     };
 
     const ready = bind(socket, options);
@@ -122,7 +127,15 @@ export function createUdpSockets(logger: PlatformLogger): UdpSockets {
     );
 
     socket.on('message', (message, from) => {
-      options.onMessage(message, { address: from.address, port: from.port });
+      // Caught here: a bundle that cannot read one datagram must not take the hub down with it.
+      try {
+        options.onMessage(message, { address: from.address, port: from.port });
+      } catch (error: unknown) {
+        logger.warn(
+          { err: error, port: options.port, from: from.address },
+          'A bundle failed on a UDP datagram',
+        );
+      }
     });
 
     const managed: ManagedUdpSocket = {

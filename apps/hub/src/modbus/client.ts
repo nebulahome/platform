@@ -564,14 +564,22 @@ export class ModbusClient {
   #receive(chunk: Buffer): void {
     this.#buffer = Buffer.concat([this.#buffer, chunk]);
 
-    for (;;) {
-      const frame = this.address.framing === 'rtu' ? this.#takeRtu() : this.#takeTcp();
+    // Called from the socket's data event: whatever a broken server sends must reset the socket,
+    // never escape as an uncaught exception that takes the hub down.
+    try {
+      for (;;) {
+        const frame = this.address.framing === 'rtu' ? this.#takeRtu() : this.#takeTcp();
 
-      if (frame === undefined) {
-        return;
+        if (frame === undefined) {
+          return;
+        }
+
+        this.#settle(frame.unit, frame.pdu, frame.transaction);
       }
-
-      this.#settle(frame.unit, frame.pdu, frame.transaction);
+    } catch (error: unknown) {
+      this.reset(
+        `${this.#where} sent a malformed frame: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -579,13 +587,21 @@ export class ModbusClient {
    * Takes one MBAP frame off the buffer.
    *
    * @returns The frame, or nothing until one is whole.
+   * @throws {Error} When the header declares a length no Modbus frame has.
    */
   #takeTcp(): { unit: number; pdu: Buffer; transaction: number } | undefined {
     if (this.#buffer.length < 7) {
       return undefined;
     }
 
-    const size = 6 + this.#buffer.readUInt16BE(4);
+    const length = this.#buffer.readUInt16BE(4);
+
+    // The unit and a function code at least, and a PDU of at most 253 bytes.
+    if (length < 2 || length > 254) {
+      throw new Error(`an MBAP length of ${String(length)}`);
+    }
+
+    const size = 6 + length;
 
     if (this.#buffer.length < size) {
       return undefined;

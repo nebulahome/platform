@@ -33,6 +33,13 @@ export type HouseListener = (deviceKey: string, changed: readonly string[] | nul
 export class MqttHouse {
   readonly #held = new Map<string, MqttEntity>();
 
+  /**
+   * The same entities by device, each device's in the order {@link MqttHouse.#held} has them: a
+   * device is read on every message it gets, and filtering every entity each time costs the
+   * house's size squared at a start.
+   */
+  readonly #ofDevice = new Map<string, Map<string, MqttEntity>>();
+
   /** Which entity each announcement topic made, for its removal. */
   readonly #announced = new Map<string, string>();
 
@@ -85,6 +92,23 @@ export class MqttHouse {
 
     this.#held.set(entity.key, entity);
 
+    if (before !== undefined && before.device.id !== entity.device.id) {
+      this.#unindex(before);
+      // It kept its place among every entity, which may be before others of its new device.
+      this.#ofDevice.set(
+        entity.device.id,
+        new Map(
+          [...this.#held.values()]
+            .filter((each) => each.device.id === entity.device.id)
+            .map((each) => [each.key, each]),
+        ),
+      );
+    } else {
+      const entities = this.#ofDevice.get(entity.device.id) ?? new Map<string, MqttEntity>();
+
+      this.#ofDevice.set(entity.device.id, entities.set(entity.key, entity));
+    }
+
     // What was retained before it was announced: its state is there already.
     for (const topic of mqttTopicsOf(entity)) {
       const text = lastText(topic);
@@ -110,6 +134,7 @@ export class MqttHouse {
 
     if (held !== undefined) {
       this.#held.delete(found);
+      this.#unindex(held);
       this.#changed([held.device.id]);
     }
   }
@@ -127,6 +152,7 @@ export class MqttHouse {
 
     for (const entity of gone) {
       this.#held.delete(entity.key);
+      this.#unindex(entity);
     }
 
     if (gone.length > 0) {
@@ -196,9 +222,7 @@ export class MqttHouse {
    * @returns It, or undefined when the broker does not hear it.
    */
   public device(deviceKey: string): MqttDeviceSnapshot | undefined {
-    return mqttDeviceSnapshotOf(
-      [...this.#held.values()].filter((entity) => entity.device.id === deviceKey),
-    );
+    return mqttDeviceSnapshotOf([...(this.#ofDevice.get(deviceKey)?.values() ?? [])]);
   }
 
   /**
@@ -258,6 +282,21 @@ export class MqttHouse {
     }
 
     return byDevice;
+  }
+
+  /**
+   * Takes an entity out of its device's list.
+   *
+   * @param entity - The entity, as it was held.
+   */
+  #unindex(entity: MqttEntity): void {
+    const entities = this.#ofDevice.get(entity.device.id);
+
+    entities?.delete(entity.key);
+
+    if (entities?.size === 0) {
+      this.#ofDevice.delete(entity.device.id);
+    }
   }
 
   /**

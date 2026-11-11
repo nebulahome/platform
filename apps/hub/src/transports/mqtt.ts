@@ -31,6 +31,8 @@
  * restart, and the subscriptions - and the announcements - are reapplied on every reconnect
  * because a fresh session starts with none.
  */
+import { createHash } from 'node:crypto';
+
 import { connect, connectAsync, type MqttClient } from 'mqtt';
 import { z } from 'zod';
 
@@ -280,7 +282,10 @@ async function open(config: MqttConfig, context: TransportContext): Promise<Tran
   });
 
   client.on('error', (error) => {
-    context.logger.warn({ err: error, broker: config.url }, 'MQTT session reported an error');
+    context.logger.warn(
+      { err: error, broker: safeUrl(config.url) },
+      'MQTT session reported an error',
+    );
   });
 
   return {
@@ -305,6 +310,12 @@ async function open(config: MqttConfig, context: TransportContext): Promise<Tran
       const payloads = Array.isArray(several) ? several : [request.args['payload']];
 
       for (const payload of payloads) {
+        // Refused rather than queued: mqtt.js holds an offline publish until the broker is back,
+        // so a command the owner gave up on - and retried - would all run then, every copy.
+        if (!client.connected) {
+          throw new Error(`The MQTT session to ${safeUrl(config.url)} is not up`);
+        }
+
         // In order, one after the other: the device reads them in the order they were written.
         // eslint-disable-next-line no-await-in-loop -- see above
         await client.publishAsync(
@@ -374,10 +385,34 @@ async function open(config: MqttConfig, context: TransportContext): Promise<Tran
  *
  * @param config - The connection settings.
  * @returns The key. The broker and the identity used to reach it: same broker, different
- * credentials means a different session, because the two see different topics.
+ * credentials means a different session, because the two see different topics. The password is in
+ * it as a digest, since a key ends up in logs, and so is the certificate check: two instances
+ * differing only by either would otherwise share the first one's session.
  */
 function connectionKey(config: MqttConfig): string {
-  return `mqtt:${config.url}:${config.username ?? ''}`;
+  const password =
+    config.password === undefined
+      ? ''
+      : createHash('sha256').update(config.password).digest('hex').slice(0, 16);
+
+  return `mqtt:${config.url}:${config.username ?? ''}:${password}:${String(config.shouldVerifyCertificate)}`;
+}
+
+/**
+ * A broker's address as it may be logged: without a username, password or query, any of which
+ * can carry a secret.
+ *
+ * @param url - The address the owner configured.
+ * @returns It without credentials, or a placeholder when it does not parse.
+ */
+function safeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+
+    return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+  } catch {
+    return '(an address that does not parse)';
+  }
 }
 
 /**

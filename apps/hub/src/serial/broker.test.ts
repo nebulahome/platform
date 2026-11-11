@@ -215,6 +215,29 @@ describe('the ports the broker sees', () => {
     expect((await desktop.status()).state).toBe('running');
   });
 
+  it('keeps a port open when the bundle throws on what it reads', async () => {
+    // A vendor that cannot parse one chunk must not take the hub, and every device, down with it.
+    const host = createFakeSerialHost([UPS]);
+    const instances: SerialInstance[] = [];
+    const serial = await started(host, { instances });
+    const portId = await idOf(serial, UPS.stablePath);
+
+    instances.push(device('ups-1', portId));
+    await serial.claim('ups-1', { portId, line: LINE });
+
+    const session = await serial.openForVendor('acme-ups', portId, LINE);
+    const heard: number[] = [];
+
+    session.onData((bytes) => {
+      heard.push(bytes.length);
+      throw new Error('cannot read this');
+    });
+
+    expect(() => host.opened.get('/dev/ttyUSB0')?.say(Buffer.from([1, 2]))).not.toThrow();
+    expect(heard).toEqual([2]);
+    expect(host.opened.get('/dev/ttyUSB0')?.isOpen()).toBe(true);
+  });
+
   it('keeps a port’s id and holder while it is unplugged, and says when it comes back', async () => {
     const host = createFakeSerialHost([UPS]);
     const instances: SerialInstance[] = [];

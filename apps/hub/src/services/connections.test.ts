@@ -8,6 +8,7 @@ import {
   type Discovered,
   type Transport,
   type TransportConnection,
+  type TransportInbound,
 } from '@nebulahome/package-runtime';
 
 import { ConnectionPool } from './connections.js';
@@ -200,6 +201,71 @@ describe('ConnectionPool', () => {
     expect(asked).toEqual(['acme/uid-1', 'acme/uid-9']);
     expect(seen).toEqual(['owner@example.com', null]);
     await pool.closeAll();
+  });
+
+  it('opens one connection for two instances asking while it is still connecting', async () => {
+    // The hub starts every instance at once: two on one broker both ask before either connected.
+    const opened: string[] = [];
+    const closed: string[] = [];
+    let finish = (): void => undefined;
+    let deliver: ((message: TransportInbound) => void) | undefined;
+    const transports = new Registry<Transport>('transport');
+
+    transports.register(
+      defineTransport({
+        id: 'slow',
+        configSchema: z.object({ host: z.string() }),
+        connectionKey: (config): string => `slow:${config.host}`,
+        connect: async (config, context): Promise<TransportConnection> => {
+          opened.push(config.host);
+          deliver = context.deliver;
+          await new Promise<void>((resolve) => {
+            finish = resolve;
+          });
+
+          return {
+            key: `slow:${config.host}`,
+            send: (): Promise<unknown> => Promise.resolve(null),
+            apply: (): Promise<void> => Promise.resolve(),
+            close: (): Promise<void> => {
+              closed.push(config.host);
+
+              return Promise.resolve();
+            },
+          };
+        },
+        scan: async function* scan(): AsyncGenerator<Discovered> {
+          yield* await Promise.resolve([]);
+        },
+        probe: (): Promise<string> => Promise.resolve('unused'),
+      }),
+    );
+
+    const connections = new ConnectionPool({
+      transports,
+      logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+      onInbound: (): void => {
+        throw new Error('a vendor could not read it');
+      },
+    });
+    const first = connections.acquire('slow', { host: 'broker' }, 'first');
+    const second = connections.acquire('slow', { host: 'broker' }, 'second');
+
+    // Let the slow connect reach its wait before finishing it.
+    await new Promise((resolve) => setImmediate(resolve));
+    finish();
+
+    expect(await first).toBe(await second);
+    expect(opened).toEqual(['broker']);
+    // A message that throws on its way in is dropped, not thrown at the transport.
+    expect(() =>
+      deliver?.({ connectionKey: 'slow:broker', deviceKey: 'plug', payload: '{' }),
+    ).not.toThrow();
+
+    await connections.release('first');
+    await connections.release('second');
+
+    expect(closed).toEqual(['broker']);
   });
 
   it('closes everything it holds when the service stops', async () => {

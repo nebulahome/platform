@@ -245,6 +245,32 @@ describe('openRtsp', () => {
     ]);
   });
 
+  it('ends the session on a negative Content-Length instead of looping', async () => {
+    server = createServer((socket) => {
+      socket.on('error', () => undefined);
+      socket.on('data', () => {
+        socket.write('RTSP/1.0 200 OK\r\nCSeq: 1\r\nContent-Length: -5\r\n\r\n');
+      });
+    });
+
+    const port = await new Promise<number>((resolve) => {
+      server?.listen(0, '127.0.0.1', () => {
+        const address = server?.address();
+
+        resolve(typeof address === 'object' && address !== null ? address.port : 0);
+      });
+    });
+
+    await expect(async () => {
+      for await (const frame of openRtsp({
+        url: `rtsp://127.0.0.1:${String(port)}/live`,
+        signal: AbortSignal.timeout(5000),
+      })) {
+        expect(frame).toBeUndefined();
+      }
+    }).rejects.toThrow('Content-Length of -5');
+  });
+
   it('answers a challenge the way the Digest scheme says', () => {
     const header = digestAuthorization(
       'Digest realm="r", nonce="n"',

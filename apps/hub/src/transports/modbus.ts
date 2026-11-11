@@ -194,21 +194,27 @@ export function createModbusTransport(broker: ModbusBroker, pool: ModbusPool) {
          * Writes what a command says, then reads the device again.
          *
          * @param request - What the driver asked.
+         * @param signal - The command's deadline: a write still queued behind the polls when it
+         * passes is dropped, not sent late after the owner gave up on it.
          * @returns Nothing the driver reads.
          */
-        send: async (request: TransportRequest): Promise<unknown> => {
+        send: async (request: TransportRequest, signal: AbortSignal): Promise<unknown> => {
           if (request.op !== 'write') {
             throw new Error(`The ${MODBUS_TRANSPORT} transport has no ${request.op} operation`);
           }
 
           const args = writeArgsSchema.parse(request.args);
 
-          await pool.write(args, {
-            unitId: args.unitId,
-            function: args.function,
-            address: args.address,
-            values: args.values,
-          });
+          await pool.write(
+            args,
+            {
+              unitId: args.unitId,
+              function: args.function,
+              address: args.address,
+              values: args.values,
+            },
+            signal,
+          );
 
           const poll = [...running.values()].find(
             (each) => each.poll.deviceKey === request.deviceKey,

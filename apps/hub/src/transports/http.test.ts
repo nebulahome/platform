@@ -88,6 +88,15 @@ beforeAll(async () => {
         return;
       }
 
+      if (url.startsWith('/slow')) {
+        setTimeout(() => {
+          response.writeHead(200, { 'content-type': 'application/json' });
+          response.end('{}');
+        }, 1000);
+
+        return;
+      }
+
       if (url.startsWith('/plain')) {
         response.writeHead(200, { 'content-type': 'text/plain' });
         response.end('ON');
@@ -296,6 +305,19 @@ describe('polling', () => {
     await connection.close();
 
     expect(delivered[0]?.deviceKey).toBe(host);
+  });
+
+  it('asks a slow device once at a time, however short the interval', async () => {
+    const connection = await connect();
+
+    seen.length = 0;
+    await connection.apply([
+      { op: 'poll', args: { deviceKey: host, path: '/slow', everyMs: 250 } },
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await connection.close();
+
+    expect(seen.filter((request) => request.url === '/slow')).toHaveLength(1);
   });
 });
 
@@ -541,6 +563,12 @@ describe('a token instead of a password', () => {
     expect(
       httpTransport.connectionKey({ host, token: 'one', tokenHeader: 'X-Plex-Token' }),
     ).not.toBe(httpTransport.connectionKey({ host, token: 'two', tokenHeader: 'X-Plex-Token' }));
+  });
+
+  it('keeps two configurations with different passwords apart', () => {
+    expect(httpTransport.connectionKey({ host, username: 'admin', password: 'one' })).not.toBe(
+      httpTransport.connectionKey({ host, username: 'admin', password: 'two' }),
+    );
   });
 });
 

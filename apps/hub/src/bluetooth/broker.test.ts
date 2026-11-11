@@ -307,6 +307,33 @@ describe('the Bluetooth broker', () => {
     expect((await broker.found()).items).toEqual([]);
   });
 
+  it('drops the oldest addresses nobody uses past ten thousand, never one recognised', async () => {
+    // Phones rotate their private address every quarter hour: a week of them is a lot of rows.
+    const { broker, host, clock } = await rig();
+
+    host.hear(bthome(-70));
+
+    for (let index = 0; index < 10_000; index += 1) {
+      clock.now += 1;
+      host.hear({
+        address: `4A:00:00:${[index >> 16, (index >> 8) & 0xff, index & 0xff]
+          .map((byte) => byte.toString(16).padStart(2, '0').toUpperCase())
+          .join(':')}`,
+        addressType: 'random',
+        rssi: -80,
+        at: new Date(),
+      });
+    }
+
+    await broker.saveSettings({ ...(await broker.status()).settings, showPrivate: true });
+
+    const nearby = (await broker.nearby()).map((each) => each.address);
+
+    expect(nearby).toContain(SENSOR);
+    expect(nearby).not.toContain('4A:00:00:00:00:00');
+    expect((await broker.status()).heard.devices).toBe(9000);
+  });
+
   it('flags private addresses and lists them in Nearby only when the settings say', async () => {
     expect(isPrivateAddress('4A:11:22:33:44:55', 'random')).toBe(true);
     expect(isPrivateAddress('0A:11:22:33:44:55', 'random')).toBe(true);

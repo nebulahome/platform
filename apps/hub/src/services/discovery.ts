@@ -336,6 +336,9 @@ const SETTINGS_TTL_MS = 10_000;
 /** How long a vendor's module is left before it is listened with again, when not said. */
 const DEFAULT_MODULE_RESTART_MS = 30_000;
 
+/** How long stopping waits for a vendor's module to honour the abort before leaving it behind. */
+const MODULE_STOP_MS = 5000;
+
 /** How often the proposals are swept for devices gone quiet, at most. */
 const MAXIMUM_SWEEP_MS = 30_000;
 
@@ -409,7 +412,11 @@ export class DiscoveryService {
   readonly #inFlight = new Set<string>();
   readonly #queue: (() => Promise<void>)[] = [];
   readonly #timers: NodeJS.Timeout[] = [];
-  readonly #modules: Promise<void>[] = [];
+  readonly #modules: {
+    readonly vendorId: string;
+    readonly file: string;
+    readonly done: Promise<void>;
+  }[] = [];
   readonly #repeats = new Set<NodeJS.Timeout>();
   readonly #unclaimed = new Set<string>();
   readonly #noDriver = new Map<string, Unclaimed>();
@@ -481,7 +488,11 @@ export class DiscoveryService {
     for (const vendor of vendors) {
       for (const source of vendor.discovery.sources) {
         if (source.kind === 'module' && this.#hears(source)) {
-          this.#modules.push(this.#listenWith(vendor, source));
+          this.#modules.push({
+            vendorId: vendor.id,
+            file: source.file,
+            done: this.#listenWith(vendor, source),
+          });
         }
       }
     }
@@ -536,7 +547,29 @@ export class DiscoveryService {
     this.#repeats.clear();
     this.#queue.length = 0;
     await this.#options.mdns.stop();
-    await Promise.all(this.#modules);
+    // Bounded: a vendor's module that ignores the abort would otherwise hold up every later swap.
+    await Promise.all(
+      this.#modules.map(async ({ vendorId, file, done }) => {
+        let timer: NodeJS.Timeout | undefined;
+        const isLate = await Promise.race([
+          done.then(() => false),
+          new Promise<boolean>((resolve) => {
+            timer = setTimeout(() => {
+              resolve(true);
+            }, MODULE_STOP_MS);
+          }),
+        ]);
+
+        clearTimeout(timer);
+
+        if (isLate) {
+          this.#options.logger.warn(
+            { vendor: vendorId, module: file },
+            'A discovery module did not stop when asked; left behind',
+          );
+        }
+      }),
+    );
     this.#modules.length = 0;
   }
 

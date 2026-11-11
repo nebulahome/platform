@@ -285,6 +285,9 @@ export class HubService {
   /** Vendors swapped while `hub` runs, one after another, the start's loading first. */
   #swaps: Promise<unknown> = Promise.resolve();
 
+  /** Each instance's starts and stops, one after another, by instance id: the last one queued. */
+  readonly #instanceTurns = new Map<string, Promise<unknown>>();
+
   /**
    * Prepares the service without starting anything.
    *
@@ -1042,7 +1045,9 @@ export class HubService {
     // and a house with one unreachable device would otherwise find nothing new until that one
     // had given up.
     await Promise.all([
-      ...instances.map(async (instance) => this.#startInstance(instance)),
+      ...instances.map(async (instance) =>
+        this.#inTurn(instance.id, async () => this.#startInstance(instance)),
+      ),
       discovering,
     ]);
   }
@@ -1214,6 +1219,29 @@ export class HubService {
   }
 
   /**
+   * Runs one start or stop of an instance after the ones of the same instance before it have
+   * finished. Two reloads at once would otherwise both stop nothing and both start, and the first
+   * start's subscriptions - never unsubscribed - would answer every command a second time.
+   *
+   * @param id - The instance.
+   * @param task - The start or stop.
+   * @returns What it returns.
+   */
+  async #inTurn<TResult>(id: string, task: () => Promise<TResult>): Promise<TResult> {
+    const run = (this.#instanceTurns.get(id) ?? Promise.resolve()).then(task, task);
+    const settled = run.catch(() => undefined);
+
+    this.#instanceTurns.set(id, settled);
+    void settled.then(() => {
+      if (this.#instanceTurns.get(id) === settled) {
+        this.#instanceTurns.delete(id);
+      }
+    });
+
+    return run;
+  }
+
+  /**
    * Makes the vendor `hub` runs match the data directory: what the packet-manager asks once it has
    * unpacked a build of a vendor, or removed one.
    *
@@ -1355,7 +1383,7 @@ export class HubService {
       // One after another: they may share one connection.
       for (const instance of instances) {
         // eslint-disable-next-line no-await-in-loop -- see above
-        await this.#stopInstance(instance.id);
+        await this.#inTurn(instance.id, async () => this.#stopInstance(instance.id));
       }
 
       this.#cameras.endVendor(vendorId);
@@ -1749,20 +1777,22 @@ export class HubService {
    * first: a row that is gone is an instance that should not be.
    */
   public async reloadInstance(id: string): Promise<ReloadReply> {
-    const instance = await loadInstance(this.#options.db, id);
+    return this.#inTurn(id, async () => {
+      const instance = await loadInstance(this.#options.db, id);
 
-    await this.#stopInstance(id);
+      await this.#stopInstance(id);
 
-    if (instance === undefined) {
+      if (instance === undefined) {
+        await this.#refreshDiscovery();
+
+        throw new NotFoundError('No integration has that id', { details: { id } });
+      }
+
+      await this.#startInstance(instance);
       await this.#refreshDiscovery();
 
-      throw new NotFoundError('No integration has that id', { details: { id } });
-    }
-
-    await this.#startInstance(instance);
-    await this.#refreshDiscovery();
-
-    return readStatus(this.#options.db, id);
+      return readStatus(this.#options.db, id);
+    });
   }
 
   /**
@@ -1820,7 +1850,8 @@ export class HubService {
 
     const instance = this.#running.get(id)?.instance ?? (await loadInstance(this.#options.db, id));
 
-    await this.#stopInstance(id);
+    // In turn: a reload under way would otherwise start it again once this stopped it.
+    await this.#inTurn(id, async () => this.#stopInstance(id));
 
     if (instance?.transport === MATTER_TRANSPORT || instance?.transport === MQTT_HOUSE_TRANSPORT) {
       const deviceKey = await loadExternalId(this.#options.db, id);
@@ -1872,10 +1903,28 @@ export class HubService {
     await this.#stopListening([id]);
     this.#setUps.drop(id);
 
+    if (!(await this.#dropRunning(id))) {
+      return;
+    }
+
+    await this.#recordStatus(id, 'stopped');
+    // A blaster stopped: its remotes' buttons cannot be sent.
+    void this.#infrared.refresh();
+    this.#options.logger.info({ instanceId: id }, 'Integration instance stopped');
+  }
+
+  /**
+   * Takes one instance out of what runs: its subscriptions dropped, its hold on the connection and
+   * its port let go, and whoever still shares the connection given its own subscription set.
+   *
+   * @param id - Which instance.
+   * @returns Whether it was running.
+   */
+  async #dropRunning(id: string): Promise<boolean> {
     const running = this.#running.get(id);
 
     if (running === undefined) {
-      return;
+      return false;
     }
 
     for (const subscription of running.subscriptions) {
@@ -1895,10 +1944,7 @@ export class HubService {
       await this.#applySubscriptions(sharing.instance.id);
     }
 
-    await this.#recordStatus(id, 'stopped');
-    // A blaster stopped: its remotes' buttons cannot be sent.
-    void this.#infrared.refresh();
-    this.#options.logger.info({ instanceId: id }, 'Integration instance stopped');
+    return true;
   }
 
   /**
@@ -1910,13 +1956,13 @@ export class HubService {
   async #startInstance(stored: IntegrationInstance): Promise<void> {
     const { db, logger } = this.#options;
 
-    if (!stored.isEnabled) {
-      await this.#recordStatus(stored.id, 'disabled');
-
-      return;
-    }
-
     try {
+      if (!stored.isEnabled) {
+        await this.#recordStatus(stored.id, 'disabled');
+
+        return;
+      }
+
       await this.#recordStatus(stored.id, 'starting');
 
       // Opened here, inside the catch: a key that no longer opens this instance's secrets fails
@@ -2019,8 +2065,22 @@ export class HubService {
       // instance red in the interface, not a service that will not come up.
       const message = error instanceof Error ? error.message : String(error);
 
-      await this.#pool.release(stored.id);
-      await this.#recordStatus(stored.id, 'failed', message);
+      // Taken out whole when it failed after it was running, or its subscriptions would go on
+      // sending commands to a connection it no longer holds. Never thrown from: a database that
+      // is down must not stop the hub starting its other instances.
+      try {
+        if (!(await this.#dropRunning(stored.id))) {
+          await this.#pool.release(stored.id);
+        }
+
+        await this.#recordStatus(stored.id, 'failed', message);
+      } catch (cleanup: unknown) {
+        logger.error(
+          { err: cleanup, instanceId: stored.id },
+          'Could not record that an instance failed',
+        );
+      }
+
       // A blaster that failed cannot send, whatever its row said before the hub started.
       void this.#infrared.refresh();
       logger.error({ instanceId: stored.id, kind: stored.kind }, message);
@@ -2040,11 +2100,20 @@ export class HubService {
 
     const id = running.instance.id;
     const abort = new AbortController();
-    const done = this.#identify(running, expectedExternalId, abort.signal).finally(() => {
-      if (this.#listening.get(id)?.abort === abort) {
-        this.#listening.delete(id);
-      }
-    });
+    const done = this.#identify(running, expectedExternalId, abort.signal)
+      .catch((error: unknown) => {
+        // Only a failure to record a failure gets here - the database is down - and nobody else
+        // waits on this promise to be told.
+        this.#options.logger.error(
+          { err: error, instanceId: id },
+          'Could not record why the device was not identified',
+        );
+      })
+      .finally(() => {
+        if (this.#listening.get(id)?.abort === abort) {
+          this.#listening.delete(id);
+        }
+      });
 
     this.#listening.set(id, { abort, done });
   }
@@ -2288,30 +2357,49 @@ export class HubService {
         continue;
       }
 
-      const reports = this.#images.take(
-        running.book.ingest(running.integration, running.instance.options, message),
-        (report) => {
-          publishReports(running.client, [report]);
-        },
-      );
-
-      if (reports.length > 0) {
-        publishReports(running.client, reports);
+      // One instance's integration failing on a message must not keep it from the others.
+      try {
+        this.#ingestOne(running, message);
+      } catch (error: unknown) {
+        this.#options.logger.warn(
+          { err: error, instanceId: running.instance.id, deviceKey: message.deviceKey },
+          'An integration could not read a message from its device; dropped',
+        );
       }
+    }
+  }
 
-      const info = running.book.infoOf(running.integration, running.instance.options, message);
+  /**
+   * Offers one inbound message to one instance.
+   *
+   * @param running - The instance.
+   * @param message - What arrived.
+   * @throws {Error} Whatever the integration's code throws reading it.
+   */
+  #ingestOne(running: RunningInstance, message: TransportInbound): void {
+    const reports = this.#images.take(
+      running.book.ingest(running.integration, running.instance.options, message),
+      (report) => {
+        publishReports(running.client, [report]);
+      },
+    );
 
-      if (info?.firmware !== undefined) {
-        void this.#reportInfo(running.instance.id, info.firmware);
-      }
+    if (reports.length > 0) {
+      publishReports(running.client, reports);
+    }
 
-      if (info?.setUp !== undefined) {
-        const instanceId = running.instance.id;
+    const info = running.book.infoOf(running.integration, running.instance.options, message);
 
-        this.#setUps.follow(instanceId, info.setUp.claim, info.setUp.isNew, (claim) => {
-          void this.#describeAgain(instanceId, claim);
-        });
-      }
+    if (info?.firmware !== undefined) {
+      void this.#reportInfo(running.instance.id, info.firmware);
+    }
+
+    if (info?.setUp !== undefined) {
+      const instanceId = running.instance.id;
+
+      this.#setUps.follow(instanceId, info.setUp.claim, info.setUp.isNew, (claim) => {
+        void this.#describeAgain(instanceId, claim);
+      });
     }
   }
 

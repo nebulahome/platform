@@ -46,9 +46,13 @@ export type ConnectionPoolOptions = {
   readonly accountOf?: (vendorId: string, accountId: string) => Promise<AccountHandle | undefined>;
 };
 
-/** One open connection and who is holding it. */
+/**
+ * One connection, open or still opening, and who is holding it. Kept as the promise so that an
+ * instance asking while another is still connecting joins that attempt instead of opening its own.
+ */
 type Entry = {
-  readonly connection: TransportConnection;
+  readonly opening: Promise<TransportConnection>;
+  connection?: TransportConnection;
   readonly holders: Set<string>;
 };
 
@@ -90,9 +94,47 @@ export class ConnectionPool {
     if (existing !== undefined) {
       existing.holders.add(holder);
 
-      return existing.connection;
+      return existing.opening;
     }
 
+    // Registered before the first await: instances started together on one broker would
+    // otherwise each open their own connection, and every message would be taken in once per copy.
+    const entry: Entry = {
+      opening: this.#open(transport, transportId, config, key),
+      holders: new Set([holder]),
+    };
+
+    this.#entries.set(key, entry);
+
+    try {
+      entry.connection = await entry.opening;
+    } catch (error: unknown) {
+      if (this.#entries.get(key) === entry) {
+        this.#entries.delete(key);
+      }
+
+      throw error;
+    }
+
+    return entry.connection;
+  }
+
+  /**
+   * Opens one connection.
+   *
+   * @param transport - The transport.
+   * @param transportId - Its id, whose vendor an account is looked up under.
+   * @param config - The owner's connection settings.
+   * @param key - What the connection is shared under.
+   * @returns The connection.
+   * @throws {Error} When it cannot be opened.
+   */
+  async #open(
+    transport: Transport,
+    transportId: string,
+    config: JsonObject,
+    key: string,
+  ): Promise<TransportConnection> {
     const vendorId = transportId.includes('/')
       ? transportId.slice(0, transportId.indexOf('/'))
       : null;
@@ -101,17 +143,27 @@ export class ConnectionPool {
       vendorId === null || typeof accountId !== 'string'
         ? undefined
         : await this.#options.accountOf?.(vendorId, accountId);
-    const connection = await transport.connect(config, {
+
+    return transport.connect(config, {
       logger: this.#options.logger,
       ...(account === undefined ? {} : { account }),
 
       /**
-       * Passes on a message the connection delivered.
+       * Passes on a message the connection delivered. A message that throws on its way in is
+       * dropped and logged: one odd frame from one device must not take the hub and every other
+       * device down with it.
        *
        * @param message - What arrived.
        */
       deliver: (message: TransportInbound): void => {
-        this.#options.onInbound?.(message);
+        try {
+          this.#options.onInbound?.(message);
+        } catch (error: unknown) {
+          this.#options.logger.error(
+            { err: error, connectionKey: key },
+            'A message from a device could not be taken in and was dropped',
+          );
+        }
       },
 
       /**
@@ -123,10 +175,6 @@ export class ConnectionPool {
         this.#options.onStatus?.(key, status);
       },
     });
-
-    this.#entries.set(key, { connection, holders: new Set([holder]) });
-
-    return connection;
   }
 
   /**
@@ -146,7 +194,7 @@ export class ConnectionPool {
       }
 
       this.#entries.delete(key);
-      closing.push(entry.connection.close());
+      closing.push(closeEntry(entry));
     }
 
     await Promise.allSettled(closing);
@@ -168,9 +216,22 @@ export class ConnectionPool {
    * @returns A promise that settles once every connection is closed.
    */
   public async closeAll(): Promise<void> {
-    const closing = [...this.#entries.values()].map(async (entry) => entry.connection.close());
+    const closing = [...this.#entries.values()].map(closeEntry);
 
     this.#entries.clear();
     await Promise.allSettled(closing);
   }
+}
+
+/**
+ * Closes one connection, waiting for it to open first when it is still opening: one let go of
+ * while connecting would otherwise come up afterwards with nobody left to close it.
+ *
+ * @param entry - The connection.
+ * @returns A promise that settles once it is closed; rejects when it never opened.
+ */
+async function closeEntry(entry: Entry): Promise<void> {
+  const connection = entry.connection ?? (await entry.opening);
+
+  await connection.close();
 }

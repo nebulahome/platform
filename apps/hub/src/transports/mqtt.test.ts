@@ -7,7 +7,7 @@
 import { ErrorWithReasonCode } from 'mqtt';
 import { describe, expect, it } from 'vitest';
 
-import { failureOf } from './mqtt.js';
+import { failureOf, mqttTransport } from './mqtt.js';
 
 const URL = 'mqtts://192.168.1.60:8883';
 
@@ -28,5 +28,16 @@ describe('failureOf', () => {
     const error = Object.assign(new AggregateError([], ''), { code: 'ECONNREFUSED' });
 
     expect(failureOf(URL, error)).toBe(`${URL} did not answer: ECONNREFUSED`);
+  });
+});
+
+describe('mqttTransport.connectionKey', () => {
+  it('keeps two instances apart that differ only by password', () => {
+    // Shared, the second would run on the first one's session and never sign in as itself.
+    const key = (password: string): string =>
+      mqttTransport.connectionKey({ url: URL, username: 'hub', password });
+
+    expect(key('first')).not.toBe(key('second'));
+    expect(key('first')).not.toContain('first');
   });
 });

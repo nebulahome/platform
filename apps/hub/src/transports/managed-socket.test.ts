@@ -218,6 +218,25 @@ describe('openWebSocket', () => {
     await socket.close();
   });
 
+  it('keeps going when the bundle throws on a frame', async () => {
+    // A vendor's JSON.parse on an odd frame must not reach the socket's event and end the hub.
+    server.on('connection', (peer) => {
+      peer.send('{');
+      peer.send('{"ok":true}');
+    });
+    const parsed: unknown[] = [];
+    const { socket } = open(undefined, {
+      onMessage: (text) => {
+        parsed.push(JSON.parse(text));
+      },
+    });
+
+    await until(() => parsed.length === 1);
+
+    expect(parsed).toEqual([{ ok: true }]);
+    await socket.close();
+  });
+
   it('refuses to send before it is open', async () => {
     const { socket } = open();
 

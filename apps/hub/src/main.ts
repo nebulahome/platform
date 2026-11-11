@@ -55,6 +55,17 @@ async function start(): Promise<void> {
     pretty: config.NODE_ENV === 'development',
   });
 
+  // A promise some vendor's code forgot to catch is logged and survived: ending the hub for it
+  // would drop every device in the house. A throw nobody caught leaves the process in a state
+  // nobody can vouch for, so it ends, said loudly, and the supervisor starts it again.
+  process.on('unhandledRejection', (error: unknown) => {
+    logger.error({ err: error }, 'A promise failed with an error nobody caught');
+  });
+  process.on('uncaughtException', (error: unknown) => {
+    logger.fatal({ err: error }, 'The hub failed with an error it did not catch');
+    process.exit(EXIT_CODES.UNHANDLED_ERROR);
+  });
+
   const database = createDatabase({
     connectionString: config.DATABASE_URL,
     applicationName: SERVICE_NAME,

@@ -32,6 +32,12 @@ const KEEPALIVE_MS = 25_000;
 /** How long the stream may go without a packet before it is taken to have died. */
 const SILENCE_MS = 15_000;
 
+/** The most an RTSP response's head may hold before its blank line: far above any camera's. */
+const MAX_HEAD_BYTES = 64 * 1024;
+
+/** The most an RTSP response's body may hold: an SDP is a few hundred bytes. */
+const MAX_BODY_BYTES = 1024 * 1024;
+
 /** How many access units may wait for the reader before the oldest are dropped. */
 const QUEUE_LIMIT = 30;
 
@@ -392,6 +398,7 @@ export const openRtsp: OpenRtsp = async function* openRtsp(
   let session: string | undefined;
   let authorization: ((method: string, uri: string) => string) | undefined;
   let answer: ((response: Response) => void) | undefined;
+  let refuse: ((error: Error) => void) | undefined;
   let lastPacketMs = Date.now();
   let depacketizer: H264Depacketizer | undefined;
   let payloadType = 96;
@@ -411,10 +418,14 @@ export const openRtsp: OpenRtsp = async function* openRtsp(
     failure = error;
     socket.destroy();
     wake?.();
+    // A request still waiting would otherwise wait out its whole timeout on a session that is gone.
+    refuse?.(error ?? new Error('the session ended'));
   };
 
   /**
    * Reads what arrived: RTSP responses, and RTP packets interleaved after `$`.
+   *
+   * @throws {Error} When a response's head never ends or declares an impossible length.
    */
   const parse = (): void => {
     for (;;) {
@@ -448,6 +459,11 @@ export const openRtsp: OpenRtsp = async function* openRtsp(
       const headerEnd = buffer.indexOf('\r\n\r\n');
 
       if (headerEnd === -1) {
+        // Without the cap a server that never ends its head grows the buffer for good.
+        if (buffer.length > MAX_HEAD_BYTES) {
+          throw new Error('The camera sent an RTSP head that does not end');
+        }
+
         return;
       }
 
@@ -464,6 +480,11 @@ export const openRtsp: OpenRtsp = async function* openRtsp(
       }
 
       const length = Number(headers.get('content-length') ?? 0);
+
+      // A negative or unreadable length would leave the buffer where it was, and loop for ever.
+      if (!Number.isSafeInteger(length) || length < 0 || length > MAX_BODY_BYTES) {
+        throw new Error(`The camera sent an RTSP Content-Length of ${String(length)}`);
+      }
 
       if (buffer.length < headerEnd + 4 + length) {
         return;
@@ -576,6 +597,7 @@ export const openRtsp: OpenRtsp = async function* openRtsp(
         ];
         const timer = setTimeout(() => {
           answer = undefined;
+          refuse = undefined;
           reject(new Error(`the camera did not answer ${method} in time`));
         }, REQUEST_TIMEOUT_MS);
 
@@ -587,7 +609,20 @@ export const openRtsp: OpenRtsp = async function* openRtsp(
         answer = (response) => {
           clearTimeout(timer);
           answer = undefined;
+          refuse = undefined;
           resolve(response);
+        };
+
+        /**
+         * Fails this request: the session ended under it.
+         *
+         * @param error - Why.
+         */
+        refuse = (error) => {
+          clearTimeout(timer);
+          answer = undefined;
+          refuse = undefined;
+          reject(error);
         };
         socket.write(`${lines.join('\r\n')}\r\n\r\n`);
       });

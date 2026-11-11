@@ -132,4 +132,28 @@ describe('the modbus transport', () => {
 
     expect(delivered[1]?.payload).toMatchObject({ registers: { '1:1': 1 } });
   });
+
+  it('drops a command whose deadline passed before its turn', async () => {
+    await open();
+
+    await expect(
+      connection!.send(
+        {
+          deviceKey: 'modbus-1',
+          op: 'write',
+          args: {
+            host: '127.0.0.1',
+            port: server!.port,
+            unitId: 1,
+            framing: 'tcp',
+            function: 5,
+            address: 1,
+            values: [0xff00],
+          },
+        },
+        AbortSignal.abort(),
+      ),
+    ).rejects.toThrow('Abandoned');
+    expect(server!.coils.get(1)).toBeUndefined();
+  });
 });

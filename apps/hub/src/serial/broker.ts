@@ -1088,7 +1088,14 @@ export class SerialBroker {
       }
 
       for (const listener of listeners) {
-        listener(reason);
+        try {
+          listener(reason);
+        } catch (error: unknown) {
+          this.#options.logger.warn(
+            { err: error, portId: port.id },
+            'A bundle failed on a port closing',
+          );
+        }
       }
     };
 
@@ -1125,7 +1132,19 @@ export class SerialBroker {
        * @param listener - Called with each chunk.
        * @returns Stops hearing.
        */
-      onData: (listener) => raw.onData(listener),
+      onData: (listener) =>
+        raw.onData((bytes) => {
+          // Caught here, for a local port and a network one alike: a bundle that cannot read one
+          // chunk must not take the hub down with it.
+          try {
+            listener(bytes);
+          } catch (error: unknown) {
+            this.#options.logger.warn(
+              { err: error, portId: port.id },
+              'A bundle failed on serial bytes',
+            );
+          }
+        }),
 
       /**
        * Hears the port go, once.
