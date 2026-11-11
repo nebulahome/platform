@@ -114,6 +114,79 @@ describe('buildProxyServer', () => {
   });
 });
 
+describe('buildProxyServer with a WebSocket upgrade', () => {
+  let webRoot = '';
+  let upstream: http.Server;
+  let proxy: FastifyInstance;
+  let port = 0;
+  const forwardedFor: (string | undefined)[] = [];
+
+  beforeAll(async () => {
+    webRoot = mkdtempSync(path.join(tmpdir(), 'nebula-proxy-ws-'));
+    writeFileSync(path.join(webRoot, 'index.html'), '<!doctype html><title>Nebula Home</title>');
+
+    // Records what the upgrade arrived with, then refuses it: the headers are all this asks.
+    upstream = http.createServer();
+    upstream.on('upgrade', (request, socket) => {
+      forwardedFor.push(request.headers['x-forwarded-for'] as string | undefined);
+      socket.end('HTTP/1.1 403 Forbidden\r\nconnection: close\r\n\r\n');
+    });
+    await new Promise<void>((resolve) => {
+      upstream.listen(0, '127.0.0.1', resolve);
+    });
+
+    const address = upstream.address();
+    const upstreamPort = typeof address === 'object' && address !== null ? address.port : 0;
+
+    proxy = await buildProxyServer({
+      webRoot,
+      upstream: `http://127.0.0.1:${String(upstreamPort)}`,
+    });
+    await proxy.listen({ host: '127.0.0.1', port: 0 });
+
+    const listening = proxy.server.address();
+
+    port = typeof listening === 'object' && listening !== null ? listening.port : 0;
+  });
+
+  afterAll(async () => {
+    await proxy.close();
+    await new Promise((resolve) => upstream.close(resolve));
+    rmSync(webRoot, { recursive: true, force: true });
+  });
+
+  it('tells api the address on the socket, never the one a caller wrote', async () => {
+    const request = http.request({
+      host: '127.0.0.1',
+      port,
+      path: '/api/v1/ws',
+      headers: {
+        connection: 'Upgrade',
+        upgrade: 'websocket',
+        'sec-websocket-key': Buffer.from('a sixteen bytes!').toString('base64'),
+        'sec-websocket-version': '13',
+        'x-forwarded-for': '192.168.1.10',
+      },
+    });
+
+    request.on('upgrade', (response, socket) => {
+      socket.destroy();
+    });
+    request.on('error', () => undefined);
+    request.end();
+
+    const deadline = Date.now() + 5000;
+
+    while (forwardedFor.length === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    request.destroy();
+
+    expect(forwardedFor).toEqual(['127.0.0.1']);
+  });
+});
+
 /**
  * Sends one GET over a real socket.
  *

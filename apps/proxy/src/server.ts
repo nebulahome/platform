@@ -19,7 +19,7 @@ import compress from '@fastify/compress';
 import helmet from '@fastify/helmet';
 import httpProxy from '@fastify/http-proxy';
 import fastifyStatic from '@fastify/static';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 
 /** Where the API is reached, on the proxy and on `api` alike. */
 const API_PREFIX = '/api';
@@ -53,6 +53,9 @@ const CONTENT_SECURITY_POLICY = {
 /** The first byte of every TLS connection: a handshake record. */
 const TLS_HANDSHAKE_RECORD = 0x16;
 
+/** How long a new connection may stay silent before its first byte: a browser sends at once. */
+const FIRST_BYTE_TIMEOUT_MS = 10_000;
+
 /**
  * Has the HTTPS server answer plain HTTP on its port with a redirect to HTTPS - a browser sent
  * there by `http://` would otherwise get an empty response. Each connection's first byte tells
@@ -83,8 +86,18 @@ function redirectPlainHttp(server: Server): void {
       socket.destroy();
     };
 
+    // Nor does anyone time it out yet: a connection that never says a word would stay forever.
+    const silence = setTimeout(() => {
+      socket.destroy();
+    }, FIRST_BYTE_TIMEOUT_MS);
+
+    socket.once('close', () => {
+      clearTimeout(silence);
+    });
     socket.once('error', onError);
     socket.once('readable', () => {
+      clearTimeout(silence);
+
       const head = socket.read() as Buffer | null;
 
       if (head === null) {
@@ -156,11 +169,36 @@ export async function buildProxyServer(options: ProxyServerOptions): Promise<Fas
 
   server.get('/healthz', () => ({ status: 'ok' }));
 
+  // The upgrade's own options: `replyOptions` covers plain requests only. Not in the plugin's
+  // types, which take the `ws` client's, so declared apart rather than as a literal.
+  const wsClientOptions = {
+    // The plugin's own default, written out: the types accept the options only with a `ws` one.
+    headers: {},
+
+    /**
+     * Tells `api` who opened a socket, as `replyOptions` does for a request; the cookie goes
+     * on, as the plugin's own rewrite passes it.
+     *
+     * @param headers - The headers the socket to `api` is opened with.
+     * @param request - The upgrade.
+     * @returns The headers with `x-forwarded-for` set.
+     */
+    rewriteRequestHeaders: (
+      headers: Record<string, string>,
+      request: FastifyRequest,
+    ): Record<string, string> => ({
+      ...headers,
+      ...(request.headers.cookie === undefined ? {} : { cookie: request.headers.cookie }),
+      'x-forwarded-for': request.socket.remoteAddress ?? '',
+    }),
+  };
+
   await server.register(httpProxy, {
     upstream,
     prefix: API_PREFIX,
     rewritePrefix: API_PREFIX,
     websocket: true,
+    wsClientOptions,
     replyOptions: {
       /**
        * Tells `api` who called: the address on this socket, in place of any the caller wrote.
