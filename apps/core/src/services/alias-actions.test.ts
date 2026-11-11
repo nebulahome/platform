@@ -179,4 +179,31 @@ describe('the actions of an alias', () => {
     expect(requests).toHaveLength(30);
     expect(rows).toContainEqual(expect.objectContaining({ result: 'cancelled', actionId: 'on' }));
   });
+
+  it('records a refusal once a minute, and starts afresh for an alias made again', async () => {
+    // Two aliases commanding each other are refused as fast as the loop spins.
+    const { actions, requests, rows } = harness();
+    const alias = lightAlias({
+      on: {
+        from: 'stored',
+        actions: [{ id: 'on', when: { kind: 'command', command: 'toggle' }, then: [sceneStep] }],
+      },
+    });
+    const found = actions.forCommand(alias, [def('on')], { command: 'toggle' }, undefined);
+
+    for (let index = 0; index < 40; index += 1) {
+      actions.startForCommand(alias, found, { command: 'toggle' }, undefined);
+    }
+
+    await vi.waitFor(() => {
+      expect(rows).toHaveLength(31);
+    });
+    expect(rows.filter((row) => (row as { result: string }).result === 'cancelled')).toHaveLength(
+      1,
+    );
+
+    actions.forget(alias.id);
+    actions.startForCommand(alias, found, { command: 'toggle' }, undefined);
+    expect(requests).toHaveLength(31);
+  });
 });

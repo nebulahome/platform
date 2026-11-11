@@ -116,4 +116,17 @@ export class LoopGuard {
   public forget(automationId: string): void {
     this.#starts.delete(automationId);
   }
+
+  /**
+   * Forgets every key a predicate names: the actions of an alias that went.
+   *
+   * @param predicate - Whether a key is one to forget.
+   */
+  public forgetWhere(predicate: (key: string) => boolean): void {
+    for (const key of this.#starts.keys()) {
+      if (predicate(key)) {
+        this.#starts.delete(key);
+      }
+    }
+  }
 }

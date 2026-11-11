@@ -46,7 +46,7 @@ export type SceneApplyRequest = {
 
   readonly traceId: string;
 
-  /** How long the whole apply may take, rollback included. */
+  /** How long the apply may take; a rollback after it has its own `SCENE_ROLLBACK_MS`. */
   readonly deadlineMs: number;
 
   /** Abandons the apply between commands: a run cancelled or out of time. */

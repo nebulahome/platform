@@ -7,8 +7,8 @@
  * so - for lighting a half-applied scene is usually better than a rollback; for a security scene
  * it is not.
  *
- * Pure: the commands go out through a port, and the state before the apply is handed in, so the
- * whole procedure is tested without a broker, a database or a clock.
+ * Pure but for the rollback's own time limit: the commands go out through a port, and the state
+ * before the apply is handed in, so the whole procedure is tested without a broker or a database.
  */
 import {
   commandsForTargetState,
@@ -24,6 +24,9 @@ import {
 
 /** How many members are commanded at once. */
 export const SCENE_APPLY_CONCURRENCY = 4;
+
+/** How long a rollback may take, counted from when it starts. */
+export const SCENE_ROLLBACK_MS = 10_000;
 
 /** One member, with what it was before the apply. */
 export type SceneApplyMember = {
@@ -92,13 +95,16 @@ export async function applyScenePlan(
    *
    * @param outcome - Where to record what was sent.
    * @param commands - What to send.
+   * @param isOver - Whether time is up, checked before each command.
+   * @throws {Error} When time is up before a command, or one is refused.
    */
   const send = async (
     outcome: MemberOutcome,
     commands: readonly { capability: CapabilityName; command: JsonObject }[],
+    isOver: () => boolean,
   ): Promise<void> => {
     for (const entry of commands) {
-      if (ports.isOver()) {
+      if (isOver()) {
         throw new Error('The scene ran out of time');
       }
 
@@ -133,7 +139,7 @@ export async function applyScenePlan(
     }
 
     try {
-      await send(outcome, commands);
+      await send(outcome, commands, ports.isOver);
       outcome.ok = true;
     } catch (error: unknown) {
       outcome.error = shortError(error);
@@ -141,28 +147,44 @@ export async function applyScenePlan(
   });
 
   if (plan.rollbackOnPartialFailure && outcomes.some((outcome) => !outcome.ok)) {
+    // Its own time: an apply that failed by running out of it must still be put back.
+    const rollbackEnds = Date.now() + SCENE_ROLLBACK_MS;
+    /**
+     * Whether the rollback is out of time.
+     *
+     * @returns True past its budget.
+     */
+    const isRollbackOver = (): boolean => Date.now() > rollbackEnds;
+    // A member is put back once any command reached it: one whose second command failed has
+    // still changed.
+    const touched = outcomes.map((outcome) => outcome.sent.length > 0);
+
     await forEachConcurrently(plan.members, SCENE_APPLY_CONCURRENCY, async (member, index) => {
       const outcome = outcomes[index];
 
-      if (outcome?.ok !== true) {
+      if (outcome === undefined || touched[index] !== true) {
         return;
       }
 
       const restore =
         member.before === undefined ? {} : restoreStateFor(member.before, member.targetState);
       const commands = commandsForTargetState(restore);
+      const wasOk = outcome.ok;
 
       outcome.ok = false;
 
       if (commands.length === 0) {
-        outcome.error = 'Could not roll back: no earlier state to return to';
+        // A member that failed keeps saying why.
+        outcome.error = wasOk
+          ? 'Could not roll back: no earlier state to return to'
+          : outcome.error;
 
         return;
       }
 
       try {
-        await send(outcome, commands);
-        outcome.error = 'Rolled back after partial failure';
+        await send(outcome, commands, isRollbackOver);
+        outcome.error = wasOk ? 'Rolled back after partial failure' : outcome.error;
       } catch (error: unknown) {
         outcome.error = `Rollback failed: ${shortError(error)}`;
       }

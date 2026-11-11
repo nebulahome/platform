@@ -148,6 +148,25 @@ describe('applyScenePlan', () => {
     expect(reply.members[0]?.error).toBe('Nothing in its target state can be commanded');
   });
 
+  it('puts back a member that ran out of time half way, on time of its own', async () => {
+    // The ceiling took its switch, then the apply's time ran out before its level: it has
+    // changed all the same, and a rollback cannot be refused for the time the apply used up.
+    const sent: string[] = [];
+    let commands = 0;
+    const reply = await applyScenePlan(plan([evening[0]!], true), [], {
+      send: (entityId, capability, command) => {
+        commands += 1;
+        sent.push(`${capability}:${JSON.stringify(command['command'])}`);
+
+        return Promise.resolve();
+      },
+      isOver: () => commands >= 1,
+    });
+
+    expect(reply.members[0]).toMatchObject({ ok: false, error: 'The scene ran out of time' });
+    expect(sent).toEqual(['on_off:"turn_on"', 'on_off:"turn_off"']);
+  });
+
   it('stops sending once time is up', async () => {
     const ports = { ...port(), isOver: () => true };
     const reply = await applyScenePlan(plan(evening), [], ports);

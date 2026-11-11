@@ -116,10 +116,16 @@ export class SystemMonitor {
 
     this.#timers = [
       setInterval(() => {
-        void this.sample();
+        void this.sample().catch((error: unknown) => {
+          this.#options.logger.warn({ err: error }, 'Could not sample the machine');
+        });
       }, this.#options.sampleIntervalMs),
       setInterval(() => {
-        this.publish();
+        try {
+          this.publish();
+        } catch (error: unknown) {
+          this.#options.logger.warn({ err: error }, 'Could not publish the system readings');
+        }
       }, this.#options.publishIntervalMs),
       setInterval(() => {
         void this.countDisk();

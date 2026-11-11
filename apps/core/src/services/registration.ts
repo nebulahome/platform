@@ -94,6 +94,7 @@ export type RegistrationOptions = {
 type WrittenEntity = {
   readonly rowId: string;
   readonly entityId: EntityId;
+  readonly isEnabled: boolean;
   readonly capabilities: Map<CapabilityName, JsonObject>;
 };
 
@@ -204,6 +205,7 @@ async function write(
       .returning({
         id: schema.registry.entities.id,
         entityId: schema.registry.entities.entityId,
+        isEnabled: schema.registry.entities.isEnabled,
       });
 
     const declaredBy = new Map(
@@ -266,6 +268,7 @@ async function write(
       entities: rows.map((row): WrittenEntity => ({
         rowId: row.id,
         entityId: parseEntityId(row.entityId),
+        isEnabled: row.isEnabled,
         capabilities: toCapabilityMap(declaredBy.get(row.entityId) ?? {}),
       })),
       added:
@@ -483,7 +486,8 @@ function serveRegister(options: RegistrationOptions): BusSubscription {
           entityId: entity.entityId,
           rowId: entity.rowId,
           source: request.integrationId,
-          isEnabled: true,
+          // The row's word, which the upsert never touches: the owner may have disabled it.
+          isEnabled: entity.isEnabled,
           capabilities: entity.capabilities,
           // Hearing a linked device again leaves its links as they are.
           ...linkFieldsOf(options.directory.get(entity.entityId)),

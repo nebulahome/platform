@@ -58,11 +58,6 @@ export function findAliasCycle(edges: readonly AliasGraphEdge[]): AliasCycle | n
 
     for (const source of adjacency.get(node) ?? []) {
       // Only alias nodes participate in cycles among aliases; a physical sensor is a leaf.
-      if (!adjacency.has(source) && ![...adjacency.keys()].includes(source)) {
-        // Source is not itself an alias that reads further - still walk if it appears as an
-        // aliasEntityId elsewhere (already covered by adjacency.has).
-      }
-
       if (adjacency.has(source)) {
         const cycle = visit(source);
         if (cycle !== null) {
@@ -90,25 +85,17 @@ export function findAliasCycle(edges: readonly AliasGraphEdge[]): AliasCycle | n
 /**
  * Lists every alias that depends on a changed entity, direct or transitive, in topological order.
  *
- * @param edges - The full edge list.
+ * @param readersOf - The aliases that read an entity directly (`AliasCatalog.readersOf`).
  * @param rootEntityId - The entity whose state just changed.
  * @returns Alias entity ids that must be recomputed, sources before dependents.
  */
 export function aliasDescendants(
-  edges: readonly AliasGraphEdge[],
+  readersOf: (entityId: EntityId) => Iterable<EntityId>,
   rootEntityId: EntityId,
 ): EntityId[] {
-  const readers = new Map<EntityId, EntityId[]>();
-
-  for (const edge of edges) {
-    const list = readers.get(edge.sourceEntityId) ?? [];
-    list.push(edge.aliasEntityId);
-    readers.set(edge.sourceEntityId, list);
-  }
-
   const ordered: EntityId[] = [];
   const seen = new Set<EntityId>();
-  const queue: EntityId[] = [...(readers.get(rootEntityId) ?? [])];
+  const queue: EntityId[] = [...readersOf(rootEntityId)];
 
   while (queue.length > 0) {
     const next = queue.shift();
@@ -120,7 +107,7 @@ export function aliasDescendants(
     seen.add(next);
     ordered.push(next);
 
-    for (const child of readers.get(next) ?? []) {
+    for (const child of readersOf(next)) {
       queue.push(child);
     }
   }

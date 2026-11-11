@@ -13,6 +13,7 @@ import { eq, inArray } from 'drizzle-orm';
 import {
   automationDefinitionSchema,
   AUTOMATION_MODES,
+  timeZoneSchema,
   type AutomationDefinition,
   type AutomationMode,
   type AutomationRunResult,
@@ -169,9 +170,10 @@ export async function automationIdByKey(
  * Reads the house: the zone its clock keeps and where it stands.
  *
  * @param db - The database.
- * @returns The house; UTC and no position when neither is set.
+ * @param logger - Where a zone that is not one is reported.
+ * @returns The house; UTC and no position when neither is set, UTC for a zone that is not one.
  */
-export async function loadHouse(db: Database): Promise<House> {
+export async function loadHouse(db: Database, logger?: PlatformLogger): Promise<House> {
   const [setting] = await db
     .select({ value: schema.system.settings.value })
     .from(schema.system.settings)
@@ -187,7 +189,14 @@ export async function loadHouse(db: Database): Promise<House> {
     .where(eq(schema.registry.areas.kind, 'house'))
     .limit(1);
 
-  const timeZone = typeof setting?.value === 'string' ? setting.value : 'UTC';
+  // A zone Intl does not know throws in every clock that reads it, timers and cron included.
+  const zone = timeZoneSchema.safeParse(setting?.value ?? 'UTC');
+  const timeZone = zone.success ? zone.data : 'UTC';
+
+  if (!zone.success) {
+    logger?.warn({ timeZone: setting?.value }, 'The house time zone is not one; using UTC');
+  }
+
   const position =
     house?.latitude === null || house?.latitude === undefined || house.longitude === null
       ? null

@@ -7,7 +7,6 @@
  * and what it makes of a stored state.
  */
 import {
-  aliasEnumValues,
   aliasScalarFromState,
   aliasValueProblem,
   CAPABILITY_DEFINITIONS,
@@ -421,32 +420,4 @@ export function applyCapabilityCommand(
   }
 
   return next;
-}
-
-/**
- * A part's value in a state, as the parts hold it.
- *
- * @param def - The part.
- * @param state - The alias's state.
- * @returns Its value, or undefined when the state does not have it.
- */
-export function partValueIn(
-  def: AliasPartDef,
-  state: CapabilityState | undefined,
-): PartValue | undefined {
-  return readPart(def, state);
-}
-
-/**
- * The names an enum part's command may set, to refuse one it does not offer.
- *
- * @param def - The part.
- * @param config - Its configuration.
- * @returns The names, or undefined when any is accepted.
- */
-export function offeredNames(
-  def: AliasPartDef,
-  config: AliasPartConfig,
-): readonly string[] | undefined {
-  return aliasEnumValues(def, config);
 }

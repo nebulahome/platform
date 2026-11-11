@@ -60,6 +60,16 @@ async function start(): Promise<void> {
     pretty: config.NODE_ENV === 'development',
   });
 
+  // A promise nobody caught leaves the house running as it was: ending the process would lose the
+  // runs going and the buffered history. A thrown error leaves a state nobody knows, so it ends.
+  process.on('unhandledRejection', (error: unknown) => {
+    logger.error({ err: error }, 'A promise failed and nothing caught it');
+  });
+  process.on('uncaughtException', (error: unknown) => {
+    logger.fatal({ err: error }, 'core failed with an error it did not catch');
+    process.exit(EXIT_CODES.UNHANDLED_ERROR);
+  });
+
   const database = createDatabase({
     connectionString: config.DATABASE_URL,
     applicationName: SERVICE_NAME,

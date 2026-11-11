@@ -44,6 +44,9 @@ export type RunActions = (request: ActionsRunRequest) => Promise<ActionsRunOutco
 /** How long one run of an action may take. */
 export const ALIAS_ACTION_MAX_MS = 300_000;
 
+/** How often a refused action writes a row saying so, as an automation does. */
+const REFUSAL_ROW_INTERVAL_MS = 60_000;
+
 /** What the runner needs. */
 export type AliasActionsOptions = {
   readonly db: Database;
@@ -88,6 +91,9 @@ export class AliasActions {
   readonly #runs = new Map<string, AbortController>();
   readonly #holds = new Map<string, ReturnType<typeof setTimeout>>();
   readonly #guard = new LoopGuard();
+
+  /** When each action's refusal was last recorded, by run key. */
+  readonly #refusedAt = new Map<string, number>();
 
   /**
    * @param options - Collaborators.
@@ -262,6 +268,14 @@ export class AliasActions {
         this.#holds.delete(key);
       }
     }
+
+    for (const key of this.#refusedAt.keys()) {
+      if (key.startsWith(prefix)) {
+        this.#refusedAt.delete(key);
+      }
+    }
+
+    this.#guard.forgetWhere((key) => key.startsWith(prefix));
   }
 
   /** Stops everything: `core` is shutting down. */
@@ -300,6 +314,13 @@ export class AliasActions {
         { aliasId: start.alias.id, part: start.part, action: start.action.id },
         admitted.reason,
       );
+
+      // One row a minute says why it stopped; a row per refusal would grow as fast as the loop.
+      if (now.getTime() - (this.#refusedAt.get(key) ?? 0) < REFUSAL_ROW_INTERVAL_MS) {
+        return;
+      }
+
+      this.#refusedAt.set(key, now.getTime());
       void this.#record(start, randomUUID(), {
         result: 'cancelled',
         error: admitted.reason,

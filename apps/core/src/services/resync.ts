@@ -21,9 +21,12 @@ import type { PlatformLogger } from '@nebulahome/logging';
 
 import { isLinked, type EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';
+import type { BatchWriter } from '../persistence/batch-writer.js';
+import type { EntityStateRow, StateHistoryRow } from '../persistence/history-writer.js';
 
 import type { LinkEngine } from './link-engine.js';
 import { announceChange, type ChangeObserver } from './state-events.js';
+import { persistChange } from './state-ingest.js';
 
 /** What a resynchronisation pass needs. */
 export type ResyncOptions = {
@@ -35,6 +38,12 @@ export type ResyncOptions = {
 
   /** The registry, so unreachable adapters' entities can be marked as such. */
   readonly registry: EntityRegistry;
+
+  /** Where the history row of an entity marked unreachable is buffered. */
+  readonly history: BatchWriter<StateHistoryRow>;
+
+  /** Where its recovery-cache row is buffered, so a restart does not bring it back reachable. */
+  readonly stateCache: BatchWriter<EntityStateRow>;
 
   /** Where the outcome is reported. */
   readonly logger: PlatformLogger;
@@ -137,6 +146,10 @@ function markUnavailable(options: ResyncOptions, source: SourceRef): void {
     const result = options.registry.setAvailability(entityId, false);
 
     if (result !== undefined) {
+      if (record !== undefined) {
+        persistChange(options, record, result);
+      }
+
       announceChange(options.client, result, undefined, options.onNotableChange);
     }
   }

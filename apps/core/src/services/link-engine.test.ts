@@ -241,6 +241,28 @@ describe('LinkEngine', () => {
     });
     expect(harness.registry.get(plug)?.state.on_off).toEqual({ isOn: true });
   });
+
+  it('forgets what a source said once its device took it away', () => {
+    say(plugMatter, { state: { on_off: { isOn: false } } });
+
+    const before = [harness.directory.get(plug), harness.directory.get(plugMatter)].filter(
+      (record): record is EntityRecord => record !== undefined,
+    );
+
+    harness.directory.remove(plugMatter);
+    harness.directory.set(entityRecord(plug, { source: 'shelly-plug' }));
+    engine.resync(before);
+
+    // The same address linked again starts from nothing, not from what it said before it went.
+    for (const record of before) {
+      harness.directory.set(record);
+    }
+
+    expect(engine.sourcesOf(plug)).toMatchObject([
+      { source: 'shelly-plug', state: undefined },
+      { source: 'matter-plug', state: undefined },
+    ]);
+  });
 });
 
 describe('countOn', () => {

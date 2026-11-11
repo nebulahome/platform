@@ -143,6 +143,121 @@ describe('BatchWriter', () => {
     expect(written).toStrictEqual([[1]]);
   });
 
+  it('drains a backlog larger than one statement can carry', async () => {
+    // postgres.js refuses 65,534 parameters or more; a 9-column history row reaches that at
+    // 7,282 rows, and a writer that retried the whole backlog would never write again.
+    const written: number[] = [];
+    const writer = new BatchWriter<number>({
+      name: 'test',
+      logger: silentLogger(),
+      batchSize: 100_000,
+      write: async (rows) => {
+        await Promise.resolve();
+
+        if (rows.length * 9 >= 65_534) {
+          throw new Error('MAX_PARAMETERS_EXCEEDED');
+        }
+
+        written.push(...rows);
+      },
+    });
+
+    for (let row = 0; row < 8000; row += 1) {
+      writer.add(row);
+    }
+
+    await writer.flush();
+
+    expect(writer.pending).toBe(0);
+    expect(written).toHaveLength(8000);
+    expect(written[7999]).toBe(7999);
+  });
+
+  it('drops a row the database keeps refusing instead of holding back the rest', async () => {
+    const written: number[] = [];
+    const refusal = Object.assign(new Error('insert failed'), {
+      cause: Object.assign(new Error('unsupported Unicode escape sequence'), { code: '22P05' }),
+    });
+    const writer = new BatchWriter<number>({
+      name: 'test',
+      logger: silentLogger(),
+      batchSize: 1000,
+      write: async (rows) => {
+        await Promise.resolve();
+
+        if (rows.includes(2)) {
+          throw refusal;
+        }
+
+        written.push(...rows);
+      },
+    });
+
+    for (const row of [1, 2, 3]) {
+      writer.add(row);
+    }
+
+    await writer.flush();
+    await writer.flush();
+    expect(writer.pending).toBe(3);
+
+    await writer.flush();
+    expect(writer.pending).toBe(0);
+    expect(written).toStrictEqual([1, 3]);
+    expect(writer.dropped).toBe(1);
+  });
+
+  it('never drops rows over a connection failure', async () => {
+    const writer = new BatchWriter<number>({
+      name: 'test',
+      logger: silentLogger(),
+      batchSize: 1000,
+      write: async () => {
+        await Promise.resolve();
+        throw Object.assign(new Error('write CONNECTION_CLOSED'), { code: 'CONNECTION_CLOSED' });
+      },
+    });
+
+    writer.add(1);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await writer.flush();
+    }
+
+    expect(writer.pending).toBe(1);
+    expect(writer.dropped).toBe(0);
+  });
+
+  it('writes on shutdown the rows added while a flush was in flight', async () => {
+    const written: number[][] = [];
+    let release: () => void = () => undefined;
+    const writer = new BatchWriter<number>({
+      name: 'test',
+      logger: silentLogger(),
+      batchSize: 1000,
+      write: async (rows) => {
+        if (written.length === 0) {
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+        }
+
+        written.push([...rows]);
+      },
+    });
+
+    writer.add(1);
+    void writer.flush();
+    writer.add(2);
+
+    const stopped = writer.stop();
+
+    release();
+    await stopped;
+
+    expect(written).toStrictEqual([[1], [2]]);
+  });
+
   it('does nothing when there is nothing to write', async () => {
     const write = vi.fn(async () => {
       await Promise.resolve();

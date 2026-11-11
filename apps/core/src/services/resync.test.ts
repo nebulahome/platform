@@ -68,6 +68,8 @@ describe('requestResync', () => {
       client: harness.client,
       directory: harness.directory,
       registry: harness.registry,
+      history: harness.history,
+      stateCache: harness.stateCache,
       logger: harness.logger,
       timeoutMs: 200,
       reason: 'startup',
@@ -101,6 +103,21 @@ describe('requestResync', () => {
     expect(outcome.silent).toStrictEqual(['pkg-wifi']);
     expect(harness.registry.get(thermometer)?.isAvailable).toBe(false);
     expect(harness.registry.get(bulb)?.isAvailable).toBe(true);
+  });
+
+  it('writes the change to the history and the cache, so a restart does not undo it', async () => {
+    startAdapter('pkg-weather', []);
+
+    await run();
+
+    await vi.waitFor(() => {
+      expect(harness.historyRows).toContainEqual(
+        expect.objectContaining({ entityId: `row-${thermometer}`, isAvailable: false }),
+      );
+      expect(harness.cacheRows).toContainEqual(
+        expect.objectContaining({ entityId: `row-${thermometer}`, isAvailable: false }),
+      );
+    });
   });
 
   it('keeps the last known values of an unreachable adapter', async () => {
@@ -142,6 +159,8 @@ describe('requestResync', () => {
       client: empty.client,
       directory: empty.directory,
       registry: empty.registry,
+      history: empty.history,
+      stateCache: empty.stateCache,
       logger: empty.logger,
       timeoutMs: 200,
       reason: 'startup',

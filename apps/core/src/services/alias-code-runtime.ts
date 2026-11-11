@@ -190,6 +190,7 @@ export class AliasCodeRuntime implements AliasCodeRunner {
    */
   public forget(aliasId: string): void {
     this.#compiled.delete(aliasId);
+    this.#http.delete(aliasId);
 
     const held = this.#held.get(aliasId);
 

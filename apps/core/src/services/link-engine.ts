@@ -228,6 +228,19 @@ export class LinkEngine implements LinkRouter {
     const traceId = this.#options.newTraceId();
     const holders = new Set<EntityId>();
 
+    // A released device's sources went from the directory; what they last said goes too.
+    for (const state of this.#raw.snapshot()) {
+      if (directory.get(state.entityId) === undefined) {
+        this.#raw.remove(state.entityId);
+      }
+    }
+
+    for (const entityId of this.#active.keys()) {
+      if (directory.get(entityId) === undefined) {
+        this.#active.delete(entityId);
+      }
+    }
+
     for (const previous of before) {
       const record = directory.get(previous.entityId);
 

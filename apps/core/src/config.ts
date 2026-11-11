@@ -46,7 +46,7 @@ export const coreEnvSchema = runtimeEnvSchema
     CORE_HISTORY_FLUSH_INTERVAL_MS: z.coerce.number().int().min(50).max(60_000).default(1000),
 
     /** How many history rows trigger an immediate write. */
-    CORE_HISTORY_BATCH_SIZE: z.coerce.number().int().min(1).max(10_000).default(500),
+    CORE_HISTORY_BATCH_SIZE: z.coerce.number().int().min(1).max(2000).default(500),
 
     /** How many telemetry readings are pulled from the stream at once. */
     CORE_TELEMETRY_BATCH_SIZE: z.coerce.number().int().min(1).max(10_000).default(500),

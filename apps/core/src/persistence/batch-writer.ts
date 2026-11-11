@@ -36,11 +36,49 @@ export type BatchWriterOptions<TRow> = {
 
   /** Hard ceiling on the buffer, past which the oldest rows are dropped. */
   readonly maxBufferedRows?: number;
+
+  /**
+   * The most rows one `write` call is given. postgres.js refuses a statement with 65,534
+   * parameters or more, so rows times columns has to stay under that; the default leaves room
+   * for 32 columns.
+   */
+  readonly maxRowsPerWrite?: number;
 };
 
 const DEFAULT_BATCH_SIZE = 500;
 const DEFAULT_FLUSH_INTERVAL_MS = 1000;
 const DEFAULT_MAX_BUFFERED_ROWS = 50_000;
+const DEFAULT_MAX_ROWS_PER_WRITE = 2000;
+
+/** How many times in a row the database may refuse a chunk's data before its rows are tried one by one. */
+const REFUSED_ATTEMPTS_BEFORE_ISOLATING = 3;
+
+/**
+ * Whether an error is the database refusing the rows themselves rather than failing to take them.
+ *
+ * Only SQLSTATE classes 22 (data exception, such as a `\u0000` inside jsonb) and 23 (integrity
+ * violation, such as a foreign key to a deleted entity) count: those fail the same way on every
+ * retry. Anything else - a lost connection, a timeout, a full disk - is worth waiting out, so
+ * its rows are never dropped. Drizzle wraps the driver's error, hence the walk down `cause`.
+ *
+ * @param error - What `write` rejected with.
+ * @returns True when retrying the same rows cannot succeed.
+ */
+export function isRefusedRowsError(error: unknown): boolean {
+  let current: unknown = error;
+
+  for (let depth = 0; depth < 5 && typeof current === 'object' && current !== null; depth += 1) {
+    const code: unknown = (current as { readonly code?: unknown }).code;
+
+    if (typeof code === 'string' && /^2[23][0-9A-Z]{3}$/.test(code)) {
+      return true;
+    }
+
+    current = (current as { readonly cause?: unknown }).cause;
+  }
+
+  return false;
+}
 
 /** Buffers rows and writes them in batches. */
 export class BatchWriter<TRow> {
@@ -48,9 +86,10 @@ export class BatchWriter<TRow> {
 
   #buffer: TRow[] = [];
   #timer: NodeJS.Timeout | undefined;
-  #isFlushing = false;
+  #flushing: Promise<void> | undefined;
   #isRunning = false;
   #droppedRows = 0;
+  #refusedAttempts = 0;
 
   /**
    * Builds a writer.
@@ -63,6 +102,7 @@ export class BatchWriter<TRow> {
       batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
       flushIntervalMs: options.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
       maxBufferedRows: options.maxBufferedRows ?? DEFAULT_MAX_BUFFERED_ROWS,
+      maxRowsPerWrite: options.maxRowsPerWrite ?? DEFAULT_MAX_ROWS_PER_WRITE,
     };
   }
 
@@ -138,36 +178,28 @@ export class BatchWriter<TRow> {
   }
 
   /**
-   * Writes whatever is buffered.
+   * Writes whatever is buffered, in chunks of at most `maxRowsPerWrite` rows.
    *
    * Rows are returned to the front of the buffer if the write fails, so a database that was
-   * briefly unreachable costs a delay rather than a hole in the history.
+   * briefly unreachable costs a delay rather than a hole in the history. A flush already under
+   * way is joined rather than doubled.
    *
    * @returns A promise that settles once the attempt is over, successful or not.
    */
-  public async flush(): Promise<void> {
-    if (this.#isFlushing || this.#buffer.length === 0) {
-      return;
+  public flush(): Promise<void> {
+    if (this.#flushing !== undefined) {
+      return this.#flushing;
     }
 
-    this.#isFlushing = true;
-
-    const batch = this.#buffer;
-
-    this.#buffer = [];
-
-    try {
-      await this.#options.write(batch);
-    } catch (error: unknown) {
-      this.#buffer = [...batch, ...this.#buffer];
-
-      this.#options.logger.error(
-        { writer: this.#options.name, rows: batch.length, err: error },
-        'Could not write a batch, keeping it buffered',
-      );
-    } finally {
-      this.#isFlushing = false;
+    if (this.#buffer.length === 0) {
+      return Promise.resolve();
     }
+
+    this.#flushing = this.#drain().finally(() => {
+      this.#flushing = undefined;
+    });
+
+    return this.#flushing;
   }
 
   /**
@@ -183,7 +215,104 @@ export class BatchWriter<TRow> {
       this.#timer = undefined;
     }
 
+    // The first call may only join a flush that took its rows before the latest were added.
     await this.flush();
+    await this.flush();
+  }
+
+  /**
+   * Writes the rows buffered when it starts, chunk by chunk, stopping at the first failure.
+   *
+   * @returns A promise that settles once every chunk is written or one is put back.
+   */
+  async #drain(): Promise<void> {
+    let remaining = this.#buffer.length;
+
+    while (remaining > 0 && this.#buffer.length > 0) {
+      const chunk = this.#buffer.splice(0, Math.min(remaining, this.#options.maxRowsPerWrite));
+
+      remaining -= chunk.length;
+
+      // eslint-disable-next-line no-await-in-loop -- in order: a failed chunk stops the ones after it
+      const unwritten = await this.#writeChunk(chunk);
+
+      if (unwritten.length > 0) {
+        this.#buffer.unshift(...unwritten);
+
+        return;
+      }
+    }
+  }
+
+  /**
+   * Writes one chunk, falling back to one row at a time once the database has refused its data
+   * a few times in a row, so one bad row cannot hold back every row after it.
+   *
+   * @param chunk - The rows, oldest first.
+   * @returns The rows still to write, empty when the chunk is done.
+   */
+  async #writeChunk(chunk: readonly TRow[]): Promise<readonly TRow[]> {
+    try {
+      await this.#options.write(chunk);
+      this.#refusedAttempts = 0;
+
+      return [];
+    } catch (error: unknown) {
+      this.#refusedAttempts = isRefusedRowsError(error) ? this.#refusedAttempts + 1 : 0;
+
+      if (this.#refusedAttempts < REFUSED_ATTEMPTS_BEFORE_ISOLATING) {
+        this.#options.logger.error(
+          { writer: this.#options.name, rows: chunk.length, err: error },
+          'Could not write a batch, keeping it buffered',
+        );
+
+        return chunk;
+      }
+
+      this.#refusedAttempts = 0;
+
+      return this.#writeOneByOne(chunk);
+    }
+  }
+
+  /**
+   * Writes a refused chunk row by row and drops the rows the database still refuses.
+   *
+   * @param chunk - The rows, oldest first.
+   * @returns The rows still to write when the database stopped answering part way, else empty.
+   */
+  async #writeOneByOne(chunk: readonly TRow[]): Promise<readonly TRow[]> {
+    let refused = 0;
+    let unwritten: readonly TRow[] = [];
+
+    for (const [index, row] of chunk.entries()) {
+      try {
+        // eslint-disable-next-line no-await-in-loop -- one at a time, so a lost connection stops it
+        await this.#options.write([row]);
+      } catch (error: unknown) {
+        if (!isRefusedRowsError(error)) {
+          unwritten = chunk.slice(index);
+          this.#options.logger.error(
+            { writer: this.#options.name, rows: unwritten.length, err: error },
+            'Could not write a batch, keeping it buffered',
+          );
+          break;
+        }
+
+        refused += 1;
+        this.#options.logger.debug({ writer: this.#options.name, err: error }, 'Row refused');
+      }
+    }
+
+    if (refused > 0) {
+      this.#droppedRows += refused;
+      this.#options.logger.error(
+        { writer: this.#options.name, refused, dropped: this.#droppedRows },
+        'The database refused some rows, dropping them',
+      );
+    }
+
+    return unwritten;
   }
 
   /** Arms the next flush. */

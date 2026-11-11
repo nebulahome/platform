@@ -4,7 +4,7 @@
  * An alias behaves as a type (`alias-types.ts`) and is made of parts, each with a source
  * (`alias-parts.ts`). What it reads - the entities of its parts, its formulas' and its code's -
  * is worked out by the API on every save and stored beside it (`registry.alias_reads`); the
- * catalogue keeps it as the edges a source change is followed along.
+ * catalogue keeps it indexed by what is read, which a source change is followed along.
  */
 import type {
   AliasCustomType,
@@ -16,8 +16,6 @@ import type {
   EntityId,
   JsonObject,
 } from '@nebulahome/contracts';
-
-import type { AliasGraphEdge } from './alias-graph.js';
 
 /** One alias as the engine knows it. */
 export type AliasDefinition = {
@@ -59,6 +57,9 @@ export class AliasCatalog {
   readonly #byEntity = new Map<EntityId, AliasDefinition>();
   readonly #byId = new Map<string, AliasDefinition>();
 
+  /** The aliases that read each entity: every state change walks it, so it is kept, not rebuilt. */
+  readonly #readers = new Map<EntityId, Set<EntityId>>();
+
   /**
    * How many aliases are loaded.
    *
@@ -76,6 +77,7 @@ export class AliasCatalog {
   public replaceAll(aliases: readonly AliasDefinition[]): void {
     this.#byEntity.clear();
     this.#byId.clear();
+    this.#readers.clear();
 
     for (const alias of aliases) {
       this.upsert(alias);
@@ -88,8 +90,16 @@ export class AliasCatalog {
    * @param alias - The definition.
    */
   public upsert(alias: AliasDefinition): void {
+    this.#unindex(this.#byEntity.get(alias.entityId), alias.reads);
     this.#byEntity.set(alias.entityId, alias);
     this.#byId.set(alias.id, alias);
+
+    for (const read of alias.reads) {
+      const readers = this.#readers.get(read) ?? new Set<EntityId>();
+
+      readers.add(alias.entityId);
+      this.#readers.set(read, readers);
+    }
   }
 
   /**
@@ -104,8 +114,19 @@ export class AliasCatalog {
       return;
     }
 
+    this.#unindex(existing, []);
     this.#byEntity.delete(entityId);
     this.#byId.delete(existing.id);
+  }
+
+  /**
+   * Lists the aliases that read an entity directly.
+   *
+   * @param entityId - The entity.
+   * @returns The alias entities, empty when none reads it.
+   */
+  public readersOf(entityId: EntityId): ReadonlySet<EntityId> {
+    return this.#readers.get(entityId) ?? NO_READERS;
   }
 
   /**
@@ -128,19 +149,33 @@ export class AliasCatalog {
   }
 
   /**
-   * Builds the edge list used for cycle detection and descendant walks.
+   * Takes an alias out of the readers of what it no longer reads.
    *
-   * @returns Every alias → read entity edge.
+   * Reads it keeps stay where they are, so a value saved on a stored part does not reorder them.
+   *
+   * @param alias - The alias as it was, or undefined when it is new.
+   * @param keep - The reads it still has.
    */
-  public edges(): AliasGraphEdge[] {
-    const edges: AliasGraphEdge[] = [];
-
-    for (const alias of this.#byEntity.values()) {
-      for (const read of alias.reads) {
-        edges.push({ aliasEntityId: alias.entityId, sourceEntityId: read });
-      }
+  #unindex(alias: AliasDefinition | undefined, keep: readonly EntityId[]): void {
+    if (alias === undefined) {
+      return;
     }
 
-    return edges;
+    for (const read of alias.reads) {
+      const readers = this.#readers.get(read);
+
+      if (readers === undefined || keep.includes(read)) {
+        continue;
+      }
+
+      readers.delete(alias.entityId);
+
+      if (readers.size === 0) {
+        this.#readers.delete(read);
+      }
+    }
   }
 }
+
+/** What {@link AliasCatalog.readersOf} gives for an entity no alias reads. */
+const NO_READERS: ReadonlySet<EntityId> = new Set();

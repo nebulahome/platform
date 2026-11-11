@@ -236,6 +236,27 @@ export function ingestReport(
     return undefined;
   }
 
+  persistChange(options, record, result);
+  announceChange(options.client, result, traceId, options.onNotableChange);
+
+  return result;
+}
+
+/**
+ * Buffers the history row and the recovery-cache row of one notable change.
+ *
+ * For changes made outside a report too - an adapter that went silent - so the history and the
+ * state after a restart say what the registry said.
+ *
+ * @param options - The two writers.
+ * @param record - The entity's configuration, for its row id.
+ * @param result - The change.
+ */
+export function persistChange(
+  options: Pick<StateIngestOptions, 'history' | 'stateCache'>,
+  record: EntityRecord,
+  result: IngestResult,
+): void {
   // A picture's state says only which picture it is: a robot's map is drawn again every few
   // seconds while it cleans, and a row each time would bury what the device's activity says.
   if (!isPicture(result.entityId)) {
@@ -243,9 +264,6 @@ export function ingestReport(
   }
 
   options.stateCache.add(toCacheRow(record, result));
-  announceChange(options.client, result, traceId, options.onNotableChange);
-
-  return result;
 }
 
 /**

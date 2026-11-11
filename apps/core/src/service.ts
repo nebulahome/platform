@@ -213,7 +213,7 @@ export class CoreService {
 
     // The sun's entities follow the house's position; written before the registry is read, so
     // the directory holds them from the start.
-    const house = await loadHouse(db);
+    const house = await loadHouse(db, startupLogger);
 
     await syncSunEntities(db, house.position !== null, startupLogger);
 
@@ -522,6 +522,8 @@ export class CoreService {
       client,
       directory: this.#directory,
       registry: this.#registry,
+      history,
+      stateCache,
       logger: startupLogger,
       timeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
       reason: 'startup',

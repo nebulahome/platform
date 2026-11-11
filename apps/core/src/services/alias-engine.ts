@@ -56,7 +56,7 @@ import {
   type PartValue,
 } from '../domain/alias-values.js';
 import { validateCommand } from '../domain/command-validation.js';
-import type { EntityDirectory } from '../domain/entity-directory.js';
+import type { EntityDirectory, EntityRecord } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';
 import {
   eraseAlias,
@@ -298,18 +298,10 @@ export class AliasEngine {
    * @throws {NotFoundError} When no alias is that entity.
    */
   public async remove(entityId: EntityId): Promise<void> {
-    const alias = this.#options.catalog.getByEntity(entityId);
     const rowId = await eraseAlias(this.#options.db, entityId);
 
     this.#cancel(entityId);
     this.#forget(entityId, rowId);
-
-    if (alias !== undefined) {
-      this.#options.code?.forget(alias.id);
-      this.#actions.forget(alias.id);
-      this.#failing.delete(alias.id);
-      this.#seen.delete(alias.id);
-    }
   }
 
   /**
@@ -318,7 +310,10 @@ export class AliasEngine {
    * @param entityId - The entity whose state just changed.
    */
   public onSourceChanged(entityId: EntityId): void {
-    const descendants = aliasDescendants(this.#options.catalog.edges(), entityId);
+    const descendants = aliasDescendants(
+      (source) => this.#options.catalog.readersOf(source),
+      entityId,
+    );
 
     for (const aliasEntityId of descendants) {
       const alias = this.#options.catalog.getByEntity(aliasEntityId);
@@ -502,7 +497,9 @@ export class AliasEngine {
         const current = this.#options.catalog.getByEntity(alias.entityId);
 
         if (current?.isEnabled === true) {
-          void this.recompute(current);
+          void this.recompute(current).catch((cause: unknown) => {
+            this.#options.logger.warn({ err: cause, entityId: alias.entityId }, 'Alias run failed');
+          });
         }
       }
     });
@@ -570,7 +567,15 @@ export class AliasEngine {
           ? error.failure
           : { message: error instanceof Error ? error.message : 'Could not be worked out' };
 
-      this.#writeUnavailable(alias, failure);
+      if (this.#isCurrent(alias, record)) {
+        this.#writeUnavailable(alias, failure);
+      }
+
+      return;
+    }
+
+    // Code may have waited seconds: an alias deleted meanwhile must not come back as state.
+    if (!this.#isCurrent(alias, record)) {
       return;
     }
 
@@ -594,6 +599,20 @@ export class AliasEngine {
       context ?? { type: 'alias', id: alias.id },
     );
     void this.#persistEvaluation(alias, null);
+  }
+
+  /**
+   * Whether an alias a run started with is still the one in the catalogue and the directory.
+   *
+   * @param alias - The definition the run started with.
+   * @param record - The entity the run started with.
+   * @returns False once it was removed, or removed and made again, since the run started.
+   */
+  #isCurrent(alias: AliasDefinition, record: EntityRecord): boolean {
+    return (
+      this.#options.catalog.getByEntity(alias.entityId)?.id === alias.id &&
+      this.#options.directory.get(alias.entityId)?.rowId === record.rowId
+    );
   }
 
   /**
@@ -814,6 +833,16 @@ export class AliasEngine {
    * @param rowId - Its row id, when known, which buffered state writes are keyed by.
    */
   #forget(entityId: EntityId, rowId: string | undefined): void {
+    const alias = this.#options.catalog.getByEntity(entityId);
+
+    if (alias !== undefined) {
+      this.#options.code?.forget(alias.id);
+      this.#actions.forget(alias.id);
+      this.#failing.delete(alias.id);
+      this.#seen.delete(alias.id);
+      this.#written.delete(alias.id);
+    }
+
     this.#options.catalog.remove(entityId);
     this.#options.directory.remove(entityId);
     this.#options.registry.remove(entityId);

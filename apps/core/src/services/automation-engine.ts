@@ -103,6 +103,7 @@ import {
   loadWebhookSettings,
   markTriggered,
   type AutomationRecord,
+  type WebhookSettings,
 } from '../persistence/automation-store.js';
 
 import type { CommandDispatcher } from './command-dispatch.js';
@@ -143,6 +144,9 @@ const CLOCK_RECHECK_MS = 15_000;
 
 /** How long a package service has to answer. */
 const PACKAGE_SERVICE_TIMEOUT_MS = 30_000;
+
+/** How long the webhook settings read once serve the calls after. */
+const WEBHOOK_SETTINGS_REUSE_MS = 10_000;
 
 /** How long a finished run is remembered, so the changes its last commands cause are its. */
 const RUN_MEMORY_MS = 15_000;
@@ -359,6 +363,7 @@ export class AutomationEngine {
   readonly #refusedAt = new Map<string, number>();
   readonly #webhookCalls = new CallCounter();
   #house: House = { timeZone: 'UTC', position: null };
+  #webhookSettings: { readonly settings: WebhookSettings; readonly until: number } | undefined;
 
   /**
    * The live state of an entity.
@@ -387,7 +392,7 @@ export class AutomationEngine {
    * @returns How many automations were loaded.
    */
   public async load(): Promise<number> {
-    this.#house = await loadHouse(this.#options.db);
+    this.#house = await loadHouse(this.#options.db, this.#options.logger);
 
     for (const record of await loadAutomations(this.#options.db, this.#options.logger)) {
       this.#install(record);
@@ -478,7 +483,7 @@ export class AutomationEngine {
    * @returns The zone and whether a position is known.
    */
   public async syncHouse(): Promise<SyncHouseReply> {
-    this.#house = await loadHouse(this.#options.db);
+    this.#house = await loadHouse(this.#options.db, this.#options.logger);
 
     for (const slot of this.#slots.values()) {
       this.#armTimes(slot);
@@ -535,7 +540,16 @@ export class AutomationEngine {
    */
   public async webhookCall(call: WebhookCallRequest): Promise<WebhookCallReply> {
     const receivedAt = this.#now();
-    const settings = await loadWebhookSettings(this.#options.db);
+
+    // A burst of calls is a burst of reads otherwise; a change in Settings waits ten seconds.
+    if (this.#webhookSettings === undefined || this.#webhookSettings.until <= Date.now()) {
+      this.#webhookSettings = {
+        settings: await loadWebhookSettings(this.#options.db),
+        until: Date.now() + WEBHOOK_SETTINGS_REUSE_MS,
+      };
+    }
+
+    const { settings } = this.#webhookSettings;
     const targets = webhookTargets(
       [...this.#slots.values()].map((slot) => ({
         id: slot.record.id,
@@ -942,12 +956,19 @@ export class AutomationEngine {
       run.controller.abort('cancelled');
     }
 
-    for (const watching of [...this.#byEntity.values(), ...this.#byTimeEntity.values()]) {
-      watching.delete(automationId);
+    for (const index of [this.#byEntity, this.#byTimeEntity]) {
+      for (const [entityId, watching] of index) {
+        watching.delete(automationId);
+
+        if (watching.size === 0) {
+          index.delete(entityId);
+        }
+      }
     }
 
     this.#byKey.delete(slot.record.key);
     this.#slots.delete(automationId);
+    this.#refusedAt.delete(automationId);
   }
 
   /**
@@ -1067,7 +1088,8 @@ export class AutomationEngine {
             this.#react(slot, { kind: 'time', path }, []);
           }
 
-          this.#armTime(slot, path, leaf, at);
+          // From now, not from the moment: after a suspend, missed slots fire once, not each.
+          this.#armTime(slot, path, leaf, new Date(Math.max(at.getTime(), this.#now().getTime())));
         },
         Math.min(delay, MAX_TIMER_MS),
       ),
@@ -1082,8 +1104,16 @@ export class AutomationEngine {
    * @param result - What changed.
    */
   #handleChange(result: IngestResult): void {
+    // One that throws must not cost the others this change.
     for (const waiter of [...this.#waiters]) {
-      waiter(result);
+      try {
+        waiter(result);
+      } catch (error: unknown) {
+        this.#options.logger.error(
+          { err: error, entityId: result.entityId },
+          'A wait failed on a change',
+        );
+      }
     }
 
     if (!this.#isLive) {
@@ -1115,8 +1145,15 @@ export class AutomationEngine {
     for (const automationId of watching) {
       const slot = this.#slots.get(automationId);
 
-      if (slot !== undefined) {
-        this.#react(slot, event, chain);
+      try {
+        if (slot !== undefined) {
+          this.#react(slot, event, chain);
+        }
+      } catch (error: unknown) {
+        this.#options.logger.error(
+          { err: error, automation: slot?.record.key, entityId: result.entityId },
+          'An automation failed on a change',
+        );
       }
     }
   }
