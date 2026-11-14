@@ -21,13 +21,11 @@ import {
 } from '@nebulahome/contracts';
 
 import { translate } from '@/i18n/messages';
-import {
-  convertHaAutomations,
-  convertHaScenes,
-  uniqueKey,
-  type ImportedAutomation,
-  type ImportedScene,
-  type ImportNote,
+import type {
+  ImportedAutomation,
+  ImportedScene,
+  ImportNote,
+  uniqueKey as UniqueKey,
 } from '@/library/ha-import';
 
 /** This platform's automations file. */
@@ -109,12 +107,14 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
  * @param document - The parsed file.
  * @param kind - Which it is.
  * @param taken - Keys already used here; a file's key that is taken gets a suffix.
+ * @param uniqueKey - Gives that suffix.
  * @returns What it brought in.
  */
 function readOwnFile(
   document: Readonly<Record<string, unknown>>,
   kind: 'automations' | 'scenes',
   taken: Set<string>,
+  uniqueKey: typeof UniqueKey,
 ): LibraryFileReading {
   if (typeof document['version'] !== 'number' || document['version'] > FILE_VERSION) {
     return refused(
@@ -199,10 +199,12 @@ function readOwnFile(
  * @param taken.scenes - The scenes' keys.
  * @returns What it brought in, or why it is not something to import.
  */
-export function readLibraryFile(
+export async function readLibraryFile(
   text: string,
   taken: { readonly automations: Iterable<string>; readonly scenes: Iterable<string> },
-): LibraryFileReading {
+): Promise<LibraryFileReading> {
+  // The port from Home Assistant is a large module, wanted only once somebody picks a file.
+  const { convertHaAutomations, convertHaScenes, uniqueKey } = await import('@/library/ha-import');
   let document: unknown;
 
   try {
@@ -221,11 +223,11 @@ export function readLibraryFile(
   const sceneKeys = new Set(taken.scenes);
 
   if (isRecord(document) && document['format'] === AUTOMATIONS_FORMAT) {
-    return readOwnFile(document, 'automations', automationKeys);
+    return readOwnFile(document, 'automations', automationKeys, uniqueKey);
   }
 
   if (isRecord(document) && document['format'] === SCENES_FORMAT) {
-    return readOwnFile(document, 'scenes', sceneKeys);
+    return readOwnFile(document, 'scenes', sceneKeys, uniqueKey);
   }
 
   if (isRecord(document) && typeof document['format'] === 'string') {

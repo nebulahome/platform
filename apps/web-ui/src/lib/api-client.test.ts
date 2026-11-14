@@ -310,6 +310,29 @@ describe('apiRequest', () => {
     expect(globalThis.localStorage.getItem('nebula.refresh-token')).toBe('still-good');
   });
 
+  it('keeps the session when the refresh is rate limited', async () => {
+    globalThis.localStorage.setItem('nebula.refresh-token', 'still-good');
+
+    const onSignedOut = vi.fn();
+
+    stubFetch([
+      () =>
+        json(401, { error: { code: 'AUTHENTICATION', message: 'no', details: {}, traceId: 't' } }),
+      () =>
+        json(429, { error: { code: 'RATE_LIMITED', message: 'slow', details: {}, traceId: 't' } }),
+    ]);
+
+    connectSession({
+      readAccessToken: () => 'stale',
+      onRefreshed: () => undefined,
+      onSignedOut,
+    });
+
+    await expect(apiRequest('/entities', z.unknown())).rejects.toMatchObject({ status: 429 });
+    expect(onSignedOut).not.toHaveBeenCalled();
+    expect(globalThis.localStorage.getItem('nebula.refresh-token')).toBe('still-good');
+  });
+
   it('does not try to refresh a call that never had a credential', async () => {
     globalThis.localStorage.setItem('nebula.refresh-token', 'refresh-1');
     stubFetch([

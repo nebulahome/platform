@@ -457,14 +457,18 @@ export function describeState(
 }
 
 /**
- * The newest reading of an entity: the channel's when it has spoken, the page's otherwise.
+ * The newest reading of an entity: the channel's when it has spoken and the page's is not newer,
+ * the page's otherwise - a channel gone quiet must not hide every later read of the list.
  *
  * @param entity - The entity as the API served it.
  * @param live - What the channel has said about it since, if anything.
  * @returns The reading to show.
  */
 export function readingOf(entity: EntityView, live: LiveReading | undefined): Reading {
-  if (live !== undefined) {
+  if (
+    live !== undefined &&
+    (entity.lastChanged === null || live.changedAt.getTime() >= entity.lastChanged.getTime())
+  ) {
     return {
       text: describeState(live.state, entity),
       isAvailable: live.isAvailable,

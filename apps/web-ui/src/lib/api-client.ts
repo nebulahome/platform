@@ -197,8 +197,9 @@ async function refreshOnce(): Promise<string | null> {
     // and for the length of every restart. Throwing the token away on that would sign a person
     // out of a wall tablet every time the service was redeployed, for no reason the token could
     // have known about. Only an answer from the API itself is final.
-    // Nor is a restore in progress: the session may well outlive it, if it fails.
-    if (isApiUnreachable(failure) || failure.code === 'MAINTENANCE') {
+    // Nor is a restore in progress: the session may well outlive it, if it fails. Nor a rate
+    // limit, which is about how often the token was offered, not about the token.
+    if (isApiUnreachable(failure) || failure.code === 'MAINTENANCE' || response.status === 429) {
       throw failure;
     }
 

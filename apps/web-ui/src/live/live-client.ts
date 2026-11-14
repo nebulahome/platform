@@ -19,6 +19,7 @@
 import {
   WS_CLOSE_TOKEN_EXPIRED,
   WS_CLOSE_UNAUTHENTICATED,
+  WS_HEARTBEAT_INTERVAL_MS,
   wsServerMessageSchema,
   type WsClientMessage,
   type WsServerMessage,
@@ -141,6 +142,12 @@ export class LiveClient {
   /** How many connections in a row have failed. */
   #failures = 0;
 
+  /** The ping that checks the welcomed socket is still alive, while one is. */
+  #watchdog: ReturnType<typeof setInterval> | undefined;
+
+  /** Whether anything arrived on the socket since the last ping. */
+  #isHeard = false;
+
   /**
    * Creates the client. Nothing connects until {@link LiveClient.start}.
    *
@@ -207,8 +214,40 @@ export class LiveClient {
   #drop(): void {
     const socket = this.#socket;
 
+    this.#stopWatchdog();
     this.#socket = undefined;
     socket?.close();
+  }
+
+  /**
+   * Pings the welcomed socket every heartbeat, and drops it when a whole heartbeat passed without
+   * a word: a half-open socket never fires `close`, and would otherwise sit silent for good.
+   *
+   * @param send - Sends on that socket.
+   */
+  #startWatchdog(send: (message: WsClientMessage) => void): void {
+    this.#stopWatchdog();
+    this.#isHeard = true;
+    this.#watchdog = setInterval(() => {
+      if (!this.#isHeard) {
+        this.#drop();
+        this.#options.onStatus('offline');
+        this.#retryLater();
+
+        return;
+      }
+
+      this.#isHeard = false;
+      send({ type: 'ping' });
+    }, WS_HEARTBEAT_INTERVAL_MS);
+  }
+
+  /** Stops pinging. */
+  #stopWatchdog(): void {
+    if (this.#watchdog !== undefined) {
+      clearInterval(this.#watchdog);
+      this.#watchdog = undefined;
+    }
   }
 
   /** Opens a socket, if there is a token to open it with. */
@@ -247,6 +286,8 @@ export class LiveClient {
         return;
       }
 
+      this.#isHeard = true;
+
       const parsed = wsServerMessageSchema.safeParse(parseJson(event.data));
 
       if (!parsed.success) {
@@ -261,6 +302,7 @@ export class LiveClient {
           send({ type: 'subscribe', topic });
         }
 
+        this.#startWatchdog(send);
         this.#options.onStatus('live');
       }
 
@@ -274,6 +316,7 @@ export class LiveClient {
       }
 
       this.#socket = undefined;
+      this.#stopWatchdog();
       this.#options.onStatus('offline');
 
       if (!this.#isRunning) {
@@ -282,14 +325,25 @@ export class LiveClient {
 
       if (event.code === WS_CLOSE_TOKEN_EXPIRED || event.code === WS_CLOSE_UNAUTHENTICATED) {
         // The server said which credential it wants: a fresh one. Ask for it, then come straight
-        // back - with a wait only when the refresh itself came back empty-handed.
-        void this.#options.refreshAccessToken().then((token) => {
-          if (token === null) {
-            this.#retryLater();
-          } else if (this.#isRunning && this.#socket === undefined) {
-            this.#connect();
-          }
-        });
+        // back - with a wait when the refresh came back empty-handed or could not reach the API.
+        this.#options.refreshAccessToken().then(
+          (token) => {
+            if (!this.#isRunning || this.#socket !== undefined) {
+              return;
+            }
+
+            if (token === null) {
+              this.#retryLater();
+            } else {
+              this.#connect();
+            }
+          },
+          () => {
+            if (this.#isRunning && this.#socket === undefined) {
+              this.#retryLater();
+            }
+          },
+        );
 
         return;
       }

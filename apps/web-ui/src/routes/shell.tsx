@@ -2,6 +2,7 @@
  * The signed-in frame: the rail, and whatever page is open beside it - or, at an address no page
  * answers, a plain word that there is nothing there.
  */
+import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router';
 
@@ -69,7 +70,10 @@ export function Shell() {
       <Sidebar />
       <div className="relative flex min-w-0 grow">
         <FloatingLayer>
-          <Outlet />
+          {/* A page is read when first opened; until then its place stays empty, the rail on. */}
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
           <PackageBackgrounds />
         </FloatingLayer>
       </div>

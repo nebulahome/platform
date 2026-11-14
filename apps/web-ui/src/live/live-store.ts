@@ -46,8 +46,14 @@ export type LiveState = {
   /** Records where the channel stands. */
   readonly setStatus: (status: LiveStatus) => void;
 
-  /** Applies one message. Anything that is not a state change is not this store's business. */
+  /**
+   * Applies one message. Anything that is not a state change is not this store's business. A
+   * state change lands with the others of the same frame, so a burst re-renders once.
+   */
   readonly apply: (message: WsServerMessage, receivedAt?: number) => void;
+
+  /** Lands at once the state changes still waiting for their frame. */
+  readonly flush: () => void;
 
   /** Forgets everything, for when the person it was heard on behalf of signs out. */
   readonly reset: () => void;
@@ -59,8 +65,24 @@ export type LiveState = {
   readonly forgetReadings: () => void;
 };
 
+/** State changes heard and not yet in the store, by entity: the last of each wins. */
+let waiting: Record<string, LiveReading> = {};
+
+/** The frame that lands them, while one is asked for. */
+let frame: number | undefined;
+
+/** Forgets the state changes still waiting, and their frame. */
+function dropWaiting(): void {
+  if (frame !== undefined) {
+    cancelAnimationFrame(frame);
+    frame = undefined;
+  }
+
+  waiting = {};
+}
+
 /** The live channel's store. */
-export const useLive = create<LiveState>((set) => ({
+export const useLive = create<LiveState>((set, get) => ({
   status: 'offline',
   readings: {},
 
@@ -84,28 +106,48 @@ export const useLive = create<LiveState>((set) => ({
       return;
     }
 
-    set((current) => ({
-      readings: {
-        ...current.readings,
-        [message.entityId]: {
-          state: message.state,
-          attributes: message.attributes,
-          isAvailable: message.isAvailable,
-          isUpdating: message.isUpdating === true,
-          changedAt: message.changedAt,
-          receivedAt,
-        },
-      },
-    }));
+    waiting[message.entityId] = {
+      state: message.state,
+      attributes: message.attributes,
+      isAvailable: message.isAvailable,
+      isUpdating: message.isUpdating === true,
+      changedAt: message.changedAt,
+      receivedAt,
+    };
+
+    // A hidden tab draws no frames, and what listens there must still hear each change.
+    if (typeof requestAnimationFrame !== 'function' || document.hidden) {
+      get().flush();
+
+      return;
+    }
+
+    frame ??= requestAnimationFrame(() => {
+      frame = undefined;
+      get().flush();
+    });
+  },
+
+  /** Lands the waiting state changes, in one update. */
+  flush: (): void => {
+    const landing = waiting;
+
+    dropWaiting();
+
+    if (Object.keys(landing).length > 0) {
+      set((current) => ({ readings: { ...current.readings, ...landing } }));
+    }
   },
 
   /** Forgets everything. */
   reset: (): void => {
+    dropWaiting();
     set({ status: 'offline', readings: {} });
   },
 
   /** Forgets the readings, keeping the standing. */
   forgetReadings: (): void => {
+    dropWaiting();
     set({ readings: {} });
   },
 }));

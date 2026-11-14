@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { retryDelayMs, useSession } from '@/auth/session-store';
+import { SAMPLE_OWNER } from '@/testing/backup-samples';
 
 /**
  * Answers the way Vite does while nothing is listening on the API's port.
@@ -155,6 +156,17 @@ describe('initialise, while the API is not there', () => {
     expect(counts['/setup']).toBe(1);
     expect(useSession.getState().status).toBe('signed-out');
     expect(useSession.getState().isWaitingForApi).toBe(false);
+  });
+});
+
+describe('can', () => {
+  it('is a new function once the account changes, so a component selecting it renders again', () => {
+    const before = useSession.getState().can;
+
+    useSession.setState({ user: SAMPLE_OWNER });
+
+    expect(useSession.getState().can).not.toBe(before);
+    expect(useSession.getState().can('device:read')).toBe(true);
   });
 });
 

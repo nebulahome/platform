@@ -129,6 +129,32 @@ describe('CameraPlayer', () => {
     });
   });
 
+  it('makes no decoder once stopped while the browser was being asked', async () => {
+    const made = vi.fn();
+    let answer: (support: { supported: boolean }) => void = () => undefined;
+
+    vi.stubGlobal(
+      'VideoDecoder',
+      Object.assign(made, {
+        isConfigSupported: async () =>
+          new Promise((resolve) => {
+            answer = resolve;
+          }),
+      }),
+    );
+
+    const { socket, player } = started();
+
+    say(socket, { type: 'init', track: { kind: 'h264', codec: 'avc1.640028' } });
+    player.stop();
+    answer({ supported: true });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(made).not.toHaveBeenCalled();
+  });
+
   it('decodes nothing before a key frame, and everything from one on', async () => {
     const decoded: string[] = [];
 

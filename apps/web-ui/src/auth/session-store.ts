@@ -483,16 +483,19 @@ export const useSession = create<SessionState>((set, get) => ({
     }
   },
 
-  /**
-   * Says whether the signed-in person holds a permission.
-   *
-   * @param key - The permission.
-   * @param scopes - Every scope the target falls under.
-   * @returns True when they hold it.
-   */
-  can: (key: string, scopes: readonly string[] = []): boolean =>
-    isPermitted(get().user?.permissions ?? [], key, scopes),
+  can: holdsPermission,
 }));
+
+/**
+ * Says whether the signed-in person holds a permission.
+ *
+ * @param key - The permission.
+ * @param scopes - Every scope the target falls under.
+ * @returns True when they hold it.
+ */
+function holdsPermission(key: string, scopes: readonly string[] = []): boolean {
+  return isPermitted(useSession.getState().user?.permissions ?? [], key, scopes);
+}
 
 /*
  * Wires the API client to the store.
@@ -540,5 +543,11 @@ void applyLanguage(useSession.getState().language);
 useSession.subscribe((state, previous) => {
   if (state.language !== previous.language) {
     void applyLanguage(state.language);
+  }
+
+  // `can` reads the account when called, but a component that selects it renders again only for a
+  // new function: one for every account read, so a changed role shows at once.
+  if (state.user !== previous.user) {
+    useSession.setState({ can: holdsPermission.bind(undefined) });
   }
 });

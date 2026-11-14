@@ -9,7 +9,7 @@
  * request regardless, which is why the last case checks that typing the address gets a refusal
  * rather than a broken page.
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 
@@ -131,8 +131,10 @@ describe('the settings tree', () => {
 
     expect(screen.queryByRole('link', { name: 'Monitor' })).toBeNull();
 
-    signedInWith('system:read');
-    renderAt('/settings/account');
+    // The page on screen follows the role as it changes, without being opened again.
+    act(() => {
+      signedInWith('system:read');
+    });
 
     expect(screen.getByRole('link', { name: 'Monitor' })).toBeTruthy();
   });

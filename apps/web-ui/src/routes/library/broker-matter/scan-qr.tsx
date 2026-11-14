@@ -103,6 +103,7 @@ function Scanner(props: { readonly onCode: (code: string) => void; readonly onCl
     const Found = detectorClass();
     let stream: MediaStream | null = null;
     let timer: ReturnType<typeof setInterval> | undefined;
+    let isClosed = false;
 
     if (Found === undefined) {
       return;
@@ -113,6 +114,15 @@ function Scanner(props: { readonly onCode: (code: string) => void; readonly onCl
     void navigator.mediaDevices
       .getUserMedia({ video: { facingMode: 'environment' } })
       .then((opened) => {
+        // Closed while the browser was still asking: the camera it now gives goes off at once.
+        if (isClosed) {
+          for (const track of opened.getTracks()) {
+            track.stop();
+          }
+
+          return;
+        }
+
         stream = opened;
 
         if (video.current !== null) {
@@ -142,6 +152,7 @@ function Scanner(props: { readonly onCode: (code: string) => void; readonly onCl
       });
 
     return () => {
+      isClosed = true;
       clearInterval(timer);
 
       for (const track of stream?.getTracks() ?? []) {

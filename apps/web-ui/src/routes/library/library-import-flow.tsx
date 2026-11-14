@@ -112,7 +112,7 @@ export function LibraryImportFlow(props: LibraryImportFlowProps) {
    * @param chosen - The file.
    */
   const read = async (chosen: File): Promise<void> => {
-    const reading = readLibraryFile(await chosen.text(), {
+    const reading = await readLibraryFile(await chosen.text(), {
       automations: kind === 'automations' ? takenKeys : [],
       scenes: kind === 'scenes' ? takenKeys : [],
     });

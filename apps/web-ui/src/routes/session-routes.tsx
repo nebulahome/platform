@@ -22,7 +22,7 @@
  * been created has nothing to animate from. One frame, changing children, is what lets the mark
  * travel instead of jumping.
  */
-import { Fragment, useEffect, type ReactNode } from 'react';
+import { Fragment, lazy, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 
@@ -31,12 +31,6 @@ import { SetupSteps } from '@nebulahome/ui';
 import { useSession, type SessionStatus } from '@/auth/session-store';
 import { defineMessage, text, type Message } from '@/i18n/messages';
 import { AuthLayout } from '@/routes/auth-layout';
-import { ComposePage } from '@/routes/containers/compose-page';
-import { ContainerPage } from '@/routes/containers/container-page';
-import { ContainersPage } from '@/routes/containers/containers-page';
-import { DashboardEditorPage } from '@/routes/dashboard/dashboard-editor-page';
-import { DashboardPage } from '@/routes/dashboard/dashboard-page';
-import { DashboardsManagePage } from '@/routes/dashboard/dashboards-manage-page';
 import {
   FIRST_RUN_STEP_COUNT,
   FirstRunForm,
@@ -44,50 +38,198 @@ import {
   firstRunSteps,
   useFirstRunStep,
 } from '@/routes/first-run';
-import { AliasPage } from '@/routes/library/aliases/alias-page';
-import { AliasesPage } from '@/routes/library/aliases/aliases-page';
-import { AreasPage } from '@/routes/library/areas-page';
-import { AutomationEditor } from '@/routes/library/automation-editor';
-import { AutomationsPage } from '@/routes/library/automations-page';
-import { BluetoothBrokerPage } from '@/routes/library/broker-bluetooth-page';
-import { InfraredRemotePage } from '@/routes/library/broker-infrared/remote-page';
-import { InfraredBrokerPage } from '@/routes/library/broker-infrared-page';
-import { MatterBrokerPage } from '@/routes/library/broker-matter-page';
-import { ModbusTemplatePage } from '@/routes/library/broker-modbus/template-editor/template-page';
-import { ModbusBrokerPage } from '@/routes/library/broker-modbus-page';
-import { MqttBrokerPage } from '@/routes/library/broker-mqtt-page';
-import { SerialBrokerPage } from '@/routes/library/broker-serial-page';
-import { ThreadBrokerPage } from '@/routes/library/broker-thread-page';
-import { BrokersPage } from '@/routes/library/brokers-page';
-import { DevicePage } from '@/routes/library/device/device-page';
-import { DevicesPage } from '@/routes/library/devices-page';
-import { IntegrationsPage } from '@/routes/library/integrations-page';
-import { ScenePage } from '@/routes/library/scene-page';
-import { ScenesPage } from '@/routes/library/scenes-page';
-import { TagsPage } from '@/routes/library/tags-page';
-import { VendorPage } from '@/routes/library/vendor-page';
-import { PackageAppPage } from '@/routes/packages/package-app-page';
-import { PackagePage } from '@/routes/packages/package-page';
-import { PackagesPage } from '@/routes/packages/packages-page';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/routes/return-to';
-import { AccountSettings } from '@/routes/settings/account-settings';
-import { BackupSettings } from '@/routes/settings/backup-settings';
-import { DataAndRetention } from '@/routes/settings/data-and-retention';
-import { IconsPanel } from '@/routes/settings/icons-panel';
-import { InterfaceSettings } from '@/routes/settings/interface-settings';
-import { PeoplePanel } from '@/routes/settings/people-panel';
 import { RequiresPermission } from '@/routes/settings/requires-permission';
-import { RolesPanel } from '@/routes/settings/roles-panel';
-import { SettingsLayout } from '@/routes/settings/settings-layout';
 import { DEFAULT_SETTINGS_PAGE } from '@/routes/settings/settings-tree';
-import { SoftwareSettings } from '@/routes/settings/software-settings';
-import { SystemMonitor } from '@/routes/settings/system-monitor';
-import { WebhookCalls, WebhooksSettings } from '@/routes/settings/webhooks-settings';
 import { PagePlaceholder, Shell } from '@/routes/shell';
 import { SignInForm } from '@/routes/sign-in';
 import { TwoFactorFooter, TwoFactorForm } from '@/routes/two-factor';
 import { useIntroHold } from '@/routes/use-intro-hold';
 import { usePreferences } from '@/settings/preferences';
+
+// Every page is read when it is first opened, so signing in does not wait for all of them; the
+// shell holds the one place that waits (see `shell.tsx`).
+const ComposePage = lazy(async () =>
+  import('@/routes/containers/compose-page').then((module) => ({ default: module.ComposePage })),
+);
+const ContainerPage = lazy(async () =>
+  import('@/routes/containers/container-page').then((module) => ({
+    default: module.ContainerPage,
+  })),
+);
+const ContainersPage = lazy(async () =>
+  import('@/routes/containers/containers-page').then((module) => ({
+    default: module.ContainersPage,
+  })),
+);
+const DashboardEditorPage = lazy(async () =>
+  import('@/routes/dashboard/dashboard-editor-page').then((module) => ({
+    default: module.DashboardEditorPage,
+  })),
+);
+const DashboardPage = lazy(async () =>
+  import('@/routes/dashboard/dashboard-page').then((module) => ({ default: module.DashboardPage })),
+);
+const DashboardsManagePage = lazy(async () =>
+  import('@/routes/dashboard/dashboards-manage-page').then((module) => ({
+    default: module.DashboardsManagePage,
+  })),
+);
+const AliasPage = lazy(async () =>
+  import('@/routes/library/aliases/alias-page').then((module) => ({ default: module.AliasPage })),
+);
+const AliasesPage = lazy(async () =>
+  import('@/routes/library/aliases/aliases-page').then((module) => ({
+    default: module.AliasesPage,
+  })),
+);
+const AreasPage = lazy(async () =>
+  import('@/routes/library/areas-page').then((module) => ({ default: module.AreasPage })),
+);
+const AutomationEditor = lazy(async () =>
+  import('@/routes/library/automation-editor').then((module) => ({
+    default: module.AutomationEditor,
+  })),
+);
+const AutomationsPage = lazy(async () =>
+  import('@/routes/library/automations-page').then((module) => ({
+    default: module.AutomationsPage,
+  })),
+);
+const BluetoothBrokerPage = lazy(async () =>
+  import('@/routes/library/broker-bluetooth-page').then((module) => ({
+    default: module.BluetoothBrokerPage,
+  })),
+);
+const InfraredRemotePage = lazy(async () =>
+  import('@/routes/library/broker-infrared/remote-page').then((module) => ({
+    default: module.InfraredRemotePage,
+  })),
+);
+const InfraredBrokerPage = lazy(async () =>
+  import('@/routes/library/broker-infrared-page').then((module) => ({
+    default: module.InfraredBrokerPage,
+  })),
+);
+const MatterBrokerPage = lazy(async () =>
+  import('@/routes/library/broker-matter-page').then((module) => ({
+    default: module.MatterBrokerPage,
+  })),
+);
+const ModbusTemplatePage = lazy(async () =>
+  import('@/routes/library/broker-modbus/template-editor/template-page').then((module) => ({
+    default: module.ModbusTemplatePage,
+  })),
+);
+const ModbusBrokerPage = lazy(async () =>
+  import('@/routes/library/broker-modbus-page').then((module) => ({
+    default: module.ModbusBrokerPage,
+  })),
+);
+const MqttBrokerPage = lazy(async () =>
+  import('@/routes/library/broker-mqtt-page').then((module) => ({
+    default: module.MqttBrokerPage,
+  })),
+);
+const SerialBrokerPage = lazy(async () =>
+  import('@/routes/library/broker-serial-page').then((module) => ({
+    default: module.SerialBrokerPage,
+  })),
+);
+const ThreadBrokerPage = lazy(async () =>
+  import('@/routes/library/broker-thread-page').then((module) => ({
+    default: module.ThreadBrokerPage,
+  })),
+);
+const BrokersPage = lazy(async () =>
+  import('@/routes/library/brokers-page').then((module) => ({ default: module.BrokersPage })),
+);
+const DevicePage = lazy(async () =>
+  import('@/routes/library/device/device-page').then((module) => ({ default: module.DevicePage })),
+);
+const DevicesPage = lazy(async () =>
+  import('@/routes/library/devices-page').then((module) => ({ default: module.DevicesPage })),
+);
+const IntegrationsPage = lazy(async () =>
+  import('@/routes/library/integrations-page').then((module) => ({
+    default: module.IntegrationsPage,
+  })),
+);
+const ScenePage = lazy(async () =>
+  import('@/routes/library/scene-page').then((module) => ({ default: module.ScenePage })),
+);
+const ScenesPage = lazy(async () =>
+  import('@/routes/library/scenes-page').then((module) => ({ default: module.ScenesPage })),
+);
+const TagsPage = lazy(async () =>
+  import('@/routes/library/tags-page').then((module) => ({ default: module.TagsPage })),
+);
+const VendorPage = lazy(async () =>
+  import('@/routes/library/vendor-page').then((module) => ({ default: module.VendorPage })),
+);
+const PackageAppPage = lazy(async () =>
+  import('@/routes/packages/package-app-page').then((module) => ({
+    default: module.PackageAppPage,
+  })),
+);
+const PackagePage = lazy(async () =>
+  import('@/routes/packages/package-page').then((module) => ({ default: module.PackagePage })),
+);
+const PackagesPage = lazy(async () =>
+  import('@/routes/packages/packages-page').then((module) => ({ default: module.PackagesPage })),
+);
+const AccountSettings = lazy(async () =>
+  import('@/routes/settings/account-settings').then((module) => ({
+    default: module.AccountSettings,
+  })),
+);
+const BackupSettings = lazy(async () =>
+  import('@/routes/settings/backup-settings').then((module) => ({
+    default: module.BackupSettings,
+  })),
+);
+const DataAndRetention = lazy(async () =>
+  import('@/routes/settings/data-and-retention').then((module) => ({
+    default: module.DataAndRetention,
+  })),
+);
+const IconsPanel = lazy(async () =>
+  import('@/routes/settings/icons-panel').then((module) => ({ default: module.IconsPanel })),
+);
+const InterfaceSettings = lazy(async () =>
+  import('@/routes/settings/interface-settings').then((module) => ({
+    default: module.InterfaceSettings,
+  })),
+);
+const PeoplePanel = lazy(async () =>
+  import('@/routes/settings/people-panel').then((module) => ({ default: module.PeoplePanel })),
+);
+const RolesPanel = lazy(async () =>
+  import('@/routes/settings/roles-panel').then((module) => ({ default: module.RolesPanel })),
+);
+const SettingsLayout = lazy(async () =>
+  import('@/routes/settings/settings-layout').then((module) => ({
+    default: module.SettingsLayout,
+  })),
+);
+const SoftwareSettings = lazy(async () =>
+  import('@/routes/settings/software-settings').then((module) => ({
+    default: module.SoftwareSettings,
+  })),
+);
+const SystemMonitor = lazy(async () =>
+  import('@/routes/settings/system-monitor').then((module) => ({ default: module.SystemMonitor })),
+);
+const WebhookCalls = lazy(async () =>
+  import('@/routes/settings/webhooks-settings').then((module) => ({
+    default: module.WebhookCalls,
+  })),
+);
+const WebhooksSettings = lazy(async () =>
+  import('@/routes/settings/webhooks-settings').then((module) => ({
+    default: module.WebhooksSettings,
+  })),
+);
 
 /** A status that means nobody is signed in yet. */
 type UnauthenticatedStatus = Exclude<SessionStatus, 'starting' | 'signed-in'>;

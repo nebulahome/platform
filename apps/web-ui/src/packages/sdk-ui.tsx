@@ -228,13 +228,36 @@ function useEntityPicture(entityId: string, options?: PictureOptions): EntityPic
 }
 
 /**
- * One entity of the house, live.
+ * One entity of the house, live. It follows its own row and reading only, so a card is drawn
+ * again when its entity changes rather than when any entity does.
  *
  * @param entityId - The entity.
  * @returns It, or undefined while it is not known.
  */
 function useEntity(entityId: string): EntityView | undefined {
-  return useLiveEntities().find((entity) => entity.view.entityId === entityId)?.view;
+  const reading = useLive((state) => state.readings[entityId]);
+  const entity = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.entities,
+
+    /**
+     * Reads the entities.
+     *
+     * @param context - The query's abort signal.
+     * @param context.signal - Cancels the request.
+     * @returns The entities.
+     */
+    queryFn: async ({ signal }) => fetchEntities(signal),
+
+    /**
+     * Picks the one entity.
+     *
+     * @param entities - Every entity.
+     * @returns It, if it is among them.
+     */
+    select: (entities) => entities.find((candidate) => candidate.entityId === entityId),
+  }).data;
+
+  return entity === undefined ? undefined : viewOf(entity, reading);
 }
 
 /**

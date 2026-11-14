@@ -199,6 +199,11 @@ export class CameraPlayer {
     const config: VideoDecoderConfig = { codec, optimizeForLatency: true };
     const support = await VideoDecoder.isConfigSupported(config).catch(() => undefined);
 
+    // Stopped while the browser was asked: a decoder made now would never be closed.
+    if (this.#isStopped) {
+      return;
+    }
+
     if (support?.supported !== true) {
       onStatus(
         'unsupported',
@@ -210,6 +215,11 @@ export class CameraPlayer {
       );
 
       return;
+    }
+
+    // A track said again replaces the decoder; the one before lets go of its hardware.
+    if (this.#decoder !== undefined && this.#decoder.state !== 'closed') {
+      this.#decoder.close();
     }
 
     this.#decoder = new VideoDecoder({

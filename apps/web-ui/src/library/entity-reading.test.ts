@@ -155,6 +155,19 @@ describe('readingOf', () => {
     expect(reading.at).toEqual(new Date('2026-09-12T00:01:00.500Z'));
   });
 
+  it('prefers the page when it was read after the channel last spoke', () => {
+    const reading = readingOf(entity({ lastChanged: new Date('2026-09-12T00:02:00.000Z') }), {
+      state: { sensor_numeric: { value: 220 } },
+      attributes: {},
+      isAvailable: true,
+      changedAt: new Date('2026-09-12T00:01:00.000Z'),
+      receivedAt: Date.parse('2026-09-12T00:01:00.500Z'),
+    });
+
+    expect(reading.text).toBe('215 °C');
+    expect(reading.isLive).toBe(false);
+  });
+
   it('falls back to the page when the channel has said nothing', () => {
     const reading = readingOf(entity(), undefined);
 

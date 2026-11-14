@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   entityIdSchema,
   WS_CLOSE_TOKEN_EXPIRED,
+  WS_HEARTBEAT_INTERVAL_MS,
   type WsServerMessage,
 } from '@nebulahome/contracts';
 
@@ -208,6 +209,41 @@ describe('LiveClient', () => {
       JSON.stringify({ type: 'authenticate', accessToken: 'token-2' }),
     ]);
     expect(statuses).toEqual(['connecting', 'live', 'offline', 'connecting']);
+  });
+
+  it('tries again later when the refresh at expiry could not reach the API', async () => {
+    const { client, sockets, refresh } = harness(['token-1']);
+
+    refresh.mockRejectedValueOnce(new Error('unreachable'));
+    client.start();
+    sockets[0]?.open();
+    sockets[0]?.deliver(WELCOME);
+    sockets[0]?.closeFromServer(WS_CLOSE_TOKEN_EXPIRED);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(sockets).toHaveLength(2);
+  });
+
+  it('pings while welcomed, and drops a socket that went silent for a whole heartbeat', () => {
+    const { client, sockets } = harness(['token-1']);
+
+    client.start();
+    sockets[0]?.open();
+    sockets[0]?.deliver(WELCOME);
+
+    vi.advanceTimersByTime(WS_HEARTBEAT_INTERVAL_MS);
+    expect(sockets[0]?.sent.at(-1)).toBe(JSON.stringify({ type: 'ping' }));
+
+    sockets[0]?.deliver({ type: 'pong' });
+    vi.advanceTimersByTime(WS_HEARTBEAT_INTERVAL_MS);
+    expect(sockets[0]?.isClosed).toBe(false);
+
+    vi.advanceTimersByTime(WS_HEARTBEAT_INTERVAL_MS);
+    expect(sockets[0]?.isClosed).toBe(true);
+
+    vi.advanceTimersByTime(1000);
+    expect(sockets).toHaveLength(2);
   });
 
   it('waits before trying again after any other close, longer each time', () => {

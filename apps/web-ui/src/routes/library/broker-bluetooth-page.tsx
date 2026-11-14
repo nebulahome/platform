@@ -8,7 +8,7 @@
  * page keeps that difference visible.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
@@ -49,7 +49,6 @@ import {
   BluetoothSettingsDialog,
   StopProxyConfirm,
 } from '@/routes/library/broker-bluetooth/bluetooth-dialogs';
-import { BluetoothMapView } from '@/routes/library/broker-bluetooth/bluetooth-map';
 import { BluetoothNearbyView } from '@/routes/library/broker-bluetooth/bluetooth-nearby';
 import {
   BluetoothDevices,
@@ -60,6 +59,13 @@ import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { devicePath } from '@/routes/library/device/device-path';
 import { useVendorsById } from '@/routes/library/transport-marks';
+
+/** The map, read only when its tab is opened: it brings the graph library with it. */
+const BluetoothMapView = lazy(async () =>
+  import('@/routes/library/broker-bluetooth/bluetooth-map').then((module) => ({
+    default: module.BluetoothMapView,
+  })),
+);
 
 /** The tabs of the page; the first is the page itself. */
 const TABS = ['overview', 'devices', 'map', 'nearby', 'scanners'] as const;
@@ -414,12 +420,14 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
 
           {tab === 'map' ? (
             <TabPanel idPrefix="bluetooth" id="map">
-              <BluetoothMapView
-                map={map.data}
-                devices={deviceList}
-                roomOf={roomOf}
-                onAddProxy={openAddProxy}
-              />
+              <Suspense fallback={null}>
+                <BluetoothMapView
+                  map={map.data}
+                  devices={deviceList}
+                  roomOf={roomOf}
+                  onAddProxy={openAddProxy}
+                />
+              </Suspense>
             </TabPanel>
           ) : null}
 

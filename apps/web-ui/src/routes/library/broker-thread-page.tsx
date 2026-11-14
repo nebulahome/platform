@@ -8,7 +8,7 @@
  * top right, then Overview, Devices, Network and Border routers.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 
@@ -41,7 +41,6 @@ import {
   ThreadSettingsDialog,
   ThreadSetupDialog,
 } from '@/routes/library/broker-thread/thread-dialogs';
-import { ThreadNetworkView } from '@/routes/library/broker-thread/thread-map';
 import {
   BeforeSetup,
   ThreadBorderRouters,
@@ -50,6 +49,13 @@ import {
 } from '@/routes/library/broker-thread/thread-tabs';
 import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
+
+/** The network map, read only when its tab is opened: it brings the graph library with it. */
+const ThreadNetworkView = lazy(async () =>
+  import('@/routes/library/broker-thread/thread-map').then((module) => ({
+    default: module.ThreadNetworkView,
+  })),
+);
 
 /** The tabs of the page once Thread is set up. */
 const TABS = ['overview', 'devices', 'network', 'border-routers'] as const;
@@ -315,11 +321,13 @@ export function ThreadBrokerPage() {
               ) : null}
               {tab === 'network' ? (
                 <TabPanel idPrefix="thread" id="network">
-                  <ThreadNetworkView
-                    devices={devices.data}
-                    borderRouters={borderRouters.data ?? []}
-                    roomOf={roomOf}
-                  />
+                  <Suspense fallback={null}>
+                    <ThreadNetworkView
+                      devices={devices.data}
+                      borderRouters={borderRouters.data ?? []}
+                      roomOf={roomOf}
+                    />
+                  </Suspense>
                 </TabPanel>
               ) : null}
               {tab === 'border-routers' ? (

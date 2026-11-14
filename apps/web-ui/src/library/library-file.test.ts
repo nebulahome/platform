@@ -88,8 +88,8 @@ const AUTOMATIONS_YAML = `
   use_blueprint: { path: motion.yaml }
 `;
 
-describe('readLibraryFile with Home Assistant automations', () => {
-  const reading = readLibraryFile(AUTOMATIONS_YAML, {
+describe('readLibraryFile with Home Assistant automations', async () => {
+  const reading = await readLibraryFile(AUTOMATIONS_YAML, {
     automations: ['evening_lights'],
     scenes: [],
   });
@@ -219,8 +219,8 @@ describe('readLibraryFile with Home Assistant automations', () => {
   });
 });
 
-describe('readLibraryFile with what Home Assistant names by device, area and zone', () => {
-  const reading = readLibraryFile(
+describe('readLibraryFile with what Home Assistant names by device, area and zone', async () => {
+  const reading = await readLibraryFile(
     `
 - alias: Shower light
   triggers:
@@ -375,8 +375,8 @@ describe('readLibraryFile with what Home Assistant names by device, area and zon
 });
 
 describe('readLibraryFile with Home Assistant scenes', () => {
-  it('reads each entity into a target state', () => {
-    const reading = readLibraryFile(
+  it('reads each entity into a target state', async () => {
+    const reading = await readLibraryFile(
       `
 - id: '1'
   name: Romantic
@@ -422,8 +422,8 @@ describe('readLibraryFile with Home Assistant scenes', () => {
     });
   });
 
-  it('reads the scene section of a configuration.yaml, keeping !secret as text', () => {
-    const reading = readLibraryFile(
+  it('reads the scene section of a configuration.yaml, keeping !secret as text', async () => {
+    const reading = await readLibraryFile(
       'homeassistant:\n  name: !secret name\nscene:\n  - name: Off\n    entities:\n      light.a: "off"\n',
       NONE,
     );
@@ -433,7 +433,7 @@ describe('readLibraryFile with Home Assistant scenes', () => {
 });
 
 describe('our own files', () => {
-  it('reads back what it writes, renaming a key that is taken', () => {
+  it('reads back what it writes, renaming a key that is taken', async () => {
     const file = automationsFile([
       {
         key: 'porch',
@@ -445,12 +445,15 @@ describe('our own files', () => {
         definition: { triggers: [{ type: 'manual' }], then: [{ type: 'stop' }] },
       },
     ]);
-    const reading = readLibraryFile(JSON.stringify(file), { automations: ['porch'], scenes: [] });
+    const reading = await readLibraryFile(JSON.stringify(file), {
+      automations: ['porch'],
+      scenes: [],
+    });
 
     expect(reading.ok && reading.file.items[0]).toMatchObject({ key: 'porch_2', name: 'Porch' });
   });
 
-  it('writes a scene with its waiting members as members', () => {
+  it('writes a scene with its waiting members as members', async () => {
     const file = scenesFile([
       {
         id: '00000000-0000-4000-8000-000000000000',
@@ -463,24 +466,26 @@ describe('our own files', () => {
         unresolvedMembers: [{ entityId: 'light.gone' as never, targetState: {} }],
       },
     ]);
-    const reading = readLibraryFile(JSON.stringify(file), NONE);
+    const reading = await readLibraryFile(JSON.stringify(file), NONE);
 
     expect(
       reading.ok && reading.file.kind === 'scenes' ? reading.file.items[0]?.members : [],
     ).toEqual([{ entityId: 'light.gone', targetState: {} }]);
   });
 
-  it('refuses a file from a newer platform, and one that is something else', () => {
+  it('refuses a file from a newer platform, and one that is something else', async () => {
     expect(
-      readLibraryFile(
-        JSON.stringify({ format: 'nebula-home/scenes', version: 9, scenes: [] }),
-        NONE,
+      (
+        await readLibraryFile(
+          JSON.stringify({ format: 'nebula-home/scenes', version: 9, scenes: [] }),
+          NONE,
+        )
       ).ok,
     ).toBe(false);
-    expect(readLibraryFile(JSON.stringify({ format: 'nebula-home/dashboard' }), NONE).ok).toBe(
-      false,
-    );
-    expect(readLibraryFile('just: words', NONE).ok).toBe(false);
+    expect(
+      (await readLibraryFile(JSON.stringify({ format: 'nebula-home/dashboard' }), NONE)).ok,
+    ).toBe(false);
+    expect((await readLibraryFile('just: words', NONE)).ok).toBe(false);
   });
 });
 

@@ -44,6 +44,12 @@ import { usePlatform, type PlatformStage } from '@/system/platform-store';
  */
 const REFRESH_DELAY_MS = 200;
 
+/**
+ * How long a device event waits to open the socket afresh, in milliseconds: adopting thirty
+ * devices is one new socket, and one read of every list, rather than thirty.
+ */
+const RECONNECT_DELAY_MS = 1000;
+
 /** The lists each part of the library an owner edits is shown in. */
 const LIBRARY_LISTS: Readonly<Record<LibraryKind, readonly QueryKey[]>> = {
   // Where the house is goes into the automation editor's sun and zone.
@@ -232,6 +238,9 @@ export function useLiveChannel(): void {
     const due = new Map<string, QueryKey>();
     let pending: ReturnType<typeof setTimeout> | undefined;
 
+    // The fresh socket a burst of device events asked for, until it is opened.
+    let reconnectDue: ReturnType<typeof setTimeout> | undefined;
+
     /** Has every stale list read again now. */
     const flush = (): void => {
       clearTimeout(pending);
@@ -281,7 +290,10 @@ export function useLiveChannel(): void {
         refresh(staleAfter(message));
 
         if (message.type === 'device_event' && changesEntities(message)) {
-          client.reconnect();
+          reconnectDue ??= setTimeout(() => {
+            reconnectDue = undefined;
+            client.reconnect();
+          }, RECONNECT_DELAY_MS);
         }
 
         if (message.type === 'platform_event') {
@@ -314,6 +326,9 @@ export function useLiveChannel(): void {
           // At once: the readings just forgotten leave the older lists showing until then.
           refresh(KEPT_FRESH);
           flush();
+        } else if (next === 'live') {
+          // What changed between the page's first read and this subscription was never sent.
+          refresh([LIBRARY_QUERY_KEYS.entities]);
         }
 
         if (next === 'live') {
@@ -354,6 +369,7 @@ export function useLiveChannel(): void {
     return (): void => {
       unwatch();
       clearTimeout(pending);
+      clearTimeout(reconnectDue);
       client.stop();
       useLive.getState().reset();
       packageLive.reset();
