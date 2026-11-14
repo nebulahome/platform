@@ -32,6 +32,9 @@ import { ConflictError, ValidationError } from '@nebulahome/contracts';
  */
 export const NO_TRANSACTION_MARKER = '-- nebula:no-transaction';
 
+/** The advisory lock one migration run holds at a time: any fixed number, here "nebula". */
+const MIGRATION_LOCK = 0x6e_65_62_75_6c_61;
+
 /** One migration file, read from disk. */
 export type MigrationFile = {
   /** File name, such as `0001_initial_schema.sql`. */
@@ -132,44 +135,54 @@ async function ensureBookkeeping(sql: Sql): Promise<void> {
  * @throws {ValidationError} When the directory contains two files with the same prefix.
  */
 export async function applyMigrations(sql: Sql, directory: string): Promise<MigrationResult> {
-  await ensureBookkeeping(sql);
+  // Two runners at once - an update starting while the old container migrates - would both read
+  // the same list and both apply the next file. Session-level, so `sql` must be one connection,
+  // which every caller opens with `max: 1`.
+  await sql`SELECT pg_advisory_lock(${MIGRATION_LOCK})`;
 
-  const files = await readMigrations(directory);
-  const recorded = await sql<{ hash: string }[]>`
-    SELECT hash FROM system.schema_migrations ORDER BY id
-  `;
+  try {
+    await ensureBookkeeping(sql);
 
-  if (recorded.length > files.length) {
-    throw new ConflictError('The database has more migrations applied than this build ships', {
-      details: { applied: recorded.length, available: files.length },
-    });
-  }
+    const files = await readMigrations(directory);
+    const recorded = await sql<{ hash: string }[]>`
+      SELECT hash FROM system.schema_migrations ORDER BY id
+    `;
 
-  const applied: string[] = [];
-  const skipped: string[] = [];
-
-  for (const [index, file] of files.entries()) {
-    const previous = recorded[index];
-
-    if (previous !== undefined) {
-      if (previous.hash !== file.hash) {
-        throw new ConflictError(`Migration ${file.name} was modified after being applied`, {
-          details: { migration: file.name, expected: previous.hash, actual: file.hash },
-        });
-      }
-
-      skipped.push(file.name);
-      continue;
+    if (recorded.length > files.length) {
+      throw new ConflictError('The database has more migrations applied than this build ships', {
+        details: { applied: recorded.length, available: files.length },
+      });
     }
 
-    // Sequential on purpose: a migration may depend on the one before it, so these cannot run
-    // concurrently. This is the one place `no-await-in-loop` is the wrong rule.
-    // eslint-disable-next-line no-await-in-loop -- migrations are ordered and interdependent
-    await runMigration(sql, file);
-    applied.push(file.name);
-  }
+    const applied: string[] = [];
+    const skipped: string[] = [];
 
-  return { applied, skipped };
+    for (const [index, file] of files.entries()) {
+      const previous = recorded[index];
+
+      if (previous !== undefined) {
+        if (previous.hash !== file.hash) {
+          throw new ConflictError(`Migration ${file.name} was modified after being applied`, {
+            details: { migration: file.name, expected: previous.hash, actual: file.hash },
+          });
+        }
+
+        skipped.push(file.name);
+        continue;
+      }
+
+      // Sequential on purpose: a migration may depend on the one before it, so these cannot run
+      // concurrently. This is the one place `no-await-in-loop` is the wrong rule.
+      // eslint-disable-next-line no-await-in-loop -- migrations are ordered and interdependent
+      await runMigration(sql, file);
+      applied.push(file.name);
+    }
+
+    return { applied, skipped };
+  } finally {
+    // A connection that is gone has let go of the lock already: its error is not the one to see.
+    await sql`SELECT pg_advisory_unlock(${MIGRATION_LOCK})`.catch(() => undefined);
+  }
 }
 
 /**

@@ -64,7 +64,8 @@ function migrationColumns(qualified: string): [string, string][] {
   );
 
   return [
-    ...[...body.matchAll(/^ {2}([a-z_][a-z0-9_]*)\s+(\S.*)$/gm)]
+    // A column named after a reserved word, such as "when", is quoted in the migration.
+    ...[...body.matchAll(/^ {2}"?([a-z_][a-z0-9_]*)"?\s+(\S.*)$/gm)]
       .map(([, name, definition]): [string, string] => [name ?? '', definition ?? ''])
       .filter(([name]) => !CLAUSE_KEYWORDS.has(name)),
     ...added,
