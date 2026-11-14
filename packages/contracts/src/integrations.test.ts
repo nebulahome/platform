@@ -6,6 +6,7 @@ import {
   forgetRequestSchema,
   INTEGRATION_STATES,
   integrationIdSchema,
+  integrationInstallSchema,
   integrationKindIdSchema,
   integrationKindSchema,
   integrationVendorSchema,
@@ -239,5 +240,36 @@ describe('the management methods', () => {
     expect(integrationVendorSchema.parse(vendor()).logoPadding).toBe(0);
     expect(integrationVendorSchema.parse({ ...vendor(), logoPadding: 6 }).logoPadding).toBe(6);
     expect(integrationVendorSchema.safeParse({ ...vendor(), logoPadding: 40 }).success).toBe(false);
+  });
+});
+
+describe('integrationInstallSchema', () => {
+  /**
+   * Checks a build folder name against the install marker.
+   *
+   * @param build - The build folder name.
+   * @returns True when the marker accepts it.
+   */
+  const accepts = (build: string): boolean =>
+    integrationInstallSchema.safeParse({
+      build,
+      version: '1.2.3',
+      source: 'index',
+      artifactSha256: 'a'.repeat(64),
+      installedAt: '2026-11-14T10:00:00.000Z',
+      installedBy: null,
+    }).success;
+
+  it('accepts a version followed by a nonce', () => {
+    expect(accepts('1.0.0-a1b2c3d4')).toBe(true);
+    expect(accepts('1.2.3-alpha.1+build.5')).toBe(true);
+  });
+
+  it('refuses a build that would name a folder outside the vendor', () => {
+    // Builds are folder names under hub/integrations/<vendor>/.
+    expect(accepts('.')).toBe(false);
+    expect(accepts('..')).toBe(false);
+    expect(accepts('1.0..0')).toBe(false);
+    expect(accepts('..1.0.0')).toBe(false);
   });
 });

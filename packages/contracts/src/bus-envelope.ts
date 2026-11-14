@@ -54,6 +54,12 @@ export const busEnvelopeHeaderSchema = z.object({
 
   /** Pairs a reply with its request. Absent on fire-and-forget events. */
   correlationId: z.string().min(1).max(64).optional(),
+
+  /**
+   * When the requester stops waiting for the reply, ISO 8601 in UTC. Absent on events and on
+   * requests from earlier builds; a receiver that predates it strips it as an unknown key.
+   */
+  expiresAt: z.iso.datetime().optional(),
 });
 
 /** The fields every message carries, whatever its subject. */

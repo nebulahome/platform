@@ -232,8 +232,13 @@ export const INTEGRATION_INSTALL_SOURCES = ['index', 'local'] as const;
  * `hub/integrations/<vendor>/.nebula-install.json`, which names the build `hub` loads.
  */
 export const integrationInstallSchema = z.strictObject({
-  /** The folder of the build, beside the marker: the version, then a nonce. */
-  build: z.string().regex(/^[0-9A-Za-z.+-]{1,96}$/u, 'Must be a build folder name'),
+  /**
+   * The folder of the build, beside the marker: the version, then a nonce. Never `.` or one
+   * containing `..`, which would name a folder outside the vendor's.
+   */
+  build: z
+    .string()
+    .regex(/^(?!\.$)(?!.*\.\.)[0-9A-Za-z.+-]{1,96}$/u, 'Must be a build folder name'),
 
   /** The bundle's version, as its manifest says it. */
   version: z.string().min(1).max(64),
