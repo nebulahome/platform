@@ -34,6 +34,14 @@ import { ulid } from './ulid.js';
  */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
 
+/**
+ * How long past its `expiresAt` a request is still handled.
+ *
+ * The requester's timer and the expiry are both counted from the same clock, but not from the
+ * same instant: the margin makes sure a request is never dropped while its caller still waits.
+ */
+const EXPIRY_GRACE_MS = 1000;
+
 /** How a client identifies itself and where it publishes. */
 export type BusClientOptions = {
   /** The connected transport. */
@@ -193,7 +201,9 @@ export class BusClient {
    * @param subject - Where to send it.
    * @param payload - The request body.
    * @param replySchema - What a successful reply must satisfy.
-   * @param options - Trace propagation and a per-call timeout.
+   * @param options - Trace propagation, a per-call timeout, and `expires`: true when running the
+   * request after the timeout would do harm (a device command the user already saw fail), so a
+   * responder that reaches it late drops it. Off by default: a best-effort request still runs late.
    * @returns The reply value, already validated.
    * @throws {DeviceUnavailableError} When no reply arrives in time or nobody is listening. Both
    * are reported as unavailability rather than as a transport failure, because from the caller's
@@ -205,10 +215,15 @@ export class BusClient {
     subject: string,
     payload: unknown,
     replySchema: TSchema,
-    options: PublishOptions & { readonly timeoutMs?: number } = {},
+    options: PublishOptions & { readonly timeoutMs?: number; readonly expires?: boolean } = {},
   ): Promise<z.output<TSchema>> {
     const timeoutMs = options.timeoutMs ?? this.#requestTimeoutMs;
-    const envelope = this.#envelope(payload, options);
+    const envelope: BusEnvelope<unknown> = {
+      ...this.#envelope(payload, options),
+      ...(options.expires === true
+        ? { expiresAt: new Date(Date.now() + timeoutMs).toISOString() }
+        : {}),
+    };
 
     let reply: TransportMessage;
 
@@ -251,7 +266,8 @@ export class BusClient {
    * A handler that throws does not kill the subscription and does not leave the requester
    * waiting for a timeout: the failure is converted to a bus error and sent back, so the caller
    * learns what went wrong five seconds sooner and with a code it can branch on. Requests are
-   * answered one at a time unless `options.concurrency` allows more.
+   * answered one at a time unless `options.concurrency` allows more. A request reached only after
+   * its caller stopped waiting is dropped without a reply.
    *
    * @param subject - The subject or pattern to answer on.
    * @param requestSchema - What the request payload must satisfy.
@@ -272,6 +288,20 @@ export class BusClient {
         const envelope = decodeEnvelope(message.data, message.subject, requestSchema);
 
         header = envelope;
+
+        // A request that waited in the queue past its caller's timeout must not run: the caller
+        // has already reported failure and may have retried, so the command would happen twice.
+        if (
+          envelope.expiresAt !== undefined &&
+          Date.parse(envelope.expiresAt) + EXPIRY_GRACE_MS < Date.now()
+        ) {
+          this.#loggerFor(envelope).debug(
+            { subject: message.subject, expiresAt: envelope.expiresAt },
+            'Dropped a request its caller stopped waiting for',
+          );
+
+          return;
+        }
 
         const value = await handler(envelope.payload, this.#context(message.subject, envelope));
 

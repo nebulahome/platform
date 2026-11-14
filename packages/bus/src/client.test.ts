@@ -7,6 +7,7 @@ import { DeviceUnavailableError, NotFoundError } from '@nebulahome/contracts';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { BusClient } from './client.js';
+import { createEnvelope, encodeEnvelope } from './codec.js';
 import { FakeTransport } from './fake-transport.js';
 
 /**
@@ -257,6 +258,80 @@ describe('request and serve', () => {
 
     expect(replies).toHaveLength(0);
   });
+
+  it('drops a queued request whose caller already gave up, and handles a live one', async () => {
+    // A command the user saw fail and retried must not also run late from the queue.
+    const { client, transport } = createHarness();
+    const handled: number[] = [];
+
+    client.serve('nebula.v1.svc.core.count', z.object({ n: z.number() }), (payload) => {
+      handled.push(payload.n);
+
+      return {};
+    });
+
+    /**
+     * Encodes a request envelope as an older or newer requester would send it.
+     *
+     * @param n - The payload marker.
+     * @param expiresAt - The expiry to carry, or undefined for an envelope without one.
+     * @returns The encoded envelope.
+     */
+    const encode = (n: number, expiresAt: string | undefined): Uint8Array =>
+      encodeEnvelope({
+        ...createEnvelope({ n }, { source: 'api' }),
+        ...(expiresAt === undefined ? {} : { expiresAt }),
+      });
+
+    const subject = 'nebula.v1.svc.core.count';
+    const past = new Date(Date.now() - 60_000).toISOString();
+    const future = new Date(Date.now() + 60_000).toISOString();
+
+    await expect(transport.request(subject, encode(1, past), 50)).rejects.toThrow(/No reply/);
+    await transport.request(subject, encode(2, future), 200);
+    await transport.request(subject, encode(3, undefined), 200);
+
+    expect(handled).toStrictEqual([2, 3]);
+  });
+
+  it.each([
+    { expires: true, handled: [1] },
+    { expires: false, handled: [1, 2] },
+  ])(
+    'with expires $expires, handles $handled once a request times out behind a slow one',
+    async ({ expires, handled: expected }) => {
+      // An expiring request (a device command) must not run late; a best-effort one still must.
+      vi.useFakeTimers({ toFake: ['Date'] });
+
+      const { client, transport } = createHarness();
+      const handled: number[] = [];
+
+      client.serve('nebula.v1.svc.core.slow', z.object({ n: z.number() }), async (payload) => {
+        handled.push(payload.n);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        // The clock jumps past the second caller's timeout while this one is still being handled.
+        vi.setSystemTime(Date.now() + 10_000);
+
+        return {};
+      });
+
+      const first = client.request('nebula.v1.svc.core.slow', { n: 1 }, z.object({}));
+      const second = client.request('nebula.v1.svc.core.slow', { n: 2 }, z.object({}), {
+        timeoutMs: 100,
+        expires,
+      });
+
+      await expect(first).resolves.toStrictEqual({});
+      await second.catch(() => undefined);
+      await vi.waitFor(() => {
+        expect(handled).toStrictEqual(expected);
+      });
+
+      const sent = new TextDecoder().decode(transport.published[1]?.data);
+
+      expect(sent.includes('"expiresAt"')).toBe(expires);
+    },
+  );
 
   it('rejects a request whose payload does not match, without leaving the caller hanging', async () => {
     // The caller learns what was wrong immediately instead of discovering it as a timeout five
