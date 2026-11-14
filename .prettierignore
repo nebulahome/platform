@@ -5,7 +5,6 @@ coverage
 .turbo
 pnpm-lock.yaml
 packages/db/migrations
-graphify-out
 .impeccable
 packages/package-sdk/etc/api
 packages/integration-sdk/etc/api
