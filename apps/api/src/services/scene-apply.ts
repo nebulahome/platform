@@ -33,8 +33,11 @@ import { entityScopes, isPermitted } from '../auth/permissions.js';
 import { isAuditedCapability } from './commands.js';
 import { readTagKeys } from './entities.js';
 
-/** How much longer than the apply's own deadline the API waits for `core`'s answer. */
-const ANSWER_MARGIN_MS = 2_000;
+/**
+ * How much longer than the apply's own deadline the API waits for `core`'s answer: the ten
+ * seconds `core` gives a rollback after an apply that ran out of time, and the way back.
+ */
+const ANSWER_MARGIN_MS = 12_000;
 
 /** What applying a scene needs beyond the database. */
 export type ApplySceneOptions = {
