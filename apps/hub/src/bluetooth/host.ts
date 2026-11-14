@@ -25,6 +25,8 @@ import {
   type BluetoothScanMode,
 } from '@nebulahome/contracts';
 
+import { messageOf } from '../domain/message-of.js';
+
 /** An adapter BlueZ has. */
 export type SeenBluetoothAdapter = {
   /** `hci0`. */
@@ -367,16 +369,6 @@ function plain(props: unknown): Record<string, unknown> {
         : value,
     ]),
   );
-}
-
-/**
- * A failure in a sentence.
- *
- * @param error - Whatever was thrown.
- * @returns Its message.
- */
-function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 512);
 }
 
 /**

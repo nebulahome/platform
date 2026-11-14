@@ -46,6 +46,7 @@ import {
   type SerialSession,
 } from '@nebulahome/package-runtime';
 
+import { messageOf } from '../domain/message-of.js';
 import type { SerialInstance, SerialStore, StoredSerialPort } from '../persistence/serial.js';
 
 import type { SeenSerialPort, SerialHost, SerialWatch } from './host.js';
@@ -142,16 +143,6 @@ const THREAD_RADIOS: readonly {
  */
 function failure(name: SerialFailure, message: string): Error {
   return Object.assign(new Error(message), { name });
-}
-
-/**
- * A failure in a sentence, for the page.
- *
- * @param error - Whatever was thrown.
- * @returns Its message, cut.
- */
-function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 512);
 }
 
 /**

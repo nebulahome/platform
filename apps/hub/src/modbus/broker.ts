@@ -55,6 +55,7 @@ import {
   type ModbusWordOrder,
 } from '@nebulahome/package-runtime';
 
+import { messageOf } from '../domain/message-of.js';
 import type { TakenDevices } from '../domain/taken.js';
 import { UUID_PATTERN, type ModbusStore, type StoredModbusDevice } from '../persistence/modbus.js';
 
@@ -117,16 +118,6 @@ export function modbusDeviceKeyOf(id: string): string {
  */
 function idOfKey(deviceKey: string): string | undefined {
   return deviceKey.startsWith('modbus-') ? deviceKey.slice('modbus-'.length) : undefined;
-}
-
-/**
- * A failure in a sentence, for the page.
- *
- * @param error - Whatever was thrown.
- * @returns Its message, cut.
- */
-function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 512);
 }
 
 /**

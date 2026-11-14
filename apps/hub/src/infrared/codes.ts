@@ -28,6 +28,8 @@ import {
   type InfraredImportProblem,
 } from '@nebulahome/package-runtime';
 
+import { messageOf } from '../domain/message-of.js';
+
 /** What an import found: the codes, and the lines not understood with why. */
 export type InfraredImportParsed = z.output<typeof infraredImportParseReplySchema>;
 
@@ -45,16 +47,6 @@ const RAW_LINE = /^[\d\s,;+\-[\]()]+$/u;
 
 /** Broadlink: base64, no spaces. */
 const BASE64_LINE = /^[A-Za-z0-9+/]+={0,2}$/u;
-
-/**
- * A failure in a sentence, for the fold.
- *
- * @param error - Whatever was thrown.
- * @returns Its message, cut.
- */
-function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 512);
-}
 
 /**
  * A problem as the reply carries it.

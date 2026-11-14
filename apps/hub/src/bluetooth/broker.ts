@@ -80,6 +80,7 @@ import {
   type TransportRequest,
 } from '@nebulahome/package-runtime';
 
+import { messageOf } from '../domain/message-of.js';
 import type {
   BluetoothInstance,
   BluetoothStore,
@@ -249,16 +250,6 @@ type StepId = (typeof BLUETOOTH_PROXY_STEPS)[number];
 
 /** An SDK scanner open. */
 type OpenScanner = { readonly options: BluetoothScannerOptions; isOpen: boolean };
-
-/**
- * A failure in a sentence, for the page.
- *
- * @param error - Whatever was thrown.
- * @returns Its message, cut.
- */
-function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 512);
-}
 
 /**
  * Whether an address is private: random, and not static (its two top bits not both set), so a

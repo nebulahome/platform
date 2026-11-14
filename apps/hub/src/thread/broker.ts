@@ -44,6 +44,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 import type { MdnsAnnouncement } from '@nebulahome/package-runtime';
 
 import type { MdnsSource } from '../discovery/mdns-source.js';
+import { messageOf } from '../domain/message-of.js';
 import type { BluetoothInstance } from '../persistence/bluetooth.js';
 import type { ThreadSettings, ThreadStore } from '../persistence/thread.js';
 import type { SerialBroker } from '../serial/broker.js';
@@ -156,16 +157,6 @@ type ThreadRadioCheckReply = z.output<typeof threadRadioCheckReplySchema>;
 
 /** One node, and whether it answers. */
 type Node = { readonly device: ThreadDevice; readonly isOnline: boolean };
-
-/**
- * A failure in a sentence, for the page.
- *
- * @param error - Whatever was thrown.
- * @returns Its message, cut.
- */
-function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 512);
-}
 
 /**
  * The role the Devices tab chips, from the controller's or the border router's name for it.

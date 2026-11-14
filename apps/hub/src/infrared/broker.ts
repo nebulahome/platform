@@ -54,6 +54,7 @@ import {
   type LoadedVendor,
 } from '@nebulahome/package-runtime';
 
+import { messageOf } from '../domain/message-of.js';
 import type { BluetoothInstance } from '../persistence/bluetooth.js';
 import type {
   InfraredStore,
@@ -138,16 +139,6 @@ type LastSent = {
   readonly blasterId: string | null;
   readonly at: Date;
 };
-
-/**
- * A failure in a sentence, for the page.
- *
- * @param error - Whatever was thrown.
- * @returns Its message, cut.
- */
-function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 512);
-}
 
 /**
  * Whether a learn job is still going.
