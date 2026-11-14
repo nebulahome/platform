@@ -72,6 +72,12 @@ const RPC_TIMEOUT_MS = 30_000;
 /** How long what is known of a package's folder is trusted, for the files it serves. */
 const FOLDER_TRUST_MS = 10_000;
 
+/**
+ * How long after the packet-manager answered a build other than the one known is refused without
+ * asking again: anyone may ask for a package's files, under any build.
+ */
+const REFUSED_BUILD_MS = 2000;
+
 /** What reaching the packet-manager needs. */
 export type PackagesContext = {
   readonly bus: BusClient | undefined;
@@ -567,6 +573,9 @@ type Folder = {
 
   readonly uiDir: string | null;
   readonly logo: string | null;
+
+  /** When the packet-manager was asked. */
+  readonly askedMs: number;
   readonly untilMs: number;
 };
 
@@ -601,6 +610,7 @@ async function folderOf(
     uiDir:
       manifest.ui === undefined ? null : path.dirname(path.resolve(detail.root, manifest.ui.entry)),
     logo: manifest.logo === undefined ? null : path.resolve(detail.root, manifest.logo.path),
+    askedMs: Date.now(),
     untilMs: Date.now() + FOLDER_TRUST_MS,
   };
 
@@ -647,8 +657,12 @@ export async function readPackageUiFile(
   file: string,
 ): Promise<PackageFile> {
   const known = await folderOf(context, packageId);
-  // A build just installed is newer than what was known a few seconds ago.
-  const folder = known.build === build ? known : await folderOf(context, packageId, true);
+  // A build just installed is newer than what was known a few seconds ago; one asked for again
+  // a moment after the packet-manager last answered is a wrong build, and is not asked about.
+  const folder =
+    known.build === build || Date.now() - known.askedMs < REFUSED_BUILD_MS
+      ? known
+      : await folderOf(context, packageId, true);
   const contentType = CONTENT_TYPES[path.extname(file).toLowerCase()];
 
   if (folder.uiDir === null || folder.build !== build || contentType === undefined) {

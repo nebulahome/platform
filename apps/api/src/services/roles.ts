@@ -366,14 +366,34 @@ export async function updateRole(
       .where(eq(schema.auth.roles.id, id));
 
     if (ids !== undefined) {
-      await tx
-        .delete(schema.auth.rolePermissions)
-        .where(eq(schema.auth.rolePermissions.roleId, id));
+      // The list names keys only: a key the role keeps keeps its rows and their scopes, so a
+      // grant narrowed to one room does not widen to the whole house on a rename.
+      const held = new Set(
+        (
+          await tx
+            .select({ permissionId: schema.auth.rolePermissions.permissionId })
+            .from(schema.auth.rolePermissions)
+            .where(eq(schema.auth.rolePermissions.roleId, id))
+        ).map((row) => row.permissionId),
+      );
+      const removed = [...held].filter((permissionId) => !ids.includes(permissionId));
+      const added = ids.filter((permissionId) => !held.has(permissionId));
 
-      if (ids.length > 0) {
+      if (removed.length > 0) {
+        await tx
+          .delete(schema.auth.rolePermissions)
+          .where(
+            and(
+              eq(schema.auth.rolePermissions.roleId, id),
+              inArray(schema.auth.rolePermissions.permissionId, removed),
+            ),
+          );
+      }
+
+      if (added.length > 0) {
         await tx
           .insert(schema.auth.rolePermissions)
-          .values(ids.map((permissionId) => ({ roleId: id, permissionId })));
+          .values(added.map((permissionId) => ({ roleId: id, permissionId })));
       }
     }
   });
@@ -385,15 +405,18 @@ export async function updateRole(
  * Deletes a custom role, moving its people to another role first.
  *
  * @param db - The database.
+ * @param identity - Who is asking, who may only move people into a role whose grants they hold.
  * @param id - Which role.
  * @param moveTo - The key of the role its people move to; needed when it has any.
  * @returns The deleted role, for the audit.
  * @throws {NotFoundError} When no role has that id.
  * @throws {ConflictError} When the role is built in.
  * @throws {ValidationError} When people would be left without a role.
+ * @throws {PermissionError} When the role they move to grants something the caller does not hold.
  */
 export async function deleteRole(
   db: Database,
+  identity: Identity,
   id: string,
   moveTo: string | undefined,
 ): Promise<RoleView> {
@@ -407,6 +430,13 @@ export async function deleteRole(
     throw new ValidationError('Its people need another role to move to', {
       details: { issues: [{ path: 'moveTo', message: 'Name a different role' }] },
     });
+  }
+
+  if (target !== undefined && role.userCount > 0) {
+    refuseEscalation(
+      identity,
+      (await readRole(db, target)).permissions.map((grant) => grant.key),
+    );
   }
 
   // Deleted accounts keep their row, and so their role: with nobody living to move, they go to

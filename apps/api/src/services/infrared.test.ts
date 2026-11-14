@@ -4,7 +4,10 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ValidationError } from '@nebulahome/contracts';
+
 import { INFRARED_REMOTE } from '../testing/brokers-fake.js';
+import { databaseAnswering } from '../testing/hub-harness.js';
 
 import type { DevicesContext } from './devices.js';
 import { saveInfraredRemote } from './infrared.js';
@@ -27,6 +30,7 @@ function answering(deviceId: string | null): DevicesContext {
     traceId: 'trace',
     timeoutMs: 5000,
     bus: { request: () => Promise.resolve({ ...INFRARED_REMOTE, deviceId }) },
+    db: databaseAnswering([{ kind: 'room' }]),
   } as unknown as DevicesContext;
 }
 
@@ -68,5 +72,26 @@ describe('saveInfraredRemote', () => {
     });
 
     expect(updateDevice).not.toHaveBeenCalled();
+  });
+
+  it('makes no remote when the room asked for is not there', async () => {
+    const request = vi.fn();
+    const context = {
+      traceId: 'trace',
+      timeoutMs: 5000,
+      bus: { request },
+      db: databaseAnswering([]),
+    } as unknown as DevicesContext;
+
+    await expect(
+      saveInfraredRemote(context, {
+        name: 'TV',
+        kind: 'tv',
+        blasterId: null,
+        columns: 3,
+        areaId: AREA_ID,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(request).not.toHaveBeenCalled();
   });
 });

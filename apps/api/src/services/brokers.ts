@@ -85,7 +85,12 @@ import {
 import { schema } from '@nebulahome/db';
 
 import { bluetoothStatus } from './bluetooth.js';
-import { deleteDevice, type DevicesContext, type RemovedDevice } from './devices.js';
+import {
+  assertNotReadByAliases,
+  deleteDevice,
+  type DevicesContext,
+  type RemovedDevice,
+} from './devices.js';
 import { infraredStatus } from './infrared.js';
 import { busOf, listCatalogue, reloadOnHub, type IntegrationsContext } from './integrations.js';
 import { modbusStatus } from './modbus.js';
@@ -362,13 +367,21 @@ export async function removeMatterNode(
   }
 
   const removed: RemovedDevice[] = [];
+  const deviceIds = node.devices.flatMap((device) =>
+    device.deviceId === null ? [] : [device.deviceId],
+  );
 
-  for (const device of node.devices) {
-    if (device.deviceId !== null) {
-      // One after another: each is a hub forget and a core release, in that order.
-      // eslint-disable-next-line no-await-in-loop -- see above
-      removed.push(await deleteDevice(context, device.deviceId));
-    }
+  // Every device checked before the first goes, so an alias reading the last leaves all of them.
+  // shortcut: a way linked into one of them is still checked by its own removal; read the ways
+  // here too if a node's device is ever the holder of links in practice.
+  if (deviceIds.length > 0) {
+    await assertNotReadByAliases(context, deviceIds);
+  }
+
+  for (const deviceId of deviceIds) {
+    // One after another: each is a hub forget and a core release, in that order.
+    // eslint-disable-next-line no-await-in-loop -- see above
+    removed.push(await deleteDevice(context, deviceId));
   }
 
   await busOf(context).request(

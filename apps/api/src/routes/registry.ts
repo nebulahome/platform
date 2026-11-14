@@ -776,7 +776,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     async (route): Promise<{ items: AliasListItem[] }> => {
       requirePermission(route.identity, 'alias:read');
 
-      return { items: await listAliases(context.db) };
+      return { items: await listAliases(context.db, context.logger) };
     },
   );
 
@@ -985,49 +985,29 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     async (route): Promise<{ created: AliasView[]; replaced: AliasView[] }> => {
       requirePermission(route.identity, 'alias:write');
 
+      // One audit line per alias, as it is written.
       const result = await importAliases(
         aliasesContext(route.request.traceId),
         route.body,
         route.identity,
+        async (before, after) => {
+          await context.audit.record({
+            action: 'alias.import',
+            resourceType: 'alias',
+            resourceId: after.id,
+            result: 'success',
+            identity: route.identity,
+            ipAddress: route.request.ip,
+            traceId: route.request.traceId,
+            details: {
+              entityId: after.entityId,
+              name: after.name,
+              before: before === null ? null : auditEntryOf(before),
+              after: auditEntryOf(after),
+            },
+          });
+        },
       );
-
-      for (const alias of result.created) {
-        // eslint-disable-next-line no-await-in-loop -- one audit line per alias
-        await context.audit.record({
-          action: 'alias.import',
-          resourceType: 'alias',
-          resourceId: alias.id,
-          result: 'success',
-          identity: route.identity,
-          ipAddress: route.request.ip,
-          traceId: route.request.traceId,
-          details: {
-            entityId: alias.entityId,
-            name: alias.name,
-            before: null,
-            after: auditEntryOf(alias),
-          },
-        });
-      }
-
-      for (const { before, after } of result.replaced) {
-        // eslint-disable-next-line no-await-in-loop -- as above
-        await context.audit.record({
-          action: 'alias.import',
-          resourceType: 'alias',
-          resourceId: after.id,
-          result: 'success',
-          identity: route.identity,
-          ipAddress: route.request.ip,
-          traceId: route.request.traceId,
-          details: {
-            entityId: after.entityId,
-            name: after.name,
-            before: auditEntryOf(before),
-            after: auditEntryOf(after),
-          },
-        });
-      }
 
       return { created: result.created, replaced: result.replaced.map((pair) => pair.after) };
     },

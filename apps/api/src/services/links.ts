@@ -37,9 +37,13 @@ import {
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
 
+import { askCore } from './core-retry.js';
 import { linkHintOf } from './entities.js';
 import { catalogueIfUp, vendorIdOf, type IntegrationsContext } from './integrations.js';
 import { matchEntities, type MatchEntity } from './link-matching.js';
+
+/** The most rows one request to `core` to read links again may name, as its contract allows. */
+const SYNC_LINKS_CHUNK = 1024;
 
 /** One way into a device, as linking reads it. */
 type WayRow = {
@@ -435,20 +439,32 @@ export async function syncLinksOnCore(
   context: IntegrationsContext,
   rowIds: readonly string[],
 ): Promise<void> {
-  if (context.bus === undefined || rowIds.length === 0) {
+  const { bus } = context;
+  const unique = [...new Set(rowIds)];
+
+  if (bus === undefined) {
     return;
   }
 
-  try {
-    await context.bus.request(
-      busSubjects.service(CORE_SERVICE, CORE_SYNC_LINKS_METHOD),
-      { entityRowIds: [...new Set(rowIds)].slice(0, 1024) },
-      syncLinksReplySchema,
-      { traceId: context.traceId, timeoutMs: context.timeoutMs },
+  // At most a chunk's rows a request, as many requests as they need, rather than the rest dropped.
+  for (let start = 0; start < unique.length; start += SYNC_LINKS_CHUNK) {
+    const entityRowIds = unique.slice(start, start + SYNC_LINKS_CHUNK);
+
+    // eslint-disable-next-line no-await-in-loop -- one request at a time, as before
+    await askCore(
+      async () => {
+        await bus.request(
+          busSubjects.service(CORE_SERVICE, CORE_SYNC_LINKS_METHOD),
+          { entityRowIds },
+          syncLinksReplySchema,
+          { traceId: context.traceId, timeoutMs: context.timeoutMs },
+        );
+      },
+      (error) => {
+        // The rows are written; `core` reads them all again when it next starts.
+        context.logger.warn({ err: error }, 'core did not take in the links; it is asked again');
+      },
     );
-  } catch (error: unknown) {
-    // The rows are written; `core` reads them all again when it next starts.
-    context.logger.warn({ err: error }, 'core did not take in the links');
   }
 }
 
@@ -462,21 +478,29 @@ export async function syncEntityOnCore(
   context: IntegrationsContext,
   entityId: string,
 ): Promise<void> {
-  if (context.bus === undefined) {
+  const { bus } = context;
+
+  if (bus === undefined) {
     return;
   }
 
-  try {
-    await context.bus.request(
-      busSubjects.service(CORE_SERVICE, CORE_SYNC_ENTITY_METHOD),
-      { entityId },
-      syncEntityReplySchema,
-      { traceId: context.traceId, timeoutMs: context.timeoutMs },
-    );
-  } catch (error: unknown) {
-    // The row is written; `core` reads it again when it next starts.
-    context.logger.warn({ entityId, err: error }, 'core did not take in the entity');
-  }
+  await askCore(
+    async () => {
+      await bus.request(
+        busSubjects.service(CORE_SERVICE, CORE_SYNC_ENTITY_METHOD),
+        { entityId },
+        syncEntityReplySchema,
+        { traceId: context.traceId, timeoutMs: context.timeoutMs },
+      );
+    },
+    (error) => {
+      // The row is written; `core` reads it again when it next starts.
+      context.logger.warn(
+        { entityId, err: error },
+        'core did not take in the entity; it is asked again',
+      );
+    },
+  );
 }
 
 /** What a link or an unlink will do, and the rows it writes. */
@@ -734,23 +758,26 @@ export async function linkDescribedWay(
   const now = new Date();
   const changed: string[] = [];
 
-  for (const pair of pairs) {
-    const left = byRow.get(pair.a.rowId);
-    const right = byRow.get(pair.b.rowId);
+  // Every pair or none: a link half written would leave a reading linked to one way only.
+  await context.db.transaction(async (tx) => {
+    for (const pair of pairs) {
+      const left = byRow.get(pair.a.rowId);
+      const right = byRow.get(pair.b.rowId);
 
-    if (left === undefined || right === undefined) {
-      continue;
+      if (left === undefined || right === undefined) {
+        continue;
+      }
+
+      const [lead, other] = leadOf(left, right, leading);
+
+      // eslint-disable-next-line no-await-in-loop -- a few rows, one after the other
+      await tx
+        .update(schema.registry.entities)
+        .set({ linkedTo: lead.rowId, linkOrigin: pair.origin, linkedAt: now, updatedAt: now })
+        .where(eq(schema.registry.entities.id, other.rowId));
+      changed.push(lead.rowId, other.rowId);
     }
-
-    const [lead, other] = leadOf(left, right, leading);
-
-    // eslint-disable-next-line no-await-in-loop -- a few rows, one after the other
-    await context.db
-      .update(schema.registry.entities)
-      .set({ linkedTo: lead.rowId, linkOrigin: pair.origin, linkedAt: now, updatedAt: now })
-      .where(eq(schema.registry.entities.id, other.rowId));
-    changed.push(lead.rowId, other.rowId);
-  }
+  });
 
   return changed;
 }

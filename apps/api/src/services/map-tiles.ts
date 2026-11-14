@@ -242,6 +242,48 @@ export function createMapTileService(options: MapTileServiceOptions): MapTileSer
     }
   };
 
+  /**
+   * Fetches what the buffer around a place is missing.
+   *
+   * @param latitude - Where the house stands.
+   * @param longitude - Where the house stands.
+   * @returns How many tiles the buffer has, how many are on disk now, how many could not be had.
+   */
+  const prefetchAround = async (
+    latitude: number,
+    longitude: number,
+  ): Promise<TilePrefetchResult> => {
+    const tiles = tilesAround(latitude, longitude);
+    let cached = 0;
+    let failed = 0;
+
+    await forEachConcurrently(tiles, PREFETCH_CONCURRENCY, async (tile) => {
+      if (await exists(pathOf(tile))) {
+        cached += 1;
+
+        return;
+      }
+
+      try {
+        await keep(tile, await fetchThrough(tile));
+        cached += 1;
+      } catch (error: unknown) {
+        failed += 1;
+        logger.warn(
+          { err: error, tile },
+          'A tile of the map around the house could not be fetched',
+        );
+      }
+    });
+
+    logger.info({ total: tiles.length, cached, failed }, 'The map around the house was fetched');
+
+    return { total: tiles.length, cached, failed };
+  };
+
+  /** The fetches of a buffer under way, by place: a second click joins the first. */
+  const prefetching = new Map<string, Promise<TilePrefetchResult>>();
+
   return {
     /**
      * Reads a tile from disk.
@@ -274,39 +316,27 @@ export function createMapTileService(options: MapTileServiceOptions): MapTileSer
     },
 
     /**
-     * Fetches what the buffer around a place is missing.
+     * Fetches what the buffer around a place is missing, or joins the fetch of it under way.
      *
      * @param latitude - Where the house stands.
      * @param longitude - Where the house stands.
      * @returns How many tiles the buffer has, how many are on disk now, how many could not be had.
      */
     prefetch: async (latitude, longitude): Promise<TilePrefetchResult> => {
-      const tiles = tilesAround(latitude, longitude);
-      let cached = 0;
-      let failed = 0;
+      const key = `${String(latitude)},${String(longitude)}`;
+      const running = prefetching.get(key);
 
-      await forEachConcurrently(tiles, PREFETCH_CONCURRENCY, async (tile) => {
-        if (await exists(pathOf(tile))) {
-          cached += 1;
+      if (running !== undefined) {
+        return running;
+      }
 
-          return;
-        }
-
-        try {
-          await keep(tile, await fetchThrough(tile));
-          cached += 1;
-        } catch (error: unknown) {
-          failed += 1;
-          logger.warn(
-            { err: error, tile },
-            'A tile of the map around the house could not be fetched',
-          );
-        }
+      const started = prefetchAround(latitude, longitude).finally(() => {
+        prefetching.delete(key);
       });
 
-      logger.info({ total: tiles.length, cached, failed }, 'The map around the house was fetched');
+      prefetching.set(key, started);
 
-      return { total: tiles.length, cached, failed };
+      return started;
     },
   };
 }

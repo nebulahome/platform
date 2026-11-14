@@ -208,13 +208,6 @@ export async function removeIntegration(
     }
   }
 
-  await context.db
-    .delete(schema.registry.integrationAccounts)
-    .where(eq(schema.registry.integrationAccounts.vendorId, vendorId));
-  await context.db
-    .delete(schema.registry.integrationVendors)
-    .where(eq(schema.registry.integrationVendors.id, vendorId));
-
   const removed = await ask(
     context,
     PACKET_MANAGER_METHODS.integrationRemove,
@@ -222,6 +215,15 @@ export async function removeIntegration(
     integrationRemoveReplySchema,
     REMOVE_TIMEOUT_MS,
   );
+
+  // Once the packet-manager has let it go: a removal it refused keeps the owner's accounts and
+  // settings for the integration still installed.
+  await context.db
+    .delete(schema.registry.integrationAccounts)
+    .where(eq(schema.registry.integrationAccounts.vendorId, vendorId));
+  await context.db
+    .delete(schema.registry.integrationVendors)
+    .where(eq(schema.registry.integrationVendors.id, vendorId));
 
   return {
     devices: deviceIds.length,

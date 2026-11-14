@@ -8,7 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 
 import { AuditLog } from '../services/audit.js';
 import { brokerRequests, INFRARED_BUTTON, INFRARED_REMOTE } from '../testing/brokers-fake.js';
-import { bearer, buildTestServer, stopHub } from '../testing/hub-harness.js';
+import { bearer, buildTestServer, databaseAnswering, stopHub } from '../testing/hub-harness.js';
 
 let server: FastifyInstance;
 
@@ -16,7 +16,12 @@ const audited = vi.spyOn(AuditLog.prototype, 'record');
 
 describe('the Infrared routes', () => {
   beforeAll(async () => {
-    server = await buildTestServer(true);
+    // A database that finds a room whatever it is asked: a new remote's room is checked before
+    // the hub makes the remote.
+    server = await buildTestServer(
+      true,
+      databaseAnswering(...Array.from({ length: 50 }, () => [{ kind: 'room' }])),
+    );
   });
 
   beforeEach(() => {
@@ -65,7 +70,7 @@ describe('the Infrared routes', () => {
       headers: { authorization: await bearer('device:write') },
       payload: { ...body, name: ' ' },
     });
-    // The fake hub answers with no device: the database, which would reject, is never asked.
+    // The fake hub answers with no device: the room is checked, and the device never updated.
     const saved = await server.inject({
       method: 'POST',
       url: '/api/v1/brokers/infrared/remotes',

@@ -48,6 +48,7 @@ import {
   type InfraredStatus,
 } from '@nebulahome/contracts';
 
+import { checkRoom } from './areas.js';
 import { deleteDevice, updateDevice, type DevicesContext, type RemovedDevice } from './devices.js';
 import type { IconLookup } from './icon-lookup.js';
 import { busOf, type IntegrationsContext } from './integrations.js';
@@ -154,11 +155,20 @@ export async function infraredRemote(context: IntegrationsContext, id: string) {
  * @param request - The remote, checked.
  * @returns It, as the page lists it.
  * @throws {NotFoundError} When there is no such remote, or the blaster is not one.
+ * @throws {ValidationError} When a new remote's room is not a room; nothing is made.
  */
 export async function saveInfraredRemote(
   context: DevicesContext,
   request: InfraredRemoteSaveRequest,
 ): Promise<InfraredRemote> {
+  const areaId = request.areaId ?? null;
+
+  // Before the hub makes the remote: a room refused after it would leave a remote that a retry
+  // makes a second time.
+  if (request.id === undefined && areaId !== null) {
+    await checkRoom(context.db, areaId);
+  }
+
   const saved = await askInfrared(
     context,
     HUB_INFRARED_REMOTE_SAVE_METHOD,
@@ -166,7 +176,6 @@ export async function saveInfraredRemote(
     infraredRemoteSchema,
     REMOTE_SAVE_TIMEOUT_MS,
   );
-  const areaId = request.areaId ?? null;
 
   // A device not added in time keeps no room: the remote is saved all the same, and its device
   // is put in a room from its own page.

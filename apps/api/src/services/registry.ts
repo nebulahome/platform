@@ -855,7 +855,18 @@ export async function createAutomation(
       isEnabled: body.isEnabled,
       createdBy: userId,
     })
-    .returning({ id: schema.registry.automations.id });
+    .returning({ id: schema.registry.automations.id })
+    .catch((error: unknown) => {
+      // Two saves racing for one key: the check above let both through, the unique index one.
+      if (isUniqueViolation(error)) {
+        throw new ConflictError('An automation already has that key', {
+          cause: error,
+          details: { key: body.key },
+        });
+      }
+
+      throw error;
+    });
 
   if (row === undefined) {
     throw new ConflictError('An automation already has that key', { details: { key: body.key } });

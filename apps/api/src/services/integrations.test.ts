@@ -19,10 +19,13 @@ import {
   checkModel,
   forStorage,
   layeredTransportConfig,
+  listCatalogue,
   servedConfig,
   validateSetup,
   vendorViewOf,
+  withCatalogueOnce,
   withoutSecrets,
+  type IntegrationsContext,
 } from './integrations.js';
 
 /** The key the hub would open with. */
@@ -296,5 +299,29 @@ describe('withoutSecrets', () => {
     // A placeholder is a value, and a form that sent one back would write the placeholder into
     // the row. Absent means the merge on the way in leaves what is there alone.
     expect('password' in withoutSecrets({ password: 'x' })).toBe(false);
+  });
+});
+
+describe('withCatalogueOnce', () => {
+  it('asks the hub for its catalogue once, and again only after a failure', async () => {
+    let asked = 0;
+    const context = withCatalogueOnce({
+      traceId: 'trace',
+      timeoutMs: 1000,
+      bus: {
+        request: async () => {
+          asked += 1;
+
+          return asked === 1
+            ? Promise.reject(new Error('timeout'))
+            : Promise.resolve({ vendors: [] });
+        },
+      },
+    } as unknown as IntegrationsContext);
+
+    await expect(listCatalogue(context)).rejects.toThrow('timeout');
+    expect(await listCatalogue(context)).toEqual([]);
+    expect(await listCatalogue(context)).toEqual([]);
+    expect(asked).toBe(2);
   });
 });

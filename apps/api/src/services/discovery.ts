@@ -34,7 +34,7 @@ import {
 } from '@nebulahome/contracts';
 
 import { createDevice, type DevicesContext } from './devices.js';
-import { busOf, type IntegrationsContext } from './integrations.js';
+import { busOf, withCatalogueOnce, type IntegrationsContext } from './integrations.js';
 
 /** What adopting a device adds, and which device identification must find. */
 export type Adoption = {
@@ -253,17 +253,19 @@ export function adoptedNameOf(candidate: DiscoveredDevice): string {
  * Adopts several found devices at once, each named after its model, in no room: the owner names
  * them and puts them in rooms on the Devices page.
  *
- * @param context - The request's collaborators.
+ * @param caller - The request's collaborators.
  * @param ids - The found devices.
  * @param takenIds - The device ids already in use.
  * @returns What became of each.
  * @throws {DeviceUnavailableError} When the hub cannot be asked.
  */
 export async function adoptMany(
-  context: DevicesContext,
+  caller: DevicesContext,
   ids: readonly string[],
   takenIds: readonly string[],
 ): Promise<DiscoveryAdoptManyReply['items']> {
+  // One catalogue for every device added, rather than two questions to the hub for each.
+  const context = withCatalogueOnce(caller);
   const candidates = await discoveredOn(context);
   const taken = new Set(takenIds);
   const results: DiscoveryAdoptManyReply['items'] = [];

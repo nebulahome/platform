@@ -86,6 +86,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 import { entityScopes, isPermitted } from '../auth/permissions.js';
 
 import { checkCode } from './alias-code-check.js';
+import { askCore } from './core-retry.js';
 import { deviceViewIdOf } from './devices.js';
 import { readTagKeys } from './entities.js';
 import { mentions } from './links.js';
@@ -369,9 +370,10 @@ function toView(row: AliasRow, reads: readonly EntityId[]): AliasView {
  * Lists every alias.
  *
  * @param db - The database.
+ * @param logger - Where an alias left off the list is said.
  * @returns The aliases, by name.
  */
-export async function listAliases(db: Database): Promise<AliasListItem[]> {
+export async function listAliases(db: Database, logger: PlatformLogger): Promise<AliasListItem[]> {
   const rows = await aliasRows(db);
   const reads = await readsOf(
     db,
@@ -381,7 +383,12 @@ export async function listAliases(db: Database): Promise<AliasListItem[]> {
   return rows.flatMap((row) => {
     try {
       return [toListItem(row, reads.get(row.id) ?? [])];
-    } catch {
+    } catch (error: unknown) {
+      logger.warn(
+        { aliasId: row.id, err: error },
+        'An alias cannot be read; it is left off the list',
+      );
+
       return [];
     }
   });
@@ -1049,12 +1056,19 @@ async function prepare(
   }
 
   const partReads = aliasPartsReads(parts);
+
+  // The code reads entities only by literal id: a first pass names them, so only those are
+  // looked up rather than every entity in the house.
+  const named = checkCode(code, parts, defs, () => true).reads;
   const known = new Set(
-    (
-      await db
-        .select({ entityId: schema.registry.entities.entityId })
-        .from(schema.registry.entities)
-    ).map((row) => row.entityId),
+    named.length === 0
+      ? []
+      : (
+          await db
+            .select({ entityId: schema.registry.entities.entityId })
+            .from(schema.registry.entities)
+            .where(inArray(schema.registry.entities.entityId, [...named]))
+        ).map((row) => row.entityId),
   );
   const checked = checkCode(code, parts, defs, (entityId) => known.has(entityId));
 
@@ -1255,7 +1269,7 @@ async function deviceFor(
  * @returns Its row id, or null.
  * @throws {NotFoundError} When there is no such area.
  */
-async function areaIdOf(db: Database, key: string | null): Promise<string | null> {
+async function areaIdOf(db: Pick<Database, 'select'>, key: string | null): Promise<string | null> {
   if (key === null) {
     return null;
   }
@@ -1310,13 +1324,15 @@ async function writeDerived(
 
 /**
  * Asks `core` to take in an alias whose rows were just written. Best effort: a `core` that does
- * not answer is logged, and loads the alias when it next starts.
+ * not answer is logged and asked again in the background, and loads the alias when it next starts.
  *
  * @param context - The bus, the trace id and the log.
  * @param entityId - The alias entity.
  */
 async function syncOnCore(context: AliasesContext, entityId: EntityId): Promise<void> {
-  if (context.bus === undefined) {
+  const { bus } = context;
+
+  if (bus === undefined) {
     context.logger.warn(
       { entityId },
       'The bus is away; core will load the alias on its next start',
@@ -1325,32 +1341,38 @@ async function syncOnCore(context: AliasesContext, entityId: EntityId): Promise<
     return;
   }
 
-  try {
-    await context.bus.request(
-      busSubjects.service(CORE_SERVICE, CORE_SYNC_ALIAS_METHOD),
-      { entityId },
-      syncAliasReplySchema,
-      { traceId: context.traceId, timeoutMs: context.timeoutMs },
-    );
-  } catch (error: unknown) {
-    context.logger.warn(
-      { entityId, err: error },
-      'Core did not take the alias in; it will on its next start',
-    );
-  }
+  await askCore(
+    async () => {
+      await bus.request(
+        busSubjects.service(CORE_SERVICE, CORE_SYNC_ALIAS_METHOD),
+        { entityId },
+        syncAliasReplySchema,
+        { traceId: context.traceId, timeoutMs: context.timeoutMs },
+      );
+    },
+    (error) => {
+      context.logger.warn(
+        { entityId, err: error },
+        'Core did not take the alias in; it is asked again',
+      );
+    },
+  );
 }
+
+/** What a copy or an import brings beyond what a new alias is made with. */
+type AliasSetup = Pick<AliasUpdate, 'code' | 'cases' | 'ifOneStops' | 'debounceMs' | 'display'>;
 
 /**
  * Creates an alias: every required part Stored unless the body says otherwise.
  *
  * @param context - The database, the bus and the log.
- * @param body - What to create.
+ * @param body - What to create, with the code and the rest of a copied or imported setup.
  * @param identity - Who is creating it.
  * @returns The alias as stored.
  */
 export async function createAlias(
   context: AliasesContext,
-  body: AliasCreate,
+  body: AliasCreate & AliasSetup,
   identity: Identity,
 ): Promise<AliasView> {
   const { db } = context;
@@ -1365,9 +1387,10 @@ export async function createAlias(
   const parts = body.parts ?? defaultAliasParts(type, fields);
   const objectId = await freeObjectId(db, body.name);
   const entityId = formatEntityId('alias', objectId);
-  const prepared = await prepare(db, identity, entityId, type, custom, parts, '');
+  const prepared = await prepare(db, identity, entityId, type, custom, parts, body.code ?? '');
   const device = await deviceFor(db, body.device);
   const areaId = device.isVirtual ? await areaIdOf(db, body.area) : null;
+  const display = body.display;
 
   const id = await db.transaction(async (tx) => {
     const [entity] = await tx
@@ -1380,6 +1403,13 @@ export async function createAlias(
         areaId,
         deviceId: device.id,
         isEnabled: body.isEnabled,
+        ...(display === undefined
+          ? {}
+          : {
+              unitOfMeasurement: display.unit,
+              deviceClass: display.deviceClass,
+              displayPrecision: display.precision,
+            }),
       })
       .returning({ id: schema.registry.entities.id });
 
@@ -1394,6 +1424,11 @@ export async function createAlias(
         behavesAs: type.id,
         customType: custom,
         parts: prepared.parts,
+        code: prepared.code,
+        ...(body.cases === undefined ? {} : { cases: body.cases }),
+        ...(body.ifOneStops === undefined ? {} : { fallbackPolicy: body.ifOneStops }),
+        ...(body.debounceMs === undefined ? {} : { debounceMs: body.debounceMs }),
+        ...(display === undefined ? {} : { display }),
         isEnabled: body.isEnabled,
         createdBy: identity.userId,
       })
@@ -1489,7 +1524,7 @@ export async function updateAlias(
     const areaId =
       body.area === undefined || !before.device.isVirtual
         ? undefined
-        : await areaIdOf(db, body.area);
+        : await areaIdOf(tx, body.area);
 
     await tx
       .update(schema.registry.entities)
@@ -1532,7 +1567,9 @@ export async function duplicateAlias(
   identity: Identity,
 ): Promise<AliasView> {
   const source = await readAlias(context.db, id);
-  const copy = await createAlias(
+
+  // The code goes in as the original's, with no developer mode: copying is not writing new code.
+  return createAlias(
     context,
     {
       name,
@@ -1543,22 +1580,14 @@ export async function duplicateAlias(
       device: { kind: 'device', deviceId: source.device.id },
       parts: source.parts,
       isEnabled: source.isEnabled,
+      code: source.code,
+      cases: source.cases,
+      ifOneStops: source.ifOneStops,
+      debounceMs: source.debounceMs,
+      display: source.display,
     },
     identity,
   );
-
-  if (source.code === '' && source.cases.length === 0) {
-    return copy;
-  }
-
-  // The code goes in as the original's: copying is not writing new code.
-  await context.db
-    .update(schema.registry.aliases)
-    .set({ code: source.code, cases: source.cases, display: source.display })
-    .where(eq(schema.registry.aliases.id, copy.id));
-  await syncOnCore(context, copy.entityId);
-
-  return readAlias(context.db, copy.id);
 }
 
 /**
@@ -1636,12 +1665,15 @@ export type AliasImport = {
  * @param context - The database, the bus and the log.
  * @param body - The file, the picks and the replacements.
  * @param identity - Who is importing.
+ * @param written - Called as each alias is written, with what it was (null when new) and is:
+ * an import that stops part way keeps the audit of what it already wrote.
  * @returns How many were created and replaced, with the views.
  */
 export async function importAliases(
   context: AliasesContext,
   body: AliasImport,
   identity: Identity,
+  written: (before: AliasView | null, after: AliasView) => Promise<void>,
 ): Promise<{
   readonly created: AliasView[];
   readonly replaced: { before: AliasView; after: AliasView }[];
@@ -1673,26 +1705,28 @@ export async function importAliases(
     );
 
     if (existing !== undefined) {
-      replaced.push(
-        // eslint-disable-next-line no-await-in-loop -- as above
-        await updateAlias(
-          context,
-          existing.id,
-          {
-            name: entry.name,
-            icon: entry.icon,
-            ...(entry.area === null ? {} : { area: entry.area }),
-            isEnabled: entry.isEnabled,
-            parts: entry.parts,
-            code: aliasEntryCode(entry),
-            cases: entry.cases,
-            ifOneStops: entry.ifOneStops,
-            debounceMs: entry.debounceMs,
-            display: entry.display,
-          },
-          identity,
-        ),
+      // eslint-disable-next-line no-await-in-loop -- as above
+      const pair = await updateAlias(
+        context,
+        existing.id,
+        {
+          name: entry.name,
+          icon: entry.icon,
+          ...(entry.area === null ? {} : { area: entry.area }),
+          isEnabled: entry.isEnabled,
+          parts: entry.parts,
+          code: aliasEntryCode(entry),
+          cases: entry.cases,
+          ifOneStops: entry.ifOneStops,
+          debounceMs: entry.debounceMs,
+          display: entry.display,
+        },
+        identity,
       );
+
+      replaced.push(pair);
+      // eslint-disable-next-line no-await-in-loop -- as above
+      await written(pair.before, pair.after);
       continue;
     }
 
@@ -1710,24 +1744,18 @@ export async function importAliases(
         device,
         parts: entry.parts,
         isEnabled: entry.isEnabled,
+        code: aliasEntryCode(entry),
+        cases: entry.cases,
+        ifOneStops: entry.ifOneStops,
+        debounceMs: entry.debounceMs,
+        display: entry.display,
       },
       identity,
     );
+
+    created.push(view);
     // eslint-disable-next-line no-await-in-loop -- as above
-    await context.db
-      .update(schema.registry.aliases)
-      .set({
-        code: aliasEntryCode(entry),
-        cases: entry.cases,
-        display: entry.display,
-        fallbackPolicy: entry.ifOneStops,
-        debounceMs: entry.debounceMs,
-      })
-      .where(eq(schema.registry.aliases.id, view.id));
-    // eslint-disable-next-line no-await-in-loop -- as above
-    await syncOnCore(context, view.entityId);
-    // eslint-disable-next-line no-await-in-loop -- as above
-    created.push(await readAlias(context.db, view.id));
+    await written(null, view);
   }
 
   return { created, replaced };

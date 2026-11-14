@@ -4,7 +4,9 @@ import { ConflictError, NotFoundError, ValidationError } from '@nebulahome/contr
 import { loadBuiltinIcons, type IconRow } from '@nebulahome/icons';
 import { createLogger } from '@nebulahome/logging';
 
-import { IconService, type IconStore, type IconUses } from './icons.js';
+import { databaseAnswering } from '../testing/hub-harness.js';
+
+import { createIconStore, IconService, type IconStore, type IconUses } from './icons.js';
 
 const builtin = loadBuiltinIcons();
 const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
@@ -272,5 +274,14 @@ describe('IconService', () => {
 
     expect(icons.get('lightbulb')?.isOverridden).toBe(false);
     await expect(icons.remove('lightbulb')).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe('createIconStore', () => {
+  it('counts a room using an icon, not only devices, entities and tags', async () => {
+    // Asked in the list's order: devices, entities, tags, then areas.
+    const store = createIconStore(databaseAnswering([], [], [], [{ total: 1 }]));
+
+    expect(await store.countUses('boiler')).toMatchObject({ devices: 0, areas: 1, roles: 0 });
   });
 });

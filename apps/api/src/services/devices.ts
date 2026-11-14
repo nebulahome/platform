@@ -87,9 +87,11 @@ import {
   validateSetup,
   vendorIdOf,
   vendorRowOf,
+  withCatalogueOnce,
   type IntegrationsContext,
   type SetupValues,
 } from './integrations.js';
+import { isUniqueViolation } from './keys.js';
 import { suggestedLinksOf, syncLinksOnCore } from './links.js';
 import { assertTagsExist, replaceDeviceTags, tagIdsOfDeviceRow, tagIdsOfDevices } from './tags.js';
 
@@ -753,7 +755,7 @@ function iconFor(
 /**
  * Adds a device: writes both halves and asks the hub to start listening for it.
  *
- * @param context - The request's collaborators.
+ * @param caller - The request's collaborators.
  * @param body - What the form collected.
  * @param adopted - When the device was adopted from discovery: the id it reported, which
  * identification must then find, or null when it keeps its id until it is set up.
@@ -766,10 +768,11 @@ function iconFor(
  * the catalogue, or the configuration is not what the driver asks.
  */
 export async function createDevice(
-  context: DevicesContext,
+  caller: DevicesContext,
   body: DeviceCreate,
   adopted: { readonly expectedExternalId: string | null } = { expectedExternalId: null },
 ): Promise<DeviceView> {
+  const context = withCatalogueOnce(caller);
   const { vendor, driver } = await kindOf(context, body.kind);
   const model = checkModel(vendor, driver.id, body.model);
   const { rest, serial } = splitSerial(driver, body.transportConfig, true);
@@ -799,40 +802,52 @@ export async function createDevice(
 
   // Both halves or neither. A connection without an identity is a device no page can name; an
   // identity without a connection is a row nothing will ever hear from.
-  await context.db.transaction(async (tx) => {
-    await tx.insert(schema.registry.integrations).values({
-      id: body.id,
-      kind: driver.id,
-      kindVersion: vendor.version,
-      model,
-      transport: driver.transport,
-      transportConfig: stored.transportConfig,
-      options: stored.options,
-      isEnabled: body.isEnabled,
-    });
-    // The model the owner picked stays on the connection half; the identity half's `model` is
-    // what the hardware reports, once it has, and the view shows whichever it has.
-    const [identity] = await tx
-      .insert(schema.registry.devices)
-      .values({
-        integrationId: body.id,
-        // Null for a device typed in by hand; for one adopted, the id it reported, which the hub
-        // then insists on hearing from rather than taking whatever answers at the address.
-        externalId: adopted.expectedExternalId,
-        name: body.name,
-        icon,
-        areaId: body.areaId ?? null,
-        manufacturer: vendor.name,
-        model: null,
-        config: {},
-      })
-      .returning({ id: schema.registry.devices.id });
+  await context.db
+    .transaction(async (tx) => {
+      await tx.insert(schema.registry.integrations).values({
+        id: body.id,
+        kind: driver.id,
+        kindVersion: vendor.version,
+        model,
+        transport: driver.transport,
+        transportConfig: stored.transportConfig,
+        options: stored.options,
+        isEnabled: body.isEnabled,
+      });
+      // The model the owner picked stays on the connection half; the identity half's `model` is
+      // what the hardware reports, once it has, and the view shows whichever it has.
+      const [identity] = await tx
+        .insert(schema.registry.devices)
+        .values({
+          integrationId: body.id,
+          // Null for a device typed in by hand; for one adopted, the id it reported, which the hub
+          // then insists on hearing from rather than taking whatever answers at the address.
+          externalId: adopted.expectedExternalId,
+          name: body.name,
+          icon,
+          areaId: body.areaId ?? null,
+          manufacturer: vendor.name,
+          model: null,
+          config: {},
+        })
+        .returning({ id: schema.registry.devices.id });
 
-    if (identity !== undefined && body.tagIds.length > 0) {
-      await assertTagsExist(tx, body.tagIds);
-      await replaceDeviceTags(tx, identity.id, body.tagIds);
-    }
-  });
+      if (identity !== undefined && body.tagIds.length > 0) {
+        await assertTagsExist(tx, body.tagIds);
+        await replaceDeviceTags(tx, identity.id, body.tagIds);
+      }
+    })
+    .catch((error: unknown) => {
+      // Two adds racing for one id: the check above let both through, the primary key one.
+      if (isUniqueViolation(error)) {
+        throw new ConflictError('A device already has that id', {
+          cause: error,
+          details: { id: body.id },
+        });
+      }
+
+      throw error;
+    });
 
   await reloadOnHub(context, body.id);
 
@@ -954,7 +969,7 @@ function withSerial(stored: SetupValues, serial: JsonObject | undefined): SetupV
  *
  * `state`, `lastError` and `lastStartedAt` belong to the hub and are never written here.
  *
- * @param context - The request's collaborators.
+ * @param caller - The request's collaborators.
  * @param id - Which device.
  * @param body - The fields to change.
  * @returns The device as it now stands.
@@ -963,10 +978,12 @@ function withSerial(stored: SetupValues, serial: JsonObject | undefined): SetupV
  * it offers, or the icon is not in the catalogue.
  */
 export async function updateDevice(
-  context: DevicesContext,
+  caller: DevicesContext,
   id: string,
   body: DeviceUpdate,
 ): Promise<DeviceView> {
+  const context = withCatalogueOnce(caller);
+
   if (
     id === SYSTEM_DEVICE_ID ||
     id.startsWith(CONTAINER_DEVICE_PREFIX) ||
@@ -992,10 +1009,6 @@ export async function updateDevice(
     throw new NotFoundError('No device has that id', { details: { id } });
   }
 
-  if (body.preferredTransport !== undefined) {
-    await preferWay(context, id, body.preferredTransport);
-  }
-
   if (body.icon !== undefined && body.icon !== null) {
     checkIcon(context.icons, body.icon);
   }
@@ -1015,6 +1028,11 @@ export async function updateDevice(
     isSendingConfig && found !== undefined
       ? mergedForStorage(context, found.driver, current, body)
       : undefined;
+
+  // After every check: it writes at once, and a change refused after it would be half made.
+  if (body.preferredTransport !== undefined) {
+    await preferWay(context, id, body.preferredTransport);
+  }
 
   // The form sends the whole connection half back with every save, a rename included. What
   // decides whether the hub is asked to start the instance again is whether any of it differs
@@ -1227,23 +1245,33 @@ async function updatePlatformDevice(
  * device running.
  *
  * @param context - The request's collaborators.
- * @param id - Which device.
+ * @param ids - Which devices: every one is checked before any goes.
  * @throws {ConflictError} Naming the entities an alias still reads.
  */
-async function assertNotReadByAliases(context: DevicesContext, id: string): Promise<void> {
+export async function assertNotReadByAliases(
+  context: DevicesContext,
+  ids: readonly string[],
+): Promise<void> {
   const read = await context.db
-    .selectDistinct({ entityId: schema.registry.entities.entityId })
+    .selectDistinct({
+      entityId: schema.registry.entities.entityId,
+      integrationId: schema.registry.entities.integrationId,
+    })
     .from(schema.registry.aliasReads)
     .innerJoin(
       schema.registry.entities,
       eq(schema.registry.entities.entityId, schema.registry.aliasReads.entityId),
     )
-    .where(eq(schema.registry.entities.integrationId, id))
+    .where(inArray(schema.registry.entities.integrationId, [...ids]))
     .orderBy(asc(schema.registry.entities.entityId));
+  const [first] = read;
 
-  if (read.length > 0) {
+  if (first !== undefined) {
     throw new ConflictError('Aliases still read this device', {
-      details: { integrationId: id, entityIds: read.map((row) => row.entityId) },
+      details: {
+        integrationId: first.integrationId,
+        entityIds: read.map((row) => row.entityId),
+      },
     });
   }
 }
@@ -1318,10 +1346,7 @@ export async function deleteDevice(context: DevicesContext, id: string): Promise
 
   // Asked here as well as in `core`, and before the hub: `core` refusing after the hub had let
   // go would leave the device stopped by a removal that did not happen.
-  for (const each of [...ways, id]) {
-    // eslint-disable-next-line no-await-in-loop -- every way checked before any is let go
-    await assertNotReadByAliases(context, each);
-  }
+  await assertNotReadByAliases(context, [...ways, id]);
 
   const entityIds: string[] = [];
 

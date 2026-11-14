@@ -33,6 +33,7 @@ import { forRequest } from './routes/devices.js';
 import { buildServer } from './server.js';
 import { AuditLog } from './services/audit.js';
 import { AutoAdoption } from './services/auto-adoption.js';
+import { stopCoreRetries } from './services/core-retry.js';
 import { followDescribedDevices } from './services/described-devices.js';
 import { EventFanout } from './services/events.js';
 import { createIconStore, IconService } from './services/icons.js';
@@ -285,6 +286,7 @@ async function start(): Promise<void> {
       try {
         // The server first, so in-flight requests finish before their dependencies go away.
         await server.close();
+        stopCoreRetries();
         idempotency.stop();
         events.stop();
         autoAdoption.stop();

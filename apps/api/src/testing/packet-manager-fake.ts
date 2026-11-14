@@ -193,6 +193,9 @@ export const ZIGBEE_LISTING: IntegrationListing = {
 /** What the fake was asked, by method. */
 export const packetManagerRequests: { method: string; payload: unknown }[] = [];
 
+/** The packages whose detail the fake was asked for, kept apart from the changes it was asked. */
+export const packageDetailsAsked: string[] = [];
+
 /**
  * Serves the packet-manager's methods, and the package's own calls.
  *
@@ -205,6 +208,7 @@ export function servePacketManagerFake(
   mqtt: BusClient,
 ): BusSubscription[] {
   packetManagerRequests.length = 0;
+  packageDetailsAsked.length = 0;
 
   /**
    * The subject of one method.
@@ -229,6 +233,8 @@ export function servePacketManagerFake(
       items: [MQTT_PACKAGE],
     })),
     packetManager.serve(subject(PACKET_MANAGER_METHODS.get), packageIdRequestSchema, (request) => {
+      packageDetailsAsked.push(request.packageId);
+
       if (request.packageId !== 'mqtt') {
         throw new NotFoundError('No package is installed by that id');
       }

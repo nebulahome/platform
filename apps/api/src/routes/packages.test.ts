@@ -12,7 +12,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { isSealed } from '@nebulahome/db';
 
 import { bearer, buildTestServer, emptyDatabase, stopHub } from '../testing/hub-harness.js';
-import { HUB_LOGO, packetManagerRequests } from '../testing/packet-manager-fake.js';
+import {
+  HUB_LOGO,
+  packageDetailsAsked,
+  packetManagerRequests,
+} from '../testing/packet-manager-fake.js';
 
 let server: FastifyInstance;
 
@@ -165,6 +169,19 @@ describe("a package's methods", () => {
     expect(kick.statusCode).toBe(403);
     expect(nope.statusCode).toBe(404);
   });
+
+  it('refuses someone who may not use packages before the packet-manager is asked', async () => {
+    const asked = packageDetailsAsked.length;
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/packages/mqtt/rpc/clients',
+      headers: { authorization: await bearer('entity:read') },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(packageDetailsAsked).toHaveLength(asked);
+  });
 });
 
 describe("a package's interface", () => {
@@ -200,6 +217,26 @@ describe("a package's interface", () => {
     expect(otherBuild.statusCode).toBe(404);
     expect(outside.statusCode).toBe(404);
     expect(logo.statusCode).toBe(200);
+  });
+
+  it('does not ask the packet-manager again for every wrong build asked for', async () => {
+    await server.inject({
+      method: 'GET',
+      url: '/api/v1/packages/mqtt/ui/1.0.0%2B3f2a9c1d/index.js',
+    });
+
+    const asked = packageDetailsAsked.length;
+
+    for (const build of ['1.0.0%2Ba', '1.0.0%2Bb', '1.0.0%2Bc']) {
+      const response = await server.inject({
+        method: 'GET',
+        url: `/api/v1/packages/mqtt/ui/${build}/index.js`,
+      });
+
+      expect(response.statusCode).toBe(404);
+    }
+
+    expect(packageDetailsAsked).toHaveLength(asked);
   });
 });
 

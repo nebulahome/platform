@@ -162,7 +162,12 @@ export function registerRoleRoutes(environment: RouteEnvironment, context: ApiCo
     async (route): Promise<void> => {
       requirePermission(route.identity, 'role:manage');
 
-      const role = await deleteRole(context.db, route.params.roleId, route.query.moveTo);
+      const role = await deleteRole(
+        context.db,
+        route.identity,
+        route.params.roleId,
+        route.query.moveTo,
+      );
 
       await context.audit.record({
         action: 'role.delete',

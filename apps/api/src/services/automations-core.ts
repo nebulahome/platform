@@ -3,8 +3,8 @@
  *
  * `core` runs automations; the API writes their rows. After a write the API asks `core` to take
  * the row in, and after a delete to let it go - best effort, as for an alias: the write has
- * happened and is not undone by a silence, and a `core` that does not answer reads every row when
- * it next starts. Running one now is different: the person pressing Run is waiting for an answer,
+ * happened and is not undone by a silence; a `core` that does not answer is asked again in the
+ * background a few times, and reads every row when it next starts. Running one now is different: the person pressing Run is waiting for an answer,
  * so a `core` that is away is an error they see. So is testing one block from the editor.
  *
  * The house's zone and position live in a setting and on the house area; neither is re-read by
@@ -34,6 +34,8 @@ import {
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
+import { askCore } from './core-retry.js';
+
 /** What a request to `core` needs. */
 export type CoreLink = {
   /** The bus, or undefined while it is unreachable. */
@@ -55,7 +57,9 @@ export type CoreLink = {
  * @param automationId - The automation.
  */
 export async function syncAutomationOnCore(link: CoreLink, automationId: string): Promise<void> {
-  if (link.bus === undefined) {
+  const { bus } = link;
+
+  if (bus === undefined) {
     link.logger.warn(
       { automationId },
       'The bus is away; core will load the automation on its next start',
@@ -64,26 +68,29 @@ export async function syncAutomationOnCore(link: CoreLink, automationId: string)
     return;
   }
 
-  try {
-    const reply = await link.bus.request(
-      busSubjects.service(CORE_SERVICE, CORE_SYNC_AUTOMATION_METHOD),
-      { automationId },
-      syncAutomationReplySchema,
-      { traceId: link.traceId, timeoutMs: link.timeoutMs },
-    );
-
-    if (reply.problems.length > 0) {
-      link.logger.info(
-        { automationId, problems: reply.problems },
-        'Core took the automation in, with problems',
+  await askCore(
+    async () => {
+      const reply = await bus.request(
+        busSubjects.service(CORE_SERVICE, CORE_SYNC_AUTOMATION_METHOD),
+        { automationId },
+        syncAutomationReplySchema,
+        { traceId: link.traceId, timeoutMs: link.timeoutMs },
       );
-    }
-  } catch (error: unknown) {
-    link.logger.warn(
-      { automationId, err: error },
-      'Core did not take the automation in; it will on its next start',
-    );
-  }
+
+      if (reply.problems.length > 0) {
+        link.logger.info(
+          { automationId, problems: reply.problems },
+          'Core took the automation in, with problems',
+        );
+      }
+    },
+    (error) => {
+      link.logger.warn(
+        { automationId, err: error },
+        'Core did not take the automation in; it is asked again',
+      );
+    },
+  );
 }
 
 /**
@@ -93,23 +100,28 @@ export async function syncAutomationOnCore(link: CoreLink, automationId: string)
  * @param automationId - The automation.
  */
 export async function removeAutomationOnCore(link: CoreLink, automationId: string): Promise<void> {
-  if (link.bus === undefined) {
+  const { bus } = link;
+
+  if (bus === undefined) {
     return;
   }
 
-  try {
-    await link.bus.request(
-      busSubjects.service(CORE_SERVICE, CORE_REMOVE_AUTOMATION_METHOD),
-      { automationId },
-      removeAutomationReplySchema,
-      { traceId: link.traceId, timeoutMs: link.timeoutMs },
-    );
-  } catch (error: unknown) {
-    link.logger.warn(
-      { automationId, err: error },
-      'Core did not let the automation go; its row is gone, so it will not run again after a restart',
-    );
-  }
+  await askCore(
+    async () => {
+      await bus.request(
+        busSubjects.service(CORE_SERVICE, CORE_REMOVE_AUTOMATION_METHOD),
+        { automationId },
+        removeAutomationReplySchema,
+        { traceId: link.traceId, timeoutMs: link.timeoutMs },
+      );
+    },
+    (error) => {
+      link.logger.warn(
+        { automationId, err: error },
+        'Core did not let the automation go; it is asked again',
+      );
+    },
+  );
 }
 
 /**
@@ -146,23 +158,25 @@ export async function triggerAutomationOnCore(
  * @param link - The bus, the trace id and the log.
  */
 export async function syncHouseOnCore(link: CoreLink): Promise<void> {
-  if (link.bus === undefined) {
+  const { bus } = link;
+
+  if (bus === undefined) {
     return;
   }
 
-  try {
-    await link.bus.request(
-      busSubjects.service(CORE_SERVICE, CORE_SYNC_HOUSE_METHOD),
-      {},
-      syncHouseReplySchema,
-      { traceId: link.traceId, timeoutMs: link.timeoutMs },
-    );
-  } catch (error: unknown) {
-    link.logger.warn(
-      { err: error },
-      'Core did not read the house again; it will on its next start',
-    );
-  }
+  await askCore(
+    async () => {
+      await bus.request(
+        busSubjects.service(CORE_SERVICE, CORE_SYNC_HOUSE_METHOD),
+        {},
+        syncHouseReplySchema,
+        { traceId: link.traceId, timeoutMs: link.timeoutMs },
+      );
+    },
+    (error) => {
+      link.logger.warn({ err: error }, 'Core did not read the house again; it is asked again');
+    },
+  );
 }
 
 /** How much longer than a test may run the API waits for `core` to say how it went. */

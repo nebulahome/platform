@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   busSubjects,
+  ConflictError,
   HUB_CATALOGUE_METHOD,
   HUB_MATTER_NODES_METHOD,
   HUB_MQTT_DEVICES_METHOD,
@@ -9,9 +10,9 @@ import {
   HUB_SERVICE,
 } from '@nebulahome/contracts';
 
-import { MATTER_LAMP, MQTT_PLUG } from '../testing/hub-harness.js';
+import { databaseAnswering, MATTER_LAMP, MQTT_PLUG } from '../testing/hub-harness.js';
 
-import { rehomeBrokerDevices } from './brokers.js';
+import { rehomeBrokerDevices, removeMatterNode } from './brokers.js';
 import type { DevicesContext } from './devices.js';
 
 /**
@@ -101,5 +102,29 @@ describe('rehomeBrokerDevices', () => {
     expect(asked).toContain(
       `${busSubjects.service(HUB_SERVICE, HUB_RELOAD_METHOD)} {"integrationId":"matter-lamp"}`,
     );
+  });
+});
+
+describe('removeMatterNode', () => {
+  it('removes none of its devices while an alias reads any of them', async () => {
+    const asked: string[] = [];
+    const context = {
+      traceId: 'trace',
+      bus: {
+        request: async (subject: string) => {
+          asked.push(subject);
+
+          return Promise.resolve({
+            items: [{ ...MATTER_LAMP, devices: [held('matter-a', []), held('matter-b', [])] }],
+          });
+        },
+      },
+      db: databaseAnswering([{ entityId: 'sensor.b_power', integrationId: 'matter-b' }]),
+    } as unknown as DevicesContext;
+
+    await expect(removeMatterNode(context, MATTER_LAMP.nodeId)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+    expect(asked).toEqual([busSubjects.service(HUB_SERVICE, HUB_MATTER_NODES_METHOD)]);
   });
 });

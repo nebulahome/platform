@@ -414,6 +414,30 @@ describe('files', () => {
   });
 });
 
+describe('duplicating an alias', () => {
+  it('checks the copied code and records what it reads', async () => {
+    await database.db
+      .update(schema.registry.aliases)
+      .set({
+        parts: { value: { from: 'code', function: 'value' } },
+        code: `def value():\n    if ${lampEntityId}:\n        return 1\n    return 0\n`,
+      })
+      .where(eq(schema.registry.aliases.id, double.id));
+
+    const { status, body } = await call(AUTHOR, 'POST', `/aliases/${double.id}/duplicate`, {
+      name: `Copy ${slug}`,
+    });
+
+    expect(status).toBe(201);
+    const copy = aliasViewSchema.parse(body);
+
+    await database.db
+      .delete(schema.registry.entities)
+      .where(eq(schema.registry.entities.entityId, copy.entityId));
+    expect(copy.reads).toEqual([lampEntityId]);
+  });
+});
+
 describe('deleting an alias', () => {
   it('goes through core, and says what used it', async () => {
     aliasesRemoved.length = 0;

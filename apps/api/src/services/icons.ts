@@ -41,7 +41,7 @@ export type IconStore = {
   readonly insert: (row: IconRow) => Promise<void>;
 
   /**
-   * Replaces a row. When the row's id differs from `id`, every device and entity pointing at
+   * Replaces a row. When the row's id differs from `id`, every row pointing at
    * the old id is moved to the new one in the same transaction.
    */
   readonly update: (id: string, row: IconRow) => Promise<void>;
@@ -51,12 +51,28 @@ export type IconStore = {
   readonly countUses: (id: string) => Promise<IconUses>;
 };
 
-/** What points at an icon: the devices, the entities and the tags whose owner picked it. */
-export type IconUses = {
-  readonly devices: number;
-  readonly entities: number;
-  readonly tags: number;
-};
+/**
+ * Every column an icon id is kept in, with what a refusal calls its rows: a rename moves them all,
+ * and a custom icon is not removed while any of them points at it.
+ */
+const ICON_COLUMNS = [
+  { key: 'devices', one: 'device', many: 'devices', table: schema.registry.devices },
+  { key: 'entities', one: 'entity', many: 'entities', table: schema.registry.entities },
+  { key: 'tags', one: 'tag', many: 'tags', table: schema.registry.tags },
+  { key: 'areas', one: 'area', many: 'areas', table: schema.registry.areas },
+  { key: 'roles', one: 'role', many: 'roles', table: schema.auth.roles },
+  { key: 'scenes', one: 'scene', many: 'scenes', table: schema.registry.scenes },
+  { key: 'dashboards', one: 'dashboard', many: 'dashboards', table: schema.registry.dashboards },
+  {
+    key: 'infraredButtons',
+    one: 'infrared button',
+    many: 'infrared buttons',
+    table: schema.registry.infraredButtons,
+  },
+] as const;
+
+/** What points at an icon: how many rows of each kind whose owner picked it; none when absent. */
+export type IconUses = Readonly<Partial<Record<(typeof ICON_COLUMNS)[number]['key'], number>>>;
 
 /** A row of `registry.icons` as Drizzle reads it. */
 type StoredIcon = typeof schema.registry.icons.$inferSelect;
@@ -85,7 +101,7 @@ function rowOf(row: StoredIcon): IconRow {
  * @returns The store.
  */
 export function createIconStore(db: Database): IconStore {
-  const { icons, devices, entities, tags } = schema.registry;
+  const { icons } = schema.registry;
 
   return {
     /**
@@ -105,13 +121,13 @@ export function createIconStore(db: Database): IconStore {
     },
 
     /**
-     * Replaces a row, moving the devices, the entities and the tags along when its id changes.
+     * Replaces a row, moving every row that points at it along when its id changes.
      *
      * @param id - The row's id as it is.
      * @param row - The row as it should be.
      */
     update: async (id, row): Promise<void> => {
-      // In one transaction with the rows that point at it: a device, an entity or a tag must
+      // In one transaction with the rows that point at it: a device, a room or anything else must
       // never point at an id with nothing behind it, not even between two statements.
       await db.transaction(async (tx) => {
         await tx
@@ -120,9 +136,10 @@ export function createIconStore(db: Database): IconStore {
           .where(eq(icons.id, id));
 
         if (row.id !== id) {
-          await tx.update(devices).set({ icon: row.id }).where(eq(devices.icon, id));
-          await tx.update(entities).set({ icon: row.id }).where(eq(entities.icon, id));
-          await tx.update(tags).set({ icon: row.id }).where(eq(tags.icon, id));
+          for (const { table } of ICON_COLUMNS) {
+            // eslint-disable-next-line no-await-in-loop -- one transaction, one statement at a time
+            await tx.update(table).set({ icon: row.id }).where(eq(table.icon, id));
+          }
         }
       });
     },
@@ -137,33 +154,24 @@ export function createIconStore(db: Database): IconStore {
     },
 
     /**
-     * Counts the devices, the entities and the tags pointing at an icon.
+     * Counts the rows of every kind pointing at an icon.
      *
      * @param id - The icon id.
      * @returns How many of each.
      */
-    countUses: async (id): Promise<IconUses> => {
-      const [[onDevices], [onEntities], [onTags]] = await Promise.all([
-        db
-          .select({ total: sql<number>`count(*)::int` })
-          .from(devices)
-          .where(eq(devices.icon, id)),
-        db
-          .select({ total: sql<number>`count(*)::int` })
-          .from(entities)
-          .where(eq(entities.icon, id)),
-        db
-          .select({ total: sql<number>`count(*)::int` })
-          .from(tags)
-          .where(eq(tags.icon, id)),
-      ]);
+    countUses: async (id): Promise<IconUses> =>
+      Object.fromEntries(
+        await Promise.all(
+          ICON_COLUMNS.map(async ({ key, table }) => {
+            const [row] = await db
+              .select({ total: sql<number>`count(*)::int` })
+              .from(table)
+              .where(eq(table.icon, id));
 
-      return {
-        devices: onDevices?.total ?? 0,
-        entities: onEntities?.total ?? 0,
-        tags: onTags?.total ?? 0,
-      };
-    },
+            return [key, row?.total ?? 0] as const;
+          }),
+        ),
+      ),
   };
 }
 
@@ -174,15 +182,11 @@ export function createIconStore(db: Database): IconStore {
  * @returns "2 devices and 1 entity", or just the parts that are not zero.
  */
 function describeUses(uses: IconUses): string {
-  const parts = [
-    uses.devices === 0 ? null : `${String(uses.devices)} device${uses.devices === 1 ? '' : 's'}`,
-    uses.entities === 0
-      ? null
-      : `${String(uses.entities)} entit${uses.entities === 1 ? 'y' : 'ies'}`,
-    uses.tags === 0 ? null : `${String(uses.tags)} tag${uses.tags === 1 ? '' : 's'}`,
-  ].filter((part) => part !== null);
+  return ICON_COLUMNS.flatMap(({ key, one, many }) => {
+    const count = uses[key] ?? 0;
 
-  return parts.join(' and ');
+    return count === 0 ? [] : [`${String(count)} ${count === 1 ? one : many}`];
+  }).join(' and ');
 }
 
 /** What the service needs. */
@@ -392,7 +396,7 @@ export class IconService {
     if (row.kind === 'custom') {
       const uses = await this.#options.store.countUses(id);
 
-      if (uses.devices + uses.entities + uses.tags > 0) {
+      if (Object.values(uses).some((count) => count > 0)) {
         throw new ConflictError(`${describeUses(uses)} still use this icon`, {
           details: { id, ...uses },
         });

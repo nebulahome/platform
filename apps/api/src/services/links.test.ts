@@ -1,6 +1,33 @@
+import { randomUUID } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
-import { rankedWay, twinReasons } from './links.js';
+import type { IntegrationsContext } from './integrations.js';
+import { rankedWay, syncLinksOnCore, twinReasons } from './links.js';
+
+describe('syncLinksOnCore', () => {
+  it('names every row, in requests of at most 1024', async () => {
+    const sent: number[] = [];
+    const context = {
+      traceId: 'trace',
+      timeoutMs: 1000,
+      bus: {
+        request: async (subject: string, payload: { entityRowIds: string[] }) => {
+          sent.push(payload.entityRowIds.length);
+
+          return Promise.resolve({});
+        },
+      },
+    } as unknown as IntegrationsContext;
+
+    await syncLinksOnCore(
+      context,
+      Array.from({ length: 1500 }, () => randomUUID()),
+    );
+
+    expect(sent).toEqual([1024, 476]);
+  });
+});
 
 const plug = { mac: '08:f9:e0:12:4c:7a', serialNumber: 'SN-1', model: 'Plug S Gen3' };
 

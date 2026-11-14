@@ -19,7 +19,7 @@
  * answer does not fail the write: the row is saved and the instance will start with the hub,
  * and the view says so by carrying the state the row has.
  */
-import { eq, sql } from 'drizzle-orm';
+import { eq, like, or, sql } from 'drizzle-orm';
 
 import type { BusClient } from '@nebulahome/bus';
 import {
@@ -83,6 +83,9 @@ export type IntegrationsContext = {
 
   /** The request's trace id, carried onto the bus. */
   readonly traceId: string;
+
+  /** The hub's catalogue, asked once for the whole request: see {@link withCatalogueOnce}. */
+  readonly catalogue?: () => Promise<IntegrationVendor[]>;
 };
 
 /**
@@ -400,6 +403,10 @@ export function busOf(context: IntegrationsContext): BusClient {
  * @throws {DeviceUnavailableError} When the bus is away or the hub does not answer.
  */
 export async function listCatalogue(context: IntegrationsContext): Promise<IntegrationVendor[]> {
+  if (context.catalogue !== undefined) {
+    return context.catalogue();
+  }
+
   const reply = await busOf(context).request(
     busSubjects.service(HUB_SERVICE, HUB_CATALOGUE_METHOD),
     {},
@@ -408,6 +415,41 @@ export async function listCatalogue(context: IntegrationsContext): Promise<Integ
   );
 
   return reply.vendors;
+}
+
+/**
+ * The context with the hub's catalogue asked for once, for every read of it that follows: adding
+ * a device reads it to check the kind and again to show the device, and adopting many adds each.
+ *
+ * @param context - The request's collaborators.
+ * @returns The same collaborators, the catalogue kept once it answered; a failure is asked again.
+ */
+export function withCatalogueOnce<TContext extends IntegrationsContext>(
+  context: TContext,
+): TContext {
+  if (context.catalogue !== undefined) {
+    return context;
+  }
+
+  let asked: Promise<IntegrationVendor[]> | undefined;
+
+  return {
+    ...context,
+
+    /**
+     * The catalogue, asked the first time and kept.
+     *
+     * @returns Every vendor.
+     */
+    catalogue: async (): Promise<IntegrationVendor[]> => {
+      asked ??= listCatalogue(context).catch((error: unknown) => {
+        asked = undefined;
+        throw error;
+      });
+
+      return asked;
+    },
+  };
 }
 
 /**
@@ -788,15 +830,18 @@ export async function updateVendorConfig(
 
   // Every instance of the vendor runs with the old settings until it starts again, and the
   // owner just changed them because the old ones were wrong.
+  // The kind is `vendor/driver`; the vendor id's own `%`, `_` and `\` are escaped for LIKE.
   const instances = await context.db
-    .select({ id: schema.registry.integrations.id, kind: schema.registry.integrations.kind })
-    .from(schema.registry.integrations);
+    .select({ id: schema.registry.integrations.id })
+    .from(schema.registry.integrations)
+    .where(
+      or(
+        eq(schema.registry.integrations.kind, vendorId),
+        like(schema.registry.integrations.kind, `${vendorId.replace(/[\\%_]/gu, '\\$&')}/%`),
+      ),
+    );
 
-  await Promise.all(
-    instances
-      .filter((instance) => vendorIdOf(instance.kind) === vendorId)
-      .map(async (instance) => reloadOnHub(context, instance.id)),
-  );
+  await Promise.all(instances.map(async (instance) => reloadOnHub(context, instance.id)));
 
   return readVendor(context, vendorId);
 }

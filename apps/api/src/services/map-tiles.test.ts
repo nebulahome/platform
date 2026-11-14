@@ -109,6 +109,16 @@ describe('the cache', { timeout: 20_000 }, () => {
     ).toBe(true);
   });
 
+  it('joins a fetch of the same buffer already under way', async () => {
+    const [first, second] = await Promise.all([
+      service.prefetch(LATITUDE, LONGITUDE),
+      service.prefetch(LATITUDE, LONGITUDE),
+    ]);
+
+    expect(second).toEqual(first);
+    expect(fetched).toHaveLength(tilesAround(LATITUDE, LONGITUDE).length);
+  });
+
   it('does not fetch again what is already on disk', async () => {
     await service.prefetch(LATITUDE, LONGITUDE);
     const once = fetched.length;

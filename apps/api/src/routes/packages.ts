@@ -46,7 +46,7 @@ import {
   type PackageSearchReply,
 } from '@nebulahome/contracts';
 
-import { requirePermission } from '../auth/permissions.js';
+import { isPermitted, requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { collectionSchema } from '../http/collection.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
@@ -650,6 +650,11 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
      * @returns What it answered.
      */
     async (route): Promise<PackageRpcReply> => {
+      // Someone holding neither permission a method can ask is refused before the package is read.
+      if (!isPermitted(route.identity.permissions, 'package:configure')) {
+        requirePermission(route.identity, 'package:read');
+      }
+
       const packages = packagesContext(context, route.request.traceId);
       const access = await rpcAccessOf(packages, route.params.packageId, route.params.method);
 

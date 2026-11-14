@@ -605,10 +605,10 @@ export async function readTagKeys(
  * Builds the filters a list request asked for.
  *
  * @param query - What the caller narrowed by.
- * @param cursor - Where the page starts, when continuing.
+ * @param after - The entity id the read starts after, when continuing.
  * @returns The conditions to apply, or undefined when there are none.
  */
-function buildFilters(query: EntityQuery, cursor: string | undefined): SQL | undefined {
+function buildFilters(query: EntityQuery, after: string | undefined): SQL | undefined {
   // An entity linked to another is read as that one, and listed only as that one.
   const conditions: (SQL | undefined)[] = [isNull(schema.registry.entities.linkedTo)];
 
@@ -638,8 +638,8 @@ function buildFilters(query: EntityQuery, cursor: string | undefined): SQL | und
     );
   }
 
-  if (cursor !== undefined) {
-    conditions.push(gt(schema.registry.entities.entityId, decodeCursor(cursor).key));
+  if (after !== undefined) {
+    conditions.push(gt(schema.registry.entities.entityId, after));
   }
 
   const present = conditions.filter((condition): condition is SQL => condition !== undefined);
@@ -669,14 +669,45 @@ export async function listEntities(
   query: EntityQuery,
   page: { limit: number; cursor?: string },
 ): Promise<PageResult<EntityView>> {
-  const rows: EntityRow[] = await selectEntities(db)
-    .where(buildFilters(query, page.cursor))
-    .orderBy(asc(schema.registry.entities.entityId))
+  const views: EntityView[] = [];
+  let after = page.cursor === undefined ? undefined : decodeCursor(page.cursor).key;
 
-    // One more than asked for: the extra row is how the next cursor is decided without a
-    // second COUNT(*) over the whole table.
-    .limit(page.limit + 1);
+  // The filters after the read can drop rows from a batch, so batches are read until the page
+  // has one row more than asked for - how the next cursor is decided - or the rows run out.
+  for (;;) {
+    // eslint-disable-next-line no-await-in-loop -- each batch starts after the one before
+    const rows: EntityRow[] = await selectEntities(db)
+      .where(buildFilters(query, after))
+      .orderBy(asc(schema.registry.entities.entityId))
+      .limit(page.limit + 1);
+    const last = rows[rows.length - 1];
 
+    // eslint-disable-next-line no-await-in-loop -- see above
+    views.push(...(await visibleViews(db, identity, query, rows)));
+
+    if (views.length > page.limit || rows.length <= page.limit || last === undefined) {
+      return toPage(views, page.limit, (view) => ({ key: view.entityId }));
+    }
+
+    after = last.entityId;
+  }
+}
+
+/**
+ * Turns a batch of entity rows into the views the caller may see and asked for.
+ *
+ * @param db - The database.
+ * @param identity - Who is asking.
+ * @param query - What they narrowed by.
+ * @param rows - The batch, in entity id order.
+ * @returns The views kept, in the same order.
+ */
+async function visibleViews(
+  db: Database,
+  identity: Identity,
+  query: EntityQuery,
+  rows: readonly EntityRow[],
+): Promise<EntityView[]> {
   const rowIds = rows.map((row) => row.rowId);
   const linked = await readLinked(db, rowIds);
   const [capabilities, tags, deviceTags] = await Promise.all([
@@ -724,17 +755,13 @@ export async function listEntities(
           ),
         );
 
-  return toPage(
-    byCapability.map((row) =>
-      toView(
-        row,
-        capabilities.get(row.rowId) ?? [],
-        tags.get(row.rowId) ?? [],
-        linkedWith(linked.get(row.rowId), capabilities),
-      ),
+  return byCapability.map((row) =>
+    toView(
+      row,
+      capabilities.get(row.rowId) ?? [],
+      tags.get(row.rowId) ?? [],
+      linkedWith(linked.get(row.rowId), capabilities),
     ),
-    page.limit,
-    (view) => ({ key: view.entityId }),
   );
 }
 
