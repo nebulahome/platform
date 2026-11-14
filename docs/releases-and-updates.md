@@ -261,7 +261,9 @@ the reason. Update all leaves Nebula Home out where it cannot update itself.
 The supervisor runs inside the platform's container and cannot replace it, so:
 
 1. The supervisor refuses a version that is not newer than the one running (an older one refuses
-   the migrated database), pulls `nebulahome/platform:<version>` and checks its version label.
+   the migrated database), pulls `nebulahome/platform:<version>` and checks its version label. A
+   pull that reports no progress for 15 minutes is given up and the update fails with that reason;
+   the whole pull has no time limit, so a big image on a slow link still arrives.
 2. It starts a throwaway updater container from the **new** image, with the Docker socket.
 3. The updater (`apps/supervisor/src/updater.ts`, `services/platform-updater.ts`) retags the new
    image with the reference the old container uses (so compose sees no change), stops the old

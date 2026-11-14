@@ -46,6 +46,15 @@ async function start(): Promise<void> {
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });
+
+  process.on('unhandledRejection', (error: unknown) => {
+    logger.error({ err: error }, 'A promise failed and nothing caught it');
+  });
+  process.on('uncaughtException', (error: unknown) => {
+    logger.fatal({ err: error }, 'The supervisor failed with an error it did not catch');
+    process.exit(EXIT_CODES.UNHANDLED_ERROR);
+  });
+
   const startupAbort = new AbortController();
 
   for (const signal of SHUTDOWN_SIGNALS) {

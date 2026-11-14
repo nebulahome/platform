@@ -285,6 +285,16 @@ export class ComposeProjects {
   }
 
   /**
+   * Waits for the operations queued on a project to end, however they end.
+   *
+   * @param project - The project.
+   * @returns Once it is idle.
+   */
+  public async idle(project: string): Promise<void> {
+    await this.#queues.get(project);
+  }
+
+  /**
    * Checks a file without running anything.
    *
    * @param definition - The project, its file and its `.env`.

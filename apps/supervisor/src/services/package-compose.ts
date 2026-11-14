@@ -8,7 +8,7 @@
  * file or its values changed, so a reconcile that changes nothing touches nothing.
  */
 import type { BusClient } from '@nebulahome/bus';
-import type { PackageComposeProject } from '@nebulahome/contracts';
+import { ConflictError, type PackageComposeProject } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { ComposeNeighbours } from '../domain/compose-paths.js';
@@ -26,7 +26,10 @@ import type { ComposeProjects } from './compose-projects.js';
 /** What the packages' compose projects need. */
 export type PackageComposeOptions = {
   /** The projects, over `containers/packages/`: what of them a reconcile uses. */
-  readonly projects: Pick<ComposeProjects, 'projects' | 'isEditable' | 'get' | 'deploy' | 'remove'>;
+  readonly projects: Pick<
+    ComposeProjects,
+    'projects' | 'isEditable' | 'get' | 'deploy' | 'remove' | 'idle'
+  >;
 
   readonly client: BusClient;
   readonly logger: PlatformLogger;
@@ -47,6 +50,9 @@ export type PackageComposeOptions = {
 export class PackageCompose {
   readonly #options: PackageComposeOptions;
   #desired: readonly PackageComposeProject[] = [];
+
+  /** The projects a change waits on, until the operation they were busy with ends. */
+  readonly #waiting = new Set<string>();
 
   /**
    * Creates the set.
@@ -143,10 +149,49 @@ export class PackageCompose {
         this.#options.neighbours(project),
       );
     } catch (error: unknown) {
+      if (error instanceof ConflictError && error.details['reason'] === 'busy') {
+        this.#retryWhenIdle(declared.packageId, project);
+
+        return;
+      }
+
       this.#options.logger.warn(
         { err: error, package: declared.packageId },
         'Could not bring a package project up',
       );
     }
+  }
+
+  /**
+   * Brings a project up again once the operation it was busy with ends - a deploy still pulling,
+   * say - with what is declared then: dropped, a settings change would never reach it.
+   *
+   * @param packageId - The package.
+   * @param project - Its project.
+   */
+  #retryWhenIdle(packageId: string, project: string): void {
+    if (this.#waiting.has(project)) {
+      return;
+    }
+
+    this.#waiting.add(project);
+    void this.#options.projects
+      .idle(project)
+      .then(async () => {
+        this.#waiting.delete(project);
+
+        const declared = this.#desired.find((each) => each.packageId === packageId);
+
+        if (declared !== undefined) {
+          await this.#bringUp(declared);
+        }
+      })
+      .catch((error: unknown) => {
+        this.#waiting.delete(project);
+        this.#options.logger.warn(
+          { err: error, package: packageId },
+          'Could not bring a package project up',
+        );
+      });
   }
 }

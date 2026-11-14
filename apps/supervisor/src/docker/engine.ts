@@ -67,7 +67,16 @@ export type EngineOptions = {
 
   /** How long one call may take, a pull and a stream aside. */
   readonly timeoutMs: number;
+
+  /** How long a pull may go without a line of progress before it is given up; 15 minutes. */
+  readonly pullIdleMs?: number;
 };
+
+/**
+ * How long a pull may say nothing. Never a limit on the whole pull: a big image on a slow link
+ * takes as long as it takes, and says so as it goes.
+ */
+const PULL_IDLE_MS = 15 * 60_000;
 
 /** One call's details. */
 type CallOptions = {
@@ -317,8 +326,9 @@ export class DockerEngine {
    * @param tag - The tag.
    * @param onProgress - Handed each line of progress.
    * @param signal - Ends the pull.
-   * @throws {UpstreamError} When the pull ends with an error line: Docker answers 200 and says it
-   * failed in the stream.
+   * @throws {UpstreamError} When the pull ends with an error line - Docker answers 200 and says it
+   * failed in the stream - or says nothing for {@link PULL_IDLE_MS}: a stuck pull would hold every
+   * update, and the queue of managed containers, until the supervisor restarts.
    */
   public async pull(
     image: string,
@@ -326,26 +336,46 @@ export class DockerEngine {
     onProgress: (progress: PullProgress) => void,
     signal?: AbortSignal,
   ): Promise<void> {
-    const response = await this.#call('POST', '/images/create', {
-      query: { fromImage: image, tag },
-      signal,
-      timeoutMs: null,
-    });
+    const idleMs = this.#options.pullIdleMs ?? PULL_IDLE_MS;
+    const idle = new AbortController();
+    const watchdog = setTimeout(() => {
+      idle.abort(
+        new UpstreamError(
+          `Docker's pull of ${image}:${tag} made no progress for ${String(Math.round(idleMs / 60_000))} minutes`,
+          { details: { image, tag, idleMs } },
+        ),
+      );
+    }, idleMs);
 
-    if ((response.statusCode ?? 500) >= 400) {
-      throw errorFor(await this.#refusalOf(response), `pull ${image}:${tag}`);
-    }
+    try {
+      const response = await this.#call('POST', '/images/create', {
+        query: { fromImage: image, tag },
+        signal: signal === undefined ? idle.signal : AbortSignal.any([signal, idle.signal]),
+        timeoutMs: null,
+      });
 
-    for await (const line of lines(response)) {
-      const progress = pullProgressSchema.parse(JSON.parse(line));
-
-      if (progress.error !== undefined) {
-        throw new UpstreamError(`Docker could not pull ${image}:${tag}: ${progress.error}`, {
-          details: { image, tag },
-        });
+      if ((response.statusCode ?? 500) >= 400) {
+        throw errorFor(await this.#refusalOf(response), `pull ${image}:${tag}`);
       }
 
-      onProgress(progress);
+      for await (const line of lines(response)) {
+        watchdog.refresh();
+
+        const progress = pullProgressSchema.parse(JSON.parse(line));
+
+        if (progress.error !== undefined) {
+          throw new UpstreamError(`Docker could not pull ${image}:${tag}: ${progress.error}`, {
+            details: { image, tag },
+          });
+        }
+
+        onProgress(progress);
+      }
+    } catch (error: unknown) {
+      // The socket's abort says nothing of why: the silence is the reason.
+      throw idle.signal.aborted ? (idle.signal.reason as Error) : error;
+    } finally {
+      clearTimeout(watchdog);
     }
   }
 

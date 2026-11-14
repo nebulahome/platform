@@ -141,6 +141,7 @@ export const inspectedContainerSchema = z.looseObject({
     StartedAt: z.string().optional(),
     Health: z.looseObject({ Status: z.string() }).nullish(),
   }),
+  RestartCount: z.number().optional(),
   Config: containerConfigSchema,
   HostConfig: hostConfigSchema,
   Mounts: z

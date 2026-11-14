@@ -82,6 +82,30 @@ describe('RegistryClient', () => {
     expect(registry.asked[1]).toContain('scope=repository%3Akoenkk%2Fzigbee2mqtt%3Apull');
   });
 
+  it('follows a next page on the registry, never one on another host', async () => {
+    const registry = fakeRegistry({
+      '/v2/koenkk/zigbee2mqtt/tags/list': {
+        body: { tags: ['2.14.0'] },
+        headers: { link: '</v2/koenkk/zigbee2mqtt/tags/page-2>; rel="next"' },
+      },
+      '/v2/koenkk/zigbee2mqtt/tags/page-2': {
+        body: { tags: ['2.14.1'] },
+        headers: { link: '<https://elsewhere.example/v2/steal>; rel="next"' },
+      },
+    });
+    const client = new RegistryClient({
+      timeoutMs: 1000,
+      architecture: 'amd64',
+      fetch: registry.fetch,
+    });
+
+    await expect(client.tags(parseImageReference('koenkk/zigbee2mqtt'))).rejects.toThrow(
+      /linked to another host, elsewhere\.example/u,
+    );
+    expect(registry.asked.some((url) => url.includes('/tags/page-2'))).toBe(true);
+    expect(registry.asked.some((url) => url.includes('elsewhere'))).toBe(false);
+  });
+
   it("follows a tag to this machine's image and reads the version it says it is", async () => {
     const registry = fakeRegistry({
       '/v2/library/nginx/manifests/latest': {

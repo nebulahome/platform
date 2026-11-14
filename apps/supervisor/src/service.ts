@@ -265,6 +265,9 @@ export class SupervisorService {
   #reconnectTimer: NodeJS.Timeout | null = null;
   #isRefreshing = false;
 
+  /** Ends the event stream being followed, before another replaces it. */
+  #events: AbortController | null = null;
+
   /**
    * Creates the service. Nothing is asked of Docker until {@link start}.
    *
@@ -1069,11 +1072,19 @@ export class SupervisorService {
   }
 
   /**
-   * Follows Docker's events until the service stops or the stream breaks.
+   * Follows Docker's events until the service stops or the stream breaks, ends or is replaced. One
+   * stream at a time: a reconnect ends the one before it, which may still be open.
    */
   async #followEvents(): Promise<void> {
+    this.#events?.abort();
+
+    const events = new AbortController();
+    const signal = AbortSignal.any([this.#shutdown.signal, events.signal]);
+
+    this.#events = events;
+
     try {
-      for await (const event of this.#engine.events(this.#shutdown.signal)) {
+      for await (const event of this.#engine.events(signal)) {
         const action = event.Action.split(':')[0] ?? '';
 
         if (
@@ -1091,8 +1102,13 @@ export class SupervisorService {
           this.#changed(name, action === 'destroy' ? 'removed' : 'changed');
         }
       }
+
+      // Docker closed it cleanly - a daemon restarting does: nothing more comes, as after a drop.
+      if (!signal.aborted) {
+        this.#unreachable(new Error('Docker ended its event stream'));
+      }
     } catch (error: unknown) {
-      if (!this.#shutdown.signal.aborted) {
+      if (!signal.aborted) {
         this.#unreachable(error);
       }
     }

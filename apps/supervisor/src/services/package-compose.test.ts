@@ -2,11 +2,11 @@
  * The packages' compose projects against stand-in projects: a new or changed project brought up,
  * an unchanged one left alone, one no longer declared taken down.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BusClient } from '@nebulahome/bus';
 import { FakeTransport } from '@nebulahome/bus/testing';
-import type { ComposeDefinition } from '@nebulahome/contracts';
+import { ConflictError, type ComposeDefinition } from '@nebulahome/contracts';
 import { createLogger } from '@nebulahome/logging';
 
 import type { PlatformContext } from '../domain/managed.js';
@@ -34,13 +34,16 @@ const CONTEXT: PlatformContext = {
 function standIn(kept: Map<string, { file: string; env: string }>) {
   const deployed: ComposeDefinition[] = [];
   const removed: string[] = [];
+  const busy: { until: Promise<void> | null } = { until: null };
 
   return {
     deployed,
     removed,
+    busy,
     projects: {
       projects: () => [...kept.keys()],
       isEditable: (project: string) => kept.has(project),
+      idle: async () => busy.until ?? Promise.resolve(),
       get: async (project: string) => {
         const found = kept.get(project);
 
@@ -51,6 +54,12 @@ function standIn(kept: Map<string, { file: string; env: string }>) {
         return Promise.resolve({ project, ...found, updatedAt: new Date() });
       },
       deploy: async (definition: ComposeDefinition) => {
+        if (busy.until !== null) {
+          throw new ConflictError(`${definition.project} is busy`, {
+            details: { project: definition.project, reason: 'busy' },
+          });
+        }
+
         deployed.push(definition);
         kept.set(definition.project, { file: definition.file, env: definition.env });
 
@@ -97,5 +106,36 @@ describe("the packages' compose projects", () => {
 
     expect(stand.removed).toEqual(['nebulahome-pkg-nvr']);
     expect(compose.runs('nvr')).toBe(false);
+  });
+
+  it('brings a change made while the project is busy up once it is idle', async () => {
+    const stand = standIn(new Map());
+    const compose = new PackageCompose({
+      projects: stand.projects,
+      client: new BusClient({ transport: new FakeTransport(), source: 'supervisor', logger }),
+      logger,
+      context: () => CONTEXT,
+      neighbours: () => ({ names: new Set(), ports: new Set() }),
+    });
+    let idle = (): void => undefined;
+
+    stand.busy.until = new Promise((resolve) => {
+      idle = resolve;
+    });
+    await compose.reconcile([{ packageId: 'nvr', file: 'services: {}\n', values: {} }]);
+    await compose.reconcile([
+      { packageId: 'nvr', file: 'services: {}\n', values: { NEBULA_SETUP_CITY: 'Milan' } },
+    ]);
+
+    expect(stand.deployed).toEqual([]);
+
+    stand.busy.until = null;
+    idle();
+
+    await vi.waitFor(() => {
+      expect(stand.deployed.map((each) => each.env)).toEqual([
+        expect.stringContaining("NEBULA_SETUP_CITY='Milan'"),
+      ]);
+    });
   });
 });

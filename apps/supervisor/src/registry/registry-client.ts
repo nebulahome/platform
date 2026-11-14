@@ -440,11 +440,18 @@ export class RegistryClient {
    * @param path - The path, or a whole URL from a `Link` header.
    * @param accept - What to accept.
    * @returns The answer, once it succeeded.
-   * @throws {UpstreamError} When the registry refuses, or wants an account.
+   * @throws {UpstreamError} When the registry refuses, wants an account, or links to another host.
    */
   async #get(image: ImageReference, path: string, accept: string): Promise<Response> {
     const host = image.registry === DOCKER_HUB ? DOCKER_HUB_API : image.registry;
-    const url = path.startsWith('http') ? path : `https://${host}${path}`;
+    const url = new URL(path, `https://${host}`);
+
+    // A `Link` could name any address: the registry's token is sent to the registry alone.
+    if (url.host !== host) {
+      throw new UpstreamError(`${image.registry} linked to another host, ${url.host}`, {
+        details: { registry: image.registry, host: url.host },
+      });
+    }
     const cached = this.#tokens.get(`${host}/${image.repository}`);
     const headers: Record<string, string> = { accept };
 
