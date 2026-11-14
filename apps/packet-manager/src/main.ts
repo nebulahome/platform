@@ -33,6 +33,7 @@ import { PacketManager } from './service.js';
 import { CommunityHubClient } from './services/hub-client.js';
 import { HubReporter } from './services/hub-reporter.js';
 import { IntegrationIndexClient, PackageIndexClient } from './services/index-client.js';
+import { removeInstallLeftovers } from './services/installer.js';
 import { LocalIntegrationReleases, LocalReleases } from './services/local-releases.js';
 import { UpdateRunner } from './services/update-runner.js';
 
@@ -71,6 +72,15 @@ async function start(): Promise<void> {
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });
+
+  process.on('unhandledRejection', (error: unknown) => {
+    logger.error({ err: error }, 'A promise failed and nothing caught it');
+  });
+  process.on('uncaughtException', (error: unknown) => {
+    logger.fatal({ err: error }, 'The packet-manager failed with an error it did not catch');
+    process.exit(EXIT_CODES.UNHANDLED_ERROR);
+  });
+
   const database = createDatabase({
     connectionString: config.DATABASE_URL,
     applicationName: SERVICE_NAME,
@@ -204,6 +214,13 @@ async function start(): Promise<void> {
     logger,
     runsFile: `${layout.cache}/updates/automatic-runs.json`,
   });
+
+  // Before anything is served, so nothing is installing: what a crash cut short goes.
+  await removeInstallLeftovers(layout.packages, `${layout.cache}/integrations`).catch(
+    (error: unknown) => {
+      logger.warn({ err: error }, 'Could not remove what an install cut short left');
+    },
+  );
 
   // Served before the packages start: each announces itself to the service as it comes up.
   const subscriptions = servePacketManager(client, service, integrations, updates);

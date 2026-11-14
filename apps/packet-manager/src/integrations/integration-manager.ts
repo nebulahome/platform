@@ -49,6 +49,13 @@ import {
 import type { PlatformLogger } from '@nebulahome/logging';
 import type { InstallMarker } from '@nebulahome/package-runtime';
 
+import {
+  clipped,
+  INDEX_RECHECK_MS,
+  LOCAL_LISTINGS_LIMIT,
+  messageOf,
+  sourceOf,
+} from '../domain/listing.js';
 import type { CommunityHubClient, HubItem } from '../services/hub-client.js';
 import type { InstallReporter } from '../services/hub-reporter.js';
 import type { IntegrationIndexClient, IntegrationIndexRead } from '../services/index-client.js';
@@ -61,15 +68,6 @@ const VENDOR_LOAD_TIMEOUT_MS = 60_000;
 
 /** How long `hub` has to say which vendors it runs. */
 const CATALOGUE_TIMEOUT_MS = 3000;
-
-/**
- * How old a read of the index may be before a search reads it again for an integration the Hub
- * lists and it lacks: one published since the index was read is installable at once.
- */
-const INDEX_RECHECK_MS = 60_000;
-
-/** How many of the local folder's integrations one search lists at most. */
-const LOCAL_LISTINGS_LIMIT = 50;
 
 /** What the manager needs. */
 export type IntegrationManagerOptions = {
@@ -113,37 +111,6 @@ type Availability = Pick<
   | 'hasNewBuild'
   | 'unavailableReason'
 >;
-
-/**
- * Where a release comes from, by its archive's address: a file of the local folder, or the index.
- *
- * @param url - The archive's address.
- * @returns The source.
- */
-function sourceOf(url: string): 'index' | 'local' {
-  return url.startsWith('file:') ? 'local' : 'index';
-}
-
-/**
- * Cuts a sentence to the length a reply keeps.
- *
- * @param text - The sentence.
- * @param length - The most characters kept.
- * @returns It, cut.
- */
-function clipped(text: string, length: number): string {
-  return text.length <= length ? text : `${text.slice(0, length - 1)}…`;
-}
-
-/**
- * The message of a failure, for a reply.
- *
- * @param error - What was thrown.
- * @returns Its message.
- */
-function messageOf(error: unknown): string {
-  return clipped(error instanceof Error ? error.message : String(error), 1024);
-}
 
 /**
  * Says whether an integration of the index is one a search asked for: the words in its id, name,

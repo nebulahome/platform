@@ -391,6 +391,25 @@ describe('the packet-manager', () => {
     });
   });
 
+  it('leaves a running package as it is when installed or started again', async () => {
+    const { manager } = await setUp();
+
+    await manager.start();
+    await manager.install('clock');
+    await manager.announce({ packageId: 'clock', version: '1.0.0', rpcMethods: [] });
+
+    expect(await manager.install('clock')).toMatchObject([{ id: 'clock', state: 'running' }]);
+    expect(await manager.startPackage('clock')).toMatchObject({ state: 'running' });
+    await vi.waitFor(() => {
+      expect(manager.logs('clock', 50).lines.map((line) => line.text)).toContain(
+        'something went wrong',
+      );
+    });
+    expect(
+      manager.logs('clock', 50).lines.filter((line) => line.text.startsWith('started clock')),
+    ).toHaveLength(1);
+  });
+
   it('refuses a package that provides what the platform runs itself', async () => {
     const { manager, work } = await setUp();
 

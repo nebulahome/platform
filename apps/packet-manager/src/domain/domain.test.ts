@@ -40,6 +40,17 @@ describe("a package's log", () => {
       'b',
     ]);
   });
+
+  it('keeps a stream with no line end as lines of the longest length, not a growing one', () => {
+    const ring = new LogRing();
+    const out = ring.writer('stdout');
+
+    for (let index = 0; index < 5; index += 1) {
+      out.write('x'.repeat(10_000));
+    }
+
+    expect(ring.read(10).lines.map((line) => line.text.length)).toEqual([16_384, 16_384]);
+  });
 });
 
 describe('restarting a package', () => {

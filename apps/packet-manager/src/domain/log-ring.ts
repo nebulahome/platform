@@ -109,6 +109,12 @@ export class LogRing {
         for (const part of parts) {
           this.push(stream, part);
         }
+
+        // A stream with no line end would grow it without bound: past a line's length it is one.
+        if (pending.length > MAXIMUM_LINE_LENGTH) {
+          this.push(stream, pending);
+          pending = '';
+        }
       },
 
       /** Keeps what is left when the stream ends. */

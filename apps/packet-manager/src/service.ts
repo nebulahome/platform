@@ -93,6 +93,13 @@ import { renderContainers } from '@nebulahome/package-runtime';
 import { SDK_VERSION } from '@nebulahome/package-sdk';
 
 import type { PacketManagerConfig } from './config.js';
+import {
+  clipped,
+  INDEX_RECHECK_MS,
+  LOCAL_LISTINGS_LIMIT,
+  messageOf,
+  sourceOf,
+} from './domain/listing.js';
 import { LogRing } from './domain/log-ring.js';
 import type { PackageRow, PackageStore } from './persistence/packages.js';
 import type { CommunityHubClient, HubItem } from './services/hub-client.js';
@@ -180,16 +187,6 @@ function isMask(value: unknown): boolean {
 }
 
 /**
- * Where a release comes from, by its archive's address: a file of the local folder, or the index.
- *
- * @param url - The archive's address.
- * @returns The source.
- */
-function sourceOf(url: string): 'index' | 'local' {
-  return url.startsWith('file:') ? 'local' : 'index';
-}
-
-/**
  * Says whether everything needing a package takes a version of it: an update out of a dependent's
  * range is refused ({@link blockedUpdate}), so it is never offered.
  *
@@ -213,15 +210,6 @@ function buildOf(row: Pick<PackageRow, 'version' | 'artifactSha256'>): string {
     ? row.version
     : `${row.version}+${row.artifactSha256.slice(0, 8)}`;
 }
-
-/**
- * How old a read of the index may be before a search reads it again for a package the Hub lists
- * and it lacks: one published since the index was read is installable at once.
- */
-const INDEX_RECHECK_MS = 60_000;
-
-/** How many of the local folder's packages one search lists at most. */
-const LOCAL_LISTINGS_LIMIT = 50;
 
 /** What installing a package would take here, as the index and the store say it. */
 type Availability = Pick<
@@ -253,24 +241,13 @@ function matchesSearch(entry: PackageIndexEntry, q: string | undefined): boolean
 }
 
 /**
- * Cuts a sentence to the length a reply keeps.
+ * Says whether a package is up, or on its way: started again, it would run twice.
  *
- * @param text - The sentence.
- * @param length - The most characters kept.
- * @returns It, cut.
+ * @param entry - The package.
+ * @returns True while it runs or starts.
  */
-function clipped(text: string, length: number): string {
-  return text.length <= length ? text : `${text.slice(0, length - 1)}…`;
-}
-
-/**
- * The message of a failure, for a reply.
- *
- * @param error - What was thrown.
- * @returns Its message.
- */
-function messageOf(error: unknown): string {
-  return clipped(error instanceof Error ? error.message : String(error), 1024);
+function isUp(entry: Entry): boolean {
+  return entry.row.state === 'running' || entry.row.state === 'starting';
 }
 
 /** The packages. */
@@ -692,14 +669,21 @@ export class PacketManager {
       const installed: Entry[] = [];
 
       for (const candidate of plan.install) {
-        // One after another: a download each, and each the next one's requirement.
-        // eslint-disable-next-line no-await-in-loop -- see above
-        installed.push(await this.#installCandidate(read.index, candidate));
+        const existing = this.#entries.get(candidate.id);
+
+        // A second click, or a retry after a timeout: the release that runs is left running.
+        if (existing?.row.version === candidate.version && isUp(existing)) {
+          installed.push(existing);
+        } else {
+          // One after another: a download each, and each the next one's requirement.
+          // eslint-disable-next-line no-await-in-loop -- see above
+          installed.push(await this.#installCandidate(read.index, candidate));
+        }
       }
 
       await this.#reconcileContainers();
 
-      for (const entry of installed) {
+      for (const entry of installed.filter((each) => !isUp(each))) {
         // eslint-disable-next-line no-await-in-loop -- in order, see above
         await this.#startOne(entry);
       }
@@ -922,7 +906,7 @@ export class PacketManager {
   }
 
   /**
-   * Starts a package the owner stopped, or that failed.
+   * Starts a package the owner stopped, or that failed; one that runs or starts is left as it is.
    *
    * @param packageId - The package.
    * @returns It, as it now stands.
@@ -931,7 +915,9 @@ export class PacketManager {
     return this.#serially(async () => {
       const entry = this.#require(packageId);
 
-      await this.#startOne(entry);
+      if (!isUp(entry)) {
+        await this.#startOne(entry);
+      }
 
       return this.#viewOf(entry, await this.#vendors());
     });
@@ -1736,6 +1722,11 @@ export class PacketManager {
     }
 
     const entry = this.#entryOf(row, files);
+
+    // The entry replaced takes its process with it: left running, nothing could stop it again.
+    if (existing !== undefined) {
+      await this.#stopProcess(existing);
+    }
 
     this.#entries.set(candidate.id, entry);
     this.#publish('installed', entry);

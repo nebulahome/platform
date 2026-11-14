@@ -24,7 +24,7 @@ import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { fileURLToPath } from 'node:url';
 
-import { extract } from 'tar';
+import { Unpack } from 'tar';
 import { z } from 'zod';
 
 import { ValidationError, type PackageArtifact } from '@nebulahome/contracts';
@@ -232,23 +232,34 @@ async function packageRootIn(folder: string): Promise<string> {
   throw new ValidationError(`The archive has no ${MANIFEST_FILE} at its root`);
 }
 
+/** The most an archive may unpack to: the 512 MB download cap says nothing of a gzip bomb. */
+const MAXIMUM_UNPACKED_BYTES = 8 * 1024 ** 3;
+
+/** The most entries an archive may hold. */
+const MAXIMUM_UNPACKED_ENTRIES = 300_000;
+
 /**
- * Unpacks an archive into a folder: files and folders, never a link.
+ * Unpacks an archive into a folder: files and folders, never a link, and no more than a release
+ * could need.
  *
  * @param file - The archive, checked.
  * @param folder - Where it goes, made empty first.
  * @returns Once it is unpacked.
+ * @throws {ValidationError} When it unpacks to more bytes or entries than the ceilings.
  */
 async function extractInto(file: string, folder: string): Promise<void> {
   await rm(folder, { recursive: true, force: true });
   await mkdir(folder, { recursive: true });
-  await extract({
-    file,
+
+  let bytes = 0;
+  let entries = 0;
+  const unpack = new Unpack({
     cwd: folder,
     strict: true,
     preservePaths: false,
     /**
-     * Keeps files and folders; never a link.
+     * Keeps files and folders, never a link; stops the archive at a ceiling, by the sizes its
+     * headers say before their bytes are read.
      *
      * @param entryPath - The entry's path.
      * @param entry - The entry.
@@ -257,9 +268,34 @@ async function extractInto(file: string, folder: string): Promise<void> {
     filter: (entryPath, entry) => {
       const type = 'type' in entry ? entry.type : undefined;
 
+      bytes += entry.size;
+      entries += 1;
+
+      if (bytes > MAXIMUM_UNPACKED_BYTES || entries > MAXIMUM_UNPACKED_ENTRIES) {
+        unpack.abort(
+          new ValidationError(
+            `The archive unpacks to more than ${String(MAXIMUM_UNPACKED_BYTES / 1024 ** 3)} GB or ${String(MAXIMUM_UNPACKED_ENTRIES)} entries`,
+          ),
+        );
+
+        return false;
+      }
+
       return type !== 'SymbolicLink' && type !== 'Link';
     },
   });
+  const source = createReadStream(file);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      unpack.on('error', reject);
+      unpack.on('close', resolve);
+      source.on('error', reject);
+      source.pipe(unpack);
+    });
+  } finally {
+    source.destroy();
+  }
 }
 
 /**
@@ -443,4 +479,60 @@ export async function installVendorRelease(
     await rm(archive, { force: true });
     await rm(partial, { recursive: true, force: true });
   }
+}
+
+/** A package's unpacking, `<version>.partial-<pid>-<ms>`; its download is `<id>-<version>.tgz`. */
+const PACKAGE_PARTIAL = /^.+\.partial-\d+-\d{13}$/u;
+
+/** A vendor's download or its unpacking: `<id>-<version>-<8 hex>.tgz` or `.partial`. */
+const VENDOR_LEFTOVER = /^.+-[0-9a-f]{8}\.(?:tgz|partial)$/u;
+
+/**
+ * The names in a folder; none when it is not there.
+ *
+ * @param folder - The folder.
+ * @returns Its entries' names.
+ */
+async function namesIn(folder: string): Promise<string[]> {
+  try {
+    return await readdir(folder);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Deletes what an install cut short by a crash left: archives and half-unpacked folders. Run once
+ * at start, before anything installs. Only those names go - never a release's folder, its data,
+ * nor a file of a local folder, which is not under these.
+ *
+ * @param packagesDir - The data directory's `packages/`: `<id>/<id>-<version>.tgz` and
+ *   `<id>/<version>.partial-*` in each package's folder.
+ * @param vendorCacheDir - Where vendors' bundles are downloaded: the data directory's
+ *   `cache/integrations/`.
+ * @returns Once they are gone.
+ */
+export async function removeInstallLeftovers(
+  packagesDir: string,
+  vendorCacheDir: string,
+): Promise<void> {
+  const leftovers = [
+    ...(await Promise.all(
+      (await namesIn(packagesDir)).map(async (id) =>
+        (await namesIn(path.join(packagesDir, id)))
+          .filter(
+            (name) =>
+              (name.startsWith(`${id}-`) && name.endsWith('.tgz')) || PACKAGE_PARTIAL.test(name),
+          )
+          .map((name) => path.join(packagesDir, id, name)),
+      ),
+    )),
+    (await namesIn(vendorCacheDir))
+      .filter((name) => VENDOR_LEFTOVER.test(name))
+      .map((name) => path.join(vendorCacheDir, name)),
+  ].flat();
+
+  await Promise.all(
+    leftovers.map(async (leftover) => rm(leftover, { recursive: true, force: true })),
+  );
 }

@@ -5,10 +5,11 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { Header } from 'tar';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { UpdateChannel } from '@nebulahome/contracts';
@@ -20,7 +21,7 @@ import { archiveOf, fakeRunner, manifest, scratch, writePackage } from '../testi
 
 import { CommunityHubClient } from './hub-client.js';
 import { PackageIndexClient } from './index-client.js';
-import { installRelease } from './installer.js';
+import { installRelease, removeInstallLeftovers } from './installer.js';
 import { LocalReleases } from './local-releases.js';
 import { PackageProcess, type ProcessState } from './package-process.js';
 
@@ -202,6 +203,63 @@ describe('installing a release', () => {
         { timeoutMs: 5000 },
       ),
     ).rejects.toThrow(/not the one the index names/u);
+  });
+
+  it('stops an archive that unpacks to more than a release could need, at its header', async () => {
+    const work = await folder();
+    const header = new Header({ path: 'nvr/huge.bin', type: 'File', size: 9 * 1024 ** 3 });
+
+    header.encode();
+
+    const bytes = Buffer.concat([header.block ?? Buffer.alloc(0), Buffer.alloc(1024)]);
+    const file = path.join(work, 'nvr-1.0.0.tgz');
+
+    await writeFile(file, bytes);
+    await expect(
+      installRelease(
+        {
+          id: 'nvr',
+          version: '1.0.0',
+          artifact: {
+            url: pathToFileURL(file).href,
+            size: bytes.length,
+            sha256: createHash('sha256').update(bytes).digest('hex'),
+          },
+        },
+        path.join(work, 'packages'),
+        { timeoutMs: 5000 },
+      ),
+    ).rejects.toThrow(/unpacks to more than 8 GB/u);
+    expect(await readdir(path.join(work, 'packages', 'nvr'))).toEqual([]);
+  });
+
+  it('removes what a crash left of an install at start, and nothing else', async () => {
+    const work = await folder();
+    const packages = path.join(work, 'packages');
+    const cache = path.join(work, 'cache');
+    const kept = [
+      path.join(packages, 'nvr', '1.0.0', 'manifest.json'),
+      path.join(packages, 'nvr', 'data', 'nvr-db.tgz'),
+      path.join(cache, 'notes.tgz'),
+    ];
+    const left = [
+      path.join(packages, 'nvr', 'nvr-1.1.0.tgz'),
+      path.join(packages, 'nvr', '1.1.0.partial-42-1790668800000', 'manifest.json'),
+      path.join(cache, 'shelly-2.5.0-0a1b2c3d.tgz'),
+      path.join(cache, 'shelly-2.5.0-0a1b2c3d.partial', 'manifest.json'),
+    ];
+
+    for (const file of [...kept, ...left]) {
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(file, '{}');
+    }
+
+    await removeInstallLeftovers(packages, cache);
+
+    expect(kept.filter((file) => existsSync(file))).toEqual(kept);
+    expect(left.filter((file) => existsSync(file))).toEqual([]);
+    expect((await readdir(packages)).sort()).toEqual(['nvr']);
+    expect((await readdir(path.join(packages, 'nvr'))).sort()).toEqual(['1.0.0', 'data']);
   });
 });
 
@@ -447,6 +505,32 @@ describe("a package's process", () => {
 
     expect(states.map((state) => state.kind)).toEqual(['starting', 'stopped']);
     expect(process.isRunning).toBe(false);
+  });
+
+  it('runs one child however often it is started', async () => {
+    const work = await folder();
+    const states: ProcessState[] = [];
+    const process = new PackageProcess(
+      {
+        id: 'mqtt',
+        runner: await fakeRunner(work),
+        entry: 'server.js',
+        cwd: work,
+        env: { NEBULA_PACKAGE_ID: 'mqtt' },
+      },
+      { logger, onState: (state) => states.push(state) },
+    );
+
+    process.start();
+    process.start();
+    await vi.waitFor(() => {
+      expect(process.logs.read(10).lines.map((line) => line.text)).toContain(
+        'started mqtt server.js',
+      );
+    });
+    await process.stop();
+
+    expect(states.map((state) => state.kind)).toEqual(['starting', 'stopped']);
   });
 
   it('starts one that exits again, and gives up on one that keeps exiting', async () => {

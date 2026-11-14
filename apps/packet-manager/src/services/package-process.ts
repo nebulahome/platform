@@ -88,8 +88,19 @@ export class PackageProcess {
     return this.#child !== undefined;
   }
 
-  /** Starts it; a manual start forgets the exits counted so far. */
+  /**
+   * Starts it; a manual start forgets the exits counted so far. With a child still there - running,
+   * or being stopped - it does nothing: a second child would be one `stop()` never ends, and a stop
+   * under way is awaited before a start.
+   */
   public start(): void {
+    if (this.#child !== undefined) {
+      return;
+    }
+
+    // A start in the pause before a restart replaces it, never runs beside it.
+    clearTimeout(this.#restart);
+    this.#restart = undefined;
     this.#isStopping = false;
     this.#policy.reset();
     this.#spawn();
