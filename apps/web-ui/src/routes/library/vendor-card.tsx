@@ -243,18 +243,6 @@ export type VendorCardProps = {
 };
 
 /**
- * The word after a figure.
- *
- * @param count - The figure.
- * @param one - The singular.
- * @param many - The plural.
- * @returns Whichever fits.
- */
-function noun(count: number, one: string, many: string): string {
-  return count === 1 ? one : many;
-}
-
-/**
  * Renders one vendor's card. The whole card is the link to the vendor's page.
  *
  * @param props - See {@link VendorCardProps}.
@@ -302,7 +290,11 @@ export function VendorCard(props: VendorCardProps) {
             <>
               <Pill tone={status.tone}>{status.label}</Pill>
               <span>
-                {vendor.deviceCount} {noun(vendor.deviceCount, 'device', 'devices')}
+                {t('library.vendorCard.devices', {
+                  count: vendor.deviceCount,
+                  defaultValue_one: '{{count}} device',
+                  defaultValue_other: '{{count}} devices',
+                })}
               </span>
             </>
           }

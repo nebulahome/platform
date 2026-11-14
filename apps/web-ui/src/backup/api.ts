@@ -44,7 +44,7 @@ export const BACKUP_QUERY_KEYS = {
  * @returns The schedule, the estimates, the run in progress and the key.
  */
 export async function fetchBackupStatus(signal?: AbortSignal): Promise<BackupStatusView> {
-  return apiRequest('/backup', backupStatusViewSchema, signal === undefined ? {} : { signal });
+  return apiRequest('/backup', backupStatusViewSchema, { signal });
 }
 
 /**
@@ -54,13 +54,7 @@ export async function fetchBackupStatus(signal?: AbortSignal): Promise<BackupSta
  * @returns The locations, the system one first.
  */
 export async function fetchBackupLocations(signal?: AbortSignal): Promise<BackupLocationView[]> {
-  return (
-    await apiRequest(
-      '/backup/locations',
-      backupLocationListSchema,
-      signal === undefined ? {} : { signal },
-    )
-  ).items;
+  return (await apiRequest('/backup/locations', backupLocationListSchema, { signal })).items;
 }
 
 /**
@@ -142,11 +136,7 @@ export async function fetchBackupArchives(signal?: AbortSignal): Promise<{
   items: BackupArchive[];
   problems: { locationId: string; name: string; message: string }[];
 }> {
-  return apiRequest(
-    '/backup/archives',
-    backupArchiveListSchema,
-    signal === undefined ? {} : { signal },
-  );
+  return apiRequest('/backup/archives', backupArchiveListSchema, { signal });
 }
 
 /**
@@ -156,13 +146,7 @@ export async function fetchBackupArchives(signal?: AbortSignal): Promise<{
  * @returns The runs, newest first.
  */
 export async function fetchBackupRuns(signal?: AbortSignal): Promise<BackupRunView[]> {
-  return (
-    await apiRequest(
-      '/backup/runs?limit=10',
-      backupRunListSchema,
-      signal === undefined ? {} : { signal },
-    )
-  ).items;
+  return (await apiRequest('/backup/runs?limit=10', backupRunListSchema, { signal })).items;
 }
 
 /**
@@ -226,6 +210,6 @@ export async function startRestore(request: {
 export async function fetchMaintenance(signal?: AbortSignal): Promise<MaintenanceState> {
   return apiRequest('/system/maintenance', maintenanceStateSchema, {
     isAuthenticated: false,
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }

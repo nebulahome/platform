@@ -17,6 +17,7 @@ import { useSession } from '@/auth/session-store';
 import { LiveAreaChart } from '@/components/live-area-chart';
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { formatBytes, formatPercent } from '@/lib/format-bytes';
+import { signalled } from '@/lib/signalled';
 import { fetchDevices, fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { telemetryResolutionFor } from '@/library/history-series';
 
@@ -165,15 +166,7 @@ export function ContainerUsage(props: ContainerUsageProps) {
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
     enabled: canRead && container.deviceId !== null,
-
-    /**
-     * Reads every device; the block keeps the container's.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
   const entityIds =
     devices.data?.find((device) => device.id === container.deviceId)?.entityIds ?? [];

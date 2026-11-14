@@ -13,6 +13,7 @@ import { useEffect, useMemo } from 'react';
 import type { EntityPicture, PictureOptions } from '@nebulahome/package-sdk/ui';
 
 import { apiBlob } from '@/lib/api-client';
+import { PICTURE_QUERY_KEYS } from '@/library/use-entity-image';
 
 /** How often a camera's still is fetched again when the package does not say. */
 const DEFAULT_REFRESH_MS = 15_000;
@@ -38,7 +39,9 @@ export function usePictureOf(
   const isWanted = (options?.isEnabled ?? true) && (isCamera || isImage);
   const path = `/entities/${encodeURIComponent(entityId)}/${isCamera ? 'camera/snapshot' : 'image'}`;
   const picture = useQuery({
-    queryKey: isCamera ? ['camera-still', entityId] : ['entity-image', entityId, revision],
+    queryKey: isCamera
+      ? [...PICTURE_QUERY_KEYS.cameraStill, entityId]
+      : [...PICTURE_QUERY_KEYS.entityImage, entityId, revision],
     enabled: isWanted,
     refetchInterval: isCamera
       ? Math.max(MINIMUM_REFRESH_MS, options?.refreshMs ?? DEFAULT_REFRESH_MS)

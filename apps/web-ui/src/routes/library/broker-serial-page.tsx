@@ -23,14 +23,15 @@ import {
   Pill,
   TabPanel,
   Tabs,
-  toast,
   type MenuItem,
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
-import { toMessage } from '@/lib/error-message';
+import { toastFailure } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
-import { fetchAreas, fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { BROKER_QUERY_KEYS, BROKER_REFRESH_MS } from '@/library/brokers-api';
 import {
   fetchSerialDevices,
   fetchSerialPorts,
@@ -56,15 +57,13 @@ import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceDialog } from '@/routes/library/device-dialog';
 import { useVendorsById } from '@/routes/library/transport-marks';
+import { useAreas } from '@/routes/library/use-areas';
 
 /** The tabs of the page; the first is the page itself. */
 const TABS = ['overview', 'ports', 'devices'] as const;
 
 /** One tab. */
 type SerialTab = (typeof TABS)[number];
-
-/** How often the broker is read again. */
-const REFRESH_MS = 5000;
 
 /** A dialog the page has open. */
 type Open =
@@ -100,84 +99,29 @@ export function SerialBrokerPage() {
 
   const status = useQuery({
     queryKey: SERIAL_QUERY_KEYS.status,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the broker's state.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The state.
-     */
-    queryFn: async ({ signal }) => fetchSerialStatus(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchSerialStatus),
   });
   const ports = useQuery({
     queryKey: SERIAL_QUERY_KEYS.ports,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the ports.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The ports.
-     */
-    queryFn: async ({ signal }) => fetchSerialPorts(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchSerialPorts),
   });
   const devices = useQuery({
     queryKey: SERIAL_QUERY_KEYS.devices,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the devices on a port.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchSerialDevices(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchSerialDevices),
   });
-  const areas = useQuery({
-    queryKey: LIBRARY_QUERY_KEYS.areas,
-
-    /**
-     * Reads the rooms.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The rooms.
-     */
-    queryFn: async ({ signal }) => fetchAreas(signal),
-  });
+  const { roomOf } = useAreas();
   const houseDevices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-
-    /**
-     * Reads the house's devices, for the ids taken.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
 
   /** Reads the broker again. */
   const refresh = (): void => {
-    void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+    void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
   };
-
-  /**
-   * Says why something did not happen.
-   *
-   * @param title - What did not.
-   * @returns The handler.
-   */
-  const failed =
-    (title: string) =>
-    (error: Error): void => {
-      toast.error({ title, message: toMessage(error) });
-    };
 
   const ignore = useMutation({
     /**
@@ -188,7 +132,7 @@ export function SerialBrokerPage() {
      */
     mutationFn: async (port: SerialPort) => ignoreSerialPort(port.id, true),
     onSettled: refresh,
-    onError: failed(t('brokers.serial.ignoreFailed', 'Couldn’t ignore the port')),
+    onError: toastFailure(t('brokers.serial.ignoreFailed', 'Couldn’t ignore the port')),
   });
   const release = useMutation({
     /**
@@ -204,7 +148,7 @@ export function SerialBrokerPage() {
     onSuccess: () => {
       setOpen(null);
     },
-    onError: failed(t('brokers.serial.releaseFailed', 'Couldn’t release the port')),
+    onError: toastFailure(t('brokers.serial.releaseFailed', 'Couldn’t release the port')),
   });
   const forget = useMutation({
     /**
@@ -215,24 +159,14 @@ export function SerialBrokerPage() {
      */
     mutationFn: async (port: SerialPort) => forgetSerialPort(port.id),
     onSettled: refresh,
-    onError: failed(t('brokers.serial.forgetFailed', 'Couldn’t forget the port')),
+    onError: toastFailure(t('brokers.serial.forgetFailed', 'Couldn’t forget the port')),
   });
 
   const current = status.data;
   const state = current === undefined ? null : brokerStateOf(current.state);
   const portList = ports.data ?? [];
   const deviceList = devices.data ?? [];
-  const roomNames = new Map((areas.data ?? []).map((area) => [area.id, area.name]));
   const vendorNames = new Map([...vendors].map(([id, vendor]) => [id, vendor.name]));
-
-  /**
-   * The name of a room.
-   *
-   * @param areaId - The room.
-   * @returns Its name, or null.
-   */
-  const roomOf = (areaId: string | null): string | null =>
-    areaId === null ? null : (roomNames.get(areaId) ?? null);
 
   /**
    * What can be done to a port, as its menu.

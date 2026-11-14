@@ -37,23 +37,13 @@ export const SERIAL_QUERY_KEYS = {
 };
 
 /**
- * The options of a read: its abort signal, when it has one.
- *
- * @param signal - Cancels the request.
- * @returns The options.
- */
-function readOptions(signal: AbortSignal | undefined) {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
  * Reads where the broker stands.
  *
  * @param signal - Cancels the request.
  * @returns Its state, its access to the ports, the hot-plug watch and the conflicts.
  */
 export async function fetchSerialStatus(signal?: AbortSignal): Promise<SerialStatus> {
-  return apiRequest('/brokers/serial', serialStatusSchema, readOptions(signal));
+  return apiRequest('/brokers/serial', serialStatusSchema, { signal });
 }
 
 /**
@@ -63,8 +53,7 @@ export async function fetchSerialStatus(signal?: AbortSignal): Promise<SerialSta
  * @returns Each, with its holder.
  */
 export async function fetchSerialPorts(signal?: AbortSignal): Promise<SerialPort[]> {
-  return (await apiRequest('/brokers/serial/ports', serialPortsReplySchema, readOptions(signal)))
-    .items;
+  return (await apiRequest('/brokers/serial/ports', serialPortsReplySchema, { signal })).items;
 }
 
 /**
@@ -74,9 +63,7 @@ export async function fetchSerialPorts(signal?: AbortSignal): Promise<SerialPort
  * @returns Them.
  */
 export async function fetchSerialDevices(signal?: AbortSignal): Promise<SerialDevice[]> {
-  return (
-    await apiRequest('/brokers/serial/devices', serialDevicesReplySchema, readOptions(signal))
-  ).items;
+  return (await apiRequest('/brokers/serial/devices', serialDevicesReplySchema, { signal })).items;
 }
 
 /**
@@ -188,7 +175,7 @@ export async function readSerialConsole(
   return apiRequest(
     `/brokers/serial/console/${encodeURIComponent(consoleId)}${query}`,
     serialConsoleReadReplySchema,
-    readOptions(signal),
+    { signal },
   );
 }
 

@@ -28,6 +28,7 @@ import {
 
 import { defineMessage, text, type Message } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { codeEntityReads, typeLabel, typeOf } from '@/library/alias-model';
 import {
   deleteAlias,
@@ -344,14 +345,7 @@ export function ImportAliasesDialog(props: {
   const [replacements, setReplacements] = useState<Readonly<Record<string, string>>>({});
   const existing = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.aliases,
-    /**
-     * Reads the aliases, to say which an import replaces.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the read.
-     * @returns The aliases.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAliases(signal),
+    queryFn: signalled(fetchAliases),
     enabled: isOpen,
   });
   const keys = new Set((existing.data ?? []).map((item) => item.entityId.split('.')[1]));

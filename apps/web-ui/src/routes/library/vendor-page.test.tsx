@@ -57,6 +57,7 @@ vi.mock('@/library/links-api', () => ({
 }));
 
 vi.mock('@/library/api', () => ({
+  fetchVendors: vi.fn(() => Promise.resolve([])),
   fetchVendor: vi.fn(),
   fetchDevices: vi.fn(),
   fetchDiscovered: vi.fn(() => Promise.resolve([])),

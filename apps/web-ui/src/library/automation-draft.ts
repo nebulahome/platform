@@ -580,19 +580,3 @@ export function replaceAt<TItem>(
 ): readonly TItem[] {
   return [...items.slice(0, index), item, ...items.slice(index + 1)];
 }
-
-/**
- * Inserts an item at a position, shifting the rest right.
- *
- * @param items - The list.
- * @param index - Where the new item lands.
- * @param item - What to insert.
- * @returns A new list.
- */
-export function insertAt<TItem>(
-  items: readonly TItem[],
-  index: number,
-  item: TItem,
-): readonly TItem[] {
-  return [...items.slice(0, index), item, ...items.slice(index)];
-}

@@ -31,6 +31,7 @@ import {
 } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
+import { BROKER_QUERY_KEYS } from '@/library/brokers-api';
 import { saveInfraredRemote } from '@/library/infrared-api';
 import { ChoiceCard, DeviceTag } from '@/routes/library/broker-parts';
 import { BrokerMark } from '@/routes/library/brokers-page';
@@ -91,7 +92,7 @@ export function AddRemoteDialog(props: AddRemoteDialogProps) {
      * @param saved - The remote.
      */
     onSuccess: (saved) => {
-      void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+      void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
       onClose();
       void navigate(first === 'later' ? remotePath(saved) : `${remotePath(saved)}?open=${first}`);
     },

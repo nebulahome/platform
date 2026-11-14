@@ -32,7 +32,7 @@ import { apiRequest } from '@/lib/api-client';
 export async function fetchSetupStatus(signal?: AbortSignal): Promise<SetupStatus> {
   return apiRequest('/setup', setupStatusSchema, {
     isAuthenticated: false,
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -91,7 +91,7 @@ export async function submitSecondFactor(
  */
 export async function fetchSession(signal?: AbortSignal): Promise<SessionUser> {
   return apiRequest('/auth/session', sessionUserSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 

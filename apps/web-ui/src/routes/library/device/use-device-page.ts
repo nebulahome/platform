@@ -21,6 +21,7 @@ import type {
 } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
+import { signalled } from '@/lib/signalled';
 import {
   fetchDevice,
   fetchDevices,
@@ -105,26 +106,12 @@ export function useDevicePage(deviceId: string): DevicePageData {
 
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-    /**
-     * Reads every device, for this one.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Every device.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
 
   const entities = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.entities,
-    /**
-     * Reads every entity, for this device's.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Every entity.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchEntities(signal),
+    queryFn: signalled(fetchEntities),
   });
 
   const vendors = useQuery({

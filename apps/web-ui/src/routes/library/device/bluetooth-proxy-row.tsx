@@ -16,6 +16,7 @@ import { Switch, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import {
   BLUETOOTH_QUERY_KEYS,
   fetchBluetoothProxyCandidates,
@@ -72,15 +73,7 @@ export function BluetoothProxyRow(props: BluetoothProxyRowProps) {
     queryKey: BLUETOOTH_QUERY_KEYS.scanners,
     enabled: isAsked,
     retry: false,
-
-    /**
-     * Reads the scanners, for this device's own.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchBluetoothScanners(signal),
+    queryFn: signalled(fetchBluetoothScanners),
   });
 
   /** Reads the broker again. */

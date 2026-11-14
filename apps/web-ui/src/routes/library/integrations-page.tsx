@@ -25,6 +25,7 @@ import { AppIcon, BrowseTile, Button, EmptyState, FilterChips, TILE_GRID } from 
 
 import { useSession } from '@/auth/session-store';
 import { DOCS_LINKS } from '@/lib/docs-links';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { fetchDiscovered, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
@@ -62,29 +63,13 @@ export function IntegrationsPage() {
 
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
-
-    /**
-     * Reads every vendor the hub has loaded.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The vendors.
-     */
-    queryFn: async ({ signal }) => fetchVendors(signal),
+    queryFn: signalled(fetchVendors),
   });
 
   const discovered = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.discovered,
     enabled: canSeeDevices,
-
-    /**
-     * Reads what the hub found on the network and nobody has added, for the counts on the cards.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices found.
-     */
-    queryFn: async ({ signal }) => fetchDiscovered(signal),
+    queryFn: signalled(fetchDiscovered),
   });
 
   // The platform's own Matter vendor is the Brokers page's, not an integration anybody installed.

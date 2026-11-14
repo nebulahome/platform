@@ -12,6 +12,15 @@ import { useEffect, useMemo } from 'react';
 
 import { apiBlob } from '@/lib/api-client';
 
+/** The keys pictures are cached under, each keyed further by the entity. */
+export const PICTURE_QUERY_KEYS = {
+  /** A camera's latest still. */
+  cameraStill: ['camera-still'] as const,
+
+  /** One revision of an image entity's picture, keyed further by the revision. */
+  entityImage: ['entity-image'] as const,
+};
+
 /**
  * Fetches one revision of an image entity's picture.
  *
@@ -26,7 +35,7 @@ export function useEntityImage(
   contentType: string,
 ): string | null {
   const picture = useQuery({
-    queryKey: ['entity-image', entityId, revision],
+    queryKey: [...PICTURE_QUERY_KEYS.entityImage, entityId, revision],
     enabled: revision !== null,
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,

@@ -30,6 +30,7 @@ import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
 import {
@@ -315,25 +316,11 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
 
   const aliases = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.aliases,
-    /**
-     * Reads every alias.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the read.
-     * @returns The aliases.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAliases(signal),
+    queryFn: signalled(fetchAliases),
   });
   const entities = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.entities,
-    /**
-     * Reads every entity, for each alias's value now.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the read.
-     * @returns The entities.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchEntities(signal),
+    queryFn: signalled(fetchEntities),
   });
 
   const items = aliases.data ?? [];

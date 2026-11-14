@@ -16,7 +16,7 @@
  * refresh would present the same token twice and sign the person out - the client would have
  * framed itself as an attacker. One in-flight refresh, awaited by everyone.
  */
-import type { z } from 'zod';
+import { z } from 'zod';
 
 import { useMaintenance } from '@/auth/maintenance-store';
 import { readRefreshToken, writeRefreshToken } from '@/auth/token-storage';
@@ -25,6 +25,16 @@ import { ApiError, isApiUnreachable, toApiError } from '@/lib/api-error';
 
 /** Where the API lives. Same origin in development, where Vite proxies `/api` across. */
 const BASE_PATH = '/api/v1';
+
+/**
+ * A collection response.
+ *
+ * @param item - What one entry looks like.
+ * @returns The schema of a whole collection of them.
+ */
+export const collectionSchema = <TItem extends z.ZodType>(
+  item: TItem,
+): z.ZodObject<{ items: z.ZodArray<TItem> }> => z.object({ items: z.array(item) });
 
 /** What one call needs. */
 export type RequestOptions = {
@@ -38,7 +48,7 @@ export type RequestOptions = {
   readonly isAuthenticated?: boolean;
 
   /** Cancels the request. */
-  readonly signal?: AbortSignal;
+  readonly signal?: AbortSignal | undefined;
 
   /** What the caller can take back. JSON unless said otherwise. */
   readonly accept?: string;

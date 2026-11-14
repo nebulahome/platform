@@ -42,23 +42,13 @@ export const BLUETOOTH_QUERY_KEYS = {
 };
 
 /**
- * The options of a read: its abort signal, when it has one.
- *
- * @param signal - Cancels the request.
- * @returns The options.
- */
-function readOptions(signal: AbortSignal | undefined) {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
  * Reads where the broker stands.
  *
  * @param signal - Cancels the request.
  * @returns Its state, its adapter, its proxies and what they hear.
  */
 export async function fetchBluetoothStatus(signal?: AbortSignal): Promise<BluetoothStatus> {
-  return apiRequest('/brokers/bluetooth', bluetoothStatusSchema, readOptions(signal));
+  return apiRequest('/brokers/bluetooth', bluetoothStatusSchema, { signal });
 }
 
 /**
@@ -68,9 +58,8 @@ export async function fetchBluetoothStatus(signal?: AbortSignal): Promise<Blueto
  * @returns Them, with who hears each.
  */
 export async function fetchBluetoothDevices(signal?: AbortSignal): Promise<BluetoothDevice[]> {
-  return (
-    await apiRequest('/brokers/bluetooth/devices', bluetoothDevicesReplySchema, readOptions(signal))
-  ).items;
+  return (await apiRequest('/brokers/bluetooth/devices', bluetoothDevicesReplySchema, { signal }))
+    .items;
 }
 
 /**
@@ -80,7 +69,7 @@ export async function fetchBluetoothDevices(signal?: AbortSignal): Promise<Bluet
  * @returns The scanners, the devices, and the links between them.
  */
 export async function fetchBluetoothMap(signal?: AbortSignal): Promise<BluetoothMap> {
-  return apiRequest('/brokers/bluetooth/map', bluetoothMapSchema, readOptions(signal));
+  return apiRequest('/brokers/bluetooth/map', bluetoothMapSchema, { signal });
 }
 
 /**
@@ -90,9 +79,8 @@ export async function fetchBluetoothMap(signal?: AbortSignal): Promise<Bluetooth
  * @returns Each address heard.
  */
 export async function fetchBluetoothNearby(signal?: AbortSignal): Promise<BluetoothNearby[]> {
-  return (
-    await apiRequest('/brokers/bluetooth/nearby', bluetoothNearbyReplySchema, readOptions(signal))
-  ).items;
+  return (await apiRequest('/brokers/bluetooth/nearby', bluetoothNearbyReplySchema, { signal }))
+    .items;
 }
 
 /**
@@ -102,7 +90,7 @@ export async function fetchBluetoothNearby(signal?: AbortSignal): Promise<Blueto
  * @returns Them, and those ignored.
  */
 export async function fetchBluetoothFound(signal?: AbortSignal) {
-  return apiRequest('/brokers/bluetooth/found', bluetoothFoundReplySchema, readOptions(signal));
+  return apiRequest('/brokers/bluetooth/found', bluetoothFoundReplySchema, { signal });
 }
 
 /**
@@ -112,13 +100,8 @@ export async function fetchBluetoothFound(signal?: AbortSignal) {
  * @returns Them.
  */
 export async function fetchBluetoothScanners(signal?: AbortSignal): Promise<BluetoothScanner[]> {
-  return (
-    await apiRequest(
-      '/brokers/bluetooth/scanners',
-      bluetoothScannersReplySchema,
-      readOptions(signal),
-    )
-  ).items;
+  return (await apiRequest('/brokers/bluetooth/scanners', bluetoothScannersReplySchema, { signal }))
+    .items;
 }
 
 /**
@@ -197,7 +180,7 @@ export async function fetchBluetoothProxyCandidates(
     await apiRequest(
       `/brokers/bluetooth/proxies/candidates${query}`,
       bluetoothProxyCandidatesReplySchema,
-      readOptions(signal),
+      { signal },
     )
   ).items;
 }
@@ -229,7 +212,7 @@ export async function fetchBluetoothProxyJob(
   return apiRequest(
     `/brokers/bluetooth/proxies/jobs/${encodeURIComponent(jobId)}`,
     bluetoothProxyJobSchema,
-    readOptions(signal),
+    { signal },
   );
 }
 

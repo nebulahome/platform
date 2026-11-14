@@ -28,10 +28,12 @@ import {
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
   BROKER_QUERY_KEYS,
+  BROKER_REFRESH_MS,
   fetchMqttClients,
   fetchMqttDevices,
   fetchMqttMappings,
@@ -58,9 +60,6 @@ const TABS = ['overview', 'devices', 'clients', 'mappings', 'topics'] as const;
 /** One tab. */
 type MqttTab = (typeof TABS)[number];
 
-/** How often the broker is read again. */
-const REFRESH_MS = 5000;
-
 /**
  * Renders the MQTT broker's page.
  *
@@ -81,59 +80,27 @@ export function MqttBrokerPage() {
 
   const status = useQuery<MqttStatus>({
     queryKey: BROKER_QUERY_KEYS.mqttStatus,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the broker's state.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The state.
-     */
-    queryFn: async ({ signal }) => fetchMqttStatus(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchMqttStatus),
   });
   const devices = useQuery({
     queryKey: BROKER_QUERY_KEYS.mqttDevices,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the devices the broker hears.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchMqttDevices(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchMqttDevices),
   });
   const clients = useQuery({
     queryKey: BROKER_QUERY_KEYS.mqttClients,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads who may connect.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The usernames, and the connections without one.
-     */
-    queryFn: async ({ signal }) => fetchMqttClients(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchMqttClients),
   });
   const mappings = useQuery({
     queryKey: BROKER_QUERY_KEYS.mqttMappings,
-
-    /**
-     * Reads the mappings.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchMqttMappings(signal),
+    queryFn: signalled(fetchMqttMappings),
   });
 
   /** Reads everything the broker touches again. */
   const refresh = (): void => {
-    void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+    void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
   };
 

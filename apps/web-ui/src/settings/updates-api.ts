@@ -30,7 +30,7 @@ export const PLATFORM_QUERY_KEY = ['system', 'platform'] as const;
  */
 export async function fetchSystemUpdates(signal?: AbortSignal): Promise<SystemUpdatesView> {
   return apiRequest('/system/updates', systemUpdatesViewSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -43,7 +43,7 @@ export async function fetchSystemUpdates(signal?: AbortSignal): Promise<SystemUp
  */
 export async function fetchPlatformState(signal?: AbortSignal): Promise<PlatformView> {
   return apiRequest('/system/platform', platformViewSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 

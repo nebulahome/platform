@@ -115,13 +115,3 @@ export function listFormat(options?: Intl.ListFormatOptions): Intl.ListFormat {
 export function collator(options?: Intl.CollatorOptions): Intl.Collator {
   return cached('collator', options, (locale) => new Intl.Collator(locale, options));
 }
-
-/**
- * The names of languages, regions or units in the interface's language.
- *
- * @param options - Which kind of name.
- * @returns The display names.
- */
-export function displayNames(options: Intl.DisplayNamesOptions): Intl.DisplayNames {
-  return cached('names', options, (locale) => new Intl.DisplayNames(locale, options));
-}

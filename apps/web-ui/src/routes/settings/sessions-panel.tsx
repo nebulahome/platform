@@ -17,6 +17,7 @@ import { AppIcon, Button, Pill, toast } from '@nebulahome/ui';
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
+import { signalled } from '@/lib/signalled';
 import { RowIcon, SettingsRow, SettingsSection } from '@/routes/settings/settings-ui';
 import { SETTINGS_QUERY_KEYS, fetchSessions, revokeSession } from '@/settings/api';
 import { describeUserAgent } from '@/settings/user-agent';
@@ -32,15 +33,7 @@ export function SessionsPanel() {
   const queryClient = useQueryClient();
   const sessions = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.sessions,
-
-    /**
-     * Reads the sessions.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every session this person has.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchSessions(signal),
+    queryFn: signalled(fetchSessions),
   });
 
   /**

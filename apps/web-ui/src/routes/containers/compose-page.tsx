@@ -515,7 +515,11 @@ export function ComposePage() {
               <div className="flex items-start pl-14 md:pl-0">
                 <Stat
                   value={group.containers.length}
-                  noun={group.containers.length === 1 ? 'container' : 'containers'}
+                  noun={t('containers.compose.containerCount', {
+                    count: group.containers.length,
+                    defaultValue_one: 'container',
+                    defaultValue_other: 'containers',
+                  })}
                 />
                 <Stat value={usage?.running ?? 0} noun="running" />
               </div>

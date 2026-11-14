@@ -26,9 +26,9 @@ import {
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
-import { toMessage } from '@/lib/error-message';
+import { toastFailure } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
-import { fetchAreas, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
   addBluetoothDevice,
   BLUETOOTH_QUERY_KEYS,
@@ -43,6 +43,7 @@ import {
   saveBluetoothSettings,
   updateBluetoothProxy,
 } from '@/library/bluetooth-api';
+import { BROKER_QUERY_KEYS, BROKER_REFRESH_MS } from '@/library/brokers-api';
 import {
   AddProxyDialog,
   AdapterOffConfirm,
@@ -59,6 +60,7 @@ import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { devicePath } from '@/routes/library/device/device-path';
 import { useVendorsById } from '@/routes/library/transport-marks';
+import { useAreas } from '@/routes/library/use-areas';
 
 /** The map, read only when its tab is opened: it brings the graph library with it. */
 const BluetoothMapView = lazy(async () =>
@@ -72,9 +74,6 @@ const TABS = ['overview', 'devices', 'map', 'nearby', 'scanners'] as const;
 
 /** One tab. */
 type BluetoothTab = (typeof TABS)[number];
-
-/** How often the broker is read again. */
-const REFRESH_MS = 5000;
 
 /** What the page's gallery samples change. */
 export type BluetoothBrokerPageProps = {
@@ -105,62 +104,44 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
   const [isTurningOff, setTurningOff] = useState(false);
   const vendors = useVendorsById();
 
-  /**
-   * One of the broker's lists, read again with the page.
-   *
-   * @param key - Its cache key.
-   * @param read - Reads it.
-   * @param isPolled - Whether it is read again every few seconds.
-   * @returns The query's options.
-   */
-  const listOf = <TData,>(
-    key: readonly string[],
-    read: (signal: AbortSignal) => Promise<TData>,
-    isPolled = true,
-  ) => ({
-    queryKey: key,
-    refetchInterval: isPolled ? REFRESH_MS : (false as const),
-
-    /**
-     * Reads it.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns It.
-     */
-    queryFn: async ({ signal }: { readonly signal: AbortSignal }) => read(signal),
+  const status = useQuery({
+    queryKey: BLUETOOTH_QUERY_KEYS.status,
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchBluetoothStatus),
   });
-
-  const status = useQuery(listOf(BLUETOOTH_QUERY_KEYS.status, fetchBluetoothStatus));
-  const devices = useQuery(listOf(BLUETOOTH_QUERY_KEYS.devices, fetchBluetoothDevices));
-  const found = useQuery(listOf(BLUETOOTH_QUERY_KEYS.found, fetchBluetoothFound));
-  const scanners = useQuery(listOf(BLUETOOTH_QUERY_KEYS.scanners, fetchBluetoothScanners));
+  const devices = useQuery({
+    queryKey: BLUETOOTH_QUERY_KEYS.devices,
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchBluetoothDevices),
+  });
+  const found = useQuery({
+    queryKey: BLUETOOTH_QUERY_KEYS.found,
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchBluetoothFound),
+  });
+  const scanners = useQuery({
+    queryKey: BLUETOOTH_QUERY_KEYS.scanners,
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchBluetoothScanners),
+  });
   const map = useQuery({
-    ...listOf(BLUETOOTH_QUERY_KEYS.map, fetchBluetoothMap),
+    queryKey: BLUETOOTH_QUERY_KEYS.map,
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchBluetoothMap),
     enabled: tab === 'map',
   });
   const nearby = useQuery({
-    ...listOf(BLUETOOTH_QUERY_KEYS.nearby, fetchBluetoothNearby),
+    queryKey: BLUETOOTH_QUERY_KEYS.nearby,
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchBluetoothNearby),
     enabled: tab === 'nearby',
   });
-  const areas = useQuery(listOf(LIBRARY_QUERY_KEYS.areas, fetchAreas, false));
+  const { roomOf } = useAreas();
 
   /** Reads the broker again. */
   const refresh = (): void => {
-    void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+    void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
   };
-
-  /**
-   * Says why something did not happen.
-   *
-   * @param title - What did not.
-   * @returns The handler.
-   */
-  const failed =
-    (title: string) =>
-    (error: Error): void => {
-      toast.error({ title, message: toMessage(error) });
-    };
 
   const add = useMutation({
     /**
@@ -183,7 +164,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
     onSuccess: (deviceId) => {
       void navigate(devicePath(deviceId));
     },
-    onError: failed(t('brokers.bluetooth.addFailed', 'Couldn’t add the device')),
+    onError: toastFailure(t('brokers.bluetooth.addFailed', 'Couldn’t add the device')),
   });
   const addingAddress = add.isPending ? add.variables.address : undefined;
   const ignore = useMutation({
@@ -198,7 +179,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
     mutationFn: async (request: { readonly address: string; readonly isIgnored: boolean }) =>
       ignoreBluetooth(request.address, request.isIgnored),
     onSettled: refresh,
-    onError: failed(t('brokers.bluetooth.ignoreFailed', 'Couldn’t change what is ignored')),
+    onError: toastFailure(t('brokers.bluetooth.ignoreFailed', 'Couldn’t change what is ignored')),
   });
   const mode = useMutation({
     /**
@@ -210,7 +191,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
     mutationFn: async (next: BluetoothScanMode) =>
       saveBluetoothSettings({ ...(status.data?.settings ?? DEFAULTS), localScanMode: next }),
     onSettled: refresh,
-    onError: failed(t('brokers.bluetooth.modeFailed', 'Couldn’t change the scan mode')),
+    onError: toastFailure(t('brokers.bluetooth.modeFailed', 'Couldn’t change the scan mode')),
   });
   const adapter = useMutation({
     /**
@@ -227,7 +208,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
     onSuccess: () => {
       setTurningOff(false);
     },
-    onError: failed(t('brokers.bluetooth.adapterFailed', 'Couldn’t change the adapter')),
+    onError: toastFailure(t('brokers.bluetooth.adapterFailed', 'Couldn’t change the adapter')),
   });
   const update = useMutation({
     /**
@@ -243,7 +224,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
     onSuccess: () => {
       toast.success({ title: t('brokers.bluetooth.updating', 'Updating the script') });
     },
-    onError: failed(t('brokers.bluetooth.updateFailed', 'Couldn’t update the script')),
+    onError: toastFailure(t('brokers.bluetooth.updateFailed', 'Couldn’t update the script')),
   });
   const stop = useMutation({
     /**
@@ -259,7 +240,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
     onSuccess: () => {
       setStopping(null);
     },
-    onError: failed(t('brokers.bluetooth.stopFailed', 'Couldn’t remove the script')),
+    onError: toastFailure(t('brokers.bluetooth.stopFailed', 'Couldn’t remove the script')),
   });
 
   const current = status.data;
@@ -267,16 +248,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
   const deviceList = devices.data ?? [];
   const scannerList = scanners.data ?? [];
   const vendorNames = new Map([...vendors].map(([id, vendor]) => [id, vendor.name]));
-  const roomNames = new Map((areas.data ?? []).map((area) => [area.id, area.name]));
 
-  /**
-   * The name of a room.
-   *
-   * @param areaId - The room.
-   * @returns Its name, or null.
-   */
-  const roomOf = (areaId: string | null): string | null =>
-    areaId === null ? null : (roomNames.get(areaId) ?? null);
   const openAddProxy = canConfigure
     ? () => {
         setAddingProxy(true);

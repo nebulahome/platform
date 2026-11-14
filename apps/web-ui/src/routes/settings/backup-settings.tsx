@@ -60,6 +60,7 @@ import { defineMessage, text, translate, type Message } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { formatBytes } from '@/lib/format-bytes';
 import { absoluteTime, durationText, relativeTime } from '@/lib/format-time';
+import { signalled } from '@/lib/signalled';
 import { BackupLocationDialog } from '@/routes/settings/backup-location-dialog';
 import { BackupProgressCard } from '@/routes/settings/backup-progress-card';
 import {
@@ -345,55 +346,23 @@ export function BackupSettings() {
   const isRunning = status.data?.active != null;
   const settings = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.server,
-
-    /**
-     * Reads the settings.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request.
-     * @returns Every setting.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchServerSettings(signal),
+    queryFn: signalled(fetchServerSettings),
   });
   const locations = useQuery({
     queryKey: BACKUP_QUERY_KEYS.locations,
     refetchInterval: isRunning ? 5000 : false,
-
-    /**
-     * Reads the locations.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request.
-     * @returns The locations.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchBackupLocations(signal),
+    queryFn: signalled(fetchBackupLocations),
   });
   const runs = useQuery({
     queryKey: BACKUP_QUERY_KEYS.runs,
     refetchInterval: isRunning ? 3000 : 60_000,
-
-    /**
-     * Reads the latest runs.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request.
-     * @returns The runs.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchBackupRuns(signal),
+    queryFn: signalled(fetchBackupRuns),
   });
   const progress = useBackupProgress(status.data?.active, runs.data);
   const archives = useQuery({
     queryKey: BACKUP_QUERY_KEYS.archives,
     enabled: isArchivesShown,
-
-    /**
-     * Lists the archives in every location.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request.
-     * @returns The archives.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchBackupArchives(signal),
+    queryFn: signalled(fetchBackupArchives),
   });
 
   const stored = new Map((settings.data?.items ?? []).map((item) => [item.key, item.value]));

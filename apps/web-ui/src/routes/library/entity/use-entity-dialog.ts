@@ -12,6 +12,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CapabilityState, DeviceView, EntityView, IconView } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
+import { signalled } from '@/lib/signalled';
 import { fetchDevices, fetchEntities, fetchEntity, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { capabilityStateOf, entityScopesOf, isCommandable } from '@/library/entity-control';
 import { readingOf, type Reading } from '@/library/entity-reading';
@@ -101,26 +102,12 @@ export function useEntityDialog(entityId: string): EntityDialogData {
 
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-    /**
-     * Reads every device, for the one this entity belongs to.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the dialog goes away.
-     * @returns Every device.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
 
   const entities = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.entities,
-    /**
-     * Reads every entity, for the battery sensor of this one's device.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the dialog goes away.
-     * @returns Every entity.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchEntities(signal),
+    queryFn: signalled(fetchEntities),
   });
 
   const data = entity.data;

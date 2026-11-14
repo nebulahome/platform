@@ -46,9 +46,11 @@ import {
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
-import { toMessage } from '@/lib/error-message';
+import { toastFailure, toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
+import { signalled } from '@/lib/signalled';
 import { fetchAreas, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { BROKER_REFRESH_MS } from '@/library/brokers-api';
 import {
   fetchInfraredBlasters,
   fetchInfraredCodeFormats,
@@ -79,9 +81,6 @@ import {
 } from './infrared-parts';
 import { LearnDialog } from './learn-dialog';
 
-/** How often the remote is read again. */
-const REFRESH_MS = 5000;
-
 /** How long a tile flashes once sent. */
 const FLASH_MS = 600;
 
@@ -109,7 +108,7 @@ export function InfraredRemotePage() {
 
   const remote = useQuery({
     queryKey: [...INFRARED_QUERY_KEYS.remote, remoteId],
-    refetchInterval: REFRESH_MS,
+    refetchInterval: BROKER_REFRESH_MS,
 
     /**
      * Reads the remote and its buttons.
@@ -122,27 +121,11 @@ export function InfraredRemotePage() {
   });
   const blasters = useQuery({
     queryKey: INFRARED_QUERY_KEYS.blasters,
-
-    /**
-     * Reads the blasters, for the remote's to be picked from.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchInfraredBlasters(signal),
+    queryFn: signalled(fetchInfraredBlasters),
   });
   const areas = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.areas,
-
-    /**
-     * Reads the rooms.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The rooms.
-     */
-    queryFn: async ({ signal }) => fetchAreas(signal),
+    queryFn: signalled(fetchAreas),
   });
   const current = remote.data;
   const icons = useCatalogueIcons((current?.buttons ?? []).map((button) => button.icon));
@@ -154,18 +137,6 @@ export function InfraredRemotePage() {
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: ['brokers', 'infrared'] });
   };
-
-  /**
-   * Says why something did not happen.
-   *
-   * @param title - What did not.
-   * @returns The handler.
-   */
-  const failed =
-    (title: string) =>
-    (error: Error): void => {
-      toast.error({ title, message: toMessage(error) });
-    };
 
   const move = useMutation({
     /**
@@ -199,11 +170,11 @@ export function InfraredRemotePage() {
       );
     },
     onSettled: refresh,
-    onError: failed(t('brokers.infrared.remote.moveFailed', 'Couldn’t move the button')),
+    onError: toastFailure(t('brokers.infrared.remote.moveFailed', 'Couldn’t move the button')),
   });
   const press = useMutation({
     mutationFn: pressInfraredButton,
-    onError: failed(t('brokers.infrared.remote.pressFailed', 'Couldn’t send it')),
+    onError: toastFailure(t('brokers.infrared.remote.pressFailed', 'Couldn’t send it')),
   });
   const duplicate = useMutation({
     /**
@@ -223,12 +194,12 @@ export function InfraredRemotePage() {
         code: button.code,
       }),
     onSettled: refresh,
-    onError: failed(t('brokers.infrared.remote.duplicateFailed', 'Couldn’t duplicate it')),
+    onError: toastFailure(t('brokers.infrared.remote.duplicateFailed', 'Couldn’t duplicate it')),
   });
   const removeButton = useMutation({
     mutationFn: removeInfraredButton,
     onSettled: refresh,
-    onError: failed(t('brokers.infrared.remote.removeButtonFailed', 'Couldn’t remove it')),
+    onError: toastFailure(t('brokers.infrared.remote.removeButtonFailed', 'Couldn’t remove it')),
   });
   const moveTo = useMutation({
     /**
@@ -248,7 +219,9 @@ export function InfraredRemotePage() {
             columns: current.columns,
           }),
     onSettled: refresh,
-    onError: failed(t('brokers.infrared.remote.blasterFailed', 'Couldn’t change the blaster')),
+    onError: toastFailure(
+      t('brokers.infrared.remote.blasterFailed', 'Couldn’t change the blaster'),
+    ),
   });
   const remove = useMutation({
     /**
@@ -264,7 +237,7 @@ export function InfraredRemotePage() {
       toast.success({ title: t('brokers.infrared.remote.removed', 'Remote removed') });
       void navigate('/brokers/infrared?tab=remotes');
     },
-    onError: failed(t('brokers.infrared.remote.removeFailed', 'Couldn’t remove the remote')),
+    onError: toastFailure(t('brokers.infrared.remote.removeFailed', 'Couldn’t remove the remote')),
   });
 
   const protocols = new Map<string, number>();

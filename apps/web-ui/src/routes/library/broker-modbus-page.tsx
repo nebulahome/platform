@@ -34,8 +34,10 @@ import {
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
-import { fetchAreas, fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { BROKER_QUERY_KEYS, BROKER_REFRESH_MS } from '@/library/brokers-api';
 import {
   fetchModbusDevices,
   fetchModbusFound,
@@ -57,15 +59,13 @@ import { ModbusTemplates } from '@/routes/library/broker-modbus/modbus-templates
 import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { useVendorsById } from '@/routes/library/transport-marks';
+import { useAreas } from '@/routes/library/use-areas';
 
 /** The tabs of the page; the first is the page itself. */
 const TABS = ['overview', 'devices', 'discovery', 'templates'] as const;
 
 /** One tab. */
 type ModbusTab = (typeof TABS)[number];
-
-/** How often the broker is read again. */
-const REFRESH_MS = 5000;
 
 /**
  * Renders the Modbus broker's page.
@@ -88,83 +88,32 @@ export function ModbusBrokerPage() {
 
   const status = useQuery({
     queryKey: MODBUS_QUERY_KEYS.status,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the broker's state.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The state.
-     */
-    queryFn: async ({ signal }) => fetchModbusStatus(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchModbusStatus),
   });
   const devices = useQuery({
     queryKey: MODBUS_QUERY_KEYS.devices,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the devices.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchModbusDevices(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchModbusDevices),
   });
   const templates = useQuery({
     queryKey: MODBUS_QUERY_KEYS.templates,
-
-    /**
-     * Reads the templates.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The templates.
-     */
-    queryFn: async ({ signal }) => fetchModbusTemplates(signal),
+    queryFn: signalled(fetchModbusTemplates),
   });
   const found = useQuery({
     queryKey: MODBUS_QUERY_KEYS.found,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the servers found.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Them, and those ignored.
-     */
-    queryFn: async ({ signal }) => fetchModbusFound(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchModbusFound),
   });
   const houseDevices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-
-    /**
-     * Reads the house's devices, for each device's room.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
-  const areas = useQuery({
-    queryKey: LIBRARY_QUERY_KEYS.areas,
-
-    /**
-     * Reads the rooms.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The rooms.
-     */
-    queryFn: async ({ signal }) => fetchAreas(signal),
-  });
+  const { roomOf } = useAreas();
 
   /** Reads everything the broker touches again. */
   const refresh = (): void => {
-    void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+    void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
   };
 
@@ -291,7 +240,6 @@ export function ModbusBrokerPage() {
   const state = current === undefined ? null : brokerStateOf(current.state);
   const list = devices.data ?? [];
   const vendorNames = new Map([...vendors].map(([id, vendor]) => [id, vendor.name]));
-  const roomNames = new Map((areas.data ?? []).map((area) => [area.id, area.name]));
 
   /**
    * The room a device of the house is in.
@@ -300,9 +248,7 @@ export function ModbusBrokerPage() {
    * @returns The room's name, or null.
    */
   const areaOf = (deviceId: string | null): string | null => {
-    const areaId = houseDevices.data?.find((device) => device.id === deviceId)?.areaId ?? null;
-
-    return areaId === null ? null : (roomNames.get(areaId) ?? null);
+    return roomOf(houseDevices.data?.find((device) => device.id === deviceId)?.areaId ?? null);
   };
 
   /**

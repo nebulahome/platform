@@ -25,6 +25,7 @@ import {
   ThreadLogo,
 } from '@/components/brand-logos';
 import { translate } from '@/i18n/messages';
+import { signalled } from '@/lib/signalled';
 import { BROKER_QUERY_KEYS, fetchBrokers } from '@/library/brokers-api';
 import { LibraryPage } from '@/routes/library/library-page';
 
@@ -196,15 +197,7 @@ export function BrokersPage() {
   const brokers = useQuery({
     queryKey: BROKER_QUERY_KEYS.brokers,
     refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the brokers.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The brokers.
-     */
-    queryFn: async ({ signal }) => fetchBrokers(signal),
+    queryFn: signalled(fetchBrokers),
   });
   const all = brokers.data ?? [];
 

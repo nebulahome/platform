@@ -14,6 +14,7 @@ import { AppIcon, Button, Modal, Note, TextField } from '@nebulahome/ui';
 
 import { ThreadLogo } from '@/components/brand-logos';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { BROKER_QUERY_KEYS, fetchMatterNetworks, saveMatterNetworks } from '@/library/brokers-api';
 import { BrokerMark } from '@/routes/library/brokers-page';
 
@@ -33,15 +34,7 @@ export function MatterSettingsDialog(props: MatterSettingsDialogProps) {
   const queryClient = useQueryClient();
   const networks = useQuery({
     queryKey: BROKER_QUERY_KEYS.matterNetworks,
-
-    /**
-     * Reads the networks new devices are given.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchMatterNetworks(signal),
+    queryFn: signalled(fetchMatterNetworks),
   });
   const wifi = networks.data?.wifi;
   const thread = networks.data?.thread ?? null;

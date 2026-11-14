@@ -30,23 +30,13 @@ export const THREAD_QUERY_KEYS = {
 };
 
 /**
- * The options of a read: its abort signal, when it has one.
- *
- * @param signal - Cancels the request.
- * @returns The options.
- */
-function readOptions(signal: AbortSignal | undefined) {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
  * Reads where the network stands.
  *
  * @param signal - Cancels the request.
  * @returns Its state, border router, radio, network and setup job.
  */
 export async function fetchThreadStatus(signal?: AbortSignal): Promise<ThreadStatus> {
-  return apiRequest('/brokers/thread', threadStatusSchema, readOptions(signal));
+  return apiRequest('/brokers/thread', threadStatusSchema, { signal });
 }
 
 /**
@@ -56,8 +46,7 @@ export async function fetchThreadStatus(signal?: AbortSignal): Promise<ThreadSta
  * @returns Them.
  */
 export async function fetchThreadRadios(signal?: AbortSignal): Promise<ThreadRadio[]> {
-  return (await apiRequest('/brokers/thread/radios', threadRadiosReplySchema, readOptions(signal)))
-    .items;
+  return (await apiRequest('/brokers/thread/radios', threadRadiosReplySchema, { signal })).items;
 }
 
 /**
@@ -67,9 +56,7 @@ export async function fetchThreadRadios(signal?: AbortSignal): Promise<ThreadRad
  * @returns Them, the house's first.
  */
 export async function fetchThreadDevices(signal?: AbortSignal): Promise<ThreadDevice[]> {
-  return (
-    await apiRequest('/brokers/thread/devices', threadDevicesReplySchema, readOptions(signal))
-  ).items;
+  return (await apiRequest('/brokers/thread/devices', threadDevicesReplySchema, { signal })).items;
 }
 
 /**
@@ -82,11 +69,7 @@ export async function fetchThreadBorderRouters(
   signal?: AbortSignal,
 ): Promise<ThreadBorderRouter[]> {
   return (
-    await apiRequest(
-      '/brokers/thread/border-routers',
-      threadBorderRoutersReplySchema,
-      readOptions(signal),
-    )
+    await apiRequest('/brokers/thread/border-routers', threadBorderRoutersReplySchema, { signal })
   ).items;
 }
 

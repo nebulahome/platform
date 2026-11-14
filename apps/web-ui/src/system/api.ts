@@ -22,6 +22,6 @@ export const SYSTEM_QUERY_KEYS = {
  */
 export async function fetchSystemMonitor(signal?: AbortSignal): Promise<SystemMonitorSnapshot> {
   return apiRequest('/system/monitor', systemMonitorSnapshotSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }

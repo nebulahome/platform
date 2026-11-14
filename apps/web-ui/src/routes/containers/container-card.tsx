@@ -235,7 +235,11 @@ export function ComposeCard(props: { readonly group: ComposeGroup }) {
             ) : undefined
           }
           name={group.title}
-          version={`Compose · ${String(total)} ${total === 1 ? 'container' : 'containers'}`}
+          version={t('containers.containerCard.composeContainers', {
+            count: total,
+            defaultValue_one: 'Compose · {{count}} container',
+            defaultValue_other: 'Compose · {{count}} containers',
+          })}
           footer={
             <>
               <Pill tone={pill.tone}>{pill.label}</Pill>

@@ -31,6 +31,7 @@ import {
 } from '@nebulahome/contracts';
 import { AppIcon, Button, Menu, Note, TextField, toast, type MenuItem } from '@nebulahome/ui';
 
+import { signalled } from '@/lib/signalled';
 import { formatPartValue, PART_PREFIX, partValueOf } from '@/library/alias-model';
 import { fetchAutomationHouse, fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { NO_READING, readingOf } from '@/library/entity-reading';
@@ -364,14 +365,7 @@ export async function failingCases(
 function useTrialHouse(): TrialHouse {
   const house = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.aliases, 'house'],
-    /**
-     * Reads the house's zone and position.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the read.
-     * @returns The house.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAutomationHouse(signal),
+    queryFn: signalled(fetchAutomationHouse),
     retry: false,
   });
 

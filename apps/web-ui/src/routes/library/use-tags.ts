@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { TagColor, TagView } from '@nebulahome/contracts';
 
+import { signalled } from '@/lib/signalled';
 import { createTag, fetchTags, LIBRARY_QUERY_KEYS } from '@/library/api';
 
 /** What a consumer gets. */
@@ -39,15 +40,7 @@ export function useTags(): Tags {
 
   const query = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.tags,
-
-    /**
-     * Reads every tag.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The tags.
-     */
-    queryFn: async ({ signal }) => fetchTags(signal),
+    queryFn: signalled(fetchTags),
     staleTime: 30_000,
   });
 

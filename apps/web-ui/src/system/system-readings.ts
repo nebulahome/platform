@@ -14,13 +14,6 @@ import type {
 
 import { defineMessage, text, translate, type Message } from '@/i18n/messages';
 
-/** One point of a chart: when, and the value then, or null for a gap. */
-export type ChartPoint = {
-  /** Milliseconds since the epoch, which is what a time axis scales. */
-  readonly at: number;
-  readonly value: number | null;
-};
-
 /** One point of the network chart: both directions at once. */
 export type NetworkPoint = {
   readonly at: number;
@@ -48,26 +41,6 @@ export function memoryPercent(sample: SystemMonitorSample): number | null {
   return sample.memoryTotalBytes === 0
     ? null
     : (sample.memoryUsedBytes / sample.memoryTotalBytes) * 100;
-}
-
-/**
- * The processor over the window.
- *
- * @param samples - Oldest first.
- * @returns One point per sample.
- */
-export function cpuSeries(samples: readonly SystemMonitorSample[]): ChartPoint[] {
-  return samples.map((sample) => ({ at: sample.at.getTime(), value: sample.cpuPercent }));
-}
-
-/**
- * The memory over the window.
- *
- * @param samples - Oldest first.
- * @returns One point per sample.
- */
-export function memorySeries(samples: readonly SystemMonitorSample[]): ChartPoint[] {
-  return samples.map((sample) => ({ at: sample.at.getTime(), value: memoryPercent(sample) }));
 }
 
 /**

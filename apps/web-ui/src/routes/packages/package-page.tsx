@@ -40,6 +40,7 @@ import { useSession } from '@/auth/session-store';
 import { LogViewer } from '@/components/log-viewer';
 import { text } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
 import {
   controlPackage,
@@ -209,15 +210,7 @@ export function PackagePage() {
   const available = useQuery({
     queryKey: PACKAGE_QUERY_KEYS.available,
     staleTime: 5 * 60_000,
-
-    /**
-     * Reads what the index offers, for whether a newer release is out.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The packages.
-     */
-    queryFn: async ({ signal }) => fetchAvailablePackages(signal),
+    queryFn: signalled(fetchAvailablePackages),
   });
 
   /** Reads everything about packages again, after something was done to this one. */

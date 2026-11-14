@@ -32,6 +32,7 @@ import {
 import { DeviceDialog } from './device-dialog';
 
 vi.mock('@/library/api', () => ({
+  fetchVendors: vi.fn(() => Promise.resolve([])),
   probeDevice: vi.fn(),
   createDevice: vi.fn(),
   updateDevice: vi.fn(),

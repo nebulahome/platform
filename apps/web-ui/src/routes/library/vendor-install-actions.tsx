@@ -27,18 +27,6 @@ export type VendorInstallMenuProps = {
 };
 
 /**
- * Says how many of a thing there are, in words.
- *
- * @param count - How many.
- * @param one - The word for one.
- * @param many - The word for several.
- * @returns `1 device`, `3 devices`.
- */
-function counted(count: number, one: string, many: string): string {
-  return `${String(count)} ${count === 1 ? one : many}`;
-}
-
-/**
  * Renders the ⋮ and the confirmation removing opens.
  *
  * @param props - See {@link VendorInstallMenuProps}.
@@ -162,7 +150,13 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
             {t(
               'library.vendorInstallActions.devicecountAndEveryEntity',
               '{{deviceCount}}, and every entity they have',
-              { deviceCount: counted(deviceCount, 'device', 'devices') },
+              {
+                deviceCount: t('library.vendorInstallActions.devices', {
+                  count: deviceCount,
+                  defaultValue_one: '{{count}} device',
+                  defaultValue_other: '{{count}} devices',
+                }),
+              },
             )}
           </li>
           {accounts === 0 ? null : (
@@ -170,7 +164,13 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
               {t(
                 'library.vendorInstallActions.accountsSignedInTo',
                 '{{accounts}} signed in to, signed out',
-                { accounts: counted(accounts, 'account', 'accounts') },
+                {
+                  accounts: t('library.vendorInstallActions.accounts', {
+                    count: accounts,
+                    defaultValue_one: '{{count}} account',
+                    defaultValue_other: '{{count}} accounts',
+                  }),
+                },
               )}
             </li>
           )}

@@ -26,6 +26,7 @@ import {
 import { AppIcon, Button, DetailHero, Note, Segmented, toast } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { saveJsonFile } from '@/library/library-file';
 import {
   fetchModbusDevices,
@@ -118,39 +119,15 @@ export function ModbusTemplatePage() {
 
   const templates = useQuery({
     queryKey: MODBUS_QUERY_KEYS.templates,
-
-    /**
-     * Reads the templates.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The templates.
-     */
-    queryFn: async ({ signal }) => fetchModbusTemplates(signal),
+    queryFn: signalled(fetchModbusTemplates),
   });
   const devices = useQuery({
     queryKey: MODBUS_QUERY_KEYS.devices,
-
-    /**
-     * Reads the devices, for the test device.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchModbusDevices(signal),
+    queryFn: signalled(fetchModbusDevices),
   });
   const found = useQuery({
     queryKey: MODBUS_QUERY_KEYS.found,
-
-    /**
-     * Reads the servers found, for the test device.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchModbusFound(signal),
+    queryFn: signalled(fetchModbusFound),
   });
   const record = isNew ? undefined : templates.data?.find((each) => each.id === templateId);
   const choices = testChoicesOf(

@@ -28,6 +28,7 @@ import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
 import { PERMISSION_COUNT, PERMISSION_GROUPS, permissionLabel } from '@/lib/permission-labels';
 import { roleDescription, roleName } from '@/lib/role-names';
+import { signalled } from '@/lib/signalled';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { RoleDeleteDialog, RoleDialog, type RoleDialogMode } from '@/routes/settings/role-dialog';
 import { RoleChip, RoleKindTag } from '@/routes/settings/role-parts';
@@ -533,27 +534,11 @@ export function RolesPanel() {
 
   const roles = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.roles,
-
-    /**
-     * Reads the roles.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every role and what it grants.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchRoles(signal),
+    queryFn: signalled(fetchRoles),
   });
   const users = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.users,
-
-    /**
-     * Reads the people, to show who holds each role.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every living account.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchUsers(signal),
+    queryFn: signalled(fetchUsers),
   });
   const list = roles.data ?? [];
   const icons = useCatalogueIcons(list.map((role) => role.icon));

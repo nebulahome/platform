@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { applyScene, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { toastSceneApplied, toastSceneFailed } from '@/library/scene-apply-toast';
 import { DetailPlaceholder } from '@/routes/library/detail-page';
@@ -31,15 +32,7 @@ export function ScenePage() {
   const scenes = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.scenes,
     enabled: !isNew,
-
-    /**
-     * Reads every scene, for the one being changed.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The scenes.
-     */
-    queryFn: async ({ signal }) => fetchScenes(signal),
+    queryFn: signalled(fetchScenes),
   });
   const apply = useMutation({
     /**

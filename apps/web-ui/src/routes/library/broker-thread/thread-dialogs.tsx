@@ -32,6 +32,8 @@ import {
 
 import { ThreadLogo } from '@/components/brand-logos';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
+import { BROKER_QUERY_KEYS } from '@/library/brokers-api';
 import {
   checkThreadRadio,
   fetchThreadRadios,
@@ -92,15 +94,7 @@ export function ThreadSetupDialog(props: ThreadSetupDialogProps) {
 
   const radios = useQuery({
     queryKey: THREAD_QUERY_KEYS.radios,
-
-    /**
-     * Reads the ports a radio could be on.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchThreadRadios(signal),
+    queryFn: signalled(fetchThreadRadios),
   });
   const radioList = radios.data ?? [];
   const firstPort = border === '' ? (radioList[0]?.portId ?? '') : border;
@@ -565,7 +559,7 @@ export function ThreadSettingsDialog(props: ThreadSettingsDialogProps) {
 
   /** Reads Thread again. */
   const refresh = (): void => {
-    void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+    void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
   };
 
   const save = useMutation({

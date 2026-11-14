@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useSession } from '@/auth/session-store';
 import { defineMessage, type Message, text } from '@/i18n/messages';
+import { signalled } from '@/lib/signalled';
 import { fetchAutomations, fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { fetchUsers, SETTINGS_QUERY_KEYS } from '@/settings/api';
 
@@ -64,43 +65,19 @@ export function useCauseNames(): (cause: Cause | null | undefined) => CauseName 
     queryKey: LIBRARY_QUERY_KEYS.automations,
     enabled: can('automation:read'),
     staleTime: 60_000,
-
-    /**
-     * Reads the automations, for their names.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The automations.
-     */
-    queryFn: async ({ signal }) => fetchAutomations(signal),
+    queryFn: signalled(fetchAutomations),
   });
   const scenes = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.scenes,
     enabled: can('scene:read'),
     staleTime: 60_000,
-
-    /**
-     * Reads the scenes, for their names.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The scenes.
-     */
-    queryFn: async ({ signal }) => fetchScenes(signal),
+    queryFn: signalled(fetchScenes),
   });
   const users = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.users,
     enabled: can('user:read'),
     staleTime: 60_000,
-
-    /**
-     * Reads the people, for their names.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The people.
-     */
-    queryFn: async ({ signal }) => fetchUsers(signal),
+    queryFn: signalled(fetchUsers),
   });
 
   return (cause) => {

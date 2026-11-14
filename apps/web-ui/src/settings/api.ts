@@ -37,17 +37,7 @@ import {
   type UserView,
 } from '@nebulahome/contracts';
 
-import { apiRequest } from '@/lib/api-client';
-
-/**
- * A collection response.
- *
- * @param item - What one entry looks like.
- * @returns The schema of a whole collection of them.
- */
-const collectionSchema = <TItem extends z.ZodType>(
-  item: TItem,
-): z.ZodObject<{ items: z.ZodArray<TItem> }> => z.object({ items: z.array(item) });
+import { apiRequest, collectionSchema } from '@/lib/api-client';
 
 /**
  * Lists everyone with an account.
@@ -57,7 +47,7 @@ const collectionSchema = <TItem extends z.ZodType>(
  */
 export async function fetchUsers(signal?: AbortSignal): Promise<UserView[]> {
   const { items } = await apiRequest('/users', collectionSchema(userViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -121,7 +111,7 @@ export async function removeAvatar(userId: string): Promise<void> {
  */
 export async function fetchRoles(signal?: AbortSignal): Promise<RoleView[]> {
   const { items } = await apiRequest('/roles', collectionSchema(roleViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -182,7 +172,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
  */
 export async function fetchSessions(signal?: AbortSignal): Promise<SessionView[]> {
   const { items } = await apiRequest('/users/me/sessions', collectionSchema(sessionViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -205,7 +195,7 @@ export async function revokeSession(sessionId: string): Promise<void> {
  */
 export async function fetchAccessTokens(signal?: AbortSignal): Promise<AccessTokenView[]> {
   const { items } = await apiRequest('/users/me/tokens', collectionSchema(accessTokenViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -275,7 +265,7 @@ export async function disableTwoFactor(): Promise<void> {
  */
 export async function fetchServerSettings(signal?: AbortSignal): Promise<SettingsResponse> {
   return apiRequest('/settings', settingsResponseSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 

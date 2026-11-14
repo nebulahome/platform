@@ -16,6 +16,7 @@ import { AppIcon, Button, EmptyState } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { DOCS_LINKS } from '@/lib/docs-links';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { fetchDevices, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
@@ -70,28 +71,12 @@ export function TagsPage() {
 
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-
-    /**
-     * Reads every device, for what carries each tag.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
 
   const entities = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.entities,
-
-    /**
-     * Reads every entity, for what carries each tag.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The entities.
-     */
-    queryFn: async ({ signal }) => fetchEntities(signal),
+    queryFn: signalled(fetchEntities),
   });
 
   const icons = useCatalogueIcons([

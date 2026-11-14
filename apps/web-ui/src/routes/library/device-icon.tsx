@@ -21,6 +21,7 @@ import {
 } from '@nebulahome/contracts';
 import { CatalogueIcon, cn } from '@nebulahome/ui';
 
+import { signalled } from '@/lib/signalled';
 import { fetchIcons, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { BROKER_GLYPHS } from '@/routes/library/brokers-page';
 import { VendorLogo } from '@/routes/library/vendor-card';
@@ -98,15 +99,7 @@ function BrokerOwnerMark(props: {
   const Mark = BROKER_GLYPHS[broker];
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
-
-    /**
-     * Reads the vendors, for the logo.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The vendors.
-     */
-    queryFn: async ({ signal }) => fetchVendors(signal),
+    queryFn: signalled(fetchVendors),
   });
   const vendor = vendors.data?.find((each) => each.id === vendorId);
 

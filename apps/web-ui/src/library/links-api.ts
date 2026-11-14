@@ -100,7 +100,7 @@ export async function fetchLinkSuggestions(
   const { items } = await apiRequest(
     `/integrations/vendors/${encodeURIComponent(vendorId)}/suggestions`,
     linkSuggestionsReplySchema,
-    signal === undefined ? {} : { signal },
+    { signal },
   );
 
   return items;
@@ -120,7 +120,7 @@ export async function fetchSuggestionOfDevice(
   const { item } = await apiRequest(
     `/devices/${encodeURIComponent(deviceId)}/link-suggestion`,
     z.object({ item: linkSuggestionViewSchema.nullable() }),
-    signal === undefined ? {} : { signal },
+    { signal },
   );
 
   return item;
@@ -156,7 +156,7 @@ export async function fetchFound(
   const { items } = await apiRequest(
     `/integrations/vendors/${encodeURIComponent(vendorId)}/found`,
     discoveredReplySchema,
-    signal === undefined ? {} : { signal },
+    { signal },
   );
 
   return items;

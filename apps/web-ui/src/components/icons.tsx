@@ -44,56 +44,6 @@ function icon(id: UiIconId, props: IconProps) {
 }
 
 /**
- * Four panes: the dashboards.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function DashboardsIcon(props: IconProps) {
-  return icon('layout-dashboard', props);
-}
-
-/**
- * Stacked books: the library.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function LibraryIcon(props: IconProps) {
-  return icon('library', props);
-}
-
-/**
- * A box: packages.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function PackagesIcon(props: IconProps) {
-  return icon('package', props);
-}
-
-/**
- * A shipping container: the containers the machine runs.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function ContainersIcon(props: IconProps) {
-  return icon('container', props);
-}
-
-/**
- * A cog: settings.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function SettingsIcon(props: IconProps) {
-  return icon('settings', props);
-}
-
-/**
  * A chevron: right when shut, down when open.
  *
  * @param props - SVG attributes, and whether the thing it belongs to is open.
@@ -116,16 +66,6 @@ export function ChevronIcon(props: IconProps & { readonly isOpen: boolean }) {
  */
 export function ChevronLeftIcon(props: IconProps) {
   return icon('chevron-left', props);
-}
-
-/**
- * A chevron pointing on: the next page of a row that scrolls.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function ChevronRightIcon(props: IconProps) {
-  return icon('chevron-right', props);
 }
 
 /**
@@ -159,16 +99,6 @@ export function WarningIcon(props: IconProps) {
 }
 
 /**
- * A circle with an i in it.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function InfoIcon(props: IconProps) {
-  return icon('info', props);
-}
-
-/**
  * Two overlapping sheets: copy.
  *
  * @param props - SVG attributes.
@@ -176,21 +106,6 @@ export function InfoIcon(props: IconProps) {
  */
 export function CopyIcon(props: IconProps) {
   return icon('copy', props);
-}
-
-/**
- * A caret: down when shut, up when open.
- *
- * @param props - SVG attributes, and whether the thing it belongs to is open.
- * @returns The icon.
- */
-export function CaretIcon(props: IconProps & { readonly isOpen: boolean }) {
-  const { isOpen, className, ...rest } = props;
-
-  return icon('chevron-down', {
-    ...rest,
-    className: cn('transition-transform', isOpen ? 'rotate-180' : '', className),
-  });
 }
 
 /**
@@ -284,16 +199,6 @@ export function FilterIcon(props: IconProps) {
 }
 
 /**
- * An arrow leaving a box: opens elsewhere.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function ExternalLinkIcon(props: IconProps) {
-  return icon('external-link', props);
-}
-
-/**
  * A spanner: configure.
  *
  * @param props - SVG attributes.
@@ -301,84 +206,4 @@ export function ExternalLinkIcon(props: IconProps) {
  */
 export function WrenchIcon(props: IconProps) {
   return icon('wrench', props);
-}
-
-/**
- * A bolt: what the house does on its own.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function ZapIcon(props: IconProps) {
-  return icon('zap', props);
-}
-
-/**
- * A tag: the words an owner groups devices and entities by.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function TagIcon(props: IconProps) {
-  return icon('tag', props);
-}
-
-/**
- * A chip: the processor.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function ProcessorIcon(props: IconProps) {
-  return icon('cpu', props);
-}
-
-/**
- * A memory stick: the memory.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function MemoryIcon(props: IconProps) {
-  return icon('memory-stick', props);
-}
-
-/**
- * A drive: the disk.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function DiskIcon(props: IconProps) {
-  return icon('hard-drive', props);
-}
-
-/**
- * An arrow down into a tray: what the network brings in.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function DownloadIcon(props: IconProps) {
-  return icon('download', props);
-}
-
-/**
- * An arrow up out of a tray: what the network sends out.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function UploadIcon(props: IconProps) {
-  return icon('upload', props);
-}
-
-/**
- * A rack unit: the machine the platform runs on.
- *
- * @param props - SVG attributes.
- * @returns The icon.
- */
-export function ServerIcon(props: IconProps) {
-  return icon('server', props);
 }

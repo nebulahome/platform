@@ -22,6 +22,7 @@ import { SortHeader } from '@/components/sort-header';
 import type { BlockNames } from '@/lib/block-summary';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
 import {
@@ -68,25 +69,11 @@ export function AutomationsPage() {
 
   const automations = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.automations,
-    /**
-     * Reads every automation.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every rule the house follows.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAutomations(signal),
+    queryFn: signalled(fetchAutomations),
   });
   const scenes = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.scenes,
-    /**
-     * Reads the scenes, to name them in the chains.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The scenes.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchScenes(signal),
+    queryFn: signalled(fetchScenes),
   });
   const directory = useEntityDirectory(false);
 
@@ -306,7 +293,11 @@ export function AutomationsPage() {
       }
       count={automations.isPending ? undefined : items.length}
       shownCount={shown.length}
-      summary={[`${String(items.filter((automation) => automation.isEnabled).length)} enabled`]}
+      summary={[
+        t('library.automations.enabledCount', '{{enabled}} enabled', {
+          enabled: String(items.filter((automation) => automation.isEnabled).length),
+        }),
+      ]}
       tools={
         <>
           <SearchField

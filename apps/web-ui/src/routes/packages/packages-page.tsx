@@ -23,6 +23,7 @@ import { useSession } from '@/auth/session-store';
 import { defineMessage, translate, withLabels } from '@/i18n/messages';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { matchesQuery } from '@/lib/search-text';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { OPEN_PACKAGE_FILTER, packageFilterCodec } from '@/library/list-filters';
 import { fetchAvailablePackages, PACKAGE_QUERY_KEYS } from '@/packages/api';
@@ -63,15 +64,7 @@ export function PackagesPage() {
     queryKey: PACKAGE_QUERY_KEYS.available,
     enabled: installed.canRead,
     staleTime: INDEX_STALE_MS,
-
-    /**
-     * Reads what the index offers: which installed package has an update out.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The packages, and whether the index could be read.
-     */
-    queryFn: async ({ signal }) => fetchAvailablePackages(signal),
+    queryFn: signalled(fetchAvailablePackages),
   });
 
   const offered = available.data?.items ?? [];

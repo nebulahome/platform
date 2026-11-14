@@ -31,6 +31,7 @@ import {
 import { numberFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
+import { BROKER_QUERY_KEYS } from '@/library/brokers-api';
 import { saveModbusSettings } from '@/library/modbus-api';
 
 /** What the dialog needs. */
@@ -99,7 +100,7 @@ export function ModbusSettingsDialog(props: ModbusSettingsDialogProps) {
 
     /** Reads the broker again. */
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+      void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
     },
   });
 

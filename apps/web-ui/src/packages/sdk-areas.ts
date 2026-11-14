@@ -13,6 +13,7 @@ import type { AreaView as ApiAreaView } from '@nebulahome/contracts';
 import type { AreaActions, AreaView } from '@nebulahome/package-sdk/ui';
 
 import { useSession } from '@/auth/session-store';
+import { signalled } from '@/lib/signalled';
 import { createArea, deleteArea, fetchAreas, LIBRARY_QUERY_KEYS, updateArea } from '@/library/api';
 
 /**
@@ -56,15 +57,7 @@ export function useAreas(): readonly AreaView[] {
 function useAreasQuery() {
   return useQuery({
     queryKey: LIBRARY_QUERY_KEYS.areas,
-
-    /**
-     * Reads the areas.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The areas.
-     */
-    queryFn: async ({ signal }) => fetchAreas(signal),
+    queryFn: signalled(fetchAreas),
   });
 }
 

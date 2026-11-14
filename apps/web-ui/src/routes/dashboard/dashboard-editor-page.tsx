@@ -36,6 +36,7 @@ import { addCard, findCard, removeCard } from '@/dashboard/dashboard-layout';
 import { containerCard } from '@/dashboard/new-cards';
 import { listFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { AddCardDialog } from '@/routes/dashboard/add-card-dialog';
 import { CardInspector } from '@/routes/dashboard/card-inspector';
 import { isDraftDirty, useDashboardDraft } from '@/routes/dashboard/dashboard-draft';
@@ -132,14 +133,7 @@ export function DashboardEditorPage() {
 
   const dashboards = useQuery({
     queryKey: DASHBOARD_QUERY_KEYS.managed,
-    /**
-     * Reads every dashboard, for the one being laid out.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The dashboards.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchManagedDashboards(signal),
+    queryFn: signalled(fetchManagedDashboards),
   });
 
   const dashboard = dashboards.data?.find((candidate) => candidate.id === dashboardId);
@@ -199,15 +193,7 @@ function Editor(props: { readonly dashboard: DashboardView }) {
   const assignees = useQuery({
     queryKey: DASHBOARD_QUERY_KEYS.assignees,
     staleTime: 60_000,
-
-    /**
-     * Reads the people a dashboard can be shown to, for who sees this one.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The people.
-     */
-    queryFn: async ({ signal }) => fetchAssignees(signal),
+    queryFn: signalled(fetchAssignees),
   });
   const viewers = dashboard.userIds.flatMap((id) => {
     const person = assignees.data?.find((each) => each.id === id);

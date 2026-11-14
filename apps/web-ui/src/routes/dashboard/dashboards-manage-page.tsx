@@ -24,6 +24,7 @@ import { translate } from '@/i18n/messages';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { relativeTime } from '@/lib/format-time';
 import { matchesQuery } from '@/lib/search-text';
+import { signalled } from '@/lib/signalled';
 import { nonDefault, useListState, type ListCodec } from '@/lib/use-list-state';
 import { DashboardDialog, type DashboardDialogTarget } from '@/routes/dashboard/dashboard-dialog';
 import { DASHBOARDS_CONFIGURATION_PATH } from '@/routes/dashboard/dashboard-page';
@@ -144,26 +145,12 @@ export function DashboardsManagePage() {
 
   const dashboards = useQuery({
     queryKey: DASHBOARD_QUERY_KEYS.managed,
-    /**
-     * Reads every dashboard in the house.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The dashboards.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchManagedDashboards(signal),
+    queryFn: signalled(fetchManagedDashboards),
   });
 
   const assignees = useQuery({
     queryKey: DASHBOARD_QUERY_KEYS.assignees,
-    /**
-     * Reads the people, for the faces in each row.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Every active account.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAssignees(signal),
+    queryFn: signalled(fetchAssignees),
   });
 
   // What this house has, for the preview of a file about to be imported.

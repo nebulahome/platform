@@ -42,6 +42,7 @@ import { BACKUP_QUERY_KEYS, fetchBackupStatus } from '@/backup/api';
 import { toMessage } from '@/lib/error-message';
 import { formatUptime } from '@/lib/format-bytes';
 import { relativeTime } from '@/lib/format-time';
+import { signalled } from '@/lib/signalled';
 import { isSameJson } from '@/routes/settings/backup-text';
 import {
   HeroCard,
@@ -208,39 +209,15 @@ export function SoftwareSettings() {
   });
   const settings = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.server,
-
-    /**
-     * Reads the settings.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request.
-     * @returns Every setting.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchServerSettings(signal),
+    queryFn: signalled(fetchServerSettings),
   });
   const platform = useQuery({
     queryKey: PLATFORM_QUERY_KEY,
-
-    /**
-     * Reads Nebula Home's own state, for how long it has run.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request.
-     * @returns The state.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchPlatformState(signal),
+    queryFn: signalled(fetchPlatformState),
   });
   const backup = useQuery({
     queryKey: BACKUP_QUERY_KEYS.status,
-
-    /**
-     * Reads the backups' state, for the quietest time it reports.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request.
-     * @returns The state.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchBackupStatus(signal),
+    queryFn: signalled(fetchBackupStatus),
   });
 
   const stored = new Map((settings.data?.items ?? []).map((item) => [item.key, item.value]));

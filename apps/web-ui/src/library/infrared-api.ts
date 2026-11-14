@@ -40,23 +40,13 @@ export const INFRARED_QUERY_KEYS = {
 };
 
 /**
- * The options of a read: its abort signal, when it has one.
- *
- * @param signal - Cancels the request.
- * @returns The options.
- */
-function readOptions(signal: AbortSignal | undefined) {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
  * Reads where the broker stands.
  *
  * @param signal - Cancels the request.
  * @returns Its state, the blasters online, the last code sent and who is listening.
  */
 export async function fetchInfraredStatus(signal?: AbortSignal): Promise<InfraredStatus> {
-  return apiRequest('/brokers/infrared', infraredStatusSchema, readOptions(signal));
+  return apiRequest('/brokers/infrared', infraredStatusSchema, { signal });
 }
 
 /**
@@ -66,9 +56,8 @@ export async function fetchInfraredStatus(signal?: AbortSignal): Promise<Infrare
  * @returns Them, by name.
  */
 export async function fetchInfraredBlasters(signal?: AbortSignal): Promise<InfraredBlaster[]> {
-  return (
-    await apiRequest('/brokers/infrared/blasters', infraredBlastersReplySchema, readOptions(signal))
-  ).items;
+  return (await apiRequest('/brokers/infrared/blasters', infraredBlastersReplySchema, { signal }))
+    .items;
 }
 
 /**
@@ -78,9 +67,8 @@ export async function fetchInfraredBlasters(signal?: AbortSignal): Promise<Infra
  * @returns Them, by name.
  */
 export async function fetchInfraredRemotes(signal?: AbortSignal): Promise<InfraredRemote[]> {
-  return (
-    await apiRequest('/brokers/infrared/remotes', infraredRemotesReplySchema, readOptions(signal))
-  ).items;
+  return (await apiRequest('/brokers/infrared/remotes', infraredRemotesReplySchema, { signal }))
+    .items;
 }
 
 /**
@@ -97,7 +85,7 @@ export async function fetchInfraredRemote(
   return apiRequest(
     `/brokers/infrared/remotes/${encodeURIComponent(id)}`,
     infraredRemoteDetailSchema,
-    readOptions(signal),
+    { signal },
   );
 }
 
@@ -231,7 +219,7 @@ export async function fetchInfraredLearnJob(
   return apiRequest(
     `/brokers/infrared/learn/jobs/${encodeURIComponent(jobId)}`,
     infraredLearnJobSchema,
-    readOptions(signal),
+    { signal },
   );
 }
 

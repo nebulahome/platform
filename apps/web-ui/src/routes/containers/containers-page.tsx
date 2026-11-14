@@ -32,6 +32,7 @@ import {
 } from '@/containers/container-filters';
 import { containerTiles } from '@/containers/container-groups';
 import { defineMessage, type Message, translate, withLabels } from '@/i18n/messages';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { ComposeEditorDialog } from '@/routes/containers/compose-editor-dialog';
 import { ComposeCard, ContainerCard, InstallCard } from '@/routes/containers/container-card';
@@ -76,15 +77,7 @@ export function ContainersPage() {
   const [isComposing, setComposing] = useState(false);
   const containers = useQuery({
     queryKey: CONTAINER_QUERY_KEYS.list,
-
-    /**
-     * Reads every container.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Docker's status, the containers, and what is being installed or deployed.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchContainers(signal),
+    queryFn: signalled(fetchContainers),
 
     // The readings move every ten seconds; the page follows them while it is looked at.
     refetchInterval: 10_000,

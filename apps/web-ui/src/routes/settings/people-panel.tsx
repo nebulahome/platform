@@ -34,6 +34,7 @@ import { toMessage } from '@/lib/error-message';
 import { isPasswordAcceptable } from '@/lib/password-rules';
 import { roleName } from '@/lib/role-names';
 import { matchesQuery } from '@/lib/search-text';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { OPEN_PEOPLE_FILTER, PEOPLE_FILTER_CODEC } from '@/library/list-filters';
 import { Facet, facetChoices, FilterSheet } from '@/routes/library/filter-sheet';
@@ -80,28 +81,12 @@ export function PeoplePanel() {
 
   const users = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.users,
-
-    /**
-     * Reads everyone with an account.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every living account.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchUsers(signal),
+    queryFn: signalled(fetchUsers),
   });
 
   const roles = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.roles,
-
-    /**
-     * Reads the roles, for the picker.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every role.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchRoles(signal),
+    queryFn: signalled(fetchRoles),
   });
 
   /**

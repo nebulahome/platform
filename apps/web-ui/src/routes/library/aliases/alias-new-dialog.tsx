@@ -22,6 +22,7 @@ import {
 import { AppIcon, Button, Modal, Segmented, SelectField, TextField, toast } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import {
   aliasDefs,
   groupLabel,
@@ -287,25 +288,11 @@ export function DeviceField(props: {
   const { value, onChange } = props;
   const virtual = useQuery({
     queryKey: ALIAS_DEVICES_KEY,
-    /**
-     * Reads the virtual devices.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the read.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAliasDevices(signal),
+    queryFn: signalled(fetchAliasDevices),
   });
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-    /**
-     * Reads the devices.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the read.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
     enabled: value.kind === 'existing',
   });
 
@@ -421,26 +408,12 @@ export function NewAliasDialog(props: NewAliasDialogProps) {
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const virtual = useQuery({
     queryKey: ALIAS_DEVICES_KEY,
-    /**
-     * Reads the virtual devices, to name the shared one.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the read.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAliasDevices(signal),
+    queryFn: signalled(fetchAliasDevices),
     enabled: isOpen,
   });
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-    /**
-     * Reads the devices, for the room of the one picked.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the read.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
     enabled: isOpen && device.kind === 'existing',
   });
   const type = typeOf(typeId);

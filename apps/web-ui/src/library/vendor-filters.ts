@@ -8,7 +8,6 @@
  */
 import {
   TRANSPORT_WIRES,
-  type DiscoveredDevice,
   type IntegrationVendorView,
   type TransportWire,
 } from '@nebulahome/contracts';
@@ -149,35 +148,6 @@ export const VENDOR_FILTER_CODEC: ListCodec<VendorFilter> = {
       sort: [filter.sort, 'name'],
     }),
 };
-
-/**
- * Whether a device found on the network answers the search.
- *
- * The strip of found devices sits above the grid and follows the same search, so typing
- * "plug" does not leave a strip of lamps in view above a grid narrowed to plugs.
- *
- * @param device - The device found.
- * @param vendorName - Its vendor's name.
- * @param search - What was typed.
- * @returns True when every word is in its name, model, address, vendor or its model choices.
- */
-export function matchesDiscovered(
-  device: DiscoveredDevice,
-  vendorName: string | undefined,
-  search: string,
-): boolean {
-  return matchesQuery(
-    [
-      device.name,
-      device.model,
-      device.address,
-      device.externalId,
-      vendorName,
-      ...device.modelChoices,
-    ],
-    search,
-  );
-}
 
 /**
  * The wires a vendor's devices are reached over.

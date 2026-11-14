@@ -42,6 +42,7 @@ import {
   fetchBluetoothProxyJob,
   saveBluetoothSettings,
 } from '@/library/bluetooth-api';
+import { BROKER_QUERY_KEYS } from '@/library/brokers-api';
 import { TickingSteps } from '@/routes/library/broker-matter/matter-steps';
 import { ChoiceCard } from '@/routes/library/broker-parts';
 import { BrokerMark } from '@/routes/library/brokers-page';
@@ -453,7 +454,7 @@ export function BluetoothSettingsDialog(props: BluetoothSettingsDialogProps) {
 
     /** Reads it again and closes. */
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+      void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
       props.onClose();
     },
   });

@@ -10,7 +10,7 @@
  *
  * The conversion is pure: it does not look at the house. The import flow does that next.
  */
-import type { JsonObject, JsonValue } from '@nebulahome/contracts';
+import type { AutomationMode, JsonObject, JsonValue } from '@nebulahome/contracts';
 
 import { translate } from '@/i18n/messages';
 import { toKey } from '@/library/automation-draft';
@@ -21,7 +21,7 @@ export type ImportedAutomation = {
   readonly key: string;
   readonly name: string;
   readonly description: string;
-  readonly mode: 'single' | 'restart' | 'queued' | 'parallel';
+  readonly mode: AutomationMode;
   readonly maxRuntimeMs: number;
   readonly isEnabled: boolean;
   readonly definition: JsonObject;

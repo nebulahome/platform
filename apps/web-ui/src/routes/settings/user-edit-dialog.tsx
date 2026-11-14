@@ -21,6 +21,7 @@ import { Avatar } from '@/components/avatar';
 import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
 import { roleDescription, roleName } from '@/lib/role-names';
+import { signalled } from '@/lib/signalled';
 import { AvatarPicker } from '@/routes/settings/avatar-picker';
 import { SETTINGS_QUERY_KEYS, deleteUser, fetchRoles, updateUser } from '@/settings/api';
 
@@ -69,15 +70,7 @@ function EditForm(props: { readonly user: UserView; readonly onClose: () => void
 
   const roles = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.roles,
-
-    /**
-     * Reads the roles, for the picker.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request when the dialog goes away.
-     * @returns Every role.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchRoles(signal),
+    queryFn: signalled(fetchRoles),
   });
   const chosen = (roles.data ?? []).find((entry) => entry.key === role);
 

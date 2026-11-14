@@ -201,8 +201,21 @@ export function InstallIntegrationsDialog(props: InstallIntegrationsDialogProps)
         results.hubError === null ? (
           results.isPending ? (
             t('library.installIntegrationsDialog.askingTheHub', 'Asking the Hub…')
+          ) : results.query === '' ? (
+            t('library.installIntegrationsDialog.resultCount', {
+              count: results.items.length,
+              more: results.hasMore ? '+' : '',
+              defaultValue_one: '{{count}}{{more}} result',
+              defaultValue_other: '{{count}}{{more}} results',
+            })
           ) : (
-            `${String(results.items.length)}${results.hasMore ? '+' : ''} ${results.items.length === 1 ? 'result' : 'results'}${results.query === '' ? '' : ` for “${results.query}”`}`
+            t('library.installIntegrationsDialog.resultsFor', {
+              count: results.items.length,
+              more: results.hasMore ? '+' : '',
+              query: results.query,
+              defaultValue_one: '{{count}}{{more}} result for “{{query}}”',
+              defaultValue_other: '{{count}}{{more}} results for “{{query}}”',
+            })
           )
         ) : (
           <span role="status" className="text-warning">

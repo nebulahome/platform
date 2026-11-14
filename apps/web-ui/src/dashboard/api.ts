@@ -44,7 +44,7 @@ export async function fetchDashboards(signal?: AbortSignal): Promise<DashboardVi
   const { items } = await apiRequest(
     '/dashboards',
     z.object({ items: z.array(dashboardViewSchema) }),
-    { ...(signal === undefined ? {} : { signal }) },
+    { signal },
   );
 
   return items;
@@ -60,7 +60,7 @@ export async function fetchManagedDashboards(signal?: AbortSignal): Promise<Dash
   const { items } = await apiRequest(
     '/dashboards/manage',
     z.object({ items: z.array(dashboardViewSchema) }),
-    { ...(signal === undefined ? {} : { signal }) },
+    { signal },
   );
 
   return items;
@@ -76,7 +76,7 @@ export async function fetchAssignees(signal?: AbortSignal): Promise<DashboardAss
   const { items } = await apiRequest(
     '/dashboards/assignees',
     z.object({ items: z.array(dashboardAssigneeSchema) }),
-    { ...(signal === undefined ? {} : { signal }) },
+    { signal },
   );
 
   return items;
@@ -94,7 +94,7 @@ export async function fetchDashboard(
   signal?: AbortSignal,
 ): Promise<DashboardView> {
   return apiRequest(`/dashboards/${dashboardId}`, dashboardViewSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 

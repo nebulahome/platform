@@ -31,6 +31,7 @@ import { SortHeader } from '@/components/sort-header';
 import { areaFacetChoices } from '@/lib/area-tree';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
 import {
@@ -97,26 +98,12 @@ export function ScenesPage() {
 
   const scenes = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.scenes,
-    /**
-     * Reads every scene.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every saved set of states.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchScenes(signal),
+    queryFn: signalled(fetchScenes),
   });
 
   const entities = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.entities,
-    /**
-     * Reads every entity, so cards can name the areas a scene touches.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Every entity.
-     */
-    queryFn: async ({ signal }) => fetchEntities(signal),
+    queryFn: signalled(fetchEntities),
   });
 
   const items = scenes.data ?? [];
@@ -268,7 +255,13 @@ export function ScenesPage() {
       }
       count={scenes.isPending ? undefined : items.length}
       shownCount={shown.length}
-      summary={[`${String(memberCount)} ${memberCount === 1 ? 'entity' : 'entities'} set`]}
+      summary={[
+        t('library.scenes.entitiesSet', {
+          count: memberCount,
+          defaultValue_one: '{{count}} entity set',
+          defaultValue_other: '{{count}} entities set',
+        }),
+      ]}
       tools={
         <>
           <SearchField

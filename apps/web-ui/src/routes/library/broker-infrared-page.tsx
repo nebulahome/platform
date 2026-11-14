@@ -14,8 +14,9 @@ import { useTranslation } from 'react-i18next';
 import { AppIcon, Button, DetailHero, HeroFact, Note, Pill, TabPanel, Tabs } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
-import { fetchAreas, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { BROKER_REFRESH_MS } from '@/library/brokers-api';
 import {
   fetchInfraredBlasters,
   fetchInfraredRemotes,
@@ -30,15 +31,13 @@ import {
 } from '@/routes/library/broker-infrared/infrared-tabs';
 import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
+import { useAreas } from '@/routes/library/use-areas';
 
 /** The tabs of the page; the first is the page itself. */
 const TABS = ['overview', 'remotes', 'blasters'] as const;
 
 /** One tab. */
 type InfraredTab = (typeof TABS)[number];
-
-/** How often the broker is read again. */
-const REFRESH_MS = 5000;
 
 /**
  * Renders the Infrared broker's page.
@@ -54,70 +53,26 @@ export function InfraredBrokerPage() {
 
   const status = useQuery({
     queryKey: INFRARED_QUERY_KEYS.status,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the broker's state.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The state.
-     */
-    queryFn: async ({ signal }) => fetchInfraredStatus(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchInfraredStatus),
   });
   const remotes = useQuery({
     queryKey: INFRARED_QUERY_KEYS.remotes,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the remotes.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The remotes.
-     */
-    queryFn: async ({ signal }) => fetchInfraredRemotes(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchInfraredRemotes),
   });
   const blasters = useQuery({
     queryKey: INFRARED_QUERY_KEYS.blasters,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the blasters.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The blasters.
-     */
-    queryFn: async ({ signal }) => fetchInfraredBlasters(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchInfraredBlasters),
   });
-  const areas = useQuery({
-    queryKey: LIBRARY_QUERY_KEYS.areas,
-
-    /**
-     * Reads the rooms.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The rooms.
-     */
-    queryFn: async ({ signal }) => fetchAreas(signal),
-  });
+  const { areas, roomOf } = useAreas();
 
   const current = status.data;
   const state = current === undefined ? null : brokerStateOf(current.state);
   const remoteList = remotes.data ?? [];
   const blasterList = blasters.data ?? [];
-  const roomNames = new Map((areas.data ?? []).map((area) => [area.id, area.name]));
 
-  /**
-   * The name of a room.
-   *
-   * @param areaId - The room.
-   * @returns Its name, or null.
-   */
-  const roomOf = (areaId: string | null): string | null =>
-    areaId === null ? null : (roomNames.get(areaId) ?? null);
   const hasBlaster = blasterList.some((blaster) => blaster.isOnline);
 
   return (
@@ -229,7 +184,7 @@ export function InfraredBrokerPage() {
             <AddRemoteDialog
               isOpen
               blasters={blasterList}
-              rooms={(areas.data ?? []).filter((area) => area.kind === 'room')}
+              rooms={areas.filter((area) => area.kind === 'room')}
               roomOf={roomOf}
               onClose={() => {
                 setAdding(false);

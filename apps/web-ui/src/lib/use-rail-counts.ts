@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useSession } from '@/auth/session-store';
 import { CONTAINER_QUERY_KEYS, fetchContainers } from '@/containers/api';
+import { signalled } from '@/lib/signalled';
 import {
   fetchAliases,
   fetchAreas,
@@ -62,15 +63,7 @@ function useLength(
     queryKey: key,
     enabled: isAllowed,
     staleTime: COUNT_STALE_MS,
-
-    /**
-     * Reads the list.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The list.
-     */
-    queryFn: async ({ signal }) => read(signal),
+    queryFn: signalled(read),
   });
 
   return isAllowed ? query.data?.length : undefined;
@@ -87,43 +80,19 @@ export function useRailCounts(): RailCounts {
     queryKey: LIBRARY_QUERY_KEYS.areas,
     enabled: can('area:read'),
     staleTime: COUNT_STALE_MS,
-
-    /**
-     * Reads every area.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The areas.
-     */
-    queryFn: async ({ signal }) => fetchAreas(signal),
+    queryFn: signalled(fetchAreas),
   });
   const containers = useQuery({
     queryKey: CONTAINER_QUERY_KEYS.list,
     enabled: can('container:read'),
     staleTime: COUNT_STALE_MS,
-
-    /**
-     * Reads every container.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns Docker's status and the containers.
-     */
-    queryFn: async ({ signal }) => fetchContainers(signal),
+    queryFn: signalled(fetchContainers),
   });
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
     enabled: can('integration:read'),
     staleTime: COUNT_STALE_MS,
-
-    /**
-     * Reads every vendor.
-     *
-     * @param context - The abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The vendors.
-     */
-    queryFn: async ({ signal }) => fetchVendors(signal),
+    queryFn: signalled(fetchVendors),
   });
   const { packages, isPending: arePackagesPending } = useInstalledPackages();
 

@@ -27,6 +27,7 @@ import { useSession } from '@/auth/session-store';
 import { CONTAINER_QUERY_KEYS, fetchContainers } from '@/containers/api';
 import { defineMessage, type Message, text } from '@/i18n/messages';
 import { absoluteTime } from '@/lib/format-time';
+import { signalled } from '@/lib/signalled';
 import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
   packageNeedsHealth,
@@ -109,28 +110,12 @@ export function PackageOverview(props: PackageOverviewProps) {
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
     enabled: can('device:read'),
-
-    /**
-     * Reads every device; the tab keeps the package's.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
   const containers = useQuery({
     queryKey: CONTAINER_QUERY_KEYS.list,
     enabled: can('container:read'),
-
-    /**
-     * Reads the host's containers; the tab keeps the package's.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchContainers(signal),
+    queryFn: signalled(fetchContainers),
   });
   const ownDevices = (devices.data ?? []).filter(
     (device) => device.origin === 'package' && device.vendorId === found.id,
@@ -223,7 +208,11 @@ export function PackageOverview(props: PackageOverviewProps) {
                 ]
                   .filter(Boolean)
                   .join(' · ')}
-                meta={`${String(device.entityIds.length)} ${device.entityIds.length === 1 ? 'entity' : 'entities'}`}
+                meta={t('packages.packageOverview.entities', {
+                  count: device.entityIds.length,
+                  defaultValue_one: '{{count}} entity',
+                  defaultValue_other: '{{count}} entities',
+                })}
                 trailing={
                   device.state === 'running' ? (
                     <Pill tone="success">

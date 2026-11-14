@@ -34,6 +34,7 @@ import {
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
 import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
@@ -111,66 +112,34 @@ export function MatterBrokerPage() {
      */
     refetchInterval: (query) =>
       isUnderWay(query.state.data) ? COMMISSIONING_REFRESH_MS : REFRESH_MS,
-
-    /**
-     * Reads the fabric's state.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The state.
-     */
-    queryFn: async ({ signal }) => fetchMatterStatus(signal),
+    queryFn: signalled(fetchMatterStatus),
   });
   const isCommissioning = isUnderWay(status.data);
 
   const nodes = useQuery({
     queryKey: BROKER_QUERY_KEYS.matterNodes,
     refetchInterval: isCommissioning ? COMMISSIONING_REFRESH_MS : REFRESH_MS,
-
-    /**
-     * Reads the nodes.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The nodes.
-     */
-    queryFn: async ({ signal }) => fetchMatterNodes(signal),
+    queryFn: signalled(fetchMatterNodes),
   });
 
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
     refetchInterval: isCommissioning ? COMMISSIONING_REFRESH_MS : REFRESH_MS,
-
-    /**
-     * Reads the devices, for the names, rooms and links of those the nodes are.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
 
   const network = useQuery({
     queryKey: BROKER_QUERY_KEYS.matterNetwork,
     enabled: tab === 'network' || tab === 'devices',
     refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads how the nodes reach the house.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The network.
-     */
-    queryFn: async ({ signal }) => fetchMatterNetwork(signal),
+    queryFn: signalled(fetchMatterNetwork),
   });
 
   const vendors = useVendorsById();
 
   /** Reads everything the fabric touches again. */
   const refresh = (): void => {
-    void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+    void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
   };

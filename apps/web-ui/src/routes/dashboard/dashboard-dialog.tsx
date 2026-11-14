@@ -39,6 +39,7 @@ import {
 } from '@/dashboard/dashboard-file';
 import { allCards } from '@/dashboard/dashboard-layout';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { AssigneeField } from '@/routes/dashboard/assignee-field';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
 import { NameIconField } from '@/routes/library/name-icon-field';
@@ -106,14 +107,7 @@ export function DashboardDialog(props: DashboardDialogProps) {
 
   const people = useQuery({
     queryKey: DASHBOARD_QUERY_KEYS.assignees,
-    /**
-     * Reads who a dashboard can be shown to.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the dialog goes away.
-     * @returns Every active account.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAssignees(signal),
+    queryFn: signalled(fetchAssignees),
     enabled: target !== null,
   });
 

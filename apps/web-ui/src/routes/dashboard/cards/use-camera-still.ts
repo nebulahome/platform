@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
 import { apiBlob } from '@/lib/api-client';
+import { PICTURE_QUERY_KEYS } from '@/library/use-entity-image';
 
 /** How often a still is fetched again while it is shown. */
 const REFRESH_MS = 15_000;
@@ -22,7 +23,7 @@ const REFRESH_MS = 15_000;
  */
 export function useCameraStill(entityId: string, isWanted: boolean): string | null {
   const still = useQuery({
-    queryKey: ['camera-still', entityId],
+    queryKey: [...PICTURE_QUERY_KEYS.cameraStill, entityId],
     enabled: isWanted,
     refetchInterval: REFRESH_MS,
     retry: false,

@@ -29,6 +29,7 @@ import { AppIcon, Button, DetailHero, HeroFact, Pill, TabPanel, Tabs } from '@ne
 
 import { useSession } from '@/auth/session-store';
 import { translate } from '@/i18n/messages';
+import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
 import { fetchDevices, fetchDiscovered, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { LINK_QUERY_KEYS } from '@/library/links-api';
@@ -122,29 +123,13 @@ export function VendorPage() {
 
   const all = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-
-    /**
-     * Reads every device; the page keeps this vendor's.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
 
   const discovered = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.discovered,
     enabled: can('device:read'),
-
-    /**
-     * Reads what the hub found on the network and nobody has added; the page keeps this vendor's.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices found.
-     */
-    queryFn: async ({ signal }) => fetchDiscovered(signal),
+    queryFn: signalled(fetchDiscovered),
   });
 
   const found = vendor.data;

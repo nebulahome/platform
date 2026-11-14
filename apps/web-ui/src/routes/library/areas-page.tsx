@@ -160,8 +160,16 @@ export function AreasPage() {
           tree === null
             ? []
             : [
-                `${String(floorCount)} ${floorCount === 1 ? 'floor' : 'floors'}`,
-                `${String(roomCount)} ${roomCount === 1 ? 'room' : 'rooms'}`,
+                t('library.areas.floors', {
+                  count: floorCount,
+                  defaultValue_one: '{{count}} floor',
+                  defaultValue_other: '{{count}} floors',
+                }),
+                t('library.areas.rooms', {
+                  count: roomCount,
+                  defaultValue_one: '{{count}} room',
+                  defaultValue_other: '{{count}} rooms',
+                }),
               ]
         }
         tools={

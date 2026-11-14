@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { AppIcon, Button, Modal, toast } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
+import { BROKER_QUERY_KEYS } from '@/library/brokers-api';
 
 /** What the button needs. */
 export type RestartBrokerProps = {
@@ -57,7 +58,7 @@ export function RestartBroker(props: RestartBrokerProps) {
 
     /** Reads the broker again. */
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+      void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
     },
   });
 

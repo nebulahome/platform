@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ApiPackage } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
+import { signalled } from '@/lib/signalled';
 import { fetchPackages, PACKAGE_QUERY_KEYS } from '@/packages/api';
 
 /** The installed packages, as a component reads them. */
@@ -35,15 +36,7 @@ export function useInstalledPackages(): InstalledPackages {
   const query = useQuery({
     queryKey: PACKAGE_QUERY_KEYS.list,
     enabled: canRead,
-
-    /**
-     * Reads the installed packages.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The packages.
-     */
-    queryFn: async ({ signal }) => fetchPackages(signal),
+    queryFn: signalled(fetchPackages),
   });
 
   return {

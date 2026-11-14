@@ -11,6 +11,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import type { SystemMonitorSnapshot } from '@nebulahome/contracts';
 
+import { signalled } from '@/lib/signalled';
 import { fetchSystemMonitor, SYSTEM_QUERY_KEYS } from '@/system/api';
 
 /** How often the page asks again. */
@@ -24,15 +25,7 @@ export const SYSTEM_MONITOR_REFRESH_MS = 10_000;
 export function useSystemMonitor(): UseQueryResult<SystemMonitorSnapshot> {
   return useQuery({
     queryKey: SYSTEM_QUERY_KEYS.monitor,
-
-    /**
-     * Reads the snapshot.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The snapshot.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchSystemMonitor(signal),
+    queryFn: signalled(fetchSystemMonitor),
     refetchInterval: SYSTEM_MONITOR_REFRESH_MS,
     refetchIntervalInBackground: false,
   });

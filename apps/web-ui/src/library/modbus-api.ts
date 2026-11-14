@@ -40,23 +40,13 @@ export const MODBUS_QUERY_KEYS = {
 };
 
 /**
- * The options of a read: its abort signal, when it has one.
- *
- * @param signal - Cancels the request.
- * @returns The options.
- */
-function readOptions(signal: AbortSignal | undefined) {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
  * Reads where the broker stands.
  *
  * @param signal - Cancels the request.
  * @returns Its state, its settings and the last search.
  */
 export async function fetchModbusStatus(signal?: AbortSignal): Promise<ModbusStatus> {
-  return apiRequest('/brokers/modbus', modbusStatusSchema, readOptions(signal));
+  return apiRequest('/brokers/modbus', modbusStatusSchema, { signal });
 }
 
 /**
@@ -66,9 +56,7 @@ export async function fetchModbusStatus(signal?: AbortSignal): Promise<ModbusSta
  * @returns Each, with how it answers.
  */
 export async function fetchModbusDevices(signal?: AbortSignal): Promise<ModbusDevice[]> {
-  return (
-    await apiRequest('/brokers/modbus/devices', modbusDevicesReplySchema, readOptions(signal))
-  ).items;
+  return (await apiRequest('/brokers/modbus/devices', modbusDevicesReplySchema, { signal })).items;
 }
 
 /**
@@ -102,9 +90,8 @@ export async function removeModbusDevice(id: string): Promise<void> {
  * @returns Them.
  */
 export async function fetchModbusTemplates(signal?: AbortSignal): Promise<ModbusTemplateRecord[]> {
-  return (
-    await apiRequest('/brokers/modbus/templates', modbusTemplatesReplySchema, readOptions(signal))
-  ).items;
+  return (await apiRequest('/brokers/modbus/templates', modbusTemplatesReplySchema, { signal }))
+    .items;
 }
 
 /**
@@ -165,7 +152,7 @@ export async function searchModbus(): Promise<ModbusStatus> {
  * @returns Both.
  */
 export async function fetchModbusFound(signal?: AbortSignal) {
-  return apiRequest('/brokers/modbus/found', modbusFoundReplySchema, readOptions(signal));
+  return apiRequest('/brokers/modbus/found', modbusFoundReplySchema, { signal });
 }
 
 /**

@@ -48,7 +48,11 @@ export type FloorSectionProps = {
 function describeContents(room: AreaView): string {
   return room.deviceCount === 0
     ? translate('library.floorSection.nothingYet', 'Nothing yet')
-    : `${String(room.deviceCount)} device${room.deviceCount === 1 ? '' : 's'}`;
+    : translate('library.floorSection.devices', {
+        count: room.deviceCount,
+        defaultValue_one: '{{count}} device',
+        defaultValue_other: '{{count}} devices',
+      });
 }
 
 /**

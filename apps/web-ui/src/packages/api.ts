@@ -119,16 +119,6 @@ function pathOf(id: string): string {
 }
 
 /**
- * The signal, as the request options take it.
- *
- * @param signal - Cancels the request, when there is one.
- * @returns The options.
- */
-function withSignal(signal: AbortSignal | undefined): { signal?: AbortSignal } {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
  * A path as the manifest writes it, without the `./` in front.
  *
  * @param name - `./ui/index.js`.
@@ -197,11 +187,9 @@ export function catalogueLogoUrl(sha256: string | null): string | undefined {
  * @returns The packages, with how much of the house each accounts for.
  */
 export async function fetchPackages(signal?: AbortSignal): Promise<ApiPackage[]> {
-  const { items } = await apiRequest(
-    '/packages',
-    z.object({ items: z.array(apiPackageSchema) }),
-    withSignal(signal),
-  );
+  const { items } = await apiRequest('/packages', z.object({ items: z.array(apiPackageSchema) }), {
+    signal,
+  });
 
   return items;
 }
@@ -214,7 +202,7 @@ export async function fetchPackages(signal?: AbortSignal): Promise<ApiPackage[]>
  * @returns The package.
  */
 export async function fetchPackage(id: string, signal?: AbortSignal): Promise<ApiPackageDetail> {
-  return apiRequest(pathOf(id), apiPackageDetailSchema, withSignal(signal));
+  return apiRequest(pathOf(id), apiPackageDetailSchema, { signal });
 }
 
 /**
@@ -224,7 +212,7 @@ export async function fetchPackage(id: string, signal?: AbortSignal): Promise<Ap
  * @returns The packages, and whether the index could be read.
  */
 export async function fetchAvailablePackages(signal?: AbortSignal): Promise<PackageAvailableReply> {
-  return apiRequest('/packages/available', packageAvailableReplySchema, withSignal(signal));
+  return apiRequest('/packages/available', packageAvailableReplySchema, { signal });
 }
 
 /**
@@ -256,7 +244,7 @@ export async function searchCatalogue(
   return apiRequest(
     `/packages/catalogue${query === '' ? '' : `?${query}`}`,
     packageSearchReplySchema,
-    withSignal(signal),
+    { signal },
   );
 }
 
@@ -271,11 +259,7 @@ export async function fetchPackageCatalogueDetail(
   id: string,
   signal?: AbortSignal,
 ): Promise<HubDetail> {
-  return apiRequest(
-    `/packages/catalogue/${encodeURIComponent(id)}`,
-    hubDetailSchema,
-    withSignal(signal),
-  );
+  return apiRequest(`/packages/catalogue/${encodeURIComponent(id)}`, hubDetailSchema, { signal });
 }
 
 /**
@@ -388,11 +372,7 @@ export async function fetchPackageLogs(
     query.set('since', since);
   }
 
-  return apiRequest(
-    `${pathOf(id)}/logs?${query.toString()}`,
-    containerLogsReplySchema,
-    withSignal(signal),
-  );
+  return apiRequest(`${pathOf(id)}/logs?${query.toString()}`, containerLogsReplySchema, { signal });
 }
 
 /**
@@ -413,7 +393,7 @@ export async function callPackage(
   const { output } = await apiRequest(
     `${pathOf(id)}/rpc/${encodeURIComponent(method)}`,
     packageRpcReplySchema,
-    { method: 'POST', body: { input }, ...withSignal(signal) },
+    { method: 'POST', body: { input }, signal },
   );
 
   return output;

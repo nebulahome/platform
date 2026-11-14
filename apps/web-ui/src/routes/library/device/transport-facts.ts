@@ -19,6 +19,7 @@ import {
 } from '@nebulahome/contracts';
 
 import { translate } from '@/i18n/messages';
+import { signalled } from '@/lib/signalled';
 import { BLUETOOTH_QUERY_KEYS, fetchBluetoothDevices } from '@/library/bluetooth-api';
 import { fetchInfraredRemotes, INFRARED_QUERY_KEYS } from '@/library/infrared-api';
 import { fetchSerialDevices, SERIAL_QUERY_KEYS } from '@/library/serial-api';
@@ -67,57 +68,25 @@ export function useTransportFacts(device: DeviceView | undefined): TransportFact
     ...options,
     queryKey: INFRARED_QUERY_KEYS.remotes,
     enabled: transport === INFRARED_TRANSPORT,
-
-    /**
-     * Reads the remotes, for this one's blaster.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The remotes.
-     */
-    queryFn: async ({ signal }) => fetchInfraredRemotes(signal),
+    queryFn: signalled(fetchInfraredRemotes),
   });
   const serial = useQuery({
     ...options,
     queryKey: SERIAL_QUERY_KEYS.devices,
     enabled: isSerial,
-
-    /**
-     * Reads the serial devices, for this one's port.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchSerialDevices(signal),
+    queryFn: signalled(fetchSerialDevices),
   });
   const bluetooth = useQuery({
     ...options,
     queryKey: BLUETOOTH_QUERY_KEYS.devices,
     enabled: transport === BLUETOOTH_TRANSPORT,
-
-    /**
-     * Reads the Bluetooth devices, for who hears this one.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchBluetoothDevices(signal),
+    queryFn: signalled(fetchBluetoothDevices),
   });
   const thread = useQuery({
     ...options,
     queryKey: THREAD_QUERY_KEYS.devices,
     enabled: transport === MATTER_TRANSPORT,
-
-    /**
-     * Reads the Thread devices, for this one's role.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The devices.
-     */
-    queryFn: async ({ signal }) => fetchThreadDevices(signal),
+    queryFn: signalled(fetchThreadDevices),
   });
 
   if (device === undefined) {

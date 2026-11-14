@@ -32,6 +32,7 @@ import {
 
 import { WeekdayPicker } from '@/components/weekday-picker';
 import { translate } from '@/i18n/messages';
+import { useRowIds } from '@/lib/block-ids';
 import { crossesMidnight, sunPhaseWord } from '@/lib/block-summary';
 import { partialEntityId, withoutKey } from '@/library/automation-draft';
 import { useEditorHouse, type EditorHouse } from '@/routes/library/automation/editor-house';
@@ -410,6 +411,7 @@ function ExpressionFields(props: {
   const { condition, onChange } = props;
   const house = useEditorHouse();
   const variables = Object.entries(condition.variables ?? {});
+  const rows = useRowIds(variables.length);
   const preview = previewOf(condition, house);
 
   /**
@@ -458,7 +460,7 @@ function ExpressionFields(props: {
         </span>
         {variables.map(([name, entityId], index) => (
           <div
-            key={`variable-${String(index)}`}
+            key={rows.keyOf(index)}
             className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-end gap-2"
           >
             <TextField
@@ -494,6 +496,7 @@ function ExpressionFields(props: {
               size="small"
               className="mb-1.5"
               onClick={() => {
+                rows.removed(index);
                 setVariables(variables.filter((entry) => entry !== variables[index]));
               }}
             >
@@ -507,6 +510,7 @@ function ExpressionFields(props: {
           className="self-start"
           disabled={variables.length >= 16}
           onClick={() => {
+            rows.added();
             setVariables([...variables, [`value_${String(variables.length + 1)}`, '']]);
           }}
         >

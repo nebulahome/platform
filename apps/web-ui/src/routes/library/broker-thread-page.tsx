@@ -27,8 +27,9 @@ import {
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
-import { fetchAreas, LIBRARY_QUERY_KEYS } from '@/library/api';
+import { BROKER_QUERY_KEYS, BROKER_REFRESH_MS } from '@/library/brokers-api';
 import {
   fetchThreadBorderRouters,
   fetchThreadDevices,
@@ -49,6 +50,7 @@ import {
 } from '@/routes/library/broker-thread/thread-tabs';
 import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
+import { useAreas } from '@/routes/library/use-areas';
 
 /** The network map, read only when its tab is opened: it brings the graph library with it. */
 const ThreadNetworkView = lazy(async () =>
@@ -62,9 +64,6 @@ const TABS = ['overview', 'devices', 'network', 'border-routers'] as const;
 
 /** One tab. */
 type ThreadTab = (typeof TABS)[number];
-
-/** How often the network is read again. */
-const REFRESH_MS = 5000;
 
 /** How often the network is read while it is being set up. */
 const SETUP_MS = 1500;
@@ -98,64 +97,29 @@ export function ThreadBrokerPage() {
      * @returns How soon.
      */
     refetchInterval: (query) =>
-      query.state.data?.setup?.state === 'running' ? SETUP_MS : REFRESH_MS,
-
-    /**
-     * Reads where the network stands.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The state.
-     */
-    queryFn: async ({ signal }) => fetchThreadStatus(signal),
+      query.state.data?.setup?.state === 'running' ? SETUP_MS : BROKER_REFRESH_MS,
+    queryFn: signalled(fetchThreadStatus),
   });
   const isSetUp = status.data !== undefined && status.data.mode !== 'none';
   const devices = useQuery({
     queryKey: THREAD_QUERY_KEYS.devices,
     enabled: isSetUp,
-    refetchInterval: REFRESH_MS,
-
-    /**
-     * Reads the nodes on the network.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchThreadDevices(signal),
+    refetchInterval: BROKER_REFRESH_MS,
+    queryFn: signalled(fetchThreadDevices),
   });
   const borderRouters = useQuery({
     queryKey: THREAD_QUERY_KEYS.borderRouters,
     enabled: isSetUp,
-    refetchInterval: REFRESH_MS * 6,
-
-    /**
-     * Reads the border routers heard.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Them.
-     */
-    queryFn: async ({ signal }) => fetchThreadBorderRouters(signal),
+    refetchInterval: BROKER_REFRESH_MS * 6,
+    queryFn: signalled(fetchThreadBorderRouters),
   });
-  const areas = useQuery({
-    queryKey: LIBRARY_QUERY_KEYS.areas,
-
-    /**
-     * Reads the rooms.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The rooms.
-     */
-    queryFn: async ({ signal }) => fetchAreas(signal),
-  });
+  const { roomOf } = useAreas();
   const restart = useMutation({
     mutationFn: restartThread,
 
     /** Reads it again. */
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+      void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
     },
 
     /**
@@ -173,16 +137,7 @@ export function ThreadBrokerPage() {
 
   const current = status.data;
   const state = current === undefined ? null : brokerStateOf(current.state);
-  const roomNames = new Map((areas.data ?? []).map((area) => [area.id, area.name]));
 
-  /**
-   * The name of a room.
-   *
-   * @param areaId - The room.
-   * @returns Its name, or null.
-   */
-  const roomOf = (areaId: string | null): string | null =>
-    areaId === null ? null : (roomNames.get(areaId) ?? null);
   const isRunningSetup = current?.setup?.state === 'running';
 
   return (

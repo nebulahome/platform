@@ -12,6 +12,7 @@ import { createScene, fetchEntities, fetchIcons } from '@/library/api';
 import { SceneDialog } from './scene-dialog';
 
 vi.mock('@/library/api', () => ({
+  fetchScenes: vi.fn(() => Promise.resolve([])),
   createScene: vi.fn(),
   updateScene: vi.fn(),
   deleteScene: vi.fn(),

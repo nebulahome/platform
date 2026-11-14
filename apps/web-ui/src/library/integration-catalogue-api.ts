@@ -38,16 +38,6 @@ export const INTEGRATION_CATALOGUE_KEYS = {
 } as const;
 
 /**
- * The signal, as the request options take it.
- *
- * @param signal - Cancels the request, when there is one.
- * @returns The options.
- */
-function withSignal(signal: AbortSignal | undefined): { signal?: AbortSignal } {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
  * Searches the Hub's integrations, and the local integrations folder's.
  *
  * @param q - Words of a name, a description or a model; empty for the Hub's most installed.
@@ -75,7 +65,7 @@ export async function searchIntegrationCatalogue(
   return apiRequest(
     `/integrations/catalogue${query === '' ? '' : `?${query}`}`,
     integrationSearchReplySchema,
-    withSignal(signal),
+    { signal },
   );
 }
 
@@ -87,11 +77,9 @@ export async function searchIntegrationCatalogue(
  * @returns Whose it is, what it works with, what its drivers speak.
  */
 export async function fetchIntegrationDetail(id: string, signal?: AbortSignal): Promise<HubDetail> {
-  return apiRequest(
-    `/integrations/catalogue/${encodeURIComponent(id)}`,
-    hubDetailSchema,
-    withSignal(signal),
-  );
+  return apiRequest(`/integrations/catalogue/${encodeURIComponent(id)}`, hubDetailSchema, {
+    signal,
+  });
 }
 
 /**

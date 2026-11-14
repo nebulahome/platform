@@ -102,17 +102,7 @@ import {
   type TriggerAutomationReply,
 } from '@nebulahome/contracts';
 
-import { apiRequest } from '@/lib/api-client';
-
-/**
- * A collection response.
- *
- * @param item - What one entry looks like.
- * @returns The schema of a whole collection of them.
- */
-const collectionSchema = <TItem extends z.ZodType>(
-  item: TItem,
-): z.ZodObject<{ items: z.ZodArray<TItem> }> => z.object({ items: z.array(item) });
+import { apiRequest, collectionSchema } from '@/lib/api-client';
 
 /**
  * Lists every automation, with the document each one stores.
@@ -122,7 +112,7 @@ const collectionSchema = <TItem extends z.ZodType>(
  */
 export async function fetchAutomations(signal?: AbortSignal): Promise<AutomationView[]> {
   const { items } = await apiRequest('/automations', collectionSchema(automationViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -140,7 +130,7 @@ export async function fetchAutomation(
   signal?: AbortSignal,
 ): Promise<AutomationView> {
   return apiRequest(`/automations/${automationId}`, automationViewSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -160,7 +150,7 @@ export async function fetchAutomationRuns(
   return apiRequest(
     `/automations/${automationId}/runs?limit=${String(limit)}`,
     pageSchema(automationRunSchema),
-    { ...(signal === undefined ? {} : { signal }) },
+    { signal },
   );
 }
 
@@ -172,7 +162,7 @@ export async function fetchAutomationRuns(
  */
 export async function fetchWebhooks(signal?: AbortSignal): Promise<WebhookView[]> {
   const { items } = await apiRequest('/webhooks', z.object({ items: z.array(webhookViewSchema) }), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -190,7 +180,7 @@ export async function fetchWebhookCalls(
   signal?: AbortSignal,
 ): Promise<{ readonly items: WebhookCall[]; readonly nextCursor?: string | undefined }> {
   return apiRequest(`/webhooks/calls?${query}`, pageSchema(webhookCallSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -214,7 +204,7 @@ export async function triggerAutomation(automationId: string): Promise<TriggerAu
  */
 export async function fetchAutomationHouse(signal?: AbortSignal): Promise<AutomationHouse> {
   return apiRequest('/automations/house', automationHouseSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -297,7 +287,7 @@ export async function deleteAutomation(automationId: string): Promise<Automation
  */
 export async function fetchScenes(signal?: AbortSignal): Promise<SceneView[]> {
   const { items } = await apiRequest('/scenes', collectionSchema(sceneViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -357,7 +347,7 @@ export async function applyScene(sceneId: string): Promise<SceneApplyResult> {
  */
 export async function fetchDevices(signal?: AbortSignal): Promise<DeviceView[]> {
   const { items } = await apiRequest('/devices', collectionSchema(deviceViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -373,7 +363,7 @@ export async function fetchDevices(signal?: AbortSignal): Promise<DeviceView[]> 
  */
 export async function fetchDevice(deviceId: string, signal?: AbortSignal): Promise<DeviceView> {
   return apiRequest(`/devices/${encodeURIComponent(deviceId)}`, deviceViewSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -431,7 +421,7 @@ export async function deleteDevice(deviceId: string): Promise<void> {
  */
 export async function fetchDiscovered(signal?: AbortSignal): Promise<DiscoveredDevice[]> {
   const { items } = await apiRequest('/discovery', discoveredReplySchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items.filter((item) => item.adoption === 'owner');
@@ -503,7 +493,7 @@ export async function fetchIcons(request: IconsRequest, signal?: AbortSignal): P
 
   const suffix = query.size === 0 ? '' : `?${query.toString()}`;
   const { items } = await apiRequest(`/icons${suffix}`, iconsResponseSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -563,7 +553,7 @@ export async function updateEntity(entityId: string, request: EntityUpdate): Pro
  */
 export async function fetchEntity(entityId: string, signal?: AbortSignal): Promise<EntityView> {
   return apiRequest(`/entities/${encodeURIComponent(entityId)}`, entityViewSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -656,7 +646,7 @@ async function readHistoryPages<TItem extends z.ZodType>(
     // Sequential by nature: each page's cursor is only known once the page before it has come.
     // eslint-disable-next-line no-await-in-loop -- see above
     const answer = await apiRequest(`${path}?${page.toString()}`, pageSchema(item), {
-      ...(signal === undefined ? {} : { signal }),
+      signal,
     });
 
     items.push(...answer.items);
@@ -720,7 +710,7 @@ export async function fetchDeviceActivity(
   const page = await apiRequest(
     `/devices/${encodeURIComponent(deviceId)}/activity?${query.toString()}`,
     pageSchema(activityEntrySchema),
-    { ...(signal === undefined ? {} : { signal }) },
+    { signal },
   );
 
   return { items: page.items, nextCursor: page.nextCursor };
@@ -757,7 +747,7 @@ export async function fetchTelemetry(
  */
 export async function fetchAreas(signal?: AbortSignal): Promise<AreaView[]> {
   const response = await apiRequest('/areas', collectionSchema(areaViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return response.items;
@@ -806,7 +796,7 @@ export async function fetchTileStatus(
   signal?: AbortSignal,
 ): Promise<TileCacheStatus> {
   return apiRequest(`/areas/${houseId}/tiles`, tileCacheStatusSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -828,7 +818,7 @@ export async function prefetchTiles(houseId: string): Promise<TilePrefetchResult
  */
 export async function fetchTags(signal?: AbortSignal): Promise<TagView[]> {
   const response = await apiRequest('/tags', collectionSchema(tagViewSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return response.items;
@@ -889,7 +879,7 @@ export async function fetchEntities(signal?: AbortSignal): Promise<EntityView[]>
     // Sequential by nature: each page's cursor is only known once the page before it has come.
     // eslint-disable-next-line no-await-in-loop -- see above
     const page = await apiRequest(`/entities?${query.toString()}`, pageSchema(entityViewSchema), {
-      ...(signal === undefined ? {} : { signal }),
+      signal,
     });
 
     items.push(...page.items);
@@ -907,7 +897,7 @@ export async function fetchEntities(signal?: AbortSignal): Promise<EntityView[]>
  */
 export async function fetchAliases(signal?: AbortSignal): Promise<AliasListItem[]> {
   const { items } = await apiRequest('/aliases', collectionSchema(aliasListItemSchema), {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -922,7 +912,7 @@ export async function fetchAliases(signal?: AbortSignal): Promise<AliasListItem[
  */
 export async function fetchAlias(aliasId: string, signal?: AbortSignal): Promise<AliasDetail> {
   return apiRequest(`/aliases/${aliasId}`, aliasDetailSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -936,7 +926,7 @@ export async function fetchAliasDevices(signal?: AbortSignal): Promise<AliasVirt
   const { items } = await apiRequest(
     '/aliases/devices',
     collectionSchema(aliasVirtualDeviceSchema),
-    { ...(signal === undefined ? {} : { signal }) },
+    { signal },
   );
 
   return items;
@@ -958,7 +948,7 @@ export async function fetchAliasSetupHistory(
   const { items } = await apiRequest(
     `/aliases/${aliasId}/setup-history?days=${String(days)}`,
     collectionSchema(aliasSetupChangeSchema),
-    { ...(signal === undefined ? {} : { signal }) },
+    { signal },
   );
 
   return items;
@@ -980,7 +970,7 @@ export async function fetchAliasActionRuns(
   const { items } = await apiRequest(
     `/aliases/${aliasId}/action-runs?days=${String(days)}`,
     collectionSchema(aliasActionRunSchema),
-    { ...(signal === undefined ? {} : { signal }) },
+    { signal },
   );
 
   return items;
@@ -1078,7 +1068,7 @@ export async function fetchVendors(signal?: AbortSignal): Promise<IntegrationVen
   const { items } = await apiRequest(
     '/integrations/vendors',
     collectionSchema(integrationVendorViewSchema),
-    { ...(signal === undefined ? {} : { signal }) },
+    { signal },
   );
 
   return items;
@@ -1096,7 +1086,7 @@ export async function fetchVendor(
   signal?: AbortSignal,
 ): Promise<IntegrationVendorView> {
   return apiRequest(`/integrations/vendors/${vendorId}`, integrationVendorViewSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 

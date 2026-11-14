@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import {
   type FTP_SECURITY_MODES,
+  type USER_BACKUP_LOCATION_KINDS,
   NFS_VERSIONS,
   SMB_VERSIONS,
   type BackupFrequency,
@@ -39,7 +40,7 @@ import { kindName } from '@/routes/settings/backup-text';
 import { FolderBrowserDialog } from '@/routes/settings/folder-browser-dialog';
 
 /** The kinds the owner adds. */
-type UserKind = 'local' | 'smb' | 'ftp' | 'nfs';
+type UserKind = (typeof USER_BACKUP_LOCATION_KINDS)[number];
 
 /** Each kind, with a line saying what it is. */
 const KINDS: readonly { readonly kind: UserKind; readonly note: Message }[] = [

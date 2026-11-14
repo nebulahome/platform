@@ -19,6 +19,7 @@ import { useSession } from '@/auth/session-store';
 import { DASHBOARD_QUERY_KEYS, fetchDashboards } from '@/dashboard/api';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import { DashboardGrid } from '@/routes/dashboard/dashboard-grid';
 import { DashboardTabs } from '@/routes/dashboard/dashboard-tabs';
 import { useDashboardData } from '@/routes/dashboard/use-dashboard-data';
@@ -69,14 +70,7 @@ export function DashboardPage() {
 
   const dashboards = useQuery({
     queryKey: DASHBOARD_QUERY_KEYS.dashboards,
-    /**
-     * Reads the dashboards assigned to this person.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Their dashboards.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchDashboards(signal),
+    queryFn: signalled(fetchDashboards),
   });
 
   const list = dashboards.data ?? [];

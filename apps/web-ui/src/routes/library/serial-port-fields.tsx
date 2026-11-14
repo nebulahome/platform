@@ -18,6 +18,7 @@ import {
 } from '@nebulahome/contracts';
 import { SelectField } from '@nebulahome/ui';
 
+import { signalled } from '@/lib/signalled';
 import { fetchSerialPorts, SERIAL_QUERY_KEYS } from '@/library/serial-api';
 
 /** What the card needs. */
@@ -87,15 +88,7 @@ export function SerialPortFields(props: SerialPortFieldsProps) {
   const { vendorId, deviceId, driverLine, value, onChange } = props;
   const ports = useQuery({
     queryKey: SERIAL_QUERY_KEYS.ports,
-
-    /**
-     * Reads the ports the server sees.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the dialog goes away.
-     * @returns The ports.
-     */
-    queryFn: async ({ signal }) => fetchSerialPorts(signal),
+    queryFn: signalled(fetchSerialPorts),
   });
   const offered = freePortsFor(ports.data ?? [], vendorId, deviceId);
   const recognised = t('library.serialPort.recognised', 'Recognised');

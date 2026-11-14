@@ -25,6 +25,7 @@ import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
 import { permissionDescription } from '@/lib/permission-descriptions';
 import { matchesQuery } from '@/lib/search-text';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { OPEN_SEARCH_AND_FACET, searchAndFacetCodec } from '@/library/list-filters';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
@@ -86,15 +87,7 @@ export function TokensPanel() {
 
   const tokens = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.accessTokens,
-
-    /**
-     * Reads the tokens.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every token this person has, without their secrets.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAccessTokens(signal),
+    queryFn: signalled(fetchAccessTokens),
   });
 
   // Only the allows, and only the unscoped ones. A token that carried a scoped grant would need

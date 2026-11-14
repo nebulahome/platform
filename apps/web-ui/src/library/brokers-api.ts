@@ -39,6 +39,9 @@ import {
 
 import { apiRequest } from '@/lib/api-client';
 
+/** How often a broker's page reads the broker again. */
+export const BROKER_REFRESH_MS = 5000;
+
 /** The keys the brokers are cached under. */
 export const BROKER_QUERY_KEYS = {
   brokers: ['brokers'] as const,
@@ -54,16 +57,6 @@ export const BROKER_QUERY_KEYS = {
 };
 
 /**
- * The options of a read: its abort signal, when it has one.
- *
- * @param signal - Cancels the request.
- * @returns The options.
- */
-function readOptions(signal: AbortSignal | undefined) {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
  * Lists the brokers.
  *
  * @param signal - Cancels the request.
@@ -71,7 +64,7 @@ function readOptions(signal: AbortSignal | undefined) {
  */
 export async function fetchBrokers(signal?: AbortSignal): Promise<BrokerSummary[]> {
   const { items } = await apiRequest('/brokers', brokersReplySchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -85,7 +78,7 @@ export async function fetchBrokers(signal?: AbortSignal): Promise<BrokerSummary[
  */
 export async function fetchMatterStatus(signal?: AbortSignal): Promise<MatterStatus> {
   return apiRequest('/brokers/matter', matterStatusSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -97,7 +90,7 @@ export async function fetchMatterStatus(signal?: AbortSignal): Promise<MatterSta
  */
 export async function fetchMatterNodes(signal?: AbortSignal): Promise<MatterNode[]> {
   const { items } = await apiRequest('/brokers/matter/nodes', matterNodesReplySchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 
   return items;
@@ -111,7 +104,7 @@ export async function fetchMatterNodes(signal?: AbortSignal): Promise<MatterNode
  */
 export async function fetchMatterNetwork(signal?: AbortSignal): Promise<MatterNetwork> {
   return apiRequest('/brokers/matter/network', matterNetworkSchema, {
-    ...(signal === undefined ? {} : { signal }),
+    signal,
   });
 }
 
@@ -162,7 +155,7 @@ export async function answerMatter(
  * @returns The Wi-Fi saved, never its password, and the Thread network.
  */
 export async function fetchMatterNetworks(signal?: AbortSignal): Promise<MatterNetworks> {
-  return apiRequest('/brokers/matter/networks', matterNetworksSchema, readOptions(signal));
+  return apiRequest('/brokers/matter/networks', matterNetworksSchema, { signal });
 }
 
 /**
@@ -240,7 +233,7 @@ export async function restoreMatterDevice(
  * @returns Its state, its settings and what it makes of what it carries.
  */
 export async function fetchMqttStatus(signal?: AbortSignal): Promise<MqttStatus> {
-  return apiRequest('/brokers/mqtt', mqttStatusSchema, readOptions(signal));
+  return apiRequest('/brokers/mqtt', mqttStatusSchema, { signal });
 }
 
 /**
@@ -269,11 +262,7 @@ export async function saveMqttSettings(settings: MqttSettings): Promise<MqttStat
  * @returns Each, with the device it is in the house.
  */
 export async function fetchMqttDevices(signal?: AbortSignal): Promise<MqttDevice[]> {
-  const { items } = await apiRequest(
-    '/brokers/mqtt/devices',
-    mqttDevicesReplySchema,
-    readOptions(signal),
-  );
+  const { items } = await apiRequest('/brokers/mqtt/devices', mqttDevicesReplySchema, { signal });
 
   return items;
 }
@@ -300,7 +289,7 @@ export async function restoreMqttDevice(deviceKey: string): Promise<boolean> {
  * @returns The usernames, with their connections, and the connections without one.
  */
 export async function fetchMqttClients(signal?: AbortSignal) {
-  return apiRequest('/brokers/mqtt/clients', mqttClientsReplySchema, readOptions(signal));
+  return apiRequest('/brokers/mqtt/clients', mqttClientsReplySchema, { signal });
 }
 
 /**
@@ -343,11 +332,7 @@ export async function removeMqttClient(username: string): Promise<boolean> {
 export async function fetchMqttTopics(prefix: string, limit: number, signal?: AbortSignal) {
   const query = new URLSearchParams({ prefix, limit: String(limit) });
 
-  return apiRequest(
-    `/brokers/mqtt/topics?${query.toString()}`,
-    mqttTopicsReplySchema,
-    readOptions(signal),
-  );
+  return apiRequest(`/brokers/mqtt/topics?${query.toString()}`, mqttTopicsReplySchema, { signal });
 }
 
 /**
@@ -357,11 +342,7 @@ export async function fetchMqttTopics(prefix: string, limit: number, signal?: Ab
  * @returns The mappings.
  */
 export async function fetchMqttMappings(signal?: AbortSignal): Promise<MqttMapping[]> {
-  const { items } = await apiRequest(
-    '/brokers/mqtt/mappings',
-    mqttMappingsReplySchema,
-    readOptions(signal),
-  );
+  const { items } = await apiRequest('/brokers/mqtt/mappings', mqttMappingsReplySchema, { signal });
 
   return items;
 }

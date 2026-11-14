@@ -51,10 +51,18 @@ function describeUse(tag: TagView): string {
   const parts = [
     tag.deviceCount === 0
       ? null
-      : `${String(tag.deviceCount)} device${tag.deviceCount === 1 ? '' : 's'}`,
+      : translate('library.tagDialog.devices', {
+          count: tag.deviceCount,
+          defaultValue_one: '{{count}} device',
+          defaultValue_other: '{{count}} devices',
+        }),
     tag.entityCount === 0
       ? null
-      : `${String(tag.entityCount)} entit${tag.entityCount === 1 ? 'y' : 'ies'}`,
+      : translate('library.tagDialog.entities', {
+          count: tag.entityCount,
+          defaultValue_one: '{{count}} entity',
+          defaultValue_other: '{{count}} entities',
+        }),
   ].filter((part) => part !== null);
 
   return parts.length === 0

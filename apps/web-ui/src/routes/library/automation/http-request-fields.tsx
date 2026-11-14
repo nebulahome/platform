@@ -30,6 +30,7 @@ import {
 } from '@nebulahome/ui';
 
 import { numberFormat } from '@/i18n/formatters';
+import { blockIdOf, carryBlockId, useRowIds } from '@/lib/block-ids';
 import { METHOD_TONES } from '@/lib/http-methods';
 import { formatJsonTemplate } from '@/lib/json-template';
 import { partialEntityId } from '@/library/automation-draft';
@@ -153,6 +154,7 @@ export function HttpRequestFields(props: {
   const { action, onChange } = props;
   const house = useEditorHouse();
   const variables = Object.entries(action.variables ?? {});
+  const rows = useRowIds(variables.length);
   const colors = sourceColors(
     variables.map(([name, entityId], index) => ({
       rowKey: String(index),
@@ -273,10 +275,7 @@ export function HttpRequestFields(props: {
             entityId === '' ? undefined : aliasScalarFromState(house.stateOf(entityId));
 
           return (
-            <div
-              key={`parameter-${String(index)}`}
-              className={cn(PARAMETER_COLUMNS, 'items-center')}
-            >
+            <div key={rows.keyOf(index)} className={cn(PARAMETER_COLUMNS, 'items-center')}>
               <span className="relative">
                 {/* shortcut: HTML5 drag, so no touch screen; there the name is typed in braces. */}
                 <span
@@ -348,6 +347,7 @@ export function HttpRequestFields(props: {
                 variant="danger"
                 size="small"
                 onClick={() => {
+                  rows.removed(index);
                   setVariables(variables.filter((entry) => entry !== variables[index]));
                 }}
               >
@@ -362,6 +362,7 @@ export function HttpRequestFields(props: {
           className="self-start"
           disabled={variables.length >= 16}
           onClick={() => {
+            rows.added();
             setVariables([...variables, [freeName(variables.map(([each]) => each)), '']]);
           }}
         >
@@ -383,7 +384,7 @@ export function HttpRequestFields(props: {
         </span>
         {headers.map((header, index) => (
           <div
-            key={`header-${String(index)}`}
+            key={blockIdOf(header)}
             className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] items-center gap-2"
           >
             <TextField
@@ -396,7 +397,9 @@ export function HttpRequestFields(props: {
               onChange={(event) => {
                 setHeaders(
                   headers.map((entry, at) =>
-                    at === index ? { ...entry, name: event.target.value } : entry,
+                    at === index
+                      ? carryBlockId(entry, { ...entry, name: event.target.value })
+                      : entry,
                   ),
                 );
               }}
@@ -416,7 +419,9 @@ export function HttpRequestFields(props: {
                 onChange={(event) => {
                   setHeaders(
                     headers.map((entry, at) =>
-                      at === index ? { ...entry, value: event.target.value } : entry,
+                      at === index
+                        ? carryBlockId(entry, { ...entry, value: event.target.value })
+                        : entry,
                     ),
                   );
                 }}

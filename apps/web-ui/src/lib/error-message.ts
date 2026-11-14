@@ -11,6 +11,8 @@
  * (RULES.md 1); what this interface says itself - an unreachable server, a failure with no answer
  * at all - it says in the language the person reads.
  */
+import { toast } from '@nebulahome/ui';
+
 import { translate } from '@/i18n/messages';
 import { isApiError } from '@/lib/api-error';
 
@@ -31,4 +33,16 @@ export function toMessage(error: unknown): string {
   }
 
   return translate('errors.unknown', 'Something went wrong. Try again.');
+}
+
+/**
+ * A mutation's failure handler that says why something did not happen, in a toast.
+ *
+ * @param title - What did not happen.
+ * @returns The handler.
+ */
+export function toastFailure(title: string): (error: Error) => void {
+  return (error) => {
+    toast.error({ title, message: toMessage(error) });
+  };
 }

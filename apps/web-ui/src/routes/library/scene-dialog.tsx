@@ -40,6 +40,7 @@ import {
 
 import { areaChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
+import { signalled } from '@/lib/signalled';
 import {
   createScene,
   deleteScene,
@@ -130,27 +131,13 @@ export function SceneDialog(props: SceneDialogProps) {
 
   const entities = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.entities,
-    /**
-     * Reads every entity, for the picker and for seeding.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the dialog goes away.
-     * @returns Every entity.
-     */
-    queryFn: async ({ signal }) => fetchEntities(signal),
+    queryFn: signalled(fetchEntities),
   });
 
   const entityById = new Map((entities.data ?? []).map((entity) => [entity.entityId, entity]));
   const allScenes = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.scenes,
-    /**
-     * Reads the scenes, for the keys an imported one must not land on.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The scenes.
-     */
-    queryFn: async ({ signal }) => fetchScenes(signal),
+    queryFn: signalled(fetchScenes),
   });
 
   const [name, setName] = useState(existing?.name ?? '');

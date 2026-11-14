@@ -28,7 +28,7 @@ import {
 
 import { translate } from '@/i18n/messages';
 import type { DragLook } from '@/lib/block-drag';
-import { carryBlockId } from '@/lib/block-ids';
+import { blockIdOf, carryBlockId } from '@/lib/block-ids';
 import { actionSummary, triggerSummary, type BlockNames } from '@/lib/block-summary';
 import { useBlockUi } from '@/lib/block-ui';
 import {
@@ -438,7 +438,7 @@ function actionContent(
           <>
             {action.cases.map((branch, index) => (
               <BlockBranch
-                key={`case-${String(index)}`}
+                key={blockIdOf(branch)}
                 label={translate('automation.actionBlocks.whenValue', 'When "{{value}}"', {
                   value: branch.value === '' ? '…' : branch.value,
                 })}
@@ -468,7 +468,11 @@ function actionContent(
                     onChange={(value) => {
                       onChange({
                         ...action,
-                        cases: replaceAt(action.cases, index, { ...branch, value }),
+                        cases: replaceAt(
+                          action.cases,
+                          index,
+                          carryBlockId(branch, { ...branch, value }),
+                        ),
                       });
                     }}
                   />
@@ -480,7 +484,11 @@ function actionContent(
                   onChange={(actions) => {
                     onChange({
                       ...action,
-                      cases: replaceAt(action.cases, index, { ...branch, actions: [...actions] }),
+                      cases: replaceAt(
+                        action.cases,
+                        index,
+                        carryBlockId(branch, { ...branch, actions: [...actions] }),
+                      ),
                     });
                   }}
                 />
@@ -687,7 +695,7 @@ function actionContent(
             <div className="grid gap-3 sm:grid-cols-2">
               {action.branches.map((branch, index) => (
                 <BlockBranch
-                  key={`branch-${String(index)}`}
+                  key={blockIdOf(branch)}
                   label={translate('automation.actionBlocks.branchValue', 'Branch {{value}}', {
                     value: String(index + 1),
                   })}
@@ -718,7 +726,11 @@ function actionContent(
                     onChange={(actions) => {
                       onChange({
                         ...action,
-                        branches: replaceAt(action.branches, index, [...actions]),
+                        branches: replaceAt(
+                          action.branches,
+                          index,
+                          carryBlockId(branch, [...actions]),
+                        ),
                       });
                     }}
                   />

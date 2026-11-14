@@ -19,6 +19,7 @@ import type {
 } from '@nebulahome/contracts';
 
 import type { BlockNames } from '@/lib/block-summary';
+import { signalled } from '@/lib/signalled';
 import {
   fetchAutomationHouse,
   fetchAutomations,
@@ -99,47 +100,19 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
   const directory = useEntityDirectory(false);
   const scenes = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.scenes,
-    /**
-     * Reads every scene, for the Apply a scene block.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The scenes.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchScenes(signal),
+    queryFn: signalled(fetchScenes),
   });
   const automations = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.automations,
-    /**
-     * Reads every automation, for the Run automation block.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The automations.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAutomations(signal),
+    queryFn: signalled(fetchAutomations),
   });
   const house = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.automationHouse,
-    /**
-     * Reads the house's zone and position, for the time and sun blocks.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The zone and the position.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchAutomationHouse(signal),
+    queryFn: signalled(fetchAutomationHouse),
   });
   const packages = useQuery({
     queryKey: PACKAGE_QUERY_KEYS.list,
-    /**
-     * Reads the installed packages, for the Package service block.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The packages.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchPackages(signal),
+    queryFn: signalled(fetchPackages),
   });
 
   const value = useMemo<EditorHouse>(() => {

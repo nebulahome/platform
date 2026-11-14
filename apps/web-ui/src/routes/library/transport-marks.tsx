@@ -19,6 +19,7 @@ import {
 import { cn, LinkedTag } from '@nebulahome/ui';
 
 import { MatterLogo } from '@/components/brand-logos';
+import { signalled } from '@/lib/signalled';
 import { fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { BROKER_GLYPHS, brokerNameOf } from '@/routes/library/brokers-page';
 import { FALLBACK_COLOR } from '@/routes/library/vendor-card';
@@ -34,15 +35,7 @@ export type TransportWay = { readonly vendorId: string; readonly transport: stri
 export function useVendorsById(): ReadonlyMap<string, IntegrationVendorView> {
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
-
-    /**
-     * Reads the integrations.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns The integrations.
-     */
-    queryFn: async ({ signal }) => fetchVendors(signal),
+    queryFn: signalled(fetchVendors),
   });
 
   return new Map((vendors.data ?? []).map((vendor) => [vendor.id, vendor]));

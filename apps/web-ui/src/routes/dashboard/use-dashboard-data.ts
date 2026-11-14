@@ -23,6 +23,7 @@ import { useSession } from '@/auth/session-store';
 import { CARD_SIZES, cardKindOf, packageCardSizes } from '@/dashboard/card-sizes';
 import { allCards, type SizesOf } from '@/dashboard/dashboard-layout';
 import { entityTitle } from '@/dashboard/entity-title';
+import { signalled } from '@/lib/signalled';
 import { fetchScenes, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { entityScopesOf, isCommandable } from '@/library/entity-control';
 import type { LiveReading } from '@/live/live-store';
@@ -81,14 +82,7 @@ export function useDashboardData(layout: DashboardLayout | undefined): Dashboard
 
   const scenes = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.scenes,
-    /**
-     * Reads every scene, for the scene cards.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the page goes away.
-     * @returns Every scene.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchScenes(signal),
+    queryFn: signalled(fetchScenes),
     enabled: canReadScenes,
   });
 

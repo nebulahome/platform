@@ -255,7 +255,12 @@ export function InstallPackagesDialog(props: InstallPackagesDialogProps) {
           results.isPending ? (
             t('packages.installPackagesDialog.askingTheHub', 'Asking the Hub…')
           ) : (
-            `${String(results.items.length)}${results.hasMore ? '+' : ''} ${results.items.length === 1 ? 'package' : 'packages'}`
+            t('packages.installPackagesDialog.packageCount', {
+              count: results.items.length,
+              more: results.hasMore ? '+' : '',
+              defaultValue_one: '{{count}}{{more}} package',
+              defaultValue_other: '{{count}}{{more}} packages',
+            })
           )
         ) : (
           <span role="status" className="text-warning">

@@ -72,6 +72,7 @@ import type {
 import { toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { signalled } from '@/lib/signalled';
 import { commandEntity, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive, type LiveReading } from '@/live/live-store';
 import { packageLive } from '@/live/package-live';
@@ -197,15 +198,7 @@ function useLiveEntities(): readonly { readonly view: EntityView; readonly sourc
   const readings = useLive((state) => state.readings);
   const entities = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.entities,
-
-    /**
-     * Reads the entities.
-     *
-     * @param context - The query's abort signal.
-     * @param context.signal - Cancels the request.
-     * @returns The entities.
-     */
-    queryFn: async ({ signal }) => fetchEntities(signal),
+    queryFn: signalled(fetchEntities),
   });
 
   return (entities.data ?? []).map((entity) => ({

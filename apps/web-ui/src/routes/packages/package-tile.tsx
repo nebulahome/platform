@@ -64,18 +64,6 @@ export function PackageLogo(props: {
   );
 }
 
-/**
- * The word after a figure.
- *
- * @param count - The figure.
- * @param one - The singular.
- * @param many - The plural.
- * @returns Whichever fits.
- */
-function noun(count: number, one: string, many: string): string {
-  return count === 1 ? one : many;
-}
-
 /** The Pill tone of each state's badge tone. */
 const PILL_TONES: Readonly<Partial<Record<BadgeTone, PillTone>>> = {
   neutral: 'neutral',
@@ -142,7 +130,11 @@ export function PackageTile(props: PackageTileProps) {
               <Pill tone={PILL_TONES[state.tone] ?? 'neutral'}>{text(state.label)}</Pill>
               <span>
                 {[
-                  `${String(found.deviceCount)} ${noun(found.deviceCount, 'device', 'devices')}`,
+                  t('packages.packageTile.devices', {
+                    count: found.deviceCount,
+                    defaultValue_one: '{{count}} device',
+                    defaultValue_other: '{{count}} devices',
+                  }),
                   ...extras,
                 ].join(' · ')}
               </span>

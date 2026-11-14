@@ -12,7 +12,7 @@ import type { MqttSettings } from '@nebulahome/contracts';
 import { Button, Modal, PanelRow, Switch, TextField, toast } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
-import { saveMqttSettings } from '@/library/brokers-api';
+import { BROKER_QUERY_KEYS, saveMqttSettings } from '@/library/brokers-api';
 
 /** What the dialog needs. */
 export type MqttSettingsDialogProps = {
@@ -54,7 +54,7 @@ export function MqttSettingsDialog(props: MqttSettingsDialogProps) {
 
     /** Reads the broker again. */
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['brokers'] });
+      void queryClient.invalidateQueries({ queryKey: BROKER_QUERY_KEYS.brokers });
     },
   });
 

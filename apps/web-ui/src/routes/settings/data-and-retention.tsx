@@ -39,6 +39,7 @@ import { useSession } from '@/auth/session-store';
 import { defineMessage, text, type Message } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, relativeTime } from '@/lib/format-time';
+import { signalled } from '@/lib/signalled';
 import { BROWSER_ZONE, TIME_ZONES, zoneName } from '@/lib/time-zones';
 import { SettingsPage, SettingsRow, SettingsSection } from '@/routes/settings/settings-ui';
 import { SETTINGS_QUERY_KEYS, fetchServerSettings, updateServerSettings } from '@/settings/api';
@@ -126,15 +127,7 @@ export function DataAndRetention() {
 
   const settings = useQuery({
     queryKey: SETTINGS_QUERY_KEYS.server,
-
-    /**
-     * Reads the settings.
-     *
-     * @param context - What TanStack Query provides.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every setting the server holds.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchServerSettings(signal),
+    queryFn: signalled(fetchServerSettings),
   });
 
   const stored = new Map((settings.data?.items ?? []).map((item) => [item.key, item]));

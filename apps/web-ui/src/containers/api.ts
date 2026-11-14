@@ -110,23 +110,13 @@ function composePathOf(project: string): string {
 }
 
 /**
- * The signal, as the request options take it.
- *
- * @param signal - Cancels the request, when there is one.
- * @returns The options.
- */
-function withSignal(signal: AbortSignal | undefined): { signal?: AbortSignal } {
-  return signal === undefined ? {} : { signal };
-}
-
-/**
  * Reads every container, and whether Docker can be seen.
  *
  * @param signal - Cancels the request.
  * @returns Docker's status, the containers, and what is being installed or deployed.
  */
 export async function fetchContainers(signal?: AbortSignal): Promise<ContainersView> {
-  return apiRequest('/containers', containersViewSchema, withSignal(signal));
+  return apiRequest('/containers', containersViewSchema, { signal });
 }
 
 /**
@@ -137,7 +127,7 @@ export async function fetchContainers(signal?: AbortSignal): Promise<ContainersV
  * @returns The container.
  */
 export async function fetchContainer(name: string, signal?: AbortSignal): Promise<ContainerDetail> {
-  return apiRequest(pathOf(name), containerDetailSchema, withSignal(signal));
+  return apiRequest(pathOf(name), containerDetailSchema, { signal });
 }
 
 /**
@@ -161,11 +151,9 @@ export async function fetchContainerLogs(
     query.set('since', since);
   }
 
-  return apiRequest(
-    `${pathOf(name)}/logs?${query.toString()}`,
-    containerLogsReplySchema,
-    withSignal(signal),
-  );
+  return apiRequest(`${pathOf(name)}/logs?${query.toString()}`, containerLogsReplySchema, {
+    signal,
+  });
 }
 
 /**
@@ -214,7 +202,7 @@ export async function searchImages(query: string, signal?: AbortSignal): Promise
   return apiRequest(
     `/container-images/search?q=${encodeURIComponent(query)}`,
     imageSearchReplySchema,
-    withSignal(signal),
+    { signal },
   );
 }
 
@@ -229,7 +217,7 @@ export async function fetchImageTags(image: string, signal?: AbortSignal): Promi
   return apiRequest(
     `/container-images/tags?image=${encodeURIComponent(image)}`,
     imageTagsReplySchema,
-    withSignal(signal),
+    { signal },
   );
 }
 
@@ -249,7 +237,7 @@ export async function describeImage(
   return apiRequest(
     `/container-images/describe?image=${encodeURIComponent(image)}&tag=${encodeURIComponent(tag)}`,
     imageDescriptionSchema,
-    withSignal(signal),
+    { signal },
   );
 }
 
@@ -312,7 +300,7 @@ export async function fetchCompose(
   project: string,
   signal?: AbortSignal,
 ): Promise<ComposeDocument> {
-  return apiRequest(composePathOf(project), composeDocumentSchema, withSignal(signal));
+  return apiRequest(composePathOf(project), composeDocumentSchema, { signal });
 }
 
 /**

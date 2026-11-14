@@ -27,6 +27,7 @@ import { AppIcon, Button, Switch, TableFooter } from '@nebulahome/ui';
 
 import { SortHeader } from '@/components/sort-header';
 import { areaFacetChoices } from '@/lib/area-tree';
+import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
 import { fetchDevices, fetchEntities, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -83,26 +84,12 @@ export function DevicesPage() {
 
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-    /**
-     * Reads every device.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every device in the registry.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchDevices(signal),
+    queryFn: signalled(fetchDevices),
   });
 
   const entities = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.entities,
-    /**
-     * Reads every entity, with the state it had when asked.
-     *
-     * @param context - What TanStack Query provides, including the cancellation signal.
-     * @param context.signal - Cancels the request when the component goes away.
-     * @returns Every entity in the registry.
-     */
-    queryFn: async ({ signal }: { signal: AbortSignal }) => fetchEntities(signal),
+    queryFn: signalled(fetchEntities),
   });
 
   const vendors = useQuery({
@@ -233,7 +220,13 @@ export function DevicesPage() {
       }
       count={devices.isPending ? undefined : all.length}
       shownCount={shown.length}
-      summary={[`${String(shownEntityCount)} ${shownEntityCount === 1 ? 'entity' : 'entities'}`]}
+      summary={[
+        t('library.devices.entityCount', {
+          count: shownEntityCount,
+          defaultValue_one: '{{count}} entity',
+          defaultValue_other: '{{count}} entities',
+        }),
+      ]}
       tools={
         <>
           <span aria-hidden="true" className="text-ui-sm text-foreground-muted">
