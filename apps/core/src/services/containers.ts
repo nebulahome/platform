@@ -41,9 +41,10 @@ import type { EntityDirectory } from '../domain/entity-directory.js';
 import type { EntityRegistry } from '../domain/entity-registry.js';
 import { unreadByAliases } from '../persistence/alias-readers.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
-import type { EntityStateRow } from '../persistence/history-writer.js';
+import type { EntityStateRow, StateHistoryRow } from '../persistence/history-writer.js';
 
 import { announceChange, type ChangeObserver } from './state-events.js';
+import { persistChange } from './state-ingest.js';
 
 /** The icon a container's device starts with. */
 export const CONTAINER_DEVICE_ICON = 'container';
@@ -64,6 +65,9 @@ export type ContainersServiceOptions = {
 
   /** The state rows waiting to be written; those of a removed entity are dropped with it. */
   readonly stateCache: BatchWriter<EntityStateRow>;
+
+  /** Where the history row of an entity marked unreachable is buffered. */
+  readonly history: BatchWriter<StateHistoryRow>;
   readonly logger: PlatformLogger;
 
   /** What in this process reacts to an entity becoming unreachable. Must not block. */
@@ -404,6 +408,12 @@ export function startContainersService(options: ContainersServiceOptions): BusSu
         const result = options.registry.setAvailability(entityId, false);
 
         if (result !== undefined) {
+          const record = options.directory.get(entityId);
+
+          if (record !== undefined) {
+            persistChange(options, record, result);
+          }
+
           announceChange(options.client, result, undefined, options.onNotableChange);
         }
       }

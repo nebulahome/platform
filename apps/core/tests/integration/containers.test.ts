@@ -34,7 +34,11 @@ import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 import { EntityDirectory } from '@/domain/entity-directory.js';
 import { EntityRegistry } from '@/domain/entity-registry.js';
 import type { BatchWriter } from '@/persistence/batch-writer.js';
-import { createStateCacheWriter, type EntityStateRow } from '@/persistence/history-writer.js';
+import {
+  createHistoryWriter,
+  createStateCacheWriter,
+  type EntityStateRow,
+} from '@/persistence/history-writer.js';
 import { startContainersService } from '@/services/containers.js';
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
@@ -167,6 +171,7 @@ beforeAll(async () => {
     directory,
     registry,
     stateCache,
+    history: createHistoryWriter({ db: database.db, logger, batchSize: 1000 }),
     logger,
   });
 });

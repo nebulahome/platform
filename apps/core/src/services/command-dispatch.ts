@@ -249,7 +249,8 @@ export function createCommandDispatcher(options: CommandDispatchOptions): Comman
           busSubjects.service(record.source, ADAPTER_COMMAND_METHOD),
           { entityId: record.entityId, capability, command },
           adapterAckSchema,
-          { traceId: request.traceId, timeoutMs: options.commandTimeoutMs },
+          // Expires: a command the caller already reported as failed must not reach the device late.
+          { traceId: request.traceId, timeoutMs: options.commandTimeoutMs, expires: true },
         );
 
         logger.debug(

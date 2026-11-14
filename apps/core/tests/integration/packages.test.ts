@@ -37,7 +37,11 @@ import { EntityDirectory } from '@/domain/entity-directory.js';
 import { EntityRegistry } from '@/domain/entity-registry.js';
 import { PackageTypes } from '@/domain/package-types.js';
 import type { BatchWriter } from '@/persistence/batch-writer.js';
-import { createStateCacheWriter, type EntityStateRow } from '@/persistence/history-writer.js';
+import {
+  createHistoryWriter,
+  createStateCacheWriter,
+  type EntityStateRow,
+} from '@/persistence/history-writer.js';
 import { readHouse } from '@/services/house-service.js';
 import { startPackagesService } from '@/services/packages.js';
 
@@ -186,6 +190,7 @@ beforeAll(async () => {
     directory,
     registry,
     stateCache,
+    history: createHistoryWriter({ db: database.db, logger, batchSize: 1000 }),
     packageTypes,
     logger,
   });

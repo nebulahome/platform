@@ -46,9 +46,10 @@ import type { EntityRegistry } from '../domain/entity-registry.js';
 import type { PackageTypes } from '../domain/package-types.js';
 import { unreadByAliases } from '../persistence/alias-readers.js';
 import type { BatchWriter } from '../persistence/batch-writer.js';
-import type { EntityStateRow } from '../persistence/history-writer.js';
+import type { EntityStateRow, StateHistoryRow } from '../persistence/history-writer.js';
 
 import { announceChange, type ChangeObserver } from './state-events.js';
+import { persistChange } from './state-ingest.js';
 
 /** What the packages service needs. */
 export type PackagesServiceOptions = {
@@ -63,6 +64,9 @@ export type PackagesServiceOptions = {
 
   /** The state rows waiting to be written; those of a removed entity are dropped with it. */
   readonly stateCache: BatchWriter<EntityStateRow>;
+
+  /** Where the history row of an entity marked unreachable is buffered. */
+  readonly history: BatchWriter<StateHistoryRow>;
 
   /** The packages' entity types, kept up to date from each package's row. */
   readonly packageTypes: PackageTypes;
@@ -489,6 +493,12 @@ export function startPackagesService(options: PackagesServiceOptions): BusSubscr
         const result = options.registry.setAvailability(entityId, false);
 
         if (result !== undefined) {
+          const record = options.directory.get(entityId);
+
+          if (record !== undefined) {
+            persistChange(options, record, result);
+          }
+
           announceChange(options.client, result, undefined, options.onNotableChange);
         }
       }
