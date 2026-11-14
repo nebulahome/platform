@@ -8,11 +8,9 @@
  */
 import type { BusClient } from '@nebulahome/bus';
 import {
-  busSubjects,
   catalogueReplySchema,
   compareVersions,
   ConflictError,
-  DeviceUnavailableError,
   HUB_CATALOGUE_METHOD,
   HUB_SERVICE,
   integrationAvailableReplySchema,
@@ -40,6 +38,7 @@ import {
 import type { Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
+import { askService } from './ask-service.js';
 import { readSettingValues } from './settings.js';
 
 /** What the list needs. */
@@ -81,16 +80,7 @@ async function ask<TReply>(
   reply: { parse: (value: unknown) => TReply } & Parameters<BusClient['request']>[2],
   timeoutMs = READ_TIMEOUT_MS,
 ): Promise<TReply> {
-  if (context.bus === undefined) {
-    throw new DeviceUnavailableError('The message bus is not reachable', {
-      details: { dependency: 'bus' },
-    });
-  }
-
-  return (await context.bus.request(busSubjects.service(service, method), payload, reply, {
-    traceId: context.traceId,
-    timeoutMs,
-  })) as TReply;
+  return (await askService(context, service, method, payload, reply, timeoutMs)) as TReply;
 }
 
 /**

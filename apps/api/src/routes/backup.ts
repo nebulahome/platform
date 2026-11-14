@@ -44,6 +44,7 @@ import { loginRateLimit } from '../config.js';
 import type { ApiContext } from '../context.js';
 import { requireSession } from '../http/guard.js';
 import { definePublicRoute, defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   askBackup,
   BACKUP_REPLIES,
@@ -203,9 +204,7 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'backup_location',
         resourceId: location.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: location.name, kind: location.target.kind },
       });
 
@@ -245,9 +244,7 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'backup_location',
         resourceId: location.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { fields: Object.keys(route.body) },
       });
 
@@ -282,9 +279,7 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'backup_location',
         resourceId: route.params.locationId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name },
       });
     },
@@ -448,9 +443,7 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'backup_run',
         resourceId: started.runId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
       });
 
       return started;
@@ -530,9 +523,7 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'backup_key',
         resourceId: file.keyId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { keyId: file.keyId },
       });
 
@@ -618,9 +609,7 @@ export function registerBackupRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'backup_run',
         resourceId: started.runId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { archive: route.body.archiveName, safetyBackup: route.body.takeSafetyBackup },
       });
 

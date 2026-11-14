@@ -8,7 +8,6 @@
 import type { z } from 'zod';
 
 import {
-  busSubjects,
   HUB_MODBUS_DEVICE_REMOVE_METHOD,
   HUB_MODBUS_DEVICE_SAVE_METHOD,
   HUB_MODBUS_DEVICES_METHOD,
@@ -47,9 +46,10 @@ import {
   type ModbusTemplateSaveRequest,
 } from '@nebulahome/contracts';
 
+import { askService } from './ask-service.js';
 import { deleteDevice, type DevicesContext, type RemovedDevice } from './devices.js';
 import type { IconLookup } from './icon-lookup.js';
-import { busOf, type IntegrationsContext } from './integrations.js';
+import type { IntegrationsContext } from './integrations.js';
 
 /**
  * Asks the hub one of the broker's methods.
@@ -67,10 +67,7 @@ export async function askModbus<TSchema extends z.ZodType>(
   body: object,
   schema: TSchema,
 ): Promise<z.output<TSchema>> {
-  return busOf(context).request(busSubjects.service(HUB_SERVICE, method), body, schema, {
-    traceId: context.traceId,
-    timeoutMs: context.timeoutMs,
-  });
+  return askService(context, HUB_SERVICE, method, body, schema, context.timeoutMs);
 }
 
 /**

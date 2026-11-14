@@ -28,6 +28,7 @@ import type { ApiContext } from '../context.js';
 import { collectionSchema } from '../http/collection.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { createArea, deleteArea, listAreas, readArea, updateArea } from '../services/areas.js';
+import { auditOrigin } from '../services/audit.js';
 import { syncHouseOnCore } from '../services/automations-core.js';
 
 /**
@@ -122,9 +123,7 @@ export function registerAreaRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'area',
         resourceId: area.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: area.key, name: area.name, kind: area.kind, parentId: area.parentId },
       });
 
@@ -171,9 +170,7 @@ export function registerAreaRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'area',
         resourceId: area.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { changed: Object.keys(route.body) },
       });
 
@@ -218,9 +215,7 @@ export function registerAreaRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'area',
         resourceId: route.params.areaId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {},
       });
     },
@@ -282,9 +277,7 @@ export function registerAreaRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'area',
         resourceId: route.params.areaId,
         result: result.failed === 0 ? 'success' : 'failure',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { ...result },
       });
 

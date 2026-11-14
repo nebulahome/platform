@@ -23,6 +23,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 
 /** Which icon a request is about. */
 const iconParamsSchema = z.object({ iconId: iconIdSchema });
@@ -87,9 +88,7 @@ export function registerIconRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'icon',
         resourceId: icon.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: icon.name },
       });
 
@@ -126,9 +125,7 @@ export function registerIconRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'icon',
         resourceId: icon.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { from: route.params.iconId, changed: Object.keys(route.body) },
       });
 
@@ -163,9 +160,7 @@ export function registerIconRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'icon',
         resourceId: route.params.iconId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {},
       });
     },

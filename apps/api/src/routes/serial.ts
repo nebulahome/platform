@@ -30,6 +30,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   closeSerialConsole,
   forgetSerialPort,
@@ -167,9 +168,7 @@ export function registerSerialRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'serial',
         resourceId: 'settings',
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { ...route.body },
       });
 
@@ -233,9 +232,7 @@ export function registerSerialRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'serial',
         resourceId: saved.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: saved.name, path: saved.path },
       });
 
@@ -299,9 +296,7 @@ export function registerSerialRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'serial',
         resourceId: route.params.portId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: port.name },
       });
 
@@ -335,9 +330,7 @@ export function registerSerialRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'serial',
         resourceId: route.params.portId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {},
       });
     },
@@ -384,9 +377,7 @@ function registerSerialConsoleRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'serial',
         resourceId: opened.portId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { consoleId: opened.consoleId, line: opened.line },
       });
 

@@ -9,14 +9,12 @@
  */
 import type { BusClient } from '@nebulahome/bus';
 import {
-  busSubjects,
   composeDocumentSchema,
   composeValidationSchema,
   containerDetailSchema,
   containerListReplySchema,
   containerLogsReplySchema,
   containerSummarySchema,
-  DeviceUnavailableError,
   imageDescriptionSchema,
   imageSearchReplySchema,
   imageTagsReplySchema,
@@ -39,6 +37,8 @@ import {
   type ManagedStatus,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
+
+import { askService } from './ask-service.js';
 
 /** How long a read may take. */
 const READ_TIMEOUT_MS = 10_000;
@@ -80,20 +80,13 @@ async function askSupervisor<TReply>(
   reply: { parse: (value: unknown) => TReply } & Parameters<BusClient['request']>[2],
   timeoutMs = READ_TIMEOUT_MS,
 ): Promise<TReply> {
-  if (context.bus === undefined) {
-    throw new DeviceUnavailableError('The message bus is not reachable', {
-      details: { dependency: 'bus' },
-    });
-  }
-
-  return (await context.bus.request(
-    busSubjects.service(SUPERVISOR_SERVICE, method),
+  return (await askService(
+    context,
+    SUPERVISOR_SERVICE,
+    method,
     payload,
     reply,
-    {
-      traceId: context.traceId,
-      timeoutMs,
-    },
+    timeoutMs,
   )) as TReply;
 }
 

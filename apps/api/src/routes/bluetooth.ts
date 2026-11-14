@@ -35,6 +35,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   addBluetoothDevice,
   addBluetoothProxy,
@@ -201,9 +202,7 @@ export function registerBluetoothRoutes(environment: RouteEnvironment, context: 
         resourceType: 'bluetooth',
         resourceId: 'settings',
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { ...route.body },
       });
 
@@ -267,9 +266,7 @@ export function registerBluetoothRoutes(environment: RouteEnvironment, context: 
         resourceType: 'bluetooth',
         resourceId: added.deviceId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { address: route.body.address, kind: route.body.kind ?? null },
       });
 
@@ -307,9 +304,7 @@ export function registerBluetoothRoutes(environment: RouteEnvironment, context: 
         resourceType: 'bluetooth',
         resourceId: route.params.deviceId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: removed.name, entityIds: removed.entityIds },
       });
     },
@@ -404,9 +399,7 @@ function registerProxyRoutes(environment: RouteEnvironment, context: ApiContext)
         resourceType: 'bluetooth',
         resourceId: route.body.deviceId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { jobId: job.id },
       });
 
@@ -446,9 +439,7 @@ function registerProxyRoutes(environment: RouteEnvironment, context: ApiContext)
         resourceType: 'bluetooth',
         resourceId: route.params.deviceId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { jobId: job.id, isUpdate: true },
       });
 
@@ -482,9 +473,7 @@ function registerProxyRoutes(environment: RouteEnvironment, context: ApiContext)
         resourceType: 'bluetooth',
         resourceId: route.params.deviceId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {},
       });
     },

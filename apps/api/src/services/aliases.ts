@@ -88,7 +88,7 @@ import { entityScopes, isPermitted } from '../auth/permissions.js';
 import { checkCode } from './alias-code-check.js';
 import { askCore } from './core-retry.js';
 import { deviceViewIdOf } from './devices.js';
-import { readTagKeys } from './entities.js';
+import { EFFECTIVE_AREA_ID, readTagKeys } from './entities.js';
 import { mentions } from './links.js';
 
 /** What the alias writes need beyond the database: the bus to `core`, and a log. */
@@ -109,9 +109,6 @@ export type AliasesContext = {
 
 /** The shared virtual device's external id. */
 const SHARED_DEVICE = 'aliases';
-
-/** The area an entity is in: its own, or failing that its device's. */
-const EFFECTIVE_AREA_ID = sql`coalesce(${schema.registry.entities.areaId}, ${schema.registry.devices.areaId})`;
 
 /** One alias as its rows hold it, before it is a view. */
 type AliasRow = {

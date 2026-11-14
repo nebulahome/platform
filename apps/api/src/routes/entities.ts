@@ -33,8 +33,15 @@ import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { IdempotencyStore } from '../http/idempotency.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import { isAuditedCapability, sendCommand } from '../services/commands.js';
-import { findEntity, listEntities, updateEntity, withSources } from '../services/entities.js';
+import {
+  findEntity,
+  listEntities,
+  updateEntity,
+  withSources,
+  type EntityDetail,
+} from '../services/entities.js';
 import { syncEntityOnCore, syncLinksOnCore } from '../services/links.js';
 
 import { forRequest } from './devices.js';
@@ -73,6 +80,36 @@ function fingerprint(entityId: string, capability: string, command: unknown): st
   return createHash('sha256')
     .update(JSON.stringify({ entityId, capability, command }))
     .digest('base64url');
+}
+
+/**
+ * The entity a request names, when the caller may see it.
+ *
+ * @param context - The service context.
+ * @param identity - Who is asking.
+ * @param entityId - The entity.
+ * @returns It.
+ * @throws {NotFoundError} When no entity is registered under that identifier, and also when one
+ * is but the caller may not see it: a `403` would confirm the entity exists.
+ */
+async function findVisibleEntity(
+  context: ApiContext,
+  identity: Parameters<typeof requirePermission>[0],
+  entityId: string,
+): Promise<EntityDetail> {
+  const found = await findEntity(context.db, entityId);
+
+  if (found === undefined) {
+    throw new NotFoundError(`No entity ${entityId}`, { details: { entityId } });
+  }
+
+  try {
+    requirePermission(identity, 'entity:read', found.scopes);
+  } catch {
+    throw new NotFoundError(`No entity ${entityId}`, { details: { entityId } });
+  }
+
+  return found;
 }
 
 /**
@@ -139,21 +176,7 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
      * exists, which is exactly what a caller without `entity:read` for it must not learn.
      */
     async (route): Promise<EntityView> => {
-      const found = await findEntity(context.db, route.params.entityId);
-
-      if (found === undefined) {
-        throw new NotFoundError(`No entity ${route.params.entityId}`, {
-          details: { entityId: route.params.entityId },
-        });
-      }
-
-      try {
-        requirePermission(route.identity, 'entity:read', found.scopes);
-      } catch {
-        throw new NotFoundError(`No entity ${route.params.entityId}`, {
-          details: { entityId: route.params.entityId },
-        });
-      }
+      const found = await findVisibleEntity(context, route.identity, route.params.entityId);
 
       // A linked entity's page shows what each of its sources says, which `core` holds.
       return withSources(context.bus, found.view, context.config.API_BUS_TIMEOUT_MS);
@@ -182,21 +205,7 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
      * may not see it - for the reason the read route gives.
      */
     async (route): Promise<EntityView> => {
-      const found = await findEntity(context.db, route.params.entityId);
-
-      if (found === undefined) {
-        throw new NotFoundError(`No entity ${route.params.entityId}`, {
-          details: { entityId: route.params.entityId },
-        });
-      }
-
-      try {
-        requirePermission(route.identity, 'entity:read', found.scopes);
-      } catch {
-        throw new NotFoundError(`No entity ${route.params.entityId}`, {
-          details: { entityId: route.params.entityId },
-        });
-      }
+      const found = await findVisibleEntity(context, route.identity, route.params.entityId);
 
       requirePermission(route.identity, 'entity:write', found.scopes);
 
@@ -217,9 +226,7 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'entity',
         resourceId: view.entityId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           changed: Object.keys(route.body),
           ...(route.body.shownAs === undefined ? {} : { shownAs: route.body.shownAs }),
@@ -258,21 +265,7 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
      * answer in time.
      */
     async (route): Promise<EntityCommandResponse> => {
-      const found = await findEntity(context.db, route.params.entityId);
-
-      if (found === undefined) {
-        throw new NotFoundError(`No entity ${route.params.entityId}`, {
-          details: { entityId: route.params.entityId },
-        });
-      }
-
-      try {
-        requirePermission(route.identity, 'entity:read', found.scopes);
-      } catch {
-        throw new NotFoundError(`No entity ${route.params.entityId}`, {
-          details: { entityId: route.params.entityId },
-        });
-      }
+      const found = await findVisibleEntity(context, route.identity, route.params.entityId);
 
       requirePermission(route.identity, 'entity:control', found.scopes);
 

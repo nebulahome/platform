@@ -19,6 +19,7 @@ import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { collectionSchema } from '../http/collection.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import { createRole, deleteRole, listRoles, updateRole } from '../services/roles.js';
 
 /** Which role a request is about. */
@@ -83,9 +84,7 @@ export function registerRoleRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'role',
         resourceId: role.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: role.key, name: role.name, from: route.body.from ?? null },
       });
 
@@ -128,9 +127,7 @@ export function registerRoleRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'role',
         resourceId: role.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           changed: Object.keys(route.body),
           ...(route.body.permissions === undefined ? {} : { permissions: route.body.permissions }),
@@ -174,9 +171,7 @@ export function registerRoleRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'role',
         resourceId: role.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: role.key, movedTo: route.query.moveTo ?? null, people: role.userCount },
       });
     },

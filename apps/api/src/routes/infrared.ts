@@ -32,6 +32,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   cancelInfraredLearn,
   importInfrared,
@@ -198,9 +199,7 @@ export function registerInfraredRoutes(environment: RouteEnvironment, context: A
         resourceType: 'infrared',
         resourceId: saved.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: saved.name, kind: saved.kind, blasterId: saved.blasterId },
       });
 
@@ -238,9 +237,7 @@ export function registerInfraredRoutes(environment: RouteEnvironment, context: A
         resourceType: 'infrared',
         resourceId: route.params.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name, entityIds: removed?.entityIds ?? [] },
       });
     },
@@ -337,9 +334,7 @@ function registerButtonRoutes(environment: RouteEnvironment, context: ApiContext
         resourceType: 'infrared',
         resourceId: route.params.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {},
       });
     },

@@ -48,6 +48,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   checkContainerUpdates,
   controlCompose,
@@ -684,9 +685,7 @@ async function audited<TResult>(
       resourceType,
       resourceId: name,
       result: 'success',
-      identity: route.identity,
-      ipAddress: route.request.ip,
-      traceId: route.request.traceId,
+      ...auditOrigin(route),
     });
 
     return result;
@@ -696,9 +695,7 @@ async function audited<TResult>(
       resourceType,
       resourceId: name,
       result: isNebulaError(error) && error.code === 'CONFLICT' ? 'denied' : 'failure',
-      identity: route.identity,
-      ipAddress: route.request.ip,
-      traceId: route.request.traceId,
+      ...auditOrigin(route),
       details: { message: error instanceof Error ? error.message.slice(0, 500) : 'unknown' },
     });
 

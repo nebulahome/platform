@@ -29,6 +29,7 @@ import { schema } from '@nebulahome/db';
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   adoptDiscovered,
   adoptMany,
@@ -141,9 +142,7 @@ export function registerDiscoveryRoutes(environment: RouteEnvironment, context: 
         resourceType: 'device',
         resourceId: device.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           via: 'discovery',
           kind: device.kind,
@@ -224,9 +223,7 @@ export function registerDiscoveryRoutes(environment: RouteEnvironment, context: 
             resourceType: 'device',
             resourceId: item.deviceId,
             result: 'success',
-            identity: route.identity,
-            ipAddress: route.request.ip,
-            traceId: route.request.traceId,
+            ...auditOrigin(route),
             details: { via: 'discovery', candidate: item.id },
           });
         }

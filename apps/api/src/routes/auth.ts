@@ -61,6 +61,7 @@ import { loginRateLimit } from '../config.js';
 import type { ApiContext } from '../context.js';
 import { requireSession } from '../http/guard.js';
 import { definePublicRoute, defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import { readAvatarUrl } from '../services/avatars.js';
 import { readHouseLocale } from '../services/settings.js';
 
@@ -583,9 +584,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
           resourceType: 'user',
           resourceId: route.identity.userId,
           result: 'success',
-          identity: route.identity,
-          ipAddress: route.request.ip,
-          traceId: route.request.traceId,
+          ...auditOrigin(route),
           details: { sessions: count },
         });
       } else if (route.identity.sessionId !== undefined) {
@@ -596,9 +595,7 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
           resourceType: 'session',
           resourceId: route.identity.sessionId,
           result: 'success',
-          identity: route.identity,
-          ipAddress: route.request.ip,
-          traceId: route.request.traceId,
+          ...auditOrigin(route),
         });
       }
 

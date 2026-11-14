@@ -13,7 +13,6 @@ import {
   type BACKUP_METHODS,
   BACKUP_SERVICE,
   ConflictError,
-  DeviceUnavailableError,
   NotFoundError,
   ValidationError,
   backupAcknowledgementSchema,
@@ -24,7 +23,6 @@ import {
   backupRunStartedSchema,
   backupStatusSchema,
   backupTargetViewSchema,
-  busSubjects,
   localPathProblem,
   type BackupLocationCreate,
   type BackupLocationUpdate,
@@ -35,6 +33,8 @@ import {
   type JsonObject,
 } from '@nebulahome/contracts';
 import { isSealed, schema, sealSecrets, type Database } from '@nebulahome/db';
+
+import { askService } from './ask-service.js';
 
 const { backupLocations, backupRuns, auditLog } = schema.system;
 const { users } = schema.auth;
@@ -69,16 +69,7 @@ export async function askBackup<TReply>(
   reply: { parse: (value: unknown) => TReply } & Parameters<BusClient['request']>[2],
   timeoutMs = QUICK_TIMEOUT_MS,
 ): Promise<TReply> {
-  if (context.bus === undefined) {
-    throw new DeviceUnavailableError('The message bus is not reachable', {
-      details: { dependency: 'bus' },
-    });
-  }
-
-  return (await context.bus.request(busSubjects.service(BACKUP_SERVICE, method), payload, reply, {
-    traceId: context.traceId,
-    timeoutMs,
-  })) as TReply;
+  return (await askService(context, BACKUP_SERVICE, method, payload, reply, timeoutMs)) as TReply;
 }
 
 /** The schemas of the replies, for {@link askBackup}. */

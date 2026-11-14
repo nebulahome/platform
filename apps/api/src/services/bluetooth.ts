@@ -20,7 +20,6 @@ import {
   bluetoothProxyRemoveReplySchema,
   bluetoothScannersReplySchema,
   bluetoothStatusSchema,
-  busSubjects,
   HUB_BLUETOOTH_ADD_METHOD,
   HUB_BLUETOOTH_DEVICES_METHOD,
   HUB_BLUETOOTH_FOUND_METHOD,
@@ -42,8 +41,9 @@ import {
   type BluetoothStatus,
 } from '@nebulahome/contracts';
 
+import { askService } from './ask-service.js';
 import { deleteDevice, type DevicesContext, type RemovedDevice } from './devices.js';
-import { busOf, type IntegrationsContext } from './integrations.js';
+import type { IntegrationsContext } from './integrations.js';
 
 /**
  * How long adding a device may take: the hub waits up to 15 s for the house to have it, which
@@ -75,10 +75,7 @@ export async function askBluetooth<TSchema extends z.ZodType>(
   schema: TSchema,
   timeoutMs = context.timeoutMs,
 ): Promise<z.output<TSchema>> {
-  return busOf(context).request(busSubjects.service(HUB_SERVICE, method), body, schema, {
-    traceId: context.traceId,
-    timeoutMs,
-  });
+  return askService(context, HUB_SERVICE, method, body, schema, timeoutMs);
 }
 
 /**

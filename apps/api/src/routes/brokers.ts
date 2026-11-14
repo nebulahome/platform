@@ -49,6 +49,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   answerMatter,
   cancelMatter,
@@ -232,9 +233,7 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'matter',
         resourceId: job.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { mode: route.body.mode },
       });
 
@@ -278,9 +277,7 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'matter',
         resourceId: job.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details:
           wifi === undefined
             ? { testCertificate: isAccepted ? 'accepted' : 'refused' }
@@ -348,9 +345,7 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'matter',
         resourceId: 'networks',
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           ssid: wifi?.ssid ?? null,
           isPasswordChanged: wifi?.password !== undefined,
@@ -392,9 +387,7 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'matter',
         resourceId: job.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { state: job.state },
       });
 
@@ -429,9 +422,7 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'matter',
         resourceId: 'controller',
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {},
       });
 
@@ -469,9 +460,7 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'matter',
         resourceId: route.params.nodeId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { devices: removed.map((device) => device.name) },
       });
     },
@@ -509,9 +498,7 @@ export function registerBrokerRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'matter',
         resourceId: route.params.nodeId,
         result: isRestored ? 'success' : 'failure',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { endpoint: route.body.endpoint },
       });
 
@@ -581,9 +568,7 @@ function registerMqttRoutes(environment: RouteEnvironment, context: ApiContext):
         resourceType: 'mqtt',
         resourceId: 'settings',
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { ...route.body },
       });
 
@@ -618,9 +603,7 @@ function registerMqttRoutes(environment: RouteEnvironment, context: ApiContext):
         resourceType: 'mqtt',
         resourceId: 'broker',
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {},
       });
 
@@ -683,9 +666,7 @@ function registerMqttRoutes(environment: RouteEnvironment, context: ApiContext):
         resourceType: 'mqtt',
         resourceId: route.body.deviceKey,
         result: isRestored ? 'success' : 'failure',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
       });
 
       return { isRestored };
@@ -746,9 +727,7 @@ function registerMqttRoutes(environment: RouteEnvironment, context: ApiContext):
         resourceType: 'mqtt',
         resourceId: added.username,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { access: route.body.access },
       });
 
@@ -787,9 +766,7 @@ function registerMqttRoutes(environment: RouteEnvironment, context: ApiContext):
         resourceType: 'mqtt',
         resourceId: route.params.username,
         result: isRemoved ? 'success' : 'failure',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
       });
 
       return { isRemoved };
@@ -873,9 +850,7 @@ function registerMqttRoutes(environment: RouteEnvironment, context: ApiContext):
         resourceType: 'mqtt',
         resourceId: saved.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: saved.name, stateTopic: saved.stateTopic },
       });
 
@@ -913,9 +888,7 @@ function registerMqttRoutes(environment: RouteEnvironment, context: ApiContext):
         resourceType: 'mqtt',
         resourceId: route.params.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { device: removed?.name ?? null },
       });
     },

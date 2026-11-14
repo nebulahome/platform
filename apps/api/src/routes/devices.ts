@@ -25,6 +25,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   createDevice,
   deleteDevice,
@@ -143,9 +144,7 @@ export function registerDeviceRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'device',
         resourceId: device.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           kind: device.kind,
           model: device.model,
@@ -220,9 +219,7 @@ export function registerDeviceRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'device',
         resourceId: device.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { changed: Object.keys(route.body) },
       });
 
@@ -260,9 +257,7 @@ export function registerDeviceRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'device',
         resourceId: route.params.deviceId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: removed.name, kind: removed.kind, entities: removed.entityIds.length },
       });
     },

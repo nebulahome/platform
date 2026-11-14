@@ -25,7 +25,6 @@ import {
   integrationSearchReplySchema,
   integrationVendorConfigUpdateSchema,
   integrationVendorViewSchema,
-  isNebulaError,
   VENDOR_ID_PATTERN,
   type AccountStep,
   type HubDetail,
@@ -46,19 +45,16 @@ import {
   pollSignIn,
   signOutAccount,
 } from '../services/accounts.js';
-import type { DevicesContext } from '../services/devices.js';
+import { audited, auditOrigin } from '../services/audit.js';
 import {
   installIntegration,
   readHubDetail,
   removeIntegration,
   searchIntegrations,
 } from '../services/integration-install.js';
-import {
-  listVendors,
-  readVendor,
-  updateVendorConfig,
-  type IntegrationsContext,
-} from '../services/integrations.js';
+import { listVendors, readVendor, updateVendorConfig } from '../services/integrations.js';
+
+import { forRequest } from './devices.js';
 
 /** Which vendor a request is about. */
 const vendorParamsSchema = z.object({ vendorId: z.string().min(1).max(64) });
@@ -73,96 +69,6 @@ const flowParamsSchema = vendorParamsSchema.extend({ flowId: z.uuid() });
 const accountParamsSchema = vendorParamsSchema.extend({
   accountId: z.string().min(1).max(128),
 });
-
-/**
- * What the write paths need, for one request.
- *
- * @param context - The service's collaborators.
- * @param traceId - The request's trace id.
- * @returns The request-scoped view of them.
- */
-function forRequest(context: ApiContext, traceId: string): IntegrationsContext {
-  return {
-    db: context.db,
-    bus: context.bus,
-    secretsKey: context.secretsKey,
-    logger: context.logger,
-    timeoutMs: context.config.API_BUS_TIMEOUT_MS,
-    traceId,
-  };
-}
-
-/**
- * What removing an integration needs, for one request: the device paths', since its devices go.
- *
- * @param context - The service's collaborators.
- * @param traceId - The request's trace id.
- * @returns The request-scoped view of them.
- */
-function forRemoval(context: ApiContext, traceId: string): DevicesContext {
-  return { ...forRequest(context, traceId), icons: context.icons };
-}
-
-/**
- * Records an install or a removal in the audit log, refused or not.
- *
- * @param context - The service's collaborators.
- * @param route - Who asked, and from where.
- * @param route.identity - Who.
- * @param route.request - The request.
- * @param route.request.ip - From where.
- * @param route.request.traceId - Its trace.
- * @param action - What: `install`, `remove`.
- * @param vendorId - Which vendor.
- * @param work - The action.
- * @param detailsOf - What of its result the entry keeps.
- * @returns What the action gave.
- */
-async function audited<TResult>(
-  context: ApiContext,
-  route: {
-    readonly identity: Parameters<ApiContext['audit']['record']>[0]['identity'];
-    readonly request: { readonly ip: string; readonly traceId: string };
-  },
-  action: 'install' | 'remove',
-  vendorId: string,
-  work: () => Promise<TResult>,
-  detailsOf: (result: TResult) => Record<string, unknown>,
-): Promise<TResult> {
-  /**
-   * Writes the entry.
-   *
-   * @param result - How it went.
-   * @param details - What it did.
-   */
-  const record = async (
-    result: 'success' | 'failure' | 'denied',
-    details?: Record<string, unknown>,
-  ): Promise<void> => {
-    await context.audit.record({
-      action: `integration.${action}`,
-      resourceType: 'integration',
-      resourceId: vendorId,
-      result,
-      identity: route.identity,
-      ipAddress: route.request.ip,
-      traceId: route.request.traceId,
-      ...(details === undefined ? {} : { details }),
-    });
-  };
-
-  try {
-    const result = await work();
-
-    await record('success', detailsOf(result));
-
-    return result;
-  } catch (error: unknown) {
-    await record(isNebulaError(error) && error.code === 'CONFLICT' ? 'denied' : 'failure');
-
-    throw error;
-  }
-}
 
 /**
  * Registers the integration routes.
@@ -304,10 +210,13 @@ export function registerIntegrationRoutes(
       requirePermission(route.identity, 'integration:install');
 
       return audited(
-        context,
+        context.audit,
         route,
-        'install',
-        route.params.vendorId,
+        {
+          action: 'integration.install',
+          resourceType: 'integration',
+          resourceId: route.params.vendorId,
+        },
         async () =>
           installIntegration(
             forRequest(context, route.request.traceId),
@@ -347,12 +256,15 @@ export function registerIntegrationRoutes(
       requirePermission(route.identity, 'integration:install');
 
       return audited(
-        context,
+        context.audit,
         route,
-        'remove',
-        route.params.vendorId,
+        {
+          action: 'integration.remove',
+          resourceType: 'integration',
+          resourceId: route.params.vendorId,
+        },
         async () =>
-          removeIntegration(forRemoval(context, route.request.traceId), route.params.vendorId),
+          removeIntegration(forRequest(context, route.request.traceId), route.params.vendorId),
         (removed) => ({ devices: removed.devices, accounts: removed.accounts }),
       );
     },
@@ -391,9 +303,7 @@ export function registerIntegrationRoutes(
         resourceType: 'integration',
         resourceId: vendor.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { vendor: vendor.id, changed: Object.keys(route.body) },
       });
 
@@ -430,9 +340,7 @@ export function registerIntegrationRoutes(
       resourceType: 'integration',
       resourceId: vendorId,
       result: 'success',
-      identity: route.identity,
-      ipAddress: route.request.ip,
-      traceId: route.request.traceId,
+      ...auditOrigin(route),
       details: { vendor: vendorId, account: step.account.id },
     });
   };
@@ -572,9 +480,7 @@ export function registerIntegrationRoutes(
         resourceType: 'integration',
         resourceId: route.params.vendorId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { vendor: route.params.vendorId, account: route.params.accountId },
       });
 

@@ -25,7 +25,6 @@ import {
   containerLogsReplySchema,
   hubDetailSchema,
   installedPackageSchema,
-  isNebulaError,
   packageAvailableReplySchema,
   packageCatalogueQuerySchema,
   packageConfigBodySchema,
@@ -50,6 +49,7 @@ import { isPermitted, requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { collectionSchema } from '../http/collection.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { audited } from '../services/audit.js';
 import {
   availablePackages,
   callPackage,
@@ -111,57 +111,17 @@ function packagesContext(context: ApiContext, traceId: string): PackagesContext 
 }
 
 /**
- * Records an action in the audit log, refused or not.
+ * What a package action's audit entry is about.
  *
- * @param context - The service's collaborators.
- * @param route - Who asked, and from where.
- * @param route.identity - Who.
- * @param route.request - The request.
- * @param route.request.ip - From where.
- * @param route.request.traceId - Its trace.
  * @param action - What: `install`, `remove`.
  * @param packageId - Which package.
- * @param work - The action.
- * @returns What the action gave.
+ * @returns The entry's action and resource.
  */
-async function audited<TResult>(
-  context: ApiContext,
-  route: {
-    readonly identity: Parameters<ApiContext['audit']['record']>[0]['identity'];
-    readonly request: { readonly ip: string; readonly traceId: string };
-  },
+function packageEntry(
   action: string,
   packageId: string,
-  work: () => Promise<TResult>,
-): Promise<TResult> {
-  /**
-   * Writes the entry.
-   *
-   * @param result - How it went.
-   */
-  const record = async (result: 'success' | 'failure' | 'denied'): Promise<void> => {
-    await context.audit.record({
-      action: `package.${action}`,
-      resourceType: 'package',
-      resourceId: packageId,
-      result,
-      identity: route.identity,
-      ipAddress: route.request.ip,
-      traceId: route.request.traceId,
-    });
-  };
-
-  try {
-    const result = await work();
-
-    await record('success');
-
-    return result;
-  } catch (error: unknown) {
-    await record(isNebulaError(error) && error.code === 'CONFLICT' ? 'denied' : 'failure');
-
-    throw error;
-  }
+): { action: string; resourceType: string; resourceId: string } {
+  return { action: `package.${action}`, resourceType: 'package', resourceId: packageId };
 }
 
 /**
@@ -456,12 +416,16 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
       requirePermission(route.identity, 'package:install');
 
       return {
-        installed: await audited(context, route, 'install', route.params.packageId, async () =>
-          installPackage(
-            packagesContext(context, route.request.traceId),
-            route.params.packageId,
-            route.body.version,
-          ),
+        installed: await audited(
+          context.audit,
+          route,
+          packageEntry('install', route.params.packageId),
+          async () =>
+            installPackage(
+              packagesContext(context, route.request.traceId),
+              route.params.packageId,
+              route.body.version,
+            ),
         ),
       };
     },
@@ -490,8 +454,12 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
       requirePermission(route.identity, 'package:install');
 
       return {
-        package: await audited(context, route, 'update', route.params.packageId, async () =>
-          updatePackage(packagesContext(context, route.request.traceId), route.params.packageId),
+        package: await audited(
+          context.audit,
+          route,
+          packageEntry('update', route.params.packageId),
+          async () =>
+            updatePackage(packagesContext(context, route.request.traceId), route.params.packageId),
         ),
       };
     },
@@ -518,12 +486,16 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
     async (route): Promise<void> => {
       requirePermission(route.identity, 'package:install');
 
-      await audited(context, route, 'remove', route.params.packageId, async () =>
-        removePackage(
-          packagesContext(context, route.request.traceId),
-          route.params.packageId,
-          route.query.data,
-        ),
+      await audited(
+        context.audit,
+        route,
+        packageEntry('remove', route.params.packageId),
+        async () =>
+          removePackage(
+            packagesContext(context, route.request.traceId),
+            route.params.packageId,
+            route.query.data,
+          ),
       );
     },
   );
@@ -552,12 +524,16 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
         requirePermission(route.identity, 'package:configure');
 
         return {
-          package: await audited(context, route, action, route.params.packageId, async () =>
-            controlPackage(
-              packagesContext(context, route.request.traceId),
-              route.params.packageId,
-              action,
-            ),
+          package: await audited(
+            context.audit,
+            route,
+            packageEntry(action, route.params.packageId),
+            async () =>
+              controlPackage(
+                packagesContext(context, route.request.traceId),
+                route.params.packageId,
+                action,
+              ),
           ),
         };
       },
@@ -587,12 +563,16 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
       requirePermission(route.identity, 'package:configure');
 
       return {
-        package: await audited(context, route, 'configure', route.params.packageId, async () =>
-          configurePackage(
-            packagesContext(context, route.request.traceId),
-            route.params.packageId,
-            route.body,
-          ),
+        package: await audited(
+          context.audit,
+          route,
+          packageEntry('configure', route.params.packageId),
+          async () =>
+            configurePackage(
+              packagesContext(context, route.request.traceId),
+              route.params.packageId,
+              route.body,
+            ),
         ),
       };
     },

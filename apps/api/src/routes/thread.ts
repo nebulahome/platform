@@ -28,6 +28,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteContext, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   checkThreadRadio,
   joinThread,
@@ -111,9 +112,7 @@ export function registerThreadRoutes(environment: RouteEnvironment, context: Api
       resourceType: 'thread',
       resourceId: 'network',
       result: 'success',
-      identity: route.identity,
-      ipAddress: route.request.ip,
-      traceId: route.request.traceId,
+      ...auditOrigin(route),
       details,
     });
   };

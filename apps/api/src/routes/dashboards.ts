@@ -30,6 +30,7 @@ import { isPermitted, requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { collectionSchema } from '../http/collection.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   createDashboard,
   deleteDashboard,
@@ -158,9 +159,7 @@ export function registerDashboardRoutes(environment: RouteEnvironment, context: 
         resourceType: 'dashboard',
         resourceId: dashboard.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: dashboard.name, userIds: dashboard.userIds },
       });
 
@@ -202,9 +201,7 @@ export function registerDashboardRoutes(environment: RouteEnvironment, context: 
         resourceType: 'dashboard',
         resourceId: dashboard.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: dashboard.name, cards: dashboard.layout.cards.length },
       });
 
@@ -300,9 +297,7 @@ export function registerDashboardRoutes(environment: RouteEnvironment, context: 
         resourceType: 'dashboard',
         resourceId: dashboard.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           changed: Object.keys(route.body),
           ...(route.body.userIds === undefined ? {} : { userIds: dashboard.userIds }),
@@ -341,9 +336,7 @@ export function registerDashboardRoutes(environment: RouteEnvironment, context: 
         resourceType: 'dashboard',
         resourceId: dashboard.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: dashboard.name },
       });
 

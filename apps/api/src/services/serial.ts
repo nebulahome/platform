@@ -8,7 +8,6 @@
 import type { z } from 'zod';
 
 import {
-  busSubjects,
   HUB_SERIAL_CONSOLE_CLOSE_METHOD,
   HUB_SERIAL_CONSOLE_OPEN_METHOD,
   HUB_SERIAL_CONSOLE_READ_METHOD,
@@ -37,7 +36,8 @@ import {
   type SerialStatus,
 } from '@nebulahome/contracts';
 
-import { busOf, type IntegrationsContext } from './integrations.js';
+import { askService } from './ask-service.js';
+import type { IntegrationsContext } from './integrations.js';
 
 /**
  * How long a question that opens a port may take: a port on the network has five seconds to
@@ -63,10 +63,7 @@ export async function askSerial<TSchema extends z.ZodType>(
   schema: TSchema,
   timeoutMs = context.timeoutMs,
 ): Promise<z.output<TSchema>> {
-  return busOf(context).request(busSubjects.service(HUB_SERVICE, method), body, schema, {
-    traceId: context.traceId,
-    timeoutMs,
-  });
+  return askService(context, HUB_SERVICE, method, body, schema, timeoutMs);
 }
 
 /**

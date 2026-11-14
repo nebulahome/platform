@@ -13,7 +13,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 
 import {
-  busSubjects,
   HUB_MATTER_ANSWER_METHOD,
   HUB_MATTER_CANCEL_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
@@ -84,6 +83,7 @@ import {
 } from '@nebulahome/contracts';
 import { schema } from '@nebulahome/db';
 
+import { askService } from './ask-service.js';
 import { bluetoothStatus } from './bluetooth.js';
 import {
   assertNotReadByAliases,
@@ -92,7 +92,7 @@ import {
   type RemovedDevice,
 } from './devices.js';
 import { infraredStatus } from './infrared.js';
-import { busOf, listCatalogue, reloadOnHub, type IntegrationsContext } from './integrations.js';
+import { listCatalogue, reloadOnHub, type IntegrationsContext } from './integrations.js';
 import { modbusStatus } from './modbus.js';
 import { serialStatus } from './serial.js';
 import { threadStatus } from './thread.js';
@@ -105,12 +105,7 @@ import { threadStatus } from './thread.js';
  * @throws {DeviceUnavailableError} When the hub cannot be asked.
  */
 export async function matterStatus(context: IntegrationsContext): Promise<MatterStatus> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_STATUS_METHOD),
-    {},
-    matterStatusSchema,
-    { traceId: context.traceId },
-  );
+  return askService(context, HUB_SERVICE, HUB_MATTER_STATUS_METHOD, {}, matterStatusSchema);
 }
 
 /**
@@ -121,11 +116,12 @@ export async function matterStatus(context: IntegrationsContext): Promise<Matter
  * @throws {DeviceUnavailableError} When the hub cannot be asked.
  */
 export async function matterNodes(context: IntegrationsContext): Promise<MatterNode[]> {
-  const reply = await busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_NODES_METHOD),
+  const reply = await askService(
+    context,
+    HUB_SERVICE,
+    HUB_MATTER_NODES_METHOD,
     {},
     matterNodesReplySchema,
-    { traceId: context.traceId },
   );
 
   return reply.items;
@@ -139,12 +135,7 @@ export async function matterNodes(context: IntegrationsContext): Promise<MatterN
  * @throws {DeviceUnavailableError} When the hub cannot be asked.
  */
 export async function matterNetwork(context: IntegrationsContext): Promise<MatterNetwork> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORK_METHOD),
-    {},
-    matterNetworkSchema,
-    { traceId: context.traceId },
-  );
+  return askService(context, HUB_SERVICE, HUB_MATTER_NETWORK_METHOD, {}, matterNetworkSchema);
 }
 
 /** How many devices a card counts, and how many of them answer. */
@@ -247,11 +238,12 @@ export async function commissionMatter(
   context: IntegrationsContext,
   request: MatterCommissionRequest,
 ): Promise<MatterCommissioning> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_COMMISSION_METHOD),
+  return askService(
+    context,
+    HUB_SERVICE,
+    HUB_MATTER_COMMISSION_METHOD,
     request,
     matterCommissioningSchema,
-    { traceId: context.traceId },
   );
 }
 
@@ -262,11 +254,13 @@ export async function commissionMatter(
  * @returns Them.
  */
 export async function matterNetworks(context: IntegrationsContext): Promise<MatterNetworks> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORKS_METHOD),
+  return askService(
+    context,
+    HUB_SERVICE,
+    HUB_MATTER_NETWORKS_METHOD,
     {},
     matterNetworksSchema,
-    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+    context.timeoutMs,
   );
 }
 
@@ -281,11 +275,13 @@ export async function saveMatterNetworks(
   context: IntegrationsContext,
   request: MatterNetworksSaveRequest,
 ): Promise<MatterNetworks> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORKS_SAVE_METHOD),
+  return askService(
+    context,
+    HUB_SERVICE,
+    HUB_MATTER_NETWORKS_SAVE_METHOD,
     request,
     matterNetworksSchema,
-    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+    context.timeoutMs,
   );
 }
 
@@ -302,11 +298,13 @@ export async function answerMatter(
   context: IntegrationsContext,
   answer: MatterAnswerRequest,
 ): Promise<MatterCommissioning> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_ANSWER_METHOD),
+  return askService(
+    context,
+    HUB_SERVICE,
+    HUB_MATTER_ANSWER_METHOD,
     answer,
     matterCommissioningSchema,
-    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+    context.timeoutMs,
   );
 }
 
@@ -322,11 +320,13 @@ export async function cancelMatter(
   context: IntegrationsContext,
   jobId: string,
 ): Promise<MatterCommissioning> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_CANCEL_METHOD),
+  return askService(
+    context,
+    HUB_SERVICE,
+    HUB_MATTER_CANCEL_METHOD,
     { jobId },
     matterCommissioningSchema,
-    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+    context.timeoutMs,
   );
 }
 
@@ -338,11 +338,13 @@ export async function cancelMatter(
  * @throws {ConflictError} While a device is being added.
  */
 export async function restartMatter(context: IntegrationsContext): Promise<MatterStatus> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_RESTART_METHOD),
+  return askService(
+    context,
+    HUB_SERVICE,
+    HUB_MATTER_RESTART_METHOD,
     {},
     matterStatusSchema,
-    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+    context.timeoutMs,
   );
 }
 
@@ -384,11 +386,12 @@ export async function removeMatterNode(
     removed.push(await deleteDevice(context, deviceId));
   }
 
-  await busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_REMOVE_METHOD),
+  await askService(
+    context,
+    HUB_SERVICE,
+    HUB_MATTER_REMOVE_METHOD,
     { nodeId },
     matterRemoveReplySchema,
-    { traceId: context.traceId },
   );
 
   return removed;
@@ -406,11 +409,12 @@ export async function restoreMatterDevice(
   context: IntegrationsContext,
   request: MatterRestoreRequest,
 ): Promise<boolean> {
-  const reply = await busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MATTER_RESTORE_METHOD),
+  const reply = await askService(
+    context,
+    HUB_SERVICE,
+    HUB_MATTER_RESTORE_METHOD,
     request,
     matterRestoreReplySchema,
-    { traceId: context.traceId },
   );
 
   return reply.isRestored;
@@ -498,12 +502,7 @@ export async function rehomeBrokerDevices(context: DevicesContext): Promise<Reho
  * @throws {DeviceUnavailableError} When the hub cannot be asked.
  */
 export async function mqttStatus(context: IntegrationsContext): Promise<MqttStatus> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_STATUS_METHOD),
-    {},
-    mqttStatusSchema,
-    { traceId: context.traceId },
-  );
+  return askService(context, HUB_SERVICE, HUB_MQTT_STATUS_METHOD, {}, mqttStatusSchema);
 }
 
 /**
@@ -514,11 +513,12 @@ export async function mqttStatus(context: IntegrationsContext): Promise<MqttStat
  * @throws {DeviceUnavailableError} When the hub cannot be asked.
  */
 export async function mqttDevices(context: IntegrationsContext): Promise<MqttDevice[]> {
-  const reply = await busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_DEVICES_METHOD),
+  const reply = await askService(
+    context,
+    HUB_SERVICE,
+    HUB_MQTT_DEVICES_METHOD,
     {},
     mqttDevicesReplySchema,
-    { traceId: context.traceId },
   );
 
   return reply.items;
@@ -535,11 +535,12 @@ export async function restoreMqttDevice(
   context: IntegrationsContext,
   deviceKey: string,
 ): Promise<boolean> {
-  const reply = await busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_RESTORE_METHOD),
+  const reply = await askService(
+    context,
+    HUB_SERVICE,
+    HUB_MQTT_RESTORE_METHOD,
     { deviceKey },
     mqttRestoreReplySchema,
-    { traceId: context.traceId },
   );
 
   return reply.isRestored;
@@ -556,11 +557,13 @@ export async function saveMqttSettings(
   context: IntegrationsContext,
   settings: MqttSettings,
 ): Promise<MqttStatus> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_SETTINGS_METHOD),
+  return askService(
+    context,
+    HUB_SERVICE,
+    HUB_MQTT_SETTINGS_METHOD,
     settings,
     mqttStatusSchema,
-    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+    context.timeoutMs,
   );
 }
 
@@ -571,11 +574,13 @@ export async function saveMqttSettings(
  * @returns Where the broker stands then.
  */
 export async function restartMqtt(context: IntegrationsContext): Promise<MqttStatus> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_RESTART_METHOD),
+  return askService(
+    context,
+    HUB_SERVICE,
+    HUB_MQTT_RESTART_METHOD,
     {},
     mqttStatusSchema,
-    { traceId: context.traceId, timeoutMs: context.timeoutMs },
+    context.timeoutMs,
   );
 }
 
@@ -586,12 +591,7 @@ export async function restartMqtt(context: IntegrationsContext): Promise<MqttSta
  * @returns The usernames, with their connections, and the connections without one.
  */
 export async function mqttClients(context: IntegrationsContext) {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_CLIENTS_METHOD),
-    {},
-    mqttClientsReplySchema,
-    { traceId: context.traceId },
-  );
+  return askService(context, HUB_SERVICE, HUB_MQTT_CLIENTS_METHOD, {}, mqttClientsReplySchema);
 }
 
 /**
@@ -603,11 +603,12 @@ export async function mqttClients(context: IntegrationsContext) {
  * @throws {ConflictError} When the username is taken.
  */
 export async function addMqttClient(context: IntegrationsContext, request: MqttClientAddRequest) {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_CLIENT_ADD_METHOD),
+  return askService(
+    context,
+    HUB_SERVICE,
+    HUB_MQTT_CLIENT_ADD_METHOD,
     request,
     mqttClientAddReplySchema,
-    { traceId: context.traceId },
   );
 }
 
@@ -622,11 +623,12 @@ export async function removeMqttClient(
   context: IntegrationsContext,
   username: string,
 ): Promise<boolean> {
-  const reply = await busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_CLIENT_REMOVE_METHOD),
+  const reply = await askService(
+    context,
+    HUB_SERVICE,
+    HUB_MQTT_CLIENT_REMOVE_METHOD,
     { username },
     mqttClientRemoveReplySchema,
-    { traceId: context.traceId },
   );
 
   return reply.isRemoved;
@@ -645,12 +647,7 @@ export async function mqttTopics(
   context: IntegrationsContext,
   request: { readonly prefix: string; readonly limit: number },
 ) {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_TOPICS_METHOD),
-    request,
-    mqttTopicsReplySchema,
-    { traceId: context.traceId },
-  );
+  return askService(context, HUB_SERVICE, HUB_MQTT_TOPICS_METHOD, request, mqttTopicsReplySchema);
 }
 
 /**
@@ -660,11 +657,12 @@ export async function mqttTopics(
  * @returns Them.
  */
 export async function mqttMappings(context: IntegrationsContext): Promise<MqttMapping[]> {
-  const reply = await busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_MAPPINGS_METHOD),
+  const reply = await askService(
+    context,
+    HUB_SERVICE,
+    HUB_MQTT_MAPPINGS_METHOD,
     {},
     mqttMappingsReplySchema,
-    { traceId: context.traceId },
   );
 
   return reply.items;
@@ -681,12 +679,7 @@ export async function saveMqttMapping(
   context: IntegrationsContext,
   mapping: MqttMappingInput,
 ): Promise<MqttMapping> {
-  return busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_MAPPING_SAVE_METHOD),
-    mapping,
-    mqttMappingSchema,
-    { traceId: context.traceId },
-  );
+  return askService(context, HUB_SERVICE, HUB_MQTT_MAPPING_SAVE_METHOD, mapping, mqttMappingSchema);
 }
 
 /**
@@ -708,11 +701,12 @@ export async function removeMqttMapping(
     device?.deviceId === null || device === undefined
       ? null
       : await deleteDevice(context, device.deviceId);
-  const reply = await busOf(context).request(
-    busSubjects.service(HUB_SERVICE, HUB_MQTT_MAPPING_REMOVE_METHOD),
+  const reply = await askService(
+    context,
+    HUB_SERVICE,
+    HUB_MQTT_MAPPING_REMOVE_METHOD,
     { id },
     mqttMappingRemoveReplySchema,
-    { traceId: context.traceId },
   );
 
   if (!reply.isRemoved) {

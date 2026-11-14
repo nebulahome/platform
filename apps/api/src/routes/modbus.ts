@@ -35,6 +35,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   identifyModbus,
   ignoreModbus,
@@ -141,9 +142,7 @@ export function registerModbusRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'modbus',
         resourceId: saved.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           name: saved.name,
           host: saved.host,
@@ -187,9 +186,7 @@ export function registerModbusRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'modbus',
         resourceId: route.params.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: removed?.name ?? null, entityIds: removed?.entityIds ?? [] },
       });
     },
@@ -250,9 +247,7 @@ export function registerModbusRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'modbus',
         resourceId: saved.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: saved.document.name, entities: saved.document.entities.length },
       });
 
@@ -286,9 +281,7 @@ export function registerModbusRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'modbus',
         resourceId: route.params.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {},
       });
     },
@@ -325,9 +318,7 @@ export function registerModbusRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'modbus',
         resourceId: 'settings',
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { ...route.body },
       });
 
@@ -487,9 +478,7 @@ export function registerModbusRoutes(environment: RouteEnvironment, context: Api
         resourceType: 'modbus',
         resourceId: `${target.host}:${String(target.port)}#${String(target.unitId)}`,
         result: reply.error === null ? 'success' : 'failure',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { entity: route.body.entity.name, capability, command, request: reply.request },
       });
 

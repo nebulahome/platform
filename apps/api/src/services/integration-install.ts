@@ -13,7 +13,6 @@ import { asc, eq, inArray, like } from 'drizzle-orm';
 
 import type { BusClient } from '@nebulahome/bus';
 import {
-  busSubjects,
   ConflictError,
   hubDetailSchema,
   integrationInstallReplySchema,
@@ -31,8 +30,9 @@ import {
 import { schema } from '@nebulahome/db';
 
 import { listAccountViews, signOutAccount } from './accounts.js';
+import { askService } from './ask-service.js';
 import { deleteDevice, type DevicesContext } from './devices.js';
-import { busOf, catalogueIfUp, type IntegrationsContext } from './integrations.js';
+import { catalogueIfUp, type IntegrationsContext } from './integrations.js';
 
 /** How long a search may take: the packet-manager asks the Hub, and maybe reads the index again. */
 const SEARCH_TIMEOUT_MS = 30_000;
@@ -63,11 +63,13 @@ async function ask<TReply>(
   reply: Parameters<BusClient['request']>[2] & { parse: (value: unknown) => TReply },
   timeoutMs: number,
 ): Promise<TReply> {
-  return busOf(context).request(
-    busSubjects.service(PACKET_MANAGER_SERVICE, method),
+  return askService(
+    context,
+    PACKET_MANAGER_SERVICE,
+    method,
     payload,
     reply,
-    { traceId: context.traceId, timeoutMs },
+    timeoutMs,
   ) as Promise<TReply>;
 }
 

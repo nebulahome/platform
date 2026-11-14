@@ -22,6 +22,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   checkSystemUpdates,
   dismissLastPlatformUpdate,
@@ -77,9 +78,7 @@ async function audited<TResult>(
       action: `system.${action}`,
       resourceType: 'system',
       result,
-      identity: route.identity,
-      ipAddress: route.request.ip,
-      traceId: route.request.traceId,
+      ...auditOrigin(route),
       ...(details === undefined ? {} : { details }),
     });
 

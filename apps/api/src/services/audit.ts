@@ -9,7 +9,7 @@
  * deliberately not a foreign key, so that a record survives the deletion of the person it names.
  * An audit trail that forgets who did the thing when the account is closed is not one.
  */
-import type { Identity } from '@nebulahome/contracts';
+import { isNebulaError, type Identity } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
@@ -72,6 +72,77 @@ export type AuditEntry = {
   /** Anything else worth keeping. Never secrets or personal data. */
   readonly details?: Record<string, unknown>;
 };
+
+/** Who asked and from where, as a route has it. */
+export type AuditRoute = {
+  readonly identity: Identity | undefined;
+  readonly request: { readonly ip: string; readonly traceId: string };
+};
+
+/**
+ * The part of an entry every route fills the same way: who asked, from where, and the trace.
+ *
+ * @param route - The request.
+ * @returns The entry's `identity`, `ipAddress` and `traceId`.
+ */
+export function auditOrigin(
+  route: AuditRoute,
+): Pick<AuditEntry, 'identity' | 'ipAddress' | 'traceId'> {
+  return {
+    identity: route.identity,
+    ipAddress: route.request.ip,
+    traceId: route.request.traceId,
+  };
+}
+
+/**
+ * Runs an action and records it, refused or not: `denied` on a conflict, `failure` on any other
+ * error, which is thrown on.
+ *
+ * @param audit - Where the entry goes.
+ * @param route - Who asked, and from where.
+ * @param entry - What is done, to what.
+ * @param entry.action - What happened.
+ * @param entry.resourceType - What kind of thing.
+ * @param entry.resourceId - Which one.
+ * @param work - The action.
+ * @param detailsOf - What of its result a successful entry keeps; nothing when left out.
+ * @returns What the action gave.
+ */
+export async function audited<TResult>(
+  audit: Pick<AuditLog, 'record'>,
+  route: AuditRoute,
+  entry: { readonly action: string; readonly resourceType: string; readonly resourceId: string },
+  work: () => Promise<TResult>,
+  detailsOf?: (result: TResult) => Record<string, unknown>,
+): Promise<TResult> {
+  /**
+   * Writes the entry.
+   *
+   * @param result - How it went.
+   * @param details - What it did.
+   */
+  const record = async (result: AuditResult, details?: Record<string, unknown>): Promise<void> => {
+    await audit.record({
+      ...entry,
+      result,
+      ...auditOrigin(route),
+      ...(details === undefined ? {} : { details }),
+    });
+  };
+
+  try {
+    const result = await work();
+
+    await record('success', detailsOf?.(result));
+
+    return result;
+  } catch (error: unknown) {
+    await record(isNebulaError(error) && error.code === 'CONFLICT' ? 'denied' : 'failure');
+
+    throw error;
+  }
+}
 
 /** Writes audit entries, and never lets a failure to write one break the request. */
 export class AuditLog {

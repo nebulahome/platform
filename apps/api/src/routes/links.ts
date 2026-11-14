@@ -25,6 +25,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import {
   changeLink,
   listLinkSuggestions,
@@ -91,9 +92,7 @@ export function registerLinkRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: action.startsWith('device') ? 'device' : 'entity',
         resourceId: target,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { link: action, with: other ?? null, pairs: preview.pairs.length },
       });
     }
@@ -289,9 +288,7 @@ export function registerLinkRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'link_suggestion',
         resourceId: route.params.suggestionId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { isDismissed: route.body.isDismissed },
       });
     },

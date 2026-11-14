@@ -61,6 +61,7 @@ import type { ApiContext } from '../context.js';
 import { collectionSchema } from '../http/collection.js';
 import { requireSession } from '../http/guard.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import { deleteAvatar, readAvatarUrl, readAvatarUrls, writeAvatar } from '../services/avatars.js';
 import { refuseEscalation } from '../services/roles.js';
 
@@ -301,9 +302,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'user',
         resourceId: created.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { username: route.body.username, role: route.body.role },
       });
 
@@ -437,9 +436,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
           resourceType: 'user',
           resourceId: route.params.userId,
           result: 'success',
-          identity: route.identity,
-          ipAddress: route.request.ip,
-          traceId: route.request.traceId,
+          ...auditOrigin(route),
           details: {
             ...(route.body.role === undefined ? {} : { role: route.body.role }),
             ...(route.body.isActive === undefined ? {} : { isActive: route.body.isActive }),
@@ -519,9 +516,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'user',
         resourceId: row.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { username: row.username },
       });
 
@@ -582,9 +577,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'user',
         resourceId: user.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
       });
 
       void route.reply.status(204);
@@ -832,9 +825,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'access_token',
         resourceId: created,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { name: route.body.name, permissions: route.body.permissions.map((e) => e.key) },
       });
 
@@ -895,9 +886,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'access_token',
         resourceId: route.params.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
       });
 
       void route.reply.status(204);
@@ -1038,9 +1027,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'user',
         resourceId: route.identity.userId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
       });
 
       return twoFactorConfirmResponseSchema.parse({ recoveryCodes: codes });
@@ -1081,9 +1068,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         resourceType: 'user',
         resourceId: route.identity.userId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
       });
 
       void route.reply.status(204);
@@ -1139,9 +1124,7 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
           resourceType: 'user',
           resourceId: route.params.userId,
           result: 'success',
-          identity: route.identity,
-          ipAddress: route.request.ip,
-          traceId: route.request.traceId,
+          ...auditOrigin(route),
         });
       }
 

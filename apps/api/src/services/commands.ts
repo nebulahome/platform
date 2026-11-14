@@ -76,7 +76,8 @@ export async function sendCommand(options: CommandOptions): Promise<CommandAck> 
       waitMs: options.timeoutMs,
     },
     commandAckSchema,
-    { traceId: options.traceId, timeoutMs: options.timeoutMs },
+    // A command still queued when this wait is over must not run later: the caller saw it fail.
+    { traceId: options.traceId, timeoutMs: options.timeoutMs, expires: true },
   );
 }
 

@@ -80,6 +80,7 @@ import {
   virtualDevices,
   type AliasesContext,
 } from '../services/aliases.js';
+import { auditOrigin } from '../services/audit.js';
 import { sealSecrets } from '../services/automation-secrets.js';
 import {
   cancelTestOnCore,
@@ -200,9 +201,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'scene',
         resourceId: scene.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: scene.key, name: scene.name },
       });
 
@@ -242,9 +241,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'scene',
         resourceId: scene.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: scene.key, changed: Object.keys(route.body) },
       });
 
@@ -283,9 +280,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'scene',
         resourceId: scene.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: scene.key, name: scene.name },
       });
 
@@ -361,9 +356,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'scene',
         resourceId: route.params.sceneId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { applied: result.applied, failed: result.failed },
       });
 
@@ -465,9 +458,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
           resourceType: 'automation',
           resourceId: null,
           result: reply.kind === 'action' && reply.result === 'failed' ? 'failure' : 'success',
-          identity: route.identity,
-          ipAddress: route.request.ip,
-          traceId: route.request.traceId,
+          ...auditOrigin(route),
           details: {
             testId: route.body.testId,
             type: target.action.type,
@@ -607,9 +598,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'automation',
         resourceId: automation.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: automation.key, outcome: reply.outcome, runId: reply.runId },
       });
 
@@ -651,9 +640,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'automation',
         resourceId: automation.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: automation.key, name: automation.name },
       });
 
@@ -703,9 +690,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'automation',
         resourceId: automation.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: automation.key, changed: Object.keys(route.body) },
       });
 
@@ -746,9 +731,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'automation',
         resourceId: automation.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: automation.key, name: automation.name },
       });
 
@@ -945,9 +928,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'alias',
         resourceId: alias.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           entityId: alias.entityId,
           name: alias.name,
@@ -996,9 +977,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
             resourceType: 'alias',
             resourceId: after.id,
             result: 'success',
-            identity: route.identity,
-            ipAddress: route.request.ip,
-            traceId: route.request.traceId,
+            ...auditOrigin(route),
             details: {
               entityId: after.entityId,
               name: after.name,
@@ -1047,9 +1026,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'alias',
         resourceId: alias.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           entityId: alias.entityId,
           name: alias.name,
@@ -1097,9 +1074,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'alias',
         resourceId: after.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           entityId: after.entityId,
           name: after.name,
@@ -1144,9 +1119,7 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
         resourceType: 'alias',
         resourceId: alias.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {
           entityId: alias.entityId,
           name: alias.name,

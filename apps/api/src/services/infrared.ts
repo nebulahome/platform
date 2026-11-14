@@ -10,7 +10,6 @@
 import type { z } from 'zod';
 
 import {
-  busSubjects,
   HUB_INFRARED_BLASTERS_METHOD,
   HUB_INFRARED_BUTTON_MOVE_METHOD,
   HUB_INFRARED_BUTTON_PRESS_METHOD,
@@ -49,9 +48,10 @@ import {
 } from '@nebulahome/contracts';
 
 import { checkRoom } from './areas.js';
+import { askService } from './ask-service.js';
 import { deleteDevice, updateDevice, type DevicesContext, type RemovedDevice } from './devices.js';
 import type { IconLookup } from './icon-lookup.js';
-import { busOf, type IntegrationsContext } from './integrations.js';
+import type { IntegrationsContext } from './integrations.js';
 
 /**
  * How long saving a new remote may take: the hub waits up to 15 s for the house to have its
@@ -80,10 +80,7 @@ export async function askInfrared<TSchema extends z.ZodType>(
   schema: TSchema,
   timeoutMs = context.timeoutMs,
 ): Promise<z.output<TSchema>> {
-  return busOf(context).request(busSubjects.service(HUB_SERVICE, method), body, schema, {
-    traceId: context.traceId,
-    timeoutMs,
-  });
+  return askService(context, HUB_SERVICE, method, body, schema, timeoutMs);
 }
 
 /**

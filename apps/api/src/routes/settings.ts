@@ -20,6 +20,7 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import { syncHouseOnCore } from '../services/automations-core.js';
 import { askBackup, BACKUP_REPLIES } from '../services/backup.js';
 import {
@@ -103,9 +104,7 @@ export function registerSettingsRoutes(environment: RouteEnvironment, context: A
         action: 'settings.update',
         resourceType: 'settings',
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { changes: auditableChanges(accepted) },
       });
 

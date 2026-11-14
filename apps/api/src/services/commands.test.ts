@@ -25,7 +25,7 @@ describe('sendCommand', () => {
       expect.any(String),
       expect.objectContaining({ waitMs: 125_000 }),
       expect.anything(),
-      { traceId: '00000000-0000-4000-8000-000000000002', timeoutMs: 125_000 },
+      { traceId: '00000000-0000-4000-8000-000000000002', timeoutMs: 125_000, expires: true },
     );
   });
 });

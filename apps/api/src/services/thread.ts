@@ -10,7 +10,6 @@
 import type { z } from 'zod';
 
 import {
-  busSubjects,
   HUB_SERVICE,
   HUB_THREAD_BORDER_ROUTERS_METHOD,
   HUB_THREAD_DATASET_METHOD,
@@ -35,7 +34,8 @@ import {
   type ThreadStatus,
 } from '@nebulahome/contracts';
 
-import { busOf, type IntegrationsContext } from './integrations.js';
+import { askService } from './ask-service.js';
+import type { IntegrationsContext } from './integrations.js';
 
 /** How long a question that reads OTBR, asks a radio or the supervisor may take. */
 const OTBR_TIMEOUT_MS = 10_000;
@@ -67,10 +67,7 @@ export async function askThread<TSchema extends z.ZodType>(
   schema: TSchema,
   timeoutMs: number,
 ): Promise<z.output<TSchema>> {
-  return busOf(context).request(busSubjects.service(HUB_SERVICE, method), body, schema, {
-    traceId: context.traceId,
-    timeoutMs,
-  });
+  return askService(context, HUB_SERVICE, method, body, schema, timeoutMs);
 }
 
 /**

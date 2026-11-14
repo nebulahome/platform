@@ -113,7 +113,7 @@ type EntityRow = {
  * through this rather than through the entity's own column, so a device put in a room takes
  * its entities with it - in what the rows say, and in what an area-scoped permission covers.
  */
-const EFFECTIVE_AREA_ID = sql`coalesce(${schema.registry.entities.areaId}, ${schema.registry.devices.areaId})`;
+export const EFFECTIVE_AREA_ID = sql`coalesce(${schema.registry.entities.areaId}, ${schema.registry.devices.areaId})`;
 
 /** The columns every entity read selects. */
 const ENTITY_COLUMNS = {

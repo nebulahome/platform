@@ -19,6 +19,7 @@ import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { collectionSchema } from '../http/collection.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { auditOrigin } from '../services/audit.js';
 import { createTag, deleteTag, listTags, updateTag } from '../services/tags.js';
 
 /** Which tag a request is about. */
@@ -83,9 +84,7 @@ export function registerTagRoutes(environment: RouteEnvironment, context: ApiCon
         resourceType: 'tag',
         resourceId: tag.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { key: tag.key, name: tag.name, color: tag.color, icon: tag.icon },
       });
 
@@ -122,9 +121,7 @@ export function registerTagRoutes(environment: RouteEnvironment, context: ApiCon
         resourceType: 'tag',
         resourceId: tag.id,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: { changed: Object.keys(route.body) },
       });
 
@@ -159,9 +156,7 @@ export function registerTagRoutes(environment: RouteEnvironment, context: ApiCon
         resourceType: 'tag',
         resourceId: route.params.tagId,
         result: 'success',
-        identity: route.identity,
-        ipAddress: route.request.ip,
-        traceId: route.request.traceId,
+        ...auditOrigin(route),
         details: {},
       });
     },
