@@ -206,9 +206,29 @@ export async function writeArchive(options: WriteArchiveOptions): Promise<{ byte
     }
   }
 
+  /**
+   * Where a path belongs in the archive.
+   *
+   * @param entryPath - The path, from the root, as tar writes it.
+   * @returns It, renamed; as it was when nothing renames it.
+   */
+  const moved = (entryPath: string): string => {
+    const current = entryPath.replace(/\/$/u, '');
+    const rename = renames.find(
+      (each) => current === each.from || current.startsWith(`${each.from}/`),
+    );
+
+    return rename === undefined
+      ? entryPath
+      : `${rename.to}${current.slice(rename.from.length)}${entryPath.endsWith('/') ? '/' : ''}`;
+  };
   const packed = create(
     {
       cwd: root,
+      // One entry looked at a time: with more, tar defers a hard-linked file it finds early, and
+      // when that is the last entry it ends the archive twice and throws "write after end" from
+      // an event handler, which ends the process (tar 7.5).
+      jobs: 1,
       // Not `portable`: the entries keep their owners, which the containers' folders need back
       // (FILE_SECTIONS). A restore, running as root, extracts them as they were.
       /**
@@ -231,13 +251,12 @@ export async function writeArchive(options: WriteArchiveOptions): Promise<{ byte
        * @param entry - The entry about to be written.
        */
       onWriteEntry: (entry) => {
-        const current = entry.path.replace(/\/$/u, '');
-        const rename = renames.find(
-          (each) => current === each.from || current.startsWith(`${each.from}/`),
-        );
+        entry.path = moved(entry.path);
 
-        if (rename !== undefined) {
-          entry.path = `${rename.to}${current.slice(rename.from.length)}${entry.path.endsWith('/') ? '/' : ''}`;
+        // A file seen again by another name is written as a link to the first: renamed too, or
+        // the extraction finds no such file and fails.
+        if (entry.type === 'Link' && entry.linkpath !== undefined) {
+          entry.linkpath = moved(entry.linkpath);
         }
       },
     },

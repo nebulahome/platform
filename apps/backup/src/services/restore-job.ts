@@ -41,6 +41,7 @@ import type {
   BackupPhase,
   JsonObject,
   MaintenanceState,
+  RESTORE_OUTCOMES,
 } from '@nebulahome/contracts';
 import type { Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -61,7 +62,7 @@ import {
   type AdminSql,
 } from '../database/admin.js';
 import { restoreDatabase } from '../database/pg-tools.js';
-import { writeKeyFile, type BackupKey } from '../key/backup-key.js';
+import { BACKUP_KEY_FILE, writeKeyFile, type BackupKey } from '../key/backup-key.js';
 import { finishRun, type StoredLocation } from '../persistence/backup-store.js';
 import { openLocation, targetOf, type OpenDependencies } from '../transports/open-location.js';
 
@@ -133,7 +134,7 @@ export type RestoreRequest = {
 
 /** How a restore ended. */
 export type RestoreOutcome = {
-  readonly outcome: 'restored' | 'failed' | 'rolled_back' | 'manual';
+  readonly outcome: (typeof RESTORE_OUTCOMES)[number];
   readonly message: string | null;
   readonly switchedAt: Date | null;
 };
@@ -291,10 +292,10 @@ export async function restoreArchive(
   const previous = path.join(staging, 'previous');
   const swappedFolders: string[] = [];
   const replacedKeys: { file: string; before: string | null }[] = [];
+  let isStopping = false;
   let isSwitched = false;
+  let hasAdoptedKey = false;
   let switchedAt: Date | null = null;
-
-  await mkdir(extracted, { recursive: true, mode: 0o700 });
 
   /**
    * Undoes the swap: the databases back by name, the folders and the keys back where they were.
@@ -306,13 +307,27 @@ export async function restoreArchive(
 
     try {
       const failedName = `${liveName}_failed_${short}`;
+      const names = new Set(
+        (
+          await postgres<{ datname: string }[]>`
+            SELECT datname FROM pg_database WHERE datname IN (${liveName}, ${previousName})`
+        ).map((row) => row.datname),
+      );
 
-      await postgres`ALTER DATABASE ${postgres(liveName)} ALLOW_CONNECTIONS false`;
-      await postgres`
-        SELECT pg_terminate_backend(pid) FROM pg_stat_activity
-        WHERE datname = ${liveName} AND pid <> pg_backend_pid()`;
-      await postgres`ALTER DATABASE ${postgres(liveName)} RENAME TO ${postgres(failedName)}`;
-      await postgres`ALTER DATABASE ${postgres(previousName)} RENAME TO ${postgres(liveName)}`;
+      // No previous database: the switch failed before renaming anything, and the one under the
+      // live name is still the installation's own - renaming it away would leave none.
+      if (names.has(previousName)) {
+        if (names.has(liveName)) {
+          await postgres`ALTER DATABASE ${postgres(liveName)} ALLOW_CONNECTIONS false`;
+          await postgres`
+            SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+            WHERE datname = ${liveName} AND pid <> pg_backend_pid()`;
+          await postgres`ALTER DATABASE ${postgres(liveName)} RENAME TO ${postgres(failedName)}`;
+        }
+
+        await postgres`ALTER DATABASE ${postgres(previousName)} RENAME TO ${postgres(liveName)}`;
+      }
+
       await postgres`ALTER DATABASE ${postgres(liveName)} ALLOW_CONNECTIONS true`;
       await postgres`DROP DATABASE IF EXISTS ${postgres(failedName)} WITH (FORCE)`;
     } finally {
@@ -332,17 +347,39 @@ export async function restoreArchive(
     }
 
     for (const key of replacedKeys) {
-      // eslint-disable-next-line no-await-in-loop -- two files.
+      // eslint-disable-next-line no-await-in-loop -- three files.
       await (key.before === null
         ? rm(key.file, { force: true })
         : writeFile(key.file, `${key.before}\n`, { mode: 0o600 }));
+    }
+
+    // The old archives were made with the key the installation had: it is its own again.
+    if (hasAdoptedKey) {
+      await context.adoptKey(context.key.file);
     }
 
     await context.supervisor.start([...RESTORED_SERVICES].reverse());
     await context.managedContainers.resume();
   };
 
+  // Set once a rollback failed: the folders the restore replaced are then the owner's way back.
+  let keepsPrevious = false;
+
+  /**
+   * How a restore ends when putting things back failed too.
+   *
+   * @param error - Why the rollback failed.
+   * @returns The outcome.
+   */
+  const manual = (error: unknown): RestoreOutcome => ({
+    outcome: 'manual',
+    message: `The restore failed and so did putting things back. The previous database is kept as ${previousName}, and the folders the restore replaced in ${previous}. ${messageOf(error)}`,
+    switchedAt,
+  });
+
   try {
+    await mkdir(extracted, { recursive: true, mode: 0o700 });
+
     // 1. Fetch, open and check.
     context.progress('downloading', 5);
 
@@ -502,6 +539,7 @@ export async function restoreArchive(
 
     // 6. The switch.
     context.progress('switching', 80);
+    isStopping = true;
     await context.managedContainers.suspend();
     await context.supervisor.stop(RESTORED_SERVICES);
     isSwitched = true;
@@ -585,7 +623,11 @@ export async function restoreArchive(
     }
 
     if (request.uploadedKey !== null && request.uploadedKey.keyId !== context.key.keyId) {
+      const file = path.join(context.secretsDir, BACKUP_KEY_FILE);
+
+      replacedKeys.push({ file, before: await readKey(file) });
       await writeKeyFile(context.secretsDir, request.uploadedKey);
+      hasAdoptedKey = true;
       await context.adoptKey(request.uploadedKey);
     }
 
@@ -600,12 +642,9 @@ export async function restoreArchive(
         await rollBack();
       } catch (error: unknown) {
         context.logger.fatal({ err: error }, 'The rollback failed');
+        keepsPrevious = true;
 
-        return {
-          outcome: 'manual',
-          message: `The restore failed and so did putting things back. The previous database is kept as ${previousName}. ${messageOf(error)}`,
-          switchedAt,
-        };
+        return manual(error);
       }
 
       return {
@@ -669,11 +708,9 @@ export async function restoreArchive(
           switchedAt: null,
         };
       } catch (rollbackError: unknown) {
-        return {
-          outcome: 'manual',
-          message: `The restore failed and so did putting things back. The previous database is kept as ${previousName}. ${messageOf(rollbackError)}`,
-          switchedAt,
-        };
+        keepsPrevious = true;
+
+        return manual(rollbackError);
       }
     }
 
@@ -683,9 +720,23 @@ export async function restoreArchive(
       .catch(() => undefined)
       .finally(() => cleanup.end({ timeout: 5 }));
 
-    return { outcome: 'failed', message: messageOf(error), switchedAt: null };
+    const messages = [messageOf(error)];
+
+    // Stopped, or stopping, before the switch: nothing else would start them again.
+    if (isStopping) {
+      await context.supervisor
+        .start([...RESTORED_SERVICES].reverse())
+        .catch((startError: unknown) => {
+          messages.push(`The services were not started again: ${messageOf(startError)}`);
+        });
+      await context.managedContainers.resume().catch((resumeError: unknown) => {
+        messages.push(`The containers were not started again: ${messageOf(resumeError)}`);
+      });
+    }
+
+    return { outcome: 'failed', message: messages.join('. '), switchedAt: null };
   } finally {
-    await rm(staging, { recursive: true, force: true });
+    await rm(keepsPrevious ? extracted : staging, { recursive: true, force: true });
   }
 }
 

@@ -132,15 +132,18 @@ async function prune(
  *
  * @param context - The job's context.
  * @param location - The location.
- * @param archivePath - The archive, staged.
- * @param archiveName - Its name.
+ * @param archive - The archive, staged.
+ * @param archive.path - Where it is.
+ * @param archive.name - Its name.
+ * @param archive.bytes - Its size.
+ * @param prunes - Whether to trim the location by its retention.
  * @returns How it went.
  */
 async function deliver(
   context: BackupJobContext,
   location: StoredLocation,
-  archivePath: string,
-  archiveName: string,
+  archive: { readonly path: string; readonly name: string; readonly bytes: number },
+  prunes: boolean,
 ): Promise<BackupDestination> {
   const startedAt = Date.now();
 
@@ -148,8 +151,22 @@ async function deliver(
     const session = await openLocation(targetOf(location, context.secretsKey), context.open);
 
     try {
-      const bytes = await session.write(archiveName, createReadStream(archivePath), context.signal);
-      const pruned = await prune(session, location.retention, archiveName, context.now());
+      const bytes = await session.write(
+        archive.name,
+        createReadStream(archive.path),
+        context.signal,
+      );
+
+      // Retention removes older archives next: never on the word of one that did not arrive whole.
+      if (bytes !== archive.bytes) {
+        throw new Error(
+          `The location holds ${String(bytes)} bytes of the archive instead of ${String(archive.bytes)}: it was not written whole`,
+        );
+      }
+
+      const pruned = prunes
+        ? await prune(session, location.retention, archive.name, context.now())
+        : 0;
 
       await recordLocationResult(context.db, location.id, { error: null }, context.now());
 
@@ -197,11 +214,17 @@ async function deliver(
  * @param run - The run's id and the parts it takes.
  * @param run.runId - The run's id.
  * @param run.sections - The parts it takes.
+ * @param run.prunes - Whether the locations are trimmed by their retention after: not before a
+ * restore, which may be of an archive retention would remove.
  * @returns How it ended.
  */
 export async function takeBackup(
   context: BackupJobContext,
-  run: { readonly runId: string; readonly sections: readonly BackupSection[] },
+  run: {
+    readonly runId: string;
+    readonly sections: readonly BackupSection[];
+    readonly prunes: boolean;
+  },
 ): Promise<BackupJobOutcome> {
   const createdAt = context.now();
   const archiveName = archiveNameFor(run.runId, createdAt);
@@ -361,8 +384,15 @@ export async function takeBackup(
     const system = locations.find((location) => location.kind === 'system');
 
     for (const [index, location] of remote.entries()) {
-      // eslint-disable-next-line no-await-in-loop -- one location at a time: one upload's bandwidth.
-      destinations.push(await deliver(context, location, archivePath, archiveName));
+      destinations.push(
+        // eslint-disable-next-line no-await-in-loop -- one location at a time: one upload's bandwidth.
+        await deliver(
+          context,
+          location,
+          { path: archivePath, name: archiveName, bytes: archiveBytes },
+          run.prunes,
+        ),
+      );
       context.progress('uploading', (index + 1) * archiveBytes, archiveBytes * locations.length);
     }
 
@@ -374,7 +404,9 @@ export async function takeBackup(
         await rename(archivePath, path.join(context.backupsDir, archiveName));
 
         const session = await openFolder(context.backupsDir);
-        const pruned = await prune(session, system.retention, archiveName, context.now());
+        const pruned = run.prunes
+          ? await prune(session, system.retention, archiveName, context.now())
+          : 0;
 
         await recordLocationResult(context.db, system.id, { error: null }, context.now());
         destinations.push({

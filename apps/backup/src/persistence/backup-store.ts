@@ -9,6 +9,8 @@ import {
   backupRetentionSchema,
   backupScheduleSchema,
   backupSectionsSchema,
+  type BACKUP_RUN_KINDS,
+  type BACKUP_RUN_TRIGGERS,
   type BackupFrequency,
   type BackupLocationKind,
   type BackupRetention,
@@ -172,8 +174,8 @@ export async function recordLocationResult(
 
 /** A run's opening facts. */
 export type NewRun = {
-  readonly kind: 'backup' | 'restore';
-  readonly trigger: 'schedule' | 'catch_up' | 'manual' | 'pre_restore';
+  readonly kind: (typeof BACKUP_RUN_KINDS)[number];
+  readonly trigger: (typeof BACKUP_RUN_TRIGGERS)[number];
   readonly sections: readonly BackupSection[];
   readonly requestedBy: string | null;
   readonly scheduledFor: Date | null;

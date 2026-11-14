@@ -47,6 +47,18 @@ async function start(): Promise<void> {
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });
+
+  // A promise nobody caught is logged and survived: ending the process mid-restore would leave
+  // the services stopped and the run unrecorded. A throw nobody caught leaves a state nobody
+  // knows, so it ends, and the supervisor starts it again.
+  process.on('unhandledRejection', (error: unknown) => {
+    logger.error({ err: error }, 'A promise failed and nothing caught it');
+  });
+  process.on('uncaughtException', (error: unknown) => {
+    logger.fatal({ err: error }, 'backup failed with an error it did not catch');
+    process.exit(EXIT_CODES.UNHANDLED_ERROR);
+  });
+
   const database = createDatabase({
     connectionString: config.DATABASE_URL,
     applicationName: SERVICE_NAME,

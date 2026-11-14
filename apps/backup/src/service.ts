@@ -6,6 +6,7 @@
  * and once a day just after midnight, when core has learned the quietest time again
  * (`sensor.system_quiet_time`). A backup the machine was off for is taken a few minutes after it starts again.
  */
+import { existsSync } from 'node:fs';
 import { access, constants, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -73,7 +74,7 @@ import {
   measureOnDisk,
   type OnDisk,
 } from './services/estimates.js';
-import { recordRestore, restoreArchive } from './services/restore-job.js';
+import { recordRestore, restoreArchive, type RestoreOutcome } from './services/restore-job.js';
 import { Supervisor } from './services/supervisor.js';
 import { mountProblem } from './transports/mount.js';
 import {
@@ -212,7 +213,24 @@ export class BackupService {
       );
     }
 
-    await rm(path.join(this.#layout.backups, '.staging'), { recursive: true, force: true });
+    const staging = path.join(this.#layout.backups, '.staging');
+
+    for (const entry of await readdir(staging).catch(() => [])) {
+      const kept = path.join(staging, entry, 'previous');
+
+      // What a restore replaced and could not put back: the owner's way back, never removed here.
+      if (existsSync(kept)) {
+        this.#logger.warn(
+          { folder: kept },
+          'A restore that was not undone left the folders it replaced here: they are kept',
+        );
+        continue;
+      }
+
+      // eslint-disable-next-line no-await-in-loop -- a handful of folders.
+      await rm(path.join(staging, entry), { recursive: true, force: true });
+    }
+
     await this.reload();
     this.#subscriptions = subscriptions();
   }
@@ -518,12 +536,19 @@ export class BackupService {
     this.#logger.info({ runId, trigger, sections }, 'Backup started');
     this.#announceRun(active, 'running');
 
-    void this.#runBackup(active, sections)
+    void this.#runBackup(active, sections, true)
       .then((outcome) => {
         this.#announceRun(active, outcome.status, null);
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
         this.#logger.error({ err: error, runId }, 'The backup ended badly');
+        // Recorded, or the run stays `running` until the service starts again.
+        await finishRun(
+          this.#db,
+          runId,
+          { status: 'failure', error: messageOf(error) },
+          this.#now(),
+        ).catch(() => undefined);
         this.#announceRun(active, 'failure', null);
       })
       .finally(() => {
@@ -540,11 +565,13 @@ export class BackupService {
    *
    * @param active - The run.
    * @param sections - The parts it takes.
+   * @param prunes - Whether the locations are trimmed by their retention after.
    * @returns How it ended.
    */
   async #runBackup(
     active: ActiveRun,
     sections: ReturnType<typeof sectionsOf>,
+    prunes: boolean,
   ): Promise<BackupJobOutcome> {
     const outcome = await takeBackup(
       {
@@ -603,7 +630,7 @@ export class BackupService {
         },
         signal: active.abort.signal,
       },
-      { runId: active.runId, sections },
+      { runId: active.runId, sections, prunes },
     );
 
     await finishRun(
@@ -919,11 +946,23 @@ export class BackupService {
       archiveName: request.archiveName,
       uploadedKey,
       takeSafetyBackup: request.takeSafetyBackup,
-    }).finally(() => {
-      this.#active = null;
-      this.#estimates.invalidate();
-      void this.reload().catch(() => undefined);
-    });
+    })
+      .catch(async (error: unknown) => {
+        const failed: RestoreOutcome = {
+          outcome: 'failed',
+          message: messageOf(error),
+          switchedAt: null,
+        };
+
+        this.#logger.error({ err: error, runId }, 'The restore ended badly');
+        await recordRestore(this.#db, runId, failed, this.#now()).catch(() => undefined);
+        this.#announce({ ...NORMAL, runId, outcome: failed.outcome, message: failed.message });
+      })
+      .finally(() => {
+        this.#active = null;
+        this.#estimates.invalidate();
+        void this.reload().catch(() => undefined);
+      });
 
     return runId;
   }
@@ -1054,9 +1093,11 @@ export class BackupService {
             scheduledFor: null,
           });
 
+          // Not trimmed: retention could remove the very archive about to be restored.
           return this.#runBackup(
             { ...active, runId: safetyId, kind: 'backup' },
             sectionsOf(settings.sections),
+            false,
           );
         },
         /**

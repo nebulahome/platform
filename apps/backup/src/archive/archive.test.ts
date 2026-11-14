@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import {
   createReadStream,
+  linkSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -131,6 +132,53 @@ describe('an archive', () => {
     );
     expect(readFileSync(path.join(restored, 'volumes/web_data.tar'), 'utf8')).toBe('a tar');
     expect(() => readFileSync(path.join(restored, 'files/secrets/secrets-key'))).toThrow();
+  });
+
+  it('gives back hard-linked files, which tar writes as links to the first copy', async (context) => {
+    const data = folder();
+    const staging = folder();
+    const restored = folder();
+    // pnpm's way: the same files under several names. An empty one last is what made tar end twice.
+    const packages = ['music', 'cameras', 'weather'];
+
+    try {
+      for (const [index, name] of packages.entries()) {
+        put(path.join(data, `packages/${name}/a/index.js`), index === 2 ? '' : 'shared');
+        mkdirSync(path.join(data, `packages/${name}/b`), { recursive: true });
+        linkSync(
+          path.join(data, `packages/${name}/a/index.js`),
+          path.join(data, `packages/${name}/b/index.js`),
+        );
+      }
+    } catch {
+      context.skip();
+    }
+
+    const output = path.join(staging, 'archive.nhbk');
+
+    await writeArchive({
+      output,
+      stagingDir: staging,
+      manifest: MANIFEST,
+      databaseDump: null,
+      dataDir: data,
+      folders: ['packages'],
+      backupKey: KEY,
+      keyId: KEY_ID,
+    });
+    await extractArchive({
+      source: createReadStream(output),
+      keyFor: () => KEY,
+      destination: restored,
+    });
+
+    for (const [index, name] of packages.entries()) {
+      for (const copy of ['a', 'b']) {
+        expect(
+          readFileSync(path.join(restored, `files/packages/${name}/${copy}/index.js`), 'utf8'),
+        ).toBe(index === 2 ? '' : 'shared');
+      }
+    }
   });
 
   // mkfifo is Linux's, where the platform runs.
