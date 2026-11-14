@@ -12,7 +12,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { loadConfigOrExit, resolveDataLayout } from '@nebulahome/config';
 import { EXIT_CODES } from '@nebulahome/contracts';
-import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import { armShutdownTimeout, createLogger, type PlatformLogger } from '@nebulahome/logging';
 
 import { proxyEnvSchema, SERVICE_NAME, type ProxyConfig } from './config.js';
 import { buildProxyServer } from './server.js';
@@ -123,10 +123,7 @@ async function start(): Promise<void> {
     isStopping = true;
     logger.info({ signal }, 'Shutting down');
 
-    const timeout = setTimeout(() => {
-      logger.error({ timeoutMs: SHUTDOWN_TIMEOUT_MS }, 'Shutdown did not finish in time, exiting');
-      process.exit(EXIT_CODES.UNHANDLED_ERROR);
-    }, SHUTDOWN_TIMEOUT_MS);
+    const timeout = armShutdownTimeout(logger, SHUTDOWN_TIMEOUT_MS);
 
     // Deliberately not awaited: a signal handler cannot be async without turning a failed
     // shutdown into an unhandled rejection.

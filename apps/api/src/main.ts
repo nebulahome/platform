@@ -22,7 +22,7 @@ import {
 } from '@nebulahome/contracts';
 import { assertSchemaVersion, createDatabase, secretsKeyFrom } from '@nebulahome/db';
 import { loadBuiltinIcons } from '@nebulahome/icons';
-import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import { armShutdownTimeout, createLogger, guardProcess } from '@nebulahome/logging';
 
 import { Authenticator } from './auth/authenticator.js';
 import { ChallengeStore } from './auth/challenges.js';
@@ -72,19 +72,6 @@ function redactCredentials(url: string): string {
 }
 
 /**
- * Ends the process after a bounded wait, whatever the shutdown is doing.
- *
- * @param logger - Where the timeout is reported.
- * @returns A timer that ends the process, to be cleared on a clean shutdown.
- */
-function armShutdownTimeout(logger: PlatformLogger): NodeJS.Timeout {
-  return setTimeout(() => {
-    logger.error({ timeoutMs: SHUTDOWN_TIMEOUT_MS }, 'Shutdown did not finish in time, exiting');
-    process.exit(EXIT_CODES.UNHANDLED_ERROR);
-  }, SHUTDOWN_TIMEOUT_MS);
-}
-
-/**
  * Starts the service and keeps it running until it is asked to stop.
  *
  * @returns A promise that settles once the server is listening.
@@ -98,6 +85,8 @@ async function start(): Promise<void> {
     level: config.LOG_LEVEL,
     pretty: config.NODE_ENV === 'development',
   });
+
+  guardProcess(logger, 'The api failed with an error it did not catch');
 
   const database = createDatabase({
     connectionString: config.DATABASE_URL,
@@ -278,7 +267,7 @@ async function start(): Promise<void> {
     isStopping = true;
     logger.info({ signal }, 'Shutting down');
 
-    const timeout = armShutdownTimeout(logger);
+    const timeout = armShutdownTimeout(logger, SHUTDOWN_TIMEOUT_MS);
 
     // Deliberately not awaited: a signal handler cannot be async without turning a failed
     // shutdown into an unhandled rejection, which is a worse ending than a logged one.

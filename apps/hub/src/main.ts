@@ -13,7 +13,7 @@ import { connectBus } from '@nebulahome/bus';
 import { loadConfigOrExit } from '@nebulahome/config';
 import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebulahome/contracts';
 import { assertSchemaVersion, createDatabase } from '@nebulahome/db';
-import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import { armShutdownTimeout, createLogger, guardProcess } from '@nebulahome/logging';
 
 import { hubEnvSchema, SERVICE_NAME } from './config.js';
 import { openMatterFabric } from './matter/fabric.js';
@@ -26,19 +26,6 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 /** Signals that mean "stop", and which the platform requires every service to honour. */
 const SHUTDOWN_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
-
-/**
- * Ends the process if a shutdown stalls.
- *
- * @param logger - Where to say so before exiting.
- * @returns The timer, to clear once the shutdown finishes in time.
- */
-function armShutdownTimeout(logger: PlatformLogger): NodeJS.Timeout {
-  return setTimeout(() => {
-    logger.error({ timeoutMs: SHUTDOWN_TIMEOUT_MS }, 'Shutdown did not finish in time, exiting');
-    process.exit(EXIT_CODES.UNHANDLED_ERROR);
-  }, SHUTDOWN_TIMEOUT_MS);
-}
 
 /**
  * Starts the service and keeps it running until it is asked to shut down.
@@ -58,13 +45,11 @@ async function start(): Promise<void> {
   // A promise some vendor's code forgot to catch is logged and survived: ending the hub for it
   // would drop every device in the house. A throw nobody caught leaves the process in a state
   // nobody can vouch for, so it ends, said loudly, and the supervisor starts it again.
-  process.on('unhandledRejection', (error: unknown) => {
-    logger.error({ err: error }, 'A promise failed with an error nobody caught');
-  });
-  process.on('uncaughtException', (error: unknown) => {
-    logger.fatal({ err: error }, 'The hub failed with an error it did not catch');
-    process.exit(EXIT_CODES.UNHANDLED_ERROR);
-  });
+  guardProcess(
+    logger,
+    'The hub failed with an error it did not catch',
+    'A promise failed with an error nobody caught',
+  );
 
   const database = createDatabase({
     connectionString: config.DATABASE_URL,
@@ -130,7 +115,7 @@ async function start(): Promise<void> {
     isStopping = true;
     logger.info({ signal }, 'Shutting down');
 
-    const timeout = armShutdownTimeout(logger);
+    const timeout = armShutdownTimeout(logger, SHUTDOWN_TIMEOUT_MS);
 
     // Deliberately not awaited: a signal handler cannot be async without turning a failed
     // shutdown into an unhandled rejection, which is a worse ending than a logged one.

@@ -8,7 +8,7 @@
 import { BusClient, connectBus } from '@nebulahome/bus';
 import { loadConfigOrExit } from '@nebulahome/config';
 import { EXIT_CODES } from '@nebulahome/contracts';
-import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import { armShutdownTimeout, createLogger, guardProcess } from '@nebulahome/logging';
 
 import { serveSupervisor } from './bus-service.js';
 import { SERVICE_NAME, supervisorEnvSchema } from './config.js';
@@ -19,19 +19,6 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 /** Signals that mean "stop". */
 const SHUTDOWN_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
-
-/**
- * Ends the process after a bounded wait, whatever the shutdown is doing.
- *
- * @param logger - Where the timeout is reported.
- * @returns The timer, cleared on a clean shutdown.
- */
-function armShutdownTimeout(logger: PlatformLogger): NodeJS.Timeout {
-  return setTimeout(() => {
-    logger.error({ timeoutMs: SHUTDOWN_TIMEOUT_MS }, 'Shutdown did not finish in time, exiting');
-    process.exit(EXIT_CODES.UNHANDLED_ERROR);
-  }, SHUTDOWN_TIMEOUT_MS);
-}
 
 /**
  * Starts the service and keeps it running until it is asked to stop.
@@ -47,13 +34,7 @@ async function start(): Promise<void> {
     pretty: config.NODE_ENV === 'development',
   });
 
-  process.on('unhandledRejection', (error: unknown) => {
-    logger.error({ err: error }, 'A promise failed and nothing caught it');
-  });
-  process.on('uncaughtException', (error: unknown) => {
-    logger.fatal({ err: error }, 'The supervisor failed with an error it did not catch');
-    process.exit(EXIT_CODES.UNHANDLED_ERROR);
-  });
+  guardProcess(logger, 'The supervisor failed with an error it did not catch');
 
   const startupAbort = new AbortController();
 
@@ -91,7 +72,7 @@ async function start(): Promise<void> {
     isStopping = true;
     logger.info({ signal }, 'Shutting down');
 
-    const timeout = armShutdownTimeout(logger);
+    const timeout = armShutdownTimeout(logger, SHUTDOWN_TIMEOUT_MS);
 
     // Deliberately not awaited: a signal handler cannot be async without turning a failed
     // shutdown into an unhandled rejection.

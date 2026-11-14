@@ -7,4 +7,5 @@
 
 export * from './create-logger.js';
 export * from './format.js';
+export * from './process-guards.js';
 export * from './redaction.js';

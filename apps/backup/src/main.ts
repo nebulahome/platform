@@ -9,7 +9,7 @@ import { BusClient, connectBus } from '@nebulahome/bus';
 import { loadConfigOrExit } from '@nebulahome/config';
 import { ERROR_CODES, EXIT_CODES, isNebulaError } from '@nebulahome/contracts';
 import { assertSchemaVersion, createDatabase } from '@nebulahome/db';
-import { createLogger, type PlatformLogger } from '@nebulahome/logging';
+import { armShutdownTimeout, createLogger, guardProcess } from '@nebulahome/logging';
 
 import { serveBackup } from './bus-service.js';
 import { backupEnvSchema, SERVICE_NAME } from './config.js';
@@ -20,19 +20,6 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 /** Signals that mean "stop". */
 const SHUTDOWN_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
-
-/**
- * Ends the process after a bounded wait, whatever the shutdown is doing.
- *
- * @param logger - Where the timeout is reported.
- * @returns The timer, cleared on a clean shutdown.
- */
-function armShutdownTimeout(logger: PlatformLogger): NodeJS.Timeout {
-  return setTimeout(() => {
-    logger.error({ timeoutMs: SHUTDOWN_TIMEOUT_MS }, 'Shutdown did not finish in time, exiting');
-    process.exit(EXIT_CODES.UNHANDLED_ERROR);
-  }, SHUTDOWN_TIMEOUT_MS);
-}
 
 /**
  * Starts the service and keeps it running until it is asked to stop.
@@ -51,13 +38,7 @@ async function start(): Promise<void> {
   // A promise nobody caught is logged and survived: ending the process mid-restore would leave
   // the services stopped and the run unrecorded. A throw nobody caught leaves a state nobody
   // knows, so it ends, and the supervisor starts it again.
-  process.on('unhandledRejection', (error: unknown) => {
-    logger.error({ err: error }, 'A promise failed and nothing caught it');
-  });
-  process.on('uncaughtException', (error: unknown) => {
-    logger.fatal({ err: error }, 'backup failed with an error it did not catch');
-    process.exit(EXIT_CODES.UNHANDLED_ERROR);
-  });
+  guardProcess(logger, 'backup failed with an error it did not catch');
 
   const database = createDatabase({
     connectionString: config.DATABASE_URL,
@@ -115,7 +96,7 @@ async function start(): Promise<void> {
     isStopping = true;
     logger.info({ signal }, 'Shutting down');
 
-    const timeout = armShutdownTimeout(logger);
+    const timeout = armShutdownTimeout(logger, SHUTDOWN_TIMEOUT_MS);
 
     // Deliberately not awaited: a signal handler cannot be async without turning a failed
     // shutdown into an unhandled rejection.
