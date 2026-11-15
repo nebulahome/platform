@@ -59,6 +59,8 @@ service - `pnpm docker:up`, then http://localhost:8080. Both come from the one c
 | Command                 | What it does                                         |
 | ----------------------- | ---------------------------------------------------- |
 | `pnpm dev`              | Every service in watch mode                          |
+| `pnpm preview:entity`   | The entity card of every domain, with no API behind  |
+| `pnpm preview:sdk`      | Every component the package SDK exports, with states |
 | `pnpm build`            | Build all workspaces                                 |
 | `pnpm typecheck`        | Type check without emitting                          |
 | `pnpm lint`             | ESLint across the monorepo                           |

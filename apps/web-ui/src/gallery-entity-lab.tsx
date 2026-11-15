@@ -1,5 +1,5 @@
 /**
- * The entity lab (`pnpm dev:entity`, development only): one domain at a time, picked from every
+ * The entity lab (`pnpm preview:entity`, development only): one domain at a time, picked from every
  * domain the contracts define, with the capabilities, params and state of each way its entity may
  * be as switches and fields on the left, and the entity dialog drawn from them on the right - the
  * same `EntitySheet` the platform opens over its pages (`entity-dialog.tsx`), with the same props,
@@ -12,7 +12,7 @@
  * schemas. A domain or a capability added to the contracts appears here as it is. Only `alias` is
  * left out: an alias is not a kind of thing but a copy of another entity, drawn as that one is.
  */
-import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
@@ -23,13 +23,10 @@ import {
   ENTITY_STATE_CLASSES,
   type CapabilityName,
   type EntityDomain,
-  type IconView,
   type JsonObject,
 } from '@nebulahome/contracts';
 import {
   AppIcon,
-  BUILTIN_UI_FRAME,
-  BUILTIN_UI_NODES,
   cn,
   Modal,
   Segmented,
@@ -40,10 +37,10 @@ import {
 } from '@nebulahome/ui';
 
 import { applyLanguage } from '@/i18n/language';
-import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { EntitySheet } from '@/routes/library/entity/sheet/entity-sheet';
 import { sheetKindOf } from '@/routes/library/entity/sheet/kinds';
 import type { SheetRange } from '@/routes/library/entity/sheet/sheet-types';
+import { labCache } from '@/testing/entity-lab/lab-cache';
 import { labStateHistory, labTelemetry, windowOfRange } from '@/testing/entity-lab/lab-history';
 import {
   applyCommand,
@@ -57,8 +54,6 @@ import {
 } from '@/testing/entity-lab/lab-model';
 import { firstValue, sampleItem } from '@/testing/entity-lab/sample';
 import { capabilityFields, type SchemaField } from '@/testing/entity-lab/schema-fields';
-import { anArea, aTag } from '@/testing/fixtures';
-import { linkedSampleCache } from '@/testing/linked-samples';
 
 import './styles/globals.css';
 
@@ -99,36 +94,6 @@ async function labFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
 }
 
 globalThis.fetch = labFetch;
-
-/**
- * The cache the dialog's settings read from: rooms, tags, the icon catalogue and the vendors of
- * the linked sample.
- *
- * @returns The cache.
- */
-function labCache(): QueryClient {
-  const client = linkedSampleCache();
-  const icons: IconView[] = Object.entries(BUILTIN_UI_NODES).map(([id, node]) => ({
-    id,
-    name: id,
-    keywords: [],
-    origin: 'builtin',
-    isOverridden: false,
-    node,
-    frame: BUILTIN_UI_FRAME,
-  }));
-
-  client.setDefaultOptions({ queries: { staleTime: Infinity, retry: false } });
-  client.setQueryData(LIBRARY_QUERY_KEYS.areas, [
-    anArea('home', 'house', null, { name: 'Home' }),
-    anArea('ground', 'floor', 'home', { name: 'Ground floor' }),
-    anArea('living_room', 'room', 'ground'),
-  ]);
-  client.setQueryData(LIBRARY_QUERY_KEYS.tags, [aTag('evening'), aTag('cooking')]);
-  client.setQueryData([...LIBRARY_QUERY_KEYS.icons, 'search', ''], icons);
-
-  return client;
-}
 
 /** A small input's look. */
 const INPUT =

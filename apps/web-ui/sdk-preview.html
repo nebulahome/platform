@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NebulaHome — package SDK preview</title>
+  </head>
+  <body>
+    <!--
+      The package SDK's preview: every component `@nebulahome/package-sdk/components` exports, and
+      what `/ui` can draw without a server, each with its states, its variants and the code that
+      draws it. Drawn through the SDK's own forwarders against the interface's host, so what is
+      seen here is what a package gets.
+
+      Served in development only (`pnpm preview:sdk`): `vite build` takes `index.html` alone, so
+      nothing here reaches production.
+    -->
+    <div id="root"></div>
+    <script type="module" src="/src/gallery-sdk.tsx"></script>
+  </body>
+</html>

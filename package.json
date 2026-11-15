@@ -11,7 +11,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "dev:entity": "pnpm --filter @nebulahome/contracts build && pnpm --filter @nebulahome/web-ui dev:entity",
+    "preview:entity": "pnpm --filter @nebulahome/contracts build && pnpm --filter @nebulahome/web-ui preview:entity",
+    "preview:sdk": "turbo run build --filter=@nebulahome/package-sdk && pnpm --filter @nebulahome/web-ui preview:sdk",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test",
