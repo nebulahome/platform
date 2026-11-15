@@ -150,17 +150,16 @@ function runnerWith(
  * @returns The round.
  */
 async function ended(runner: UpdateRunner): Promise<UpdateRound> {
-  await vi.waitFor(() => {
-    expect(runner.status()?.status).not.toBe('running');
+  // A round that has not begun yet is no round at all, not one that ended: on a slow machine the
+  // runner may still be reading what it ran last when this starts waiting.
+  return vi.waitFor(() => {
+    const round = runner.status();
+
+    expect(round).not.toBeNull();
+    expect(round?.status).not.toBe('running');
+
+    return round!;
   });
-
-  const round = runner.status();
-
-  if (round === null) {
-    throw new Error('No round');
-  }
-
-  return round;
 }
 
 /**
