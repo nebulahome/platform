@@ -407,14 +407,37 @@ export type TooltipProps = {
   readonly className?: string;
 };
 
-/** A month of days to pick one from. Since SDK 1.10. */
-export type CalendarProps = {
-  /** The day picked, `2026-06-21`, or null for none yet. */
-  readonly value: string | null;
+/** A run of days, both ends included, as `2026-06-21`: `from` is never after `to`. Since SDK 1.10. */
+export type DayRange = { readonly from: string; readonly to: string };
 
-  /** Called with the day picked, `2026-06-21`. */
-  readonly onChange: (day: string) => void;
+/** What one day, or a run of days, is picked with. Since SDK 1.10. */
+export type DayPick =
+  | {
+      /** One day; the default. */
+      readonly mode?: 'single';
 
+      /** The day picked, `2026-06-21`, or null for none yet. */
+      readonly value: string | null;
+
+      /** Called with the day picked, `2026-06-21`. */
+      readonly onChange: (day: string) => void;
+    }
+  | {
+      /** A run of days: the first press picks one end, the second the other. */
+      readonly mode: 'range';
+
+      /** The run picked, or null for none yet. */
+      readonly value: DayRange | null;
+
+      /** Called with the run, once both ends are picked. */
+      readonly onChange: (range: DayRange) => void;
+
+      /** The most days the run may hold, both ends counted; any when not said. */
+      readonly maxDays?: number | undefined;
+    };
+
+/** A month of days to pick one day, or a run of days, from. Since SDK 1.10. */
+export type CalendarProps = DayPick & {
   /** The first day that may be picked. */
   readonly min?: string | undefined;
 
@@ -424,16 +447,10 @@ export type CalendarProps = {
   readonly className?: string;
 };
 
-/** One day, chosen from a calendar the field opens under it. Since SDK 1.10. */
-export type DateFieldProps = {
+/** One day, or a run of days, chosen from a calendar the field opens under it. Since SDK 1.10. */
+export type DateFieldProps = DayPick & {
   readonly label: string;
   readonly isLabelHidden?: boolean;
-
-  /** The day, `2026-06-21`, or null for none yet. */
-  readonly value: string | null;
-
-  /** Called with the day picked, `2026-06-21`. */
-  readonly onChange: (day: string) => void;
 
   /** The first day that may be picked. */
   readonly min?: string | undefined;

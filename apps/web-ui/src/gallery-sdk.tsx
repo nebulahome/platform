@@ -50,6 +50,7 @@ import {
   TagChip,
   TextField,
   Tooltip,
+  type DayRange,
   type TagColor,
 } from '@nebulahome/package-sdk/components';
 import type * as SdkUi from '@nebulahome/package-sdk/ui';
@@ -994,6 +995,7 @@ function TooltipDemo() {
 function CalendarDemo() {
   const [day, setDay] = useState<string | null>(null);
   const [bound, setBound] = useState<string | null>(null);
+  const [week, setWeek] = useState<DayRange | null>(null);
   const today = new Date();
   const month = `${String(today.getFullYear())}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
@@ -1013,6 +1015,14 @@ function CalendarDemo() {
           min: {month}-05 · max: {month}-20
         </span>
       </div>
+      <div className="flex flex-col gap-2">
+        <div className="rounded-card border border-border bg-surface-raised p-3">
+          <Calendar mode="range" maxDays={7} value={week} onChange={setWeek} />
+        </div>
+        <span className="font-mono text-caption text-foreground-muted">
+          mode=&quot;range&quot; maxDays=7 · {week === null ? 'null' : `${week.from} → ${week.to}`}
+        </span>
+      </div>
     </Example>
   );
 }
@@ -1025,6 +1035,8 @@ function CalendarDemo() {
 function DateFieldDemo() {
   const [day, setDay] = useState<string | null>('2026-06-21');
   const [none, setNone] = useState<string | null>(null);
+  const [stay, setStay] = useState<DayRange | null>({ from: '2026-06-21', to: '2026-06-25' });
+  const [noRange, setNoRange] = useState<DayRange | null>(null);
 
   return (
     <>
@@ -1043,6 +1055,17 @@ function DateFieldDemo() {
         <DateField label="Compact" size="compact" value={day} onChange={setDay} />
         <DateField label="Day" value={none} onChange={setNone} error="Choose a day." />
         <DateField label="Disabled" value={day} onChange={setDay} disabled />
+      </Example>
+      <Example label={'mode="range" · maxDays'} isFields>
+        <DateField mode="range" label="Days away" value={noRange} onChange={setNoRange} />
+        <DateField
+          mode="range"
+          label="Stay"
+          value={stay}
+          maxDays={14}
+          onChange={setStay}
+          hint="At most 14 days: maxDays={14}"
+        />
       </Example>
     </>
   );
@@ -1450,14 +1473,17 @@ const COMPONENTS: Record<ComponentName, Entry | ShownWith<ComponentName>> = {
   },
   Calendar: {
     since: '1.10',
-    about: 'A month of days to pick one from. A day is a plain `2026-06-21`.',
-    code: '<Calendar value={day} onChange={setDay} min="2026-06-01" max="2026-06-30" />',
+    about:
+      'A month of days to pick one day, or a run of days, from. A day is a plain `2026-06-21`, a run `{ from, to }`.',
+    code: `<Calendar value={day} onChange={setDay} min="2026-06-01" max="2026-06-30" />
+<Calendar mode="range" maxDays={7} value={week} onChange={setWeek} />`,
     demo: CalendarDemo,
   },
   DateField: {
     since: '1.10',
-    about: 'One day, chosen from a calendar the field opens under it.',
-    code: '<DateField label="From" value={day} onChange={setDay} min="2026-06-01" />',
+    about: 'One day, or a run of days, chosen from a calendar the field opens under it.',
+    code: `<DateField label="From" value={day} onChange={setDay} min="2026-06-01" />
+<DateField mode="range" label="Stay" value={stay} onChange={setStay} maxDays={14} />`,
     demo: DateFieldDemo,
   },
   NameIconField: {

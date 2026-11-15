@@ -6633,7 +6633,8 @@
       "value": "Tonalità {{hue}}°, saturazione {{saturation}}%"
     },
     "dateField": {
-      "choose": "Scegli una data"
+      "choose": "Scegli una data",
+      "chooseRange": "Scegli i giorni"
     },
     "emptyState": {
       "learnMore": "Scopri di più"

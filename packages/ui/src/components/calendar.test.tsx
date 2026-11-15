@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { Calendar, dayKey, formatDay, shiftDay } from './calendar.js';
+import { Calendar, dayKey, formatDay, formatDayRange, shiftDay } from './calendar.js';
 import { Tooltip } from './tooltip.js';
 
 describe('a day’s key', () => {
@@ -51,6 +51,53 @@ describe('Calendar', () => {
       key: 'ArrowDown',
     });
     expect(screen.getByRole('button', { name: 'Wednesday, July 1, 2026' })).toHaveFocus();
+  });
+});
+
+describe('Calendar, picking a run of days', () => {
+  it('hands back the run once both ends are pressed, earlier end first', () => {
+    const onChange = vi.fn();
+
+    render(
+      <Calendar
+        mode="range"
+        value={{ from: '2026-06-01', to: '2026-06-02' }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Monday, June 22, 2026' }));
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thursday, June 18, 2026' }));
+    expect(onChange).toHaveBeenCalledWith({ from: '2026-06-18', to: '2026-06-22' });
+  });
+
+  it('draws the days between as picked, and keeps a run within maxDays', () => {
+    render(
+      <Calendar
+        mode="range"
+        maxDays={3}
+        value={{ from: '2026-06-10', to: '2026-06-12' }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Thursday, June 11, 2026' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Monday, June 15, 2026' }));
+    expect(screen.getByRole('button', { name: 'Wednesday, June 17, 2026' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Thursday, June 18, 2026' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Saturday, June 13, 2026' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Friday, June 12, 2026' })).toBeDisabled();
+  });
+
+  it('writes a run once, saying what its ends share', () => {
+    expect(formatDayRange({ from: '2026-06-21', to: '2026-06-25' }, 'en-GB')).toMatch(
+      /^21\s?–\s?25 Jun 2026$/u,
+    );
   });
 });
 

@@ -299,26 +299,41 @@ type TooltipProps = {
   /** Extra classes for the bubble. */
   readonly className?: string;
 };
-/** A month of days to pick one from. Since SDK 1.10. */
-type CalendarProps = {
+/** A run of days, both ends included, as `2026-06-21`: `from` is never after `to`. Since SDK 1.10. */
+type DayRange = {
+  readonly from: string;
+  readonly to: string;
+};
+/** What one day, or a run of days, is picked with. Since SDK 1.10. */
+type DayPick = {
+  /** One day; the default. */
+  readonly mode?: 'single';
   /** The day picked, `2026-06-21`, or null for none yet. */
   readonly value: string | null;
   /** Called with the day picked, `2026-06-21`. */
   readonly onChange: (day: string) => void;
+} | {
+  /** A run of days: the first press picks one end, the second the other. */
+  readonly mode: 'range';
+  /** The run picked, or null for none yet. */
+  readonly value: DayRange | null;
+  /** Called with the run, once both ends are picked. */
+  readonly onChange: (range: DayRange) => void;
+  /** The most days the run may hold, both ends counted; any when not said. */
+  readonly maxDays?: number | undefined;
+};
+/** A month of days to pick one day, or a run of days, from. Since SDK 1.10. */
+type CalendarProps = DayPick & {
   /** The first day that may be picked. */
   readonly min?: string | undefined;
   /** The last day that may be picked. */
   readonly max?: string | undefined;
   readonly className?: string;
 };
-/** One day, chosen from a calendar the field opens under it. Since SDK 1.10. */
-type DateFieldProps = {
+/** One day, or a run of days, chosen from a calendar the field opens under it. Since SDK 1.10. */
+type DateFieldProps = DayPick & {
   readonly label: string;
   readonly isLabelHidden?: boolean;
-  /** The day, `2026-06-21`, or null for none yet. */
-  readonly value: string | null;
-  /** Called with the day picked, `2026-06-21`. */
-  readonly onChange: (day: string) => void;
   /** The first day that may be picked. */
   readonly min?: string | undefined;
   /** The last day that may be picked. */
@@ -581,17 +596,18 @@ export declare function RadioGroup<TValue extends string>(props: RadioGroupProps
  */
 export declare function Tooltip(props: TooltipProps): ReactElement;
 /**
- * A month of days to pick one from, as a plain `2026-06-21`. Since 1.10.
+ * A month of days to pick one day from, as a plain `2026-06-21` - or, with `mode="range"`, a run
+ * of days, at most `maxDays` long. Since 1.10.
  *
- * @param props - The day picked, and the first and last that may be.
+ * @param props - What is picked, and the first and last day that may be.
  * @returns The calendar.
  */
 export declare function Calendar(props: CalendarProps): ReactElement;
 /**
- * One day, chosen from a calendar: a field saying the day in words, opening the calendar under
- * it. Since 1.10.
+ * One day, or with `mode="range"` a run of days, chosen from a calendar: a field saying it in
+ * words, opening the calendar under it. Since 1.10.
  *
- * @param props - Its label, the day, and the first and last that may be picked.
+ * @param props - Its label, what is picked, and the first and last day that may be.
  * @returns The field.
  */
 export declare function DateField(props: DateFieldProps): ReactElement;
@@ -611,4 +627,4 @@ export declare function NameIconField(props: NameIconFieldProps): ReactElement;
  */
 export declare function cn(...classes: readonly ClassValue[]): string;
 //#endregion
-export type { BadgeProps, BadgeTone, ButtonProps, ButtonSize, ButtonVariant, CalendarProps, CardHeadingProps, CheckboxProps, ClassValue, ComponentsHost, ControlOption, DateFieldProps, EntityFieldProps, EntityPickerProps, FigureProps, HintProps, IconButtonProps, IconFieldProps, IconProps, ModalProps, NameIconFieldProps, PanelNoteProps, PanelProps, PanelRowProps, ProgressBarProps, RadioGroupProps, RadioOption, SegmentedProps, SelectFieldProps, SliderProps, StatusDotProps, StepperProps, SwitchProps, TagChipProps, TagColor, TextFieldProps, TooltipProps };
+export type { BadgeProps, BadgeTone, ButtonProps, ButtonSize, ButtonVariant, CalendarProps, CardHeadingProps, CheckboxProps, ClassValue, ComponentsHost, ControlOption, DateFieldProps, DayPick, DayRange, EntityFieldProps, EntityPickerProps, FigureProps, HintProps, IconButtonProps, IconFieldProps, IconProps, ModalProps, NameIconFieldProps, PanelNoteProps, PanelProps, PanelRowProps, ProgressBarProps, RadioGroupProps, RadioOption, SegmentedProps, SelectFieldProps, SliderProps, StatusDotProps, StepperProps, SwitchProps, TagChipProps, TagColor, TextFieldProps, TooltipProps };

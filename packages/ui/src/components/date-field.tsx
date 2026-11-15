@@ -12,39 +12,37 @@ import { cn } from '../lib/cn.js';
 import { controlFace, type ControlFaceVariants } from '../lib/control-face.js';
 
 import { AppIcon } from './app-icon.js';
-import { Calendar, formatDay } from './calendar.js';
+import { Calendar, formatDay, formatDayRange, type DayPick } from './calendar.js';
 import { FieldShell } from './field-shell.js';
 import { Popover } from './popover.js';
 
-/** What the field needs. */
-export type DateFieldProps = Pick<ControlFaceVariants, 'size'> & {
-  /** What the field is for. */
-  readonly label: string;
+/**
+ * What the field needs: one day (`mode` left out, or `single`), or a run of days (`range`, with
+ * `maxDays` for the most it may hold).
+ */
+export type DateFieldProps = DayPick &
+  Pick<ControlFaceVariants, 'size'> & {
+    /** What the field is for. */
+    readonly label: string;
 
-  /** Whether the label is drawn, or only announced. */
-  readonly isLabelHidden?: boolean;
+    /** Whether the label is drawn, or only announced. */
+    readonly isLabelHidden?: boolean;
 
-  /** The day, `2026-06-21`, or null for none yet. */
-  readonly value: string | null;
+    /** The first day that may be picked. */
+    readonly min?: string | undefined;
 
-  /** Called with the day picked. */
-  readonly onChange: (day: string) => void;
+    /** The last day that may be picked. */
+    readonly max?: string | undefined;
 
-  /** The first day that may be picked. */
-  readonly min?: string | undefined;
+    /** Whether the day can be changed at all. */
+    readonly disabled?: boolean;
 
-  /** The last day that may be picked. */
-  readonly max?: string | undefined;
+    /** A line under the control, for what the label cannot say. */
+    readonly hint?: ReactNode;
 
-  /** Whether the day can be changed at all. */
-  readonly disabled?: boolean;
-
-  /** A line under the control, for what the label cannot say. */
-  readonly hint?: ReactNode;
-
-  /** What is wrong with the day, when something is. */
-  readonly error?: string | undefined;
-};
+    /** What is wrong with the day, when something is. */
+    readonly error?: string | undefined;
+  };
 
 /**
  * Renders a date field.
@@ -53,18 +51,7 @@ export type DateFieldProps = Pick<ControlFaceVariants, 'size'> & {
  * @returns The field, and the calendar it opens.
  */
 export function DateField(props: DateFieldProps) {
-  const {
-    label,
-    isLabelHidden = false,
-    value,
-    onChange,
-    min,
-    max,
-    size,
-    disabled = false,
-    hint,
-    error,
-  } = props;
+  const { label, isLabelHidden = false, min, max, size, disabled = false, hint, error } = props;
   const { t, i18n } = useTranslation();
   const button = useRef<HTMLButtonElement>(null);
   const [isOpen, setOpen] = useState(false);
@@ -74,6 +61,15 @@ export function DateField(props: DateFieldProps) {
     setOpen(false);
     button.current?.focus();
   };
+
+  const shown =
+    props.mode === 'range'
+      ? props.value === null
+        ? null
+        : formatDayRange(props.value, i18n.language)
+      : props.value === null
+        ? null
+        : formatDay(props.value, i18n.language);
 
   return (
     <FieldShell label={label} isLabelHidden={isLabelHidden} hint={hint} error={error}>
@@ -98,27 +94,44 @@ export function DateField(props: DateFieldProps) {
           >
             <span
               id={`${ids.id}-value`}
-              className={cn('truncate', value === null ? 'text-foreground-subtle' : undefined)}
+              className={cn('truncate', shown === null ? 'text-foreground-subtle' : undefined)}
             >
-              {value === null
-                ? t('ui.dateField.choose', 'Choose a date')
-                : formatDay(value, i18n.language)}
+              {shown ??
+                (props.mode === 'range'
+                  ? t('ui.dateField.chooseRange', 'Choose the days')
+                  : t('ui.dateField.choose', 'Choose a date'))}
             </span>
             <AppIcon id="calendar" size={16} className="shrink-0 text-foreground-subtle" />
           </button>
 
           <Popover anchor={button} isOpen={isOpen} onClose={close} label={label} width={280}>
-            <Calendar
-              takesFocus
-              className="w-full p-3"
-              value={value}
-              min={min}
-              max={max}
-              onChange={(day) => {
-                onChange(day);
-                close();
-              }}
-            />
+            {props.mode === 'range' ? (
+              <Calendar
+                takesFocus
+                className="w-full p-3"
+                mode="range"
+                value={props.value}
+                maxDays={props.maxDays}
+                min={min}
+                max={max}
+                onChange={(range) => {
+                  props.onChange(range);
+                  close();
+                }}
+              />
+            ) : (
+              <Calendar
+                takesFocus
+                className="w-full p-3"
+                value={props.value}
+                min={min}
+                max={max}
+                onChange={(day) => {
+                  props.onChange(day);
+                  close();
+                }}
+              />
+            )}
           </Popover>
         </>
       )}

@@ -335,9 +335,10 @@ export function Tooltip(props: TooltipProps): ReactElement {
 }
 
 /**
- * A month of days to pick one from, as a plain `2026-06-21`. Since 1.10.
+ * A month of days to pick one day from, as a plain `2026-06-21` - or, with `mode="range"`, a run
+ * of days, at most `maxDays` long. Since 1.10.
  *
- * @param props - The day picked, and the first and last that may be.
+ * @param props - What is picked, and the first and last day that may be.
  * @returns The calendar.
  */
 export function Calendar(props: CalendarProps): ReactElement {
@@ -345,10 +346,10 @@ export function Calendar(props: CalendarProps): ReactElement {
 }
 
 /**
- * One day, chosen from a calendar: a field saying the day in words, opening the calendar under
- * it. Since 1.10.
+ * One day, or with `mode="range"` a run of days, chosen from a calendar: a field saying it in
+ * words, opening the calendar under it. Since 1.10.
  *
- * @param props - Its label, the day, and the first and last that may be picked.
+ * @param props - Its label, what is picked, and the first and last day that may be.
  * @returns The field.
  */
 export function DateField(props: DateFieldProps): ReactElement {

@@ -64,9 +64,12 @@ export {
   Calendar,
   dayKey,
   formatDay,
+  formatDayRange,
   shiftDay,
   todayKey,
   type CalendarProps,
+  type DayPick,
+  type DayRange,
 } from './components/calendar.js';
 export { DateField, type DateFieldProps } from './components/date-field.js';
 export { Tooltip, type TooltipProps } from './components/tooltip.js';

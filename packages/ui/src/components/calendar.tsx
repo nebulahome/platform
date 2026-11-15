@@ -92,14 +92,53 @@ export function formatDay(
     : key;
 }
 
+/** A run of days, both ends included: `from` is never after `to`. */
+export type DayRange = { readonly from: string; readonly to: string };
+
+/**
+ * Writes a run of days in words, saying what the two ends share once: `21–25 Jun 2026`.
+ *
+ * @param range - The run.
+ * @param locale - The language to write it in.
+ * @returns The run, or its keys as they came when they are not days.
+ */
+export function formatDayRange(range: DayRange, locale: string): string {
+  return DAY_KEY.test(range.from) && DAY_KEY.test(range.to)
+    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).formatRange(
+        utcOf(range.from),
+        utcOf(range.to),
+      )
+    : `${range.from} – ${range.to}`;
+}
+
+/** What one day, or a run of days, is picked with. */
+export type DayPick =
+  | {
+      /** One day; the default. */
+      readonly mode?: 'single';
+
+      /** The day picked, `2026-06-21`, or null for none yet. */
+      readonly value: string | null;
+
+      /** Called with the day picked. */
+      readonly onChange: (day: string) => void;
+    }
+  | {
+      /** A run of days: the first press picks one end, the second the other. */
+      readonly mode: 'range';
+
+      /** The run picked, or null for none yet. */
+      readonly value: DayRange | null;
+
+      /** Called with the run, once both ends are picked. */
+      readonly onChange: (range: DayRange) => void;
+
+      /** The most days the run may hold, both ends counted; any when not said. */
+      readonly maxDays?: number | undefined;
+    };
+
 /** What a calendar needs. */
-export type CalendarProps = {
-  /** The day picked, `2026-06-21`, or null for none yet. */
-  readonly value: string | null;
-
-  /** Called with the day picked. */
-  readonly onChange: (day: string) => void;
-
+export type CalendarProps = DayPick & {
   /** The first day that may be picked. */
   readonly min?: string | undefined;
 
@@ -120,12 +159,25 @@ export type CalendarProps = {
  * @returns The calendar.
  */
 export function Calendar(props: CalendarProps) {
-  const { value, onChange, min, max, takesFocus = false, className } = props;
+  const { min, max, takesFocus = false, className } = props;
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const today = todayKey();
-  const picked = value !== null && DAY_KEY.test(value) ? value : null;
   const grid = useRef<HTMLDivElement>(null);
+
+  // A run's first end, pressed and waiting for the second; the run given is hidden meanwhile.
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const range = props.mode === 'range' ? props.value : null;
+  const maxDays = props.mode === 'range' ? props.maxDays : undefined;
+  const ends = (
+    props.mode === 'range'
+      ? anchor === null
+        ? [range?.from ?? null, range?.to ?? null]
+        : [anchor, null]
+      : [props.value, null]
+  ).map((day) => (day !== null && DAY_KEY.test(day) ? day : null));
+  const picked = ends[0] ?? null;
+  const last = ends[1] ?? null;
 
   // The month shown, `2026-06`, and the day the keyboard is on.
   const [month, setMonth] = useState((picked ?? today).slice(0, 7));
@@ -163,10 +215,30 @@ export function Calendar(props: CalendarProps) {
    * Says whether a day is outside what may be picked.
    *
    * @param day - Its key.
-   * @returns True before `min` or after `max`.
+   * @returns True before `min` or after `max`, or too far from a run's first end.
    */
   const isOff = (day: string): boolean =>
-    (min !== undefined && day < min) || (max !== undefined && day > max);
+    (min !== undefined && day < min) ||
+    (max !== undefined && day > max) ||
+    (anchor !== null &&
+      maxDays !== undefined &&
+      (day < shiftDay(anchor, 1 - maxDays) || day > shiftDay(anchor, maxDays - 1)));
+
+  /**
+   * Picks a day: the day itself, or one end of a run.
+   *
+   * @param day - Its key.
+   */
+  const pick = (day: string): void => {
+    if (props.mode !== 'range') {
+      props.onChange(day);
+    } else if (anchor === null) {
+      setAnchor(day);
+    } else {
+      setAnchor(null);
+      props.onChange(day < anchor ? { from: day, to: anchor } : { from: anchor, to: day });
+    }
+  };
 
   /**
    * Moves the keyboard's day with the arrows, into the next month when it leaves this one.
@@ -238,7 +310,8 @@ export function Calendar(props: CalendarProps) {
         ))}
         {[...Array.from({ length: days }).keys()].map((index) => {
           const day = dayKey(year, monthOf, index + 1);
-          const isPicked = day === picked;
+          const isPicked = day === picked || day === last;
+          const isInside = picked !== null && last !== null && day > picked && day < last;
 
           return (
             <button
@@ -248,10 +321,10 @@ export function Calendar(props: CalendarProps) {
               tabIndex={day === tabStop ? 0 : -1}
               disabled={isOff(day)}
               aria-label={formatDay(day, locale, 'full')}
-              aria-pressed={isPicked}
+              aria-pressed={isPicked || isInside}
               aria-current={day === today ? 'date' : undefined}
               onClick={() => {
-                onChange(day);
+                pick(day);
               }}
               className={cn(
                 'h-8 cursor-pointer rounded-chip tabular transition-colors',
@@ -259,7 +332,9 @@ export function Calendar(props: CalendarProps) {
                 'disabled:cursor-not-allowed disabled:text-foreground-subtle disabled:opacity-50',
                 isPicked
                   ? 'bg-primary font-medium text-primary-foreground'
-                  : 'text-foreground enabled:hover:bg-surface-high',
+                  : isInside
+                    ? 'bg-primary/15 text-foreground enabled:hover:bg-primary/25'
+                    : 'text-foreground enabled:hover:bg-surface-high',
                 day === today && !isPicked ? 'ring-1 ring-primary/60 ring-inset' : undefined,
               )}
             >
