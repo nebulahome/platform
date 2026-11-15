@@ -35,6 +35,7 @@ import {
   houseReplySchema,
   isPackageServiceAllowed,
   jsonValueSchema,
+  managedReplySchema,
   NotFoundError,
   PACKAGE_LIVE_MAX_BYTES,
   PACKAGE_LIVE_TOPIC_PATTERN,
@@ -48,6 +49,8 @@ import {
   stateChangedEventSchema,
   stateGetRequestSchema,
   stateSnapshotReplySchema,
+  SUPERVISOR_METHODS,
+  SUPERVISOR_SERVICE,
   syncPackageReplySchema,
   telemetryResolutionForSpan,
   ValidationError,
@@ -231,6 +234,9 @@ const HOUSE_TIMEOUT_MS = 10_000;
 
 /** How long a read of the past may take before it fails. */
 const HISTORY_TIMEOUT_MS = 10_000;
+
+/** How long the supervisor has to say where the package's containers stand. */
+const CONTAINERS_TIMEOUT_MS = 5000;
 
 /**
  * A recorded state, as the SDK hands it: the platform's, without the capabilities it lacks.
@@ -1190,6 +1196,30 @@ export function createPackageContext(options: PackageContextOptions): PackageCon
         client.request(busSubjects.service(CORE_SERVICE, CORE_HOUSE_METHOD), {}, houseReplySchema, {
           timeoutMs: HOUSE_TIMEOUT_MS,
         }),
+    },
+
+    containers: {
+      /**
+       * Asks the supervisor about the package's own containers: it answers for the owner asked
+       * about alone, in the order the packet-manager handed them over, which is the declaration's.
+       *
+       * @returns Each one's state, by the id it was declared with (its dependency id).
+       */
+      status: async () => {
+        const reply = await client.request(
+          busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.managed),
+          { vendorId: id, ownerKind: 'package' },
+          managedReplySchema,
+          { timeoutMs: CONTAINERS_TIMEOUT_MS },
+        );
+
+        return reply.containers.map((container) => ({
+          id: container.dependencyId,
+          state: container.state,
+          version: container.version,
+          error: container.error,
+        }));
+      },
     },
 
     history: {

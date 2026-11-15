@@ -3,6 +3,16 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.12.0
+
+- **Where a package's containers stand:** `ctx.containers.status()` answers, for each container
+  the package declares with `defineContainer`, its `id`, its `state` (`pulling` while the image
+  downloads, `missing` before it is made or when its download or start failed, else Docker's own),
+  the release installed and, when it is not running, why. It rejects when the supervisor does not
+  answer within 5 seconds. The test context answers what `containers` or `setContainers` gave it.
+- **Something before a choice's name:** `<SelectField>`'s options are `SelectOption`s, which may
+  carry `leading` - a currency's symbol, a swatch - drawn in the list and on the button.
+
 ## 1.11.0
 
 - **Narrower entity pickers:** `<EntityField>` and `<EntityPicker>` take `accept`, a test each

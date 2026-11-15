@@ -460,13 +460,21 @@ const QUALITIES = [
   { value: 'high', label: 'High (1080p)' },
 ];
 
+/** A select's sample options with something before the name: a currency's symbol. */
+const CURRENCIES = [
+  { value: 'EUR', label: 'Euro', leading: <span aria-hidden>€</span> },
+  { value: 'GBP', label: 'Pound sterling', leading: <span aria-hidden>£</span> },
+  { value: 'CHF', label: 'Swiss franc', leading: <span aria-hidden>Fr</span> },
+];
+
 /**
- * SelectField: its sizes, hint, error and disabled.
+ * SelectField: its sizes, hint, error and disabled, and options with a leading mark.
  *
  * @returns The examples.
  */
 function SelectFieldDemo() {
   const [quality, setQuality] = useState('medium');
+  const [currency, setCurrency] = useState('EUR');
 
   return (
     <>
@@ -508,6 +516,15 @@ function SelectFieldDemo() {
           options={QUALITIES}
           value={quality}
           onChange={setQuality}
+        />
+      </Example>
+      <Example label="leading" isFields>
+        <SelectField
+          label="Currency"
+          options={CURRENCIES}
+          value={currency}
+          onChange={setCurrency}
+          hint="leading: the currency’s symbol (1.12)"
         />
       </Example>
     </>
@@ -1392,7 +1409,9 @@ const COMPONENTS: Record<ComponentName, Entry | ShownWith<ComponentName>> = {
     since: '1.0',
     about: 'A labelled choice from a list.',
     code: `<SelectField label="Quality" value={quality} onChange={setQuality}
-  options={[{ value: 'low', label: 'Low (480p)' }, { value: 'high', label: 'High (1080p)' }]} />`,
+  options={[{ value: 'low', label: 'Low (480p)' }, { value: 'high', label: 'High (1080p)' }]} />
+<SelectField label="Currency" value={currency} onChange={setCurrency}
+  options={[{ value: 'EUR', label: 'Euro', leading: <span aria-hidden>€</span> }]} />`,
     demo: SelectFieldDemo,
   },
   Switch: {

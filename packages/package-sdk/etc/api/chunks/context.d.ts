@@ -216,6 +216,20 @@ type House = {
   /** The enabled entities; linked ones are read through the entity they are linked to. */
   readonly entities: readonly HouseEntity[];
 };
+/** Where one of the containers the package declares stands. Since 1.12. */
+type ContainerStatus = {
+  /** The id given in `defineContainer`. */
+  readonly id: string;
+  /**
+   * `pulling` while its image downloads; `missing` before it is made, or when its download or
+   * start failed, which `error` then says; else Docker's own state of it.
+   */
+  readonly state: 'missing' | 'pulling' | 'created' | 'running' | 'paused' | 'restarting' | 'removing' | 'exited' | 'dead';
+  /** The release of its image installed, once there is one. */
+  readonly version: string | null;
+  /** Why it is not running, in English. */
+  readonly error: string | null;
+};
 /** Which entities' past `ctx.history` reads, over which window. Since 1.2. */
 type HistoryRead = {
   /** At most 64. */
@@ -493,6 +507,18 @@ type ServerContext<TSettings = undefined> = {
       readonly resolution: TelemetryResolution;
     }>;
   };
+  /** The containers the package declares with `defineContainer`, as they run. Since 1.12. */
+  readonly containers: {
+    /**
+     * Where each of them stands now, asked of the platform at each call.
+     *
+     * @returns One entry per container, in the order declared; empty for a package that declares
+     * none, or while the platform has not yet taken them in (it is starting).
+     * @throws {Error} When the platform's supervisor does not answer within 5 seconds: Docker is
+     * not reachable, or the platform runs without it.
+     */
+    readonly status: () => Promise<readonly ContainerStatus[]>;
+  };
   readonly rpc: {
     /** Registers a method its interface calls; a name registered twice throws. */
     readonly method: RpcMethod;
@@ -522,4 +548,4 @@ type ServerContext<TSettings = undefined> = {
   };
 };
 //#endregion
-export { ServiceProvide as A, StandardSchemaV1 as B, RpcCall as C, ServerSettings as D, ServerContext as E, Unsubscribe as F, SafeParser as I, Schema as L, StateChange as M, SyncResult as N, ServiceCall as O, TelemetryRead as P, SchemaIssue as R, RpcAccess as S, RpcMethod as T, LiveOnMessage as _, CustomEntityInput as a, Logger as b, EntityInput as c, HistoryRead as d, House as f, LiveCall as g, HouseEntity as h, CustomEntities as i, SettingsChange as j, ServiceCallFunction as k, EntitySnapshot as l, HouseDevice as m, CapabilityEntityInput as n, DeviceInput as o, HouseArea as p, CustomCommand as r, EntityFilter as s, Awaitable as t, HistoryAnswer as u, LivePublishOptions as v, RpcCaller as w, ReportOptions as x, LogMethod as y, StandardResult as z };
+export { ServiceCallFunction as A, StandardResult as B, RpcAccess as C, ServerContext as D, RpcMethod as E, TelemetryRead as F, Unsubscribe as I, SafeParser as L, SettingsChange as M, StateChange as N, ServerSettings as O, SyncResult as P, Schema as R, ReportOptions as S, RpcCaller as T, StandardSchemaV1 as V, LiveCall as _, CustomEntities as a, LogMethod as b, EntityFilter as c, HistoryAnswer as d, HistoryRead as f, HouseEntity as g, HouseDevice as h, CustomCommand as i, ServiceProvide as j, ServiceCall as k, EntityInput as l, HouseArea as m, CapabilityEntityInput as n, CustomEntityInput as o, House as p, ContainerStatus as r, DeviceInput as s, Awaitable as t, EntitySnapshot as u, LiveOnMessage as v, RpcCall as w, Logger as x, LivePublishOptions as y, SchemaIssue as z };

@@ -113,11 +113,19 @@ type ControlOption<TValue extends string = string> = {
   readonly value: TValue;
   readonly label: string;
 };
+/** One choice of a select. */
+type SelectOption = ControlOption & {
+  /**
+   * Drawn before the name, in the list and on the button once chosen: a currency's symbol, a
+   * swatch. Decorative: the name still says what the choice is. Since SDK 1.12.
+   */
+  readonly leading?: ReactNode;
+};
 /** A labelled choice from a list. */
 type SelectFieldProps = {
   readonly label: string;
   readonly isLabelHidden?: boolean;
-  readonly options: readonly ControlOption[];
+  readonly options: readonly SelectOption[];
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly disabled?: boolean;
@@ -638,4 +646,4 @@ export declare function NameIconField(props: NameIconFieldProps): ReactElement;
  */
 export declare function cn(...classes: readonly ClassValue[]): string;
 //#endregion
-export type { BadgeProps, BadgeTone, ButtonProps, ButtonSize, ButtonVariant, CalendarProps, CardHeadingProps, CheckboxProps, ClassValue, ComponentsHost, ControlOption, DateFieldProps, DayPick, DayRange, EntityFieldProps, EntityPickerProps, FigureProps, HintProps, IconButtonProps, IconFieldProps, IconProps, ModalProps, NameIconFieldProps, PanelNoteProps, PanelProps, PanelRowProps, ProgressBarProps, RadioGroupProps, RadioOption, SegmentedProps, SelectFieldProps, SliderProps, StatusDotProps, StepperProps, SwitchProps, TagChipProps, TagColor, TextFieldProps, TooltipProps };
+export type { BadgeProps, BadgeTone, ButtonProps, ButtonSize, ButtonVariant, CalendarProps, CardHeadingProps, CheckboxProps, ClassValue, ComponentsHost, ControlOption, DateFieldProps, DayPick, DayRange, EntityFieldProps, EntityPickerProps, FigureProps, HintProps, IconButtonProps, IconFieldProps, IconProps, ModalProps, NameIconFieldProps, PanelNoteProps, PanelProps, PanelRowProps, ProgressBarProps, RadioGroupProps, RadioOption, SegmentedProps, SelectFieldProps, SelectOption, SliderProps, StatusDotProps, StepperProps, SwitchProps, TagChipProps, TagColor, TextFieldProps, TooltipProps };

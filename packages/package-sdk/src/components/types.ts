@@ -161,11 +161,20 @@ export type ControlOption<TValue extends string = string> = {
   readonly label: string;
 };
 
+/** One choice of a select. */
+export type SelectOption = ControlOption & {
+  /**
+   * Drawn before the name, in the list and on the button once chosen: a currency's symbol, a
+   * swatch. Decorative: the name still says what the choice is. Since SDK 1.12.
+   */
+  readonly leading?: ReactNode;
+};
+
 /** A labelled choice from a list. */
 export type SelectFieldProps = {
   readonly label: string;
   readonly isLabelHidden?: boolean;
-  readonly options: readonly ControlOption[];
+  readonly options: readonly SelectOption[];
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly disabled?: boolean;

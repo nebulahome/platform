@@ -2,7 +2,7 @@
  * A package's context on a bus in memory: what it serves, what it asks of `core`, what it
  * publishes - each under the package's own id.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { z } from 'zod';
 
 import { BusClient } from '@nebulahome/bus';
@@ -18,12 +18,15 @@ import {
   CORE_SYNC_PACKAGE_METHOD,
   historyStatesRequestSchema,
   historyTelemetryRequestSchema,
+  managedRequestSchema,
   PACKAGE_RPC_METHOD,
   PACKAGE_SETTINGS_METHOD,
   packageLiveMessageSchema,
   packageRpcReplySchema,
   parseEntityId,
   stateReportSchema,
+  SUPERVISOR_METHODS,
+  SUPERVISOR_SERVICE,
   syncPackageRequestSchema,
   type SyncPackageRequest,
 } from '@nebulahome/contracts';
@@ -568,5 +571,62 @@ describe("a package's context", () => {
 
     expect(asked).toEqual([{ command: { command: 'set_level', level: 40 } }]);
     expect(await made.context.house.read()).toEqual(house);
+  });
+
+  it('asks the supervisor about its own containers alone, by their declared ids', async () => {
+    const { handle: made, platform } = setUp();
+    const asked: unknown[] = [];
+    const subject = busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.managed);
+
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+
+    const unanswered = expect(made.context.containers.status()).rejects.toThrow(
+      `No reply on ${subject} within 5000ms`,
+    );
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await unanswered;
+    vi.useRealTimers();
+
+    platform.serve(subject, managedRequestSchema, (request) => {
+      asked.push(request);
+
+      return {
+        containers: [
+          {
+            ownerKind: 'package',
+            vendorId: 'nvr',
+            dependencyId: 'db',
+            containerName: 'nebula-pkg-nvr-db',
+            state: 'running',
+            version: '16.4',
+            error: null,
+          },
+          {
+            ownerKind: 'package',
+            vendorId: 'nvr',
+            dependencyId: 'frigate',
+            containerName: null,
+            state: 'missing',
+            version: null,
+            error: 'The image could not be downloaded',
+          },
+        ],
+      };
+    });
+
+    expect(await made.context.containers.status()).toEqual([
+      { id: 'db', state: 'running', version: '16.4', error: null },
+      {
+        id: 'frigate',
+        state: 'missing',
+        version: null,
+        error: 'The image could not be downloaded',
+      },
+    ]);
+    expect(asked).toEqual([{ vendorId: 'nvr', ownerKind: 'package' }]);
   });
 });

@@ -1,6 +1,6 @@
 import { G as CapabilityCommand, i as SettingsDefinition, it as ReportedCapabilityState, pt as EntityId, q as CapabilityName, r as JsonValue, t as JsonObject } from "./chunks/json.js";
 import { i as TelemetryPoint, r as StateHistoryPoint } from "./chunks/history.js";
-import { E as ServerContext, M as StateChange, f as House, l as EntitySnapshot, o as DeviceInput, t as Awaitable, w as RpcCaller, x as ReportOptions } from "./chunks/context.js";
+import { D as ServerContext, N as StateChange, S as ReportOptions, T as RpcCaller, p as House, r as ContainerStatus, s as DeviceInput, t as Awaitable, u as EntitySnapshot } from "./chunks/context.js";
 //#region src/testing/index.d.ts
 /** What a test context starts with. */
 export type TestContextOptions<TSettings extends SettingsDefinition | undefined> = {
@@ -23,6 +23,10 @@ export type TestContextOptions<TSettings extends SettingsDefinition | undefined>
    * its failure. Every command is recorded either way. Since 1.8.
    */
   readonly onEntityCommand?: (command: RecordedEntityCommand) => Awaitable<void>;
+  /**
+   * Where its containers stand, as `ctx.containers.status` answers: none when not said. Since 1.12.
+   */
+  readonly containers?: readonly ContainerStatus[];
   readonly dataDir?: string;
   readonly cacheDir?: string;
 };
@@ -135,6 +139,13 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
    * @param house - The house.
    */
   readonly setHouse: (house: House) => void;
+  /**
+   * Replaces where the package's containers stand, as `ctx.containers.status` answers next: a
+   * download that failed is `{ state: 'missing', error }`. Since 1.12.
+   *
+   * @param containers - One per container, in the order declared.
+   */
+  readonly setContainers: (containers: readonly ContainerStatus[]) => void;
   /**
    * Changes an entity of the house, as `ctx.entities.subscribe` hears it.
    *

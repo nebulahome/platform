@@ -25,6 +25,7 @@ import type { JsonObject, JsonValue } from '../json.js';
 import type { Schema } from '../schema.js';
 import type {
   Awaitable,
+  ContainerStatus,
   CustomCommand,
   CustomEntities,
   DeviceInput,
@@ -80,6 +81,11 @@ export type TestContextOptions<TSettings extends SettingsDefinition | undefined>
    * its failure. Every command is recorded either way. Since 1.8.
    */
   readonly onEntityCommand?: (command: RecordedEntityCommand) => Awaitable<void>;
+
+  /**
+   * Where its containers stand, as `ctx.containers.status` answers: none when not said. Since 1.12.
+   */
+  readonly containers?: readonly ContainerStatus[];
 
   readonly dataDir?: string;
   readonly cacheDir?: string;
@@ -218,6 +224,14 @@ export type TestContext<TSettings extends SettingsDefinition | undefined> = {
    * @param house - The house.
    */
   readonly setHouse: (house: House) => void;
+
+  /**
+   * Replaces where the package's containers stand, as `ctx.containers.status` answers next: a
+   * download that failed is `{ state: 'missing', error }`. Since 1.12.
+   *
+   * @param containers - One per container, in the order declared.
+   */
+  readonly setContainers: (containers: readonly ContainerStatus[]) => void;
 
   /**
    * Changes an entity of the house, as `ctx.entities.subscribe` hears it.
@@ -398,6 +412,7 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
   const logs: RecordedLog[] = [];
   const entityCommands: RecordedEntityCommand[] = [];
   let house: House = options.house ?? { areas: [], devices: [], entities: [] };
+  let containers: readonly ContainerStatus[] = options.containers ?? [];
   const entities = new Map((options.entities ?? []).map((each) => [each.entityId, each]));
   const histories = new Map<string, RecordedHistory>(Object.entries(options.history ?? {}));
   const methods = new Map<
@@ -1010,6 +1025,14 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
        */
       read: async () => Promise.resolve(house),
     },
+    containers: {
+      /**
+       * Where the containers stand, as the test set them.
+       *
+       * @returns Them.
+       */
+      status: async () => Promise.resolve(containers),
+    },
     history: {
       /**
        * The changes of some entities in a window.
@@ -1226,6 +1249,14 @@ export function createTestContext<TSettings extends SettingsDefinition | undefin
      */
     setHouse: (next) => {
       house = next;
+    },
+    /**
+     * Replaces where the containers stand.
+     *
+     * @param next - One per container.
+     */
+    setContainers: (next) => {
+      containers = next;
     },
     /**
      * Gives an entity a past.

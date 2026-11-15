@@ -266,4 +266,21 @@ describe('the past of the house', () => {
 
     test.setHouse({ areas: [], devices: [], entities: [] });
   });
+
+  it('answers where the containers stand as the test sets them', async () => {
+    const pulling = { id: 'forecast', state: 'pulling', version: null, error: null } as const;
+    const test = createTestContext({ containers: [pulling] });
+
+    expect(await test.ctx.containers.status()).toEqual([pulling]);
+
+    const failed = {
+      ...pulling,
+      state: 'missing',
+      error: 'The image could not be downloaded',
+    } as const;
+
+    test.setContainers([failed]);
+    expect(await test.ctx.containers.status()).toEqual([failed]);
+    expect(await createTestContext().ctx.containers.status()).toEqual([]);
+  });
 });

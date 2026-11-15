@@ -236,6 +236,33 @@ export type House = {
   readonly entities: readonly HouseEntity[];
 };
 
+/** Where one of the containers the package declares stands. Since 1.12. */
+export type ContainerStatus = {
+  /** The id given in `defineContainer`. */
+  readonly id: string;
+
+  /**
+   * `pulling` while its image downloads; `missing` before it is made, or when its download or
+   * start failed, which `error` then says; else Docker's own state of it.
+   */
+  readonly state:
+    | 'missing'
+    | 'pulling'
+    | 'created'
+    | 'running'
+    | 'paused'
+    | 'restarting'
+    | 'removing'
+    | 'exited'
+    | 'dead';
+
+  /** The release of its image installed, once there is one. */
+  readonly version: string | null;
+
+  /** Why it is not running, in English. */
+  readonly error: string | null;
+};
+
 /** Which entities' past `ctx.history` reads, over which window. Since 1.2. */
 export type HistoryRead = {
   /** At most 64. */
@@ -592,6 +619,19 @@ export type ServerContext<TSettings = undefined> = {
     readonly telemetry: (
       read: TelemetryRead,
     ) => Promise<HistoryAnswer<TelemetryPoint> & { readonly resolution: TelemetryResolution }>;
+  };
+
+  /** The containers the package declares with `defineContainer`, as they run. Since 1.12. */
+  readonly containers: {
+    /**
+     * Where each of them stands now, asked of the platform at each call.
+     *
+     * @returns One entry per container, in the order declared; empty for a package that declares
+     * none, or while the platform has not yet taken them in (it is starting).
+     * @throws {Error} When the platform's supervisor does not answer within 5 seconds: Docker is
+     * not reachable, or the platform runs without it.
+     */
+    readonly status: () => Promise<readonly ContainerStatus[]>;
   };
 
   readonly rpc: {

@@ -13,6 +13,7 @@ import type { Awaitable, ServerContext } from './context.js';
 export type {
   Awaitable,
   CapabilityEntityInput,
+  ContainerStatus,
   CustomCommand,
   CustomEntities,
   CustomEntityInput,
