@@ -52,6 +52,21 @@ function clippingTop(element: HTMLElement): number {
   return 0;
 }
 
+/**
+ * Says which side of an element a bubble has room on.
+ *
+ * @param element - What the bubble hangs off.
+ * @returns `top`, unless what clips it leaves no room above.
+ */
+export function hintSide(element: HTMLElement | null): HintSide {
+  const room =
+    element === null
+      ? Number.POSITIVE_INFINITY
+      : element.getBoundingClientRect().top - clippingTop(element);
+
+  return room < ROOM_NEEDED ? 'bottom' : 'top';
+}
+
 /** What a hint needs. */
 export type HintProps = {
   /** The explanation. Becomes both the bubble and the button's accessible name. */
@@ -77,13 +92,7 @@ export function Hint(props: HintProps) {
    * Opens the bubble on whichever side has room for it.
    */
   const open = (): void => {
-    const element = button.current;
-    const room =
-      element === null
-        ? Number.POSITIVE_INFINITY
-        : element.getBoundingClientRect().top - clippingTop(element);
-
-    setSide(room < ROOM_NEEDED ? 'bottom' : 'top');
+    setSide(hintSide(button.current));
     setOpen(true);
   };
 

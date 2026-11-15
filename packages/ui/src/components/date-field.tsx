@@ -1,0 +1,127 @@
+/**
+ * A field that holds one day: its label, a button that says the day in words, and the
+ * {@link Calendar} it opens under it.
+ *
+ * The value is a plain `2026-06-21`, as the calendar's is. Picking a day closes the calendar and
+ * hands the focus back to the button, so the keyboard carries on from where it was.
+ */
+import { useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { cn } from '../lib/cn.js';
+import { controlFace, type ControlFaceVariants } from '../lib/control-face.js';
+
+import { AppIcon } from './app-icon.js';
+import { Calendar, formatDay } from './calendar.js';
+import { FieldShell } from './field-shell.js';
+import { Popover } from './popover.js';
+
+/** What the field needs. */
+export type DateFieldProps = Pick<ControlFaceVariants, 'size'> & {
+  /** What the field is for. */
+  readonly label: string;
+
+  /** Whether the label is drawn, or only announced. */
+  readonly isLabelHidden?: boolean;
+
+  /** The day, `2026-06-21`, or null for none yet. */
+  readonly value: string | null;
+
+  /** Called with the day picked. */
+  readonly onChange: (day: string) => void;
+
+  /** The first day that may be picked. */
+  readonly min?: string | undefined;
+
+  /** The last day that may be picked. */
+  readonly max?: string | undefined;
+
+  /** Whether the day can be changed at all. */
+  readonly disabled?: boolean;
+
+  /** A line under the control, for what the label cannot say. */
+  readonly hint?: ReactNode;
+
+  /** What is wrong with the day, when something is. */
+  readonly error?: string | undefined;
+};
+
+/**
+ * Renders a date field.
+ *
+ * @param props - See {@link DateFieldProps}.
+ * @returns The field, and the calendar it opens.
+ */
+export function DateField(props: DateFieldProps) {
+  const {
+    label,
+    isLabelHidden = false,
+    value,
+    onChange,
+    min,
+    max,
+    size,
+    disabled = false,
+    hint,
+    error,
+  } = props;
+  const { t, i18n } = useTranslation();
+  const button = useRef<HTMLButtonElement>(null);
+  const [isOpen, setOpen] = useState(false);
+
+  /** Shuts the calendar and hands the focus back. */
+  const close = (): void => {
+    setOpen(false);
+    button.current?.focus();
+  };
+
+  return (
+    <FieldShell label={label} isLabelHidden={isLabelHidden} hint={hint} error={error}>
+      {(ids) => (
+        <>
+          <button
+            ref={button}
+            id={ids.id}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            aria-labelledby={`${ids.labelId} ${ids.id}-value`}
+            aria-describedby={ids.describedBy}
+            disabled={disabled}
+            onClick={() => {
+              setOpen(!isOpen);
+            }}
+            className={cn(
+              controlFace({ size, isInvalid: ids.isInvalid }),
+              'press flex items-center justify-between gap-2 text-left',
+            )}
+          >
+            <span
+              id={`${ids.id}-value`}
+              className={cn('truncate', value === null ? 'text-foreground-subtle' : undefined)}
+            >
+              {value === null
+                ? t('ui.dateField.choose', 'Choose a date')
+                : formatDay(value, i18n.language)}
+            </span>
+            <AppIcon id="calendar" size={16} className="shrink-0 text-foreground-subtle" />
+          </button>
+
+          <Popover anchor={button} isOpen={isOpen} onClose={close} label={label} width={280}>
+            <Calendar
+              takesFocus
+              className="w-full p-3"
+              value={value}
+              min={min}
+              max={max}
+              onChange={(day) => {
+                onChange(day);
+                close();
+              }}
+            />
+          </Popover>
+        </>
+      )}
+    </FieldShell>
+  );
+}

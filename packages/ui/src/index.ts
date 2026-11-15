@@ -60,6 +60,17 @@ export {
   type WheelColour,
 } from './components/color-wheel.js';
 export { Button, type ButtonProps } from './components/button.js';
+export {
+  Calendar,
+  dayKey,
+  formatDay,
+  shiftDay,
+  todayKey,
+  type CalendarProps,
+} from './components/calendar.js';
+export { DateField, type DateFieldProps } from './components/date-field.js';
+export { Tooltip, type TooltipProps } from './components/tooltip.js';
+export { useClickOutside, useEscape, useNow, type OutsideTarget } from './lib/hooks.js';
 export { CardHeading, type CardHeadingProps } from './components/card-heading.js';
 export { CatalogueIcon, type CatalogueIconProps } from './components/catalogue-icon.js';
 export { Checkbox, type CheckboxProps } from './components/checkbox.js';

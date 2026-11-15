@@ -6625,8 +6625,15 @@
       "or": "O",
       "remove": "Rimuovi {{kind}}"
     },
+    "calendar": {
+      "nextMonth": "Mese successivo",
+      "previousMonth": "Mese precedente"
+    },
     "colorWheel": {
       "value": "Tonalità {{hue}}°, saturazione {{saturation}}%"
+    },
+    "dateField": {
+      "choose": "Scegli una data"
     },
     "emptyState": {
       "learnMore": "Scopri di più"
