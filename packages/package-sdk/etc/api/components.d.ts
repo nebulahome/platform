@@ -251,6 +251,103 @@ type EntityPickerProps = {
   /** Called with the addresses chosen, once the choice is confirmed. */
   readonly onChoose: (entityIds: readonly EntityId[]) => void;
 };
+/** A box ticked on a form that is saved, or confirmed, later. Since SDK 1.10. */
+type CheckboxProps = {
+  /** What ticking it says. */
+  readonly label: ReactNode;
+  /** A line under the label: what it costs or means. */
+  readonly note?: ReactNode;
+  readonly isChecked: boolean;
+  /** Whether it stands for a group partly ticked: drawn with a dash. */
+  readonly isMixed?: boolean;
+  /** On the right: how many ticking it would show. */
+  readonly count?: ReactNode;
+  readonly onChange: (isChecked: boolean) => void;
+  /** `warning`: ticking it accepts something that asks for care. */
+  readonly tone?: 'primary' | 'warning';
+  readonly disabled?: boolean;
+  readonly className?: string;
+};
+/** One choice of a radio group. Since SDK 1.10. */
+type RadioOption<TValue extends string = string> = {
+  readonly value: TValue;
+  readonly label: ReactNode;
+  /** A line under it: what it means. */
+  readonly note?: ReactNode;
+};
+/** One choice of a few, each with a line saying what it means. Since SDK 1.10. */
+type RadioGroupProps<TValue extends string = string> = {
+  readonly label: string;
+  readonly isLabelHidden?: boolean;
+  readonly options: readonly RadioOption<TValue>[];
+  readonly value: TValue;
+  readonly onChange: (value: TValue) => void;
+  readonly className?: string;
+};
+/** A line of words over a control while it is hovered or focused. Since SDK 1.10. */
+type TooltipProps = {
+  readonly text: string;
+  /** Which side it opens towards; over the control when not said, under it without room above. */
+  readonly side?: 'top' | 'bottom';
+  /**
+   * The control it hangs off: one element that takes `aria-describedby`, and has a name of its
+   * own - a tooltip adds to a name, it is never the name.
+   */
+  readonly children: ReactElement<{
+    'aria-describedby'?: string | undefined;
+  }>;
+  /** Extra classes for the bubble. */
+  readonly className?: string;
+};
+/** A month of days to pick one from. Since SDK 1.10. */
+type CalendarProps = {
+  /** The day picked, `2026-06-21`, or null for none yet. */
+  readonly value: string | null;
+  /** Called with the day picked, `2026-06-21`. */
+  readonly onChange: (day: string) => void;
+  /** The first day that may be picked. */
+  readonly min?: string | undefined;
+  /** The last day that may be picked. */
+  readonly max?: string | undefined;
+  readonly className?: string;
+};
+/** One day, chosen from a calendar the field opens under it. Since SDK 1.10. */
+type DateFieldProps = {
+  readonly label: string;
+  readonly isLabelHidden?: boolean;
+  /** The day, `2026-06-21`, or null for none yet. */
+  readonly value: string | null;
+  /** Called with the day picked, `2026-06-21`. */
+  readonly onChange: (day: string) => void;
+  /** The first day that may be picked. */
+  readonly min?: string | undefined;
+  /** The last day that may be picked. */
+  readonly max?: string | undefined;
+  readonly size?: 'compact' | 'medium' | 'large';
+  readonly disabled?: boolean;
+  readonly hint?: ReactNode;
+  readonly error?: string | undefined;
+};
+/**
+ * A name with its icon beside it, under one label: the 44 px icon button that opens the
+ * interface's icon picker, and the name's input. Since SDK 1.10.
+ */
+type NameIconFieldProps = {
+  /** What the field is for; "Name" when not said. */
+  readonly label?: string;
+  /** The name as it stands. */
+  readonly value: string;
+  /** Called with the name as typed. */
+  readonly onChange: (value: string) => void;
+  /** The icon's id, or null for none yet. */
+  readonly icon: string | null;
+  /** Called with the id of the icon picked. */
+  readonly onIconChange: (id: string) => void;
+  readonly hint?: ReactNode;
+  readonly error?: string | undefined;
+  /** Whether the name may not be left blank. */
+  readonly required?: boolean;
+};
 /** What `cn` joins: classes, conditions, lists of them. */
 type ClassValue = string | number | bigint | boolean | null | undefined | readonly ClassValue[] | Readonly<Record<string, unknown>>;
 /** What the interface lends to implement `/components`. */
@@ -281,6 +378,18 @@ type ComponentsHost = {
   readonly EntityField: ComponentType<EntityFieldProps>;
   /** Since 1.7. */
   readonly EntityPicker: ComponentType<EntityPickerProps>;
+  /** Since 1.10. */
+  readonly Checkbox: ComponentType<CheckboxProps>;
+  /** Since 1.10. */
+  readonly RadioGroup: ComponentType<RadioGroupProps>;
+  /** Since 1.10. */
+  readonly Tooltip: ComponentType<TooltipProps>;
+  /** Since 1.10. */
+  readonly Calendar: ComponentType<CalendarProps>;
+  /** Since 1.10. */
+  readonly DateField: ComponentType<DateFieldProps>;
+  /** Since 1.10. */
+  readonly NameIconField: ComponentType<NameIconFieldProps>;
   readonly cn: (...classes: readonly ClassValue[]) => string;
 };
 //#endregion
@@ -450,6 +559,51 @@ export declare function EntityField(props: EntityFieldProps): ReactElement;
  */
 export declare function EntityPicker(props: EntityPickerProps): ReactElement;
 /**
+ * A box ticked on a form that is saved, or confirmed, later - where a `Switch` is an action that
+ * happens now. Since 1.10.
+ *
+ * @param props - Its label, whether it is ticked, and what ticking it does.
+ * @returns The labelled box.
+ */
+export declare function Checkbox(props: CheckboxProps): ReactElement;
+/**
+ * One choice of a few, each with a line saying what it means. Since 1.10.
+ *
+ * @param props - Its label, options and value.
+ * @returns The group.
+ */
+export declare function RadioGroup<TValue extends string>(props: RadioGroupProps<TValue>): ReactElement;
+/**
+ * A line of words over a control while it is hovered or focused. Since 1.10.
+ *
+ * @param props - What it says, which side it opens towards, and the control it hangs off.
+ * @returns The control, and the bubble while it shows.
+ */
+export declare function Tooltip(props: TooltipProps): ReactElement;
+/**
+ * A month of days to pick one from, as a plain `2026-06-21`. Since 1.10.
+ *
+ * @param props - The day picked, and the first and last that may be.
+ * @returns The calendar.
+ */
+export declare function Calendar(props: CalendarProps): ReactElement;
+/**
+ * One day, chosen from a calendar: a field saying the day in words, opening the calendar under
+ * it. Since 1.10.
+ *
+ * @param props - Its label, the day, and the first and last that may be picked.
+ * @returns The field.
+ */
+export declare function DateField(props: DateFieldProps): ReactElement;
+/**
+ * A name with its icon beside it, under one label: the interface's icon button and picker, and
+ * the name's input. Since 1.10.
+ *
+ * @param props - The name, the icon's id, and what changes each.
+ * @returns The field.
+ */
+export declare function NameIconField(props: NameIconFieldProps): ReactElement;
+/**
  * Joins class names, resolving Tailwind conflicts: the later class wins.
  *
  * @param classes - Classes, conditions, lists of them.
@@ -457,4 +611,4 @@ export declare function EntityPicker(props: EntityPickerProps): ReactElement;
  */
 export declare function cn(...classes: readonly ClassValue[]): string;
 //#endregion
-export type { BadgeProps, BadgeTone, ButtonProps, ButtonSize, ButtonVariant, CardHeadingProps, ClassValue, ComponentsHost, ControlOption, EntityFieldProps, EntityPickerProps, FigureProps, HintProps, IconButtonProps, IconFieldProps, IconProps, ModalProps, PanelNoteProps, PanelProps, PanelRowProps, ProgressBarProps, SegmentedProps, SelectFieldProps, SliderProps, StatusDotProps, StepperProps, SwitchProps, TagChipProps, TagColor, TextFieldProps };
+export type { BadgeProps, BadgeTone, ButtonProps, ButtonSize, ButtonVariant, CalendarProps, CardHeadingProps, CheckboxProps, ClassValue, ComponentsHost, ControlOption, DateFieldProps, EntityFieldProps, EntityPickerProps, FigureProps, HintProps, IconButtonProps, IconFieldProps, IconProps, ModalProps, NameIconFieldProps, PanelNoteProps, PanelProps, PanelRowProps, ProgressBarProps, RadioGroupProps, RadioOption, SegmentedProps, SelectFieldProps, SliderProps, StatusDotProps, StepperProps, SwitchProps, TagChipProps, TagColor, TextFieldProps, TooltipProps };

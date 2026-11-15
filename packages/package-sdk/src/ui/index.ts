@@ -32,6 +32,7 @@ import type {
   Mutation,
   MutationOptions,
   OpenEntityCard,
+  OutsideTarget,
   PackageCall,
   PackageInfo,
   PackageLinkProps,
@@ -75,6 +76,7 @@ export type {
   Mutation,
   MutationOptions,
   OpenEntityCard,
+  OutsideTarget,
   PackageCall,
   PackageInfo,
   PackageLinkProps,
@@ -451,4 +453,41 @@ export function Floating(props: FloatingProps): ReactElement {
  */
 export function useEntityCard(): OpenEntityCard {
   return ui('useEntityCard', '1.9')();
+}
+
+/**
+ * Calls back on a press that lands outside an element - or outside every one of several, a panel
+ * and the button that opens it: what closes a menu or a popover of the package's own. Since 1.10.
+ *
+ * @param target - The element's ref, or a list of refs.
+ * @param onOutside - Called on a press outside.
+ * @param isEnabled - Whether it listens; pass whether what it closes is open. True when not said.
+ */
+export function useClickOutside(
+  target: OutsideTarget,
+  onOutside: () => void,
+  isEnabled?: boolean,
+): void {
+  ui('useClickOutside', '1.10')(target, onOutside, isEnabled);
+}
+
+/**
+ * Calls back when Escape is pressed anywhere in the page. Since 1.10.
+ *
+ * @param onEscape - Called on Escape.
+ * @param isEnabled - Whether it listens; pass whether what it closes is open. True when not said.
+ */
+export function useEscape(onEscape: () => void, isEnabled?: boolean): void {
+  ui('useEscape', '1.10')(onEscape, isEnabled);
+}
+
+/**
+ * The time, read again at an interval: for "3 min ago" and clocks, which nothing else redraws.
+ * Since 1.10.
+ *
+ * @param everyMs - How often it is read again, in milliseconds; every second when not said.
+ * @returns The time of the last reading, in milliseconds since the epoch.
+ */
+export function useNow(everyMs?: number): number {
+  return ui('useNow', '1.10')(everyMs);
 }

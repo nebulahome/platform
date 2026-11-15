@@ -12,13 +12,17 @@ import type {
   EntityFieldProps,
   EntityPickerProps,
   IconProps,
+  NameIconFieldProps,
 } from '@nebulahome/package-sdk/components';
 import {
   Badge,
   Button,
+  Calendar,
   CardHeading,
   CatalogueIcon,
+  Checkbox,
   cn,
+  DateField,
   Figure,
   Hint,
   IconButton,
@@ -27,6 +31,7 @@ import {
   PanelNote,
   PanelRow,
   ProgressBar,
+  RadioGroup,
   Segmented,
   SelectField,
   Slider,
@@ -35,12 +40,14 @@ import {
   Switch,
   TagChip,
   TextField,
+  Tooltip,
 } from '@nebulahome/ui';
 
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { EntityField as HouseEntityField } from '@/routes/library/entity-field';
 import { EntityPicker as HouseEntityPicker } from '@/routes/library/entity-picker/entity-picker';
 import { IconField } from '@/routes/library/icon-field';
+import { NameIconField as HouseNameIconField } from '@/routes/library/name-icon-field';
 
 /**
  * What a package's `domains` lets be chosen.
@@ -95,6 +102,25 @@ function EntityPicker(props: EntityPickerProps) {
 }
 
 /**
+ * The interface's name-and-icon field, handing back the icon's id.
+ *
+ * @param props - The SDK's props.
+ * @returns The interface's field.
+ */
+function NameIconField(props: NameIconFieldProps) {
+  const { onIconChange, ...rest } = props;
+
+  return (
+    <HouseNameIconField
+      {...rest}
+      onIconChange={(icon) => {
+        onIconChange(icon.id);
+      }}
+    />
+  );
+}
+
+/**
  * A catalogue icon by its id: the drawing the owner gave it, the space it takes while it is read.
  *
  * @param props - Its id, its size, an svg's attributes.
@@ -139,5 +165,11 @@ export const COMPONENTS_HOST = {
   IconField,
   EntityField,
   EntityPicker,
+  Checkbox,
+  RadioGroup,
+  Tooltip,
+  Calendar,
+  DateField,
+  NameIconField,
   cn,
 } satisfies ComponentsHost;

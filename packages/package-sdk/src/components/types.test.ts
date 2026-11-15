@@ -10,7 +10,10 @@ import type * as Ui from '@nebulahome/ui';
 import type {
   BadgeProps,
   ButtonProps,
+  CalendarProps,
   CardHeadingProps,
+  CheckboxProps,
+  DateFieldProps,
   FigureProps,
   HintProps,
   IconButtonProps,
@@ -19,6 +22,7 @@ import type {
   PanelProps,
   PanelRowProps,
   ProgressBarProps,
+  RadioGroupProps,
   SegmentedProps,
   SelectFieldProps,
   SliderProps,
@@ -27,6 +31,7 @@ import type {
   SwitchProps,
   TagChipProps,
   TextFieldProps,
+  TooltipProps,
 } from './types.js';
 
 describe('the facade props', () => {
@@ -50,5 +55,10 @@ describe('the facade props', () => {
     expectTypeOf<StepperProps>().toExtend<ComponentProps<typeof Ui.Stepper>>();
     expectTypeOf<TagChipProps>().toExtend<ComponentProps<typeof Ui.TagChip>>();
     expectTypeOf<ModalProps>().toExtend<ComponentProps<typeof Ui.Modal>>();
+    expectTypeOf<CheckboxProps>().toExtend<ComponentProps<typeof Ui.Checkbox>>();
+    expectTypeOf<RadioGroupProps>().toExtend<Ui.RadioGroupProps<string>>();
+    expectTypeOf<TooltipProps>().toExtend<ComponentProps<typeof Ui.Tooltip>>();
+    expectTypeOf<CalendarProps>().toExtend<ComponentProps<typeof Ui.Calendar>>();
+    expectTypeOf<DateFieldProps>().toExtend<ComponentProps<typeof Ui.DateField>>();
   });
 });

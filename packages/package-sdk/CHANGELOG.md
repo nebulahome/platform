@@ -3,6 +3,19 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.10.0
+
+- **More of the design system**, in `/components`: `<Checkbox>` (a box ticked on a form saved
+  later, with `note`, `count`, `isMixed` and a `warning` tone) and `<RadioGroup>` (one of a few,
+  each with a line saying what it means); `<Tooltip text>` around a control, shown on hover and on
+  focus; `<NameIconField>`, the interface's name with its icon button and picker under one label,
+  handing back the name and the icon's id.
+- **Dates.** `<Calendar>` is a month of days to pick one from, and `<DateField>` the labelled
+  field that opens it. A day is a plain `2026-06-21` - no time, no zone - and `min` and `max`
+  bound what may be picked.
+- **Three small hooks**, in `/ui`: `useClickOutside(ref | refs, onOutside, isEnabled?)`,
+  `useEscape(onEscape, isEnabled?)` and `useNow(everyMs?)`, the time read again at an interval.
+
 ## 1.9.0
 
 - **New capabilities:** `effect` (a lamp's effects, by the device's own names), `fan` (speeds,

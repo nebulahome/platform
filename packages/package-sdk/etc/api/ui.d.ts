@@ -2,7 +2,7 @@ import { n as EntityDomain, r as EntityId } from "./chunks/entities.js";
 import { $ as DeclaredCapabilities, K as CapabilityCommands, U as ValueOfField, Y as CapabilityState, Z as CommandableCapability, d as EntityTypeDefinition, f as ValuesOf, i as SettingsDefinition, r as JsonValue, s as ArgsOf, t as JsonObject, u as CommandsOf, w as FormValues } from "./chunks/json.js";
 import { n as CardProps, o as PageProps, r as EntityViewProps, t as BackgroundProps } from "./chunks/props.js";
 import { a as TelemetryResolution, i as TelemetryPoint, n as HistorySeries, r as StateHistoryPoint, t as ChangeCause } from "./chunks/history.js";
-import { AnchorHTMLAttributes, ComponentType, ReactElement, ReactNode } from "react";
+import { AnchorHTMLAttributes, ComponentType, ReactElement, ReactNode, RefObject } from "react";
 //#region src/ui/types.d.ts
 /** The package drawn. */
 type PackageInfo = {
@@ -416,7 +416,18 @@ type UiHost = {
   readonly Floating: ComponentType<FloatingProps>;
   /** Since 1.9. */
   readonly useEntityCard: () => OpenEntityCard;
+  /** Since 1.10. */
+  readonly useClickOutside: (target: OutsideTarget, onOutside: () => void, isEnabled?: boolean) => void;
+  /** Since 1.10. */
+  readonly useEscape: (onEscape: () => void, isEnabled?: boolean) => void;
+  /** Since 1.10. */
+  readonly useNow: (everyMs?: number) => number;
 };
+/**
+ * What a press may land in without being one outside: one element, or several that count as
+ * inside together - a panel and the button that opens it. Since 1.10.
+ */
+type OutsideTarget = RefObject<Element | null> | readonly RefObject<Element | null>[];
 //#endregion
 //#region src/ui/index.d.ts
 /**
@@ -641,5 +652,29 @@ export declare function Floating(props: FloatingProps): ReactElement;
  * @returns What opens one, by the entity's id, optionally on its settings or its history.
  */
 export declare function useEntityCard(): OpenEntityCard;
+/**
+ * Calls back on a press that lands outside an element - or outside every one of several, a panel
+ * and the button that opens it: what closes a menu or a popover of the package's own. Since 1.10.
+ *
+ * @param target - The element's ref, or a list of refs.
+ * @param onOutside - Called on a press outside.
+ * @param isEnabled - Whether it listens; pass whether what it closes is open. True when not said.
+ */
+export declare function useClickOutside(target: OutsideTarget, onOutside: () => void, isEnabled?: boolean): void;
+/**
+ * Calls back when Escape is pressed anywhere in the page. Since 1.10.
+ *
+ * @param onEscape - Called on Escape.
+ * @param isEnabled - Whether it listens; pass whether what it closes is open. True when not said.
+ */
+export declare function useEscape(onEscape: () => void, isEnabled?: boolean): void;
+/**
+ * The time, read again at an interval: for "3 min ago" and clocks, which nothing else redraws.
+ * Since 1.10.
+ *
+ * @param everyMs - How often it is read again, in milliseconds; every second when not said.
+ * @returns The time of the last reading, in milliseconds since the epoch.
+ */
+export declare function useNow(everyMs?: number): number;
 //#endregion
-export type { AreaActions, AreaDraft, AreaKind, AreaView, BackgroundProps, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityCardView, EntityPicture, EntityView, EntityViewProps, FloatingProps, History, HistoryQuery, HistorySeries, HistoryWindow, LiveOptions, LiveState, Locale, Mutation, MutationOptions, OpenEntityCard, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSend, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, ToastMessage, Toasts, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };
+export type { AreaActions, AreaDraft, AreaKind, AreaView, BackgroundProps, CardProps, ChangeCause, CustomEntityState, EntitiesFilter, EntityCardView, EntityPicture, EntityView, EntityViewProps, FloatingProps, History, HistoryQuery, HistorySeries, HistoryWindow, LiveOptions, LiveState, Locale, Mutation, MutationOptions, OpenEntityCard, OutsideTarget, PackageCall, PackageInfo, PackageLinkProps, PackageNavigate, PackageRoute, PackageSend, PackageSettings, PageActionsProps, PageProps, PictureOptions, PlatformLinkProps, PlatformNavigate, PlatformTarget, PluralEnglish, RpcOptions, RpcState, SendCommand, SettingsPatch, StateHistoryPoint, Telemetry, TelemetryPoint, TelemetryQuery, TelemetryResolution, Theme, ToastMessage, Toasts, Translate, Translation, TranslationValues, UiHost, Viewer, VisibleSettings };

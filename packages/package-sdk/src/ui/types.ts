@@ -3,7 +3,7 @@
  * ({@link UiHost}). The interface's implementation is type-checked against `UiHost`, so the SDK
  * and the interface cannot drift apart without one of them failing to build.
  */
-import type { AnchorHTMLAttributes, ComponentType, ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ComponentType, ReactNode, RefObject } from 'react';
 
 import type {
   CapabilityCommands,
@@ -555,4 +555,23 @@ export type UiHost = {
 
   /** Since 1.9. */
   readonly useEntityCard: () => OpenEntityCard;
+
+  /** Since 1.10. */
+  readonly useClickOutside: (
+    target: OutsideTarget,
+    onOutside: () => void,
+    isEnabled?: boolean,
+  ) => void;
+
+  /** Since 1.10. */
+  readonly useEscape: (onEscape: () => void, isEnabled?: boolean) => void;
+
+  /** Since 1.10. */
+  readonly useNow: (everyMs?: number) => number;
 };
+
+/**
+ * What a press may land in without being one outside: one element, or several that count as
+ * inside together - a panel and the button that opens it. Since 1.10.
+ */
+export type OutsideTarget = RefObject<Element | null> | readonly RefObject<Element | null>[];

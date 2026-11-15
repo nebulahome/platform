@@ -69,7 +69,7 @@ import type {
   UiHost,
   Viewer,
 } from '@nebulahome/package-sdk/ui';
-import { toast } from '@nebulahome/ui';
+import { toast, useClickOutside, useEscape, useNow } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { signalled } from '@/lib/signalled';
@@ -893,4 +893,7 @@ export const UI_HOST = {
   useTelemetry,
   useAreas,
   useEntityPicture,
+  useClickOutside,
+  useEscape,
+  useNow,
 } satisfies UiHost;

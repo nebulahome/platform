@@ -10,8 +10,11 @@ import { COMPONENTS_MODULE, hostMember } from '../host.js';
 import type {
   BadgeProps,
   ButtonProps,
+  CalendarProps,
   CardHeadingProps,
+  CheckboxProps,
   ClassValue,
+  DateFieldProps,
   EntityFieldProps,
   EntityPickerProps,
   FigureProps,
@@ -20,10 +23,12 @@ import type {
   IconFieldProps,
   IconProps,
   ModalProps,
+  NameIconFieldProps,
   PanelNoteProps,
   PanelProps,
   PanelRowProps,
   ProgressBarProps,
+  RadioGroupProps,
   SegmentedProps,
   SelectFieldProps,
   SliderProps,
@@ -32,6 +37,7 @@ import type {
   SwitchProps,
   TagChipProps,
   TextFieldProps,
+  TooltipProps,
 } from './types.js';
 
 export type * from './types.js';
@@ -281,6 +287,83 @@ export function EntityField(props: EntityFieldProps): ReactElement {
  */
 export function EntityPicker(props: EntityPickerProps): ReactElement {
   return createElement(hostMember(COMPONENTS_MODULE, 'EntityPicker', '1.7'), props);
+}
+
+/**
+ * A box ticked on a form that is saved, or confirmed, later - where a `Switch` is an action that
+ * happens now. Since 1.10.
+ *
+ * @param props - Its label, whether it is ticked, and what ticking it does.
+ * @returns The labelled box.
+ */
+export function Checkbox(props: CheckboxProps): ReactElement {
+  return createElement(hostMember(COMPONENTS_MODULE, 'Checkbox', '1.10'), props);
+}
+
+/**
+ * One choice of a few, each with a line saying what it means. Since 1.10.
+ *
+ * @param props - Its label, options and value.
+ * @returns The group.
+ */
+export function RadioGroup<TValue extends string>(props: RadioGroupProps<TValue>): ReactElement {
+  return createElement(hostMember(COMPONENTS_MODULE, 'RadioGroup', '1.10'), {
+    ...props,
+    /**
+     * Hands the choice on, as the value it is.
+     *
+     * @param value - The choice.
+     */
+    onChange: (value: string) => {
+      const chosen = props.options.find((option) => option.value === value);
+
+      if (chosen !== undefined) {
+        props.onChange(chosen.value);
+      }
+    },
+  });
+}
+
+/**
+ * A line of words over a control while it is hovered or focused. Since 1.10.
+ *
+ * @param props - What it says, which side it opens towards, and the control it hangs off.
+ * @returns The control, and the bubble while it shows.
+ */
+export function Tooltip(props: TooltipProps): ReactElement {
+  return createElement(hostMember(COMPONENTS_MODULE, 'Tooltip', '1.10'), props);
+}
+
+/**
+ * A month of days to pick one from, as a plain `2026-06-21`. Since 1.10.
+ *
+ * @param props - The day picked, and the first and last that may be.
+ * @returns The calendar.
+ */
+export function Calendar(props: CalendarProps): ReactElement {
+  return createElement(hostMember(COMPONENTS_MODULE, 'Calendar', '1.10'), props);
+}
+
+/**
+ * One day, chosen from a calendar: a field saying the day in words, opening the calendar under
+ * it. Since 1.10.
+ *
+ * @param props - Its label, the day, and the first and last that may be picked.
+ * @returns The field.
+ */
+export function DateField(props: DateFieldProps): ReactElement {
+  return createElement(hostMember(COMPONENTS_MODULE, 'DateField', '1.10'), props);
+}
+
+/**
+ * A name with its icon beside it, under one label: the interface's icon button and picker, and
+ * the name's input. Since 1.10.
+ *
+ * @param props - The name, the icon's id, and what changes each.
+ * @returns The field.
+ */
+export function NameIconField(props: NameIconFieldProps): ReactElement {
+  return createElement(hostMember(COMPONENTS_MODULE, 'NameIconField', '1.10'), props);
 }
 
 /**
