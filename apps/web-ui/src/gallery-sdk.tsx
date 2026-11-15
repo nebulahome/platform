@@ -1001,13 +1001,13 @@ function CalendarDemo() {
 
   return (
     <Example label="value: null · min and max — arrows move by a day and a week">
-      <div className="flex flex-col gap-2">
+      <div className="flex w-min flex-col gap-2">
         <div className="rounded-card border border-border bg-surface-raised p-3">
           <Calendar value={day} onChange={setDay} />
         </div>
         <span className="font-mono text-caption text-foreground-muted">value: {day ?? 'null'}</span>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex w-min flex-col gap-2">
         <div className="rounded-card border border-border bg-surface-raised p-3">
           <Calendar value={bound} min={`${month}-05`} max={`${month}-20`} onChange={setBound} />
         </div>
@@ -1015,7 +1015,7 @@ function CalendarDemo() {
           min: {month}-05 · max: {month}-20
         </span>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex w-min flex-col gap-2">
         <div className="rounded-card border border-border bg-surface-raised p-3">
           <Calendar mode="range" maxDays={7} value={week} onChange={setWeek} />
         </div>

@@ -55,24 +55,31 @@ describe('Calendar', () => {
 });
 
 describe('Calendar, picking a run of days', () => {
-  it('hands back the run once both ends are pressed, earlier end first', () => {
+  it('keeps the first day as the start: each press moves the other end, the start lets go', () => {
     const onChange = vi.fn();
 
     render(
       <Calendar
         mode="range"
-        value={{ from: '2026-06-01', to: '2026-06-02' }}
+        value={{ from: '2026-06-18', to: '2026-06-18' }}
         onChange={onChange}
       />,
     );
+
     fireEvent.click(screen.getByRole('button', { name: 'Monday, June 22, 2026' }));
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenLastCalledWith({ from: '2026-06-18', to: '2026-06-22' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Monday, June 15, 2026' }));
+    expect(onChange).toHaveBeenLastCalledWith({ from: '2026-06-15', to: '2026-06-18' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Thursday, June 18, 2026' }));
-    expect(onChange).toHaveBeenCalledWith({ from: '2026-06-18', to: '2026-06-22' });
+    expect(onChange).toHaveBeenLastCalledWith(null);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Wednesday, June 24, 2026' }));
+    expect(onChange).toHaveBeenLastCalledWith({ from: '2026-06-24', to: '2026-06-24' });
   });
 
-  it('draws the days between as picked, and keeps a run within maxDays', () => {
+  it('draws the days between as picked, and keeps a run within maxDays of its start', () => {
     render(
       <Calendar
         mode="range"
@@ -86,12 +93,13 @@ describe('Calendar, picking a run of days', () => {
       'aria-pressed',
       'true',
     );
+    expect(screen.getByRole('button', { name: 'Friday, June 12, 2026' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Saturday, June 13, 2026' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Monday, June 8, 2026' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Sunday, June 7, 2026' })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Monday, June 15, 2026' }));
-    expect(screen.getByRole('button', { name: 'Wednesday, June 17, 2026' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Thursday, June 18, 2026' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Wednesday, June 10, 2026' }));
     expect(screen.getByRole('button', { name: 'Saturday, June 13, 2026' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Friday, June 12, 2026' })).toBeDisabled();
   });
 
   it('writes a run once, saying what its ends share', () => {

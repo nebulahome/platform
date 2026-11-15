@@ -1,9 +1,11 @@
 /**
- * A field that holds one day: its label, a button that says the day in words, and the
- * {@link Calendar} it opens under it.
+ * A field that holds one day, or a run of days: its label, a button that says it in words, and
+ * the {@link Calendar} it opens under it.
  *
- * The value is a plain `2026-06-21`, as the calendar's is. Picking a day closes the calendar and
- * hands the focus back to the button, so the keyboard carries on from where it was.
+ * The value is a plain `2026-06-21`, or `{ from, to }`, as the calendar's is. Picking a day closes
+ * the calendar and hands the focus back to the button, so the keyboard carries on from where it
+ * was. A run stays open, so a wrong end is moved with one more press; a press outside or Escape
+ * closes it.
  */
 import { useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -114,10 +116,7 @@ export function DateField(props: DateFieldProps) {
                 maxDays={props.maxDays}
                 min={min}
                 max={max}
-                onChange={(range) => {
-                  props.onChange(range);
-                  close();
-                }}
+                onChange={props.onChange}
               />
             ) : (
               <Calendar

@@ -423,14 +423,17 @@ export type DayPick =
       readonly onChange: (day: string) => void;
     }
   | {
-      /** A run of days: the first press picks one end, the second the other. */
+      /**
+       * A run of days. The first day pressed is where it starts, and stays so: each press after it
+       * moves the other end, and pressing it again lets it go. A date field stays open meanwhile.
+       */
       readonly mode: 'range';
 
       /** The run picked, or null for none yet. */
       readonly value: DayRange | null;
 
-      /** Called with the run, once both ends are picked. */
-      readonly onChange: (range: DayRange) => void;
+      /** Called with the run at every press, or null once its starting day is let go. */
+      readonly onChange: (range: DayRange | null) => void;
 
       /** The most days the run may hold, both ends counted; any when not said. */
       readonly maxDays?: number | undefined;

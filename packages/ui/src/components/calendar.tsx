@@ -124,14 +124,17 @@ export type DayPick =
       readonly onChange: (day: string) => void;
     }
   | {
-      /** A run of days: the first press picks one end, the second the other. */
+      /**
+       * A run of days. The first day pressed is where it starts, and stays so: each press after it
+       * moves the other end, and pressing it again lets it go.
+       */
       readonly mode: 'range';
 
       /** The run picked, or null for none yet. */
       readonly value: DayRange | null;
 
-      /** Called with the run, once both ends are picked. */
-      readonly onChange: (range: DayRange) => void;
+      /** Called with the run at every press, or null once its starting day is let go. */
+      readonly onChange: (range: DayRange | null) => void;
 
       /** The most days the run may hold, both ends counted; any when not said. */
       readonly maxDays?: number | undefined;
@@ -165,19 +168,17 @@ export function Calendar(props: CalendarProps) {
   const today = todayKey();
   const grid = useRef<HTMLDivElement>(null);
 
-  // A run's first end, pressed and waiting for the second; the run given is hidden meanwhile.
-  const [anchor, setAnchor] = useState<string | null>(null);
   const range = props.mode === 'range' ? props.value : null;
   const maxDays = props.mode === 'range' ? props.maxDays : undefined;
   const ends = (
-    props.mode === 'range'
-      ? anchor === null
-        ? [range?.from ?? null, range?.to ?? null]
-        : [anchor, null]
-      : [props.value, null]
+    props.mode === 'range' ? [range?.from ?? null, range?.to ?? null] : [props.value, null]
   ).map((day) => (day !== null && DAY_KEY.test(day) ? day : null));
   const picked = ends[0] ?? null;
-  const last = ends[1] ?? null;
+  const last = ends[1] ?? picked;
+
+  // Where a run starts: the first day pressed, kept until it is pressed again. A calendar opened
+  // on a run starts it where the run does.
+  const [anchor, setAnchor] = useState<string | null>(props.mode === 'range' ? picked : null);
 
   // The month shown, `2026-06`, and the day the keyboard is on.
   const [month, setMonth] = useState((picked ?? today).slice(0, 7));
@@ -232,10 +233,13 @@ export function Calendar(props: CalendarProps) {
   const pick = (day: string): void => {
     if (props.mode !== 'range') {
       props.onChange(day);
+    } else if (anchor === day) {
+      setAnchor(null);
+      props.onChange(null);
     } else if (anchor === null) {
       setAnchor(day);
+      props.onChange({ from: day, to: day });
     } else {
-      setAnchor(null);
       props.onChange(day < anchor ? { from: day, to: anchor } : { from: anchor, to: day });
     }
   };
@@ -296,7 +300,7 @@ export function Calendar(props: CalendarProps) {
         role="group"
         aria-label={title}
         onKeyDown={onKeyDown}
-        className="grid grid-cols-7 gap-1 text-center text-ui-sm"
+        className="grid grid-cols-7 gap-y-1 text-center text-ui-sm"
       >
         {weekdays.map((weekday, index) => (
           // The days carry their weekday in their own names; these are for the eye.
@@ -312,34 +316,50 @@ export function Calendar(props: CalendarProps) {
           const day = dayKey(year, monthOf, index + 1);
           const isPicked = day === picked || day === last;
           const isInside = picked !== null && last !== null && day > picked && day < last;
+          const column = (blanks + index) % 7;
+
+          // A run is one band, from end to end, broken only where a week does.
+          const isBand = picked !== last && (isPicked || isInside);
+          const band = isBand
+            ? cn(
+                'bg-primary/15',
+                (day === picked || column === 0 || index === 0) && 'rounded-l-chip',
+                (day === last || column === 6 || index === days - 1) && 'rounded-r-chip',
+              )
+            : undefined;
 
           return (
-            <button
-              key={day}
-              type="button"
-              data-day={day}
-              tabIndex={day === tabStop ? 0 : -1}
-              disabled={isOff(day)}
-              aria-label={formatDay(day, locale, 'full')}
-              aria-pressed={isPicked || isInside}
-              aria-current={day === today ? 'date' : undefined}
-              onClick={() => {
-                pick(day);
-              }}
-              className={cn(
-                'h-8 cursor-pointer rounded-chip tabular transition-colors',
-                'focus-visible:shadow-focus focus-visible:outline-none',
-                'disabled:cursor-not-allowed disabled:text-foreground-subtle disabled:opacity-50',
-                isPicked
-                  ? 'bg-primary font-medium text-primary-foreground'
-                  : isInside
-                    ? 'bg-primary/15 text-foreground enabled:hover:bg-primary/25'
-                    : 'text-foreground enabled:hover:bg-surface-high',
-                day === today && !isPicked ? 'ring-1 ring-primary/60 ring-inset' : undefined,
-              )}
-            >
-              {index + 1}
-            </button>
+            <span key={day} className={cn('flex px-0.5', band)}>
+              <button
+                type="button"
+                data-day={day}
+                tabIndex={day === tabStop ? 0 : -1}
+                disabled={isOff(day)}
+                aria-label={formatDay(day, locale, 'full')}
+                aria-pressed={isPicked || isInside}
+                aria-current={day === today ? 'date' : undefined}
+                onClick={() => {
+                  pick(day);
+                }}
+                className={cn(
+                  'h-8 grow cursor-pointer rounded-chip tabular transition-colors',
+                  'focus-visible:shadow-focus focus-visible:outline-none',
+                  'disabled:cursor-not-allowed disabled:text-foreground-subtle disabled:opacity-50',
+                  isPicked
+                    ? 'bg-primary font-medium text-primary-foreground'
+                    : isInside
+                      ? 'text-foreground enabled:hover:bg-primary/20'
+                      : 'text-foreground enabled:hover:bg-surface-high',
+                  day === today && !isPicked ? 'ring-1 ring-primary/60 ring-inset' : undefined,
+                  // The day a run starts from, which a press lets go of.
+                  day === anchor &&
+                    picked !== last &&
+                    'ring-2 ring-primary-foreground/50 ring-inset',
+                )}
+              >
+                {index + 1}
+              </button>
+            </span>
           );
         })}
       </div>

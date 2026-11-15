@@ -12,8 +12,9 @@ to it, a major one breaks it, and a patch leaves it as it is.
   handing back the name and the icon's id.
 - **Dates.** `<Calendar>` is a month of days to pick one from, and `<DateField>` the labelled
   field that opens it. A day is a plain `2026-06-21` - no time, no zone - and `min` and `max`
-  bound what may be picked. `mode="range"` picks a run of days instead, as `{ from, to }`, and
-  `maxDays` caps how many it may hold.
+  bound what may be picked. `mode="range"` picks a run of days instead, as `{ from, to }`: the first
+  day pressed stays its start, each press after it moves the other end, and pressing the start
+  again clears it (`onChange(null)`). `maxDays` caps how many days it may hold.
 - **Three small hooks**, in `/ui`: `useClickOutside(ref | refs, onOutside, isEnabled?)`,
   `useEscape(onEscape, isEnabled?)` and `useNow(everyMs?)`, the time read again at an interval.
 
