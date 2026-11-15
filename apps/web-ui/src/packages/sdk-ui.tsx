@@ -165,7 +165,7 @@ function usePackage(): PackageInfo {
  * @param reading - What the socket said since, if anything.
  * @returns The entity as it stands.
  */
-function viewOf(entity: ApiEntityView, reading: LiveReading | undefined): EntityView {
+export function viewOf(entity: ApiEntityView, reading: LiveReading | undefined): EntityView {
   const lastChanged = reading?.changedAt ?? entity.lastChanged ?? entity.lastUpdated;
   const precision = entity.attributes['display_precision'];
 

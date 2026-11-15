@@ -1,5 +1,4 @@
-import { r as EntityId } from "./chunks/entities.js";
-import { G as CapabilityCommand, i as SettingsDefinition, it as ReportedCapabilityState, q as CapabilityName, r as JsonValue, t as JsonObject } from "./chunks/json.js";
+import { G as CapabilityCommand, i as SettingsDefinition, it as ReportedCapabilityState, pt as EntityId, q as CapabilityName, r as JsonValue, t as JsonObject } from "./chunks/json.js";
 import { i as TelemetryPoint, r as StateHistoryPoint } from "./chunks/history.js";
 import { E as ServerContext, M as StateChange, f as House, l as EntitySnapshot, o as DeviceInput, t as Awaitable, w as RpcCaller, x as ReportOptions } from "./chunks/context.js";
 //#region src/testing/index.d.ts

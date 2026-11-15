@@ -3,6 +3,12 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.11.0
+
+- **Narrower entity pickers:** `<EntityField>` and `<EntityPicker>` take `accept`, a test each
+  entity must pass to be offered, on top of `domains` - a power sensor in W, a counter in kWh - so
+  a picker lists only what fits instead of every sensor of the house.
+
 ## 1.10.0
 
 - **More of the design system**, in `/components`: `<Checkbox>` (a box ticked on a form saved

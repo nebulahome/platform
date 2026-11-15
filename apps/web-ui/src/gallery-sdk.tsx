@@ -816,6 +816,15 @@ function EntityFieldDemo() {
           onChange={setSensor}
           hint={'domains={["sensor"]}'}
         />
+        <EntityField
+          label="Power sensors only"
+          domains={['sensor']}
+          accept={(entity) => entity.deviceClass === 'power'}
+          pickerTitle="Which power sensor?"
+          value={sensor}
+          onChange={setSensor}
+          hint="accept: deviceClass is power (1.11)"
+        />
       </Example>
       <Example label="size · error · disabled" isFields>
         <EntityField label="Compact" size="compact" value={entityId} onChange={setEntityId} />
@@ -1438,7 +1447,9 @@ const COMPONENTS: Record<ComponentName, Entry | ShownWith<ComponentName>> = {
     since: '1.7',
     about: 'One entity of the house, from the interface’s entity picker.',
     code: `<EntityField label="Light" value={entityId} onChange={setEntityId}
-  domains={['light']} isOptional pickerTitle="Which light?" />`,
+  domains={['light']} isOptional pickerTitle="Which light?" />
+<EntityField label="Grid power" value={entityId} onChange={setEntityId}
+  domains={['sensor']} accept={(entity) => entity.deviceClass === 'power'} />`,
     demo: EntityFieldDemo,
   },
   EntityPicker: {

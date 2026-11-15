@@ -14,6 +14,7 @@ import type {
   IconProps,
   NameIconFieldProps,
 } from '@nebulahome/package-sdk/components';
+import type { EntityView as PackageEntityView } from '@nebulahome/package-sdk/ui';
 import {
   Badge,
   Button,
@@ -43,6 +44,7 @@ import {
   Tooltip,
 } from '@nebulahome/ui';
 
+import { viewOf } from '@/packages/sdk-ui';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { EntityField as HouseEntityField } from '@/routes/library/entity-field';
 import { EntityPicker as HouseEntityPicker } from '@/routes/library/entity-picker/entity-picker';
@@ -50,15 +52,20 @@ import { IconField } from '@/routes/library/icon-field';
 import { NameIconField as HouseNameIconField } from '@/routes/library/name-icon-field';
 
 /**
- * What a package's `domains` lets be chosen.
+ * What a package's `domains` and `accept` let be chosen.
  *
  * @param domains - The domains, or undefined for any.
+ * @param accept - The package's own test, since SDK 1.11, or undefined for none.
  * @returns The interface's `accept`, or undefined for every entity.
  */
 function acceptOf(
   domains: readonly string[] | undefined,
+  accept: ((entity: PackageEntityView) => boolean) | undefined,
 ): ((entity: EntityView) => boolean) | undefined {
-  return domains === undefined ? undefined : (entity) => domains.includes(entity.domain);
+  return domains === undefined && accept === undefined
+    ? undefined
+    : (entity) =>
+        (domains?.includes(entity.domain) ?? true) && (accept?.(viewOf(entity, undefined)) ?? true);
 }
 
 /**
@@ -68,12 +75,12 @@ function acceptOf(
  * @returns The interface's field.
  */
 function EntityField(props: EntityFieldProps) {
-  const { domains, onChange, ...rest } = props;
+  const { domains, accept, onChange, ...rest } = props;
 
   return (
     <HouseEntityField
       {...rest}
-      accept={acceptOf(domains)}
+      accept={acceptOf(domains, accept)}
       onChange={(entityId) => {
         onChange(entityId);
       }}
@@ -88,12 +95,12 @@ function EntityField(props: EntityFieldProps) {
  * @returns The interface's picker.
  */
 function EntityPicker(props: EntityPickerProps) {
-  const { domains, onChoose, ...rest } = props;
+  const { domains, accept, onChoose, ...rest } = props;
 
   return (
     <HouseEntityPicker
       {...rest}
-      accept={acceptOf(domains)}
+      accept={acceptOf(domains, accept)}
       onChoose={(entities) => {
         onChoose(entities.map((entity) => entity.entityId));
       }}

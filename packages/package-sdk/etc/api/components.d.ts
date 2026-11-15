@@ -1,4 +1,5 @@
-import { n as EntityDomain, r as EntityId } from "./chunks/entities.js";
+import { ft as EntityDomain, pt as EntityId } from "./chunks/json.js";
+import { l as EntityView } from "./chunks/types.js";
 import { ButtonHTMLAttributes, ComponentType, InputHTMLAttributes, ReactElement, ReactNode, SVGProps } from "react";
 //#region src/components/types.d.ts
 /** What a button does: the one thing a screen is for, anything else, or a destructive action. */
@@ -224,6 +225,11 @@ type EntityFieldProps = {
   readonly onChange: (entityId: EntityId) => void;
   /** Only entities of these domains may be chosen; any of the house when not said. */
   readonly domains?: readonly EntityDomain[] | undefined;
+  /**
+   * Only entities this says yes to are offered, on top of `domains`: a power sensor in W, say.
+   * Since SDK 1.11.
+   */
+  readonly accept?: ((entity: EntityView) => boolean) | undefined;
   /** Whether it may be left empty, which offers to clear it. */
   readonly isOptional?: boolean;
   readonly size?: 'compact' | 'medium';
@@ -246,6 +252,8 @@ type EntityPickerProps = {
   readonly value?: readonly EntityId[];
   /** Only entities of these domains may be chosen; any of the house when not said. */
   readonly domains?: readonly EntityDomain[] | undefined;
+  /** Only entities this says yes to are offered, on top of `domains`. Since SDK 1.11. */
+  readonly accept?: ((entity: EntityView) => boolean) | undefined;
   /** Whether several may be chosen at once. */
   readonly isMultiple?: boolean;
   /** Called with the addresses chosen, once the choice is confirmed. */

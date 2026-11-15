@@ -16,6 +16,7 @@ import type {
 } from 'react';
 
 import type { EntityDomain, EntityId } from '../entities.js';
+import type { EntityView } from '../ui/types.js';
 
 /** What a button does: the one thing a screen is for, anything else, or a destructive action. */
 export type ButtonVariant = 'primary' | 'ghost' | 'danger';
@@ -309,6 +310,12 @@ export type EntityFieldProps = {
   /** Only entities of these domains may be chosen; any of the house when not said. */
   readonly domains?: readonly EntityDomain[] | undefined;
 
+  /**
+   * Only entities this says yes to are offered, on top of `domains`: a power sensor in W, say.
+   * Since SDK 1.11.
+   */
+  readonly accept?: ((entity: EntityView) => boolean) | undefined;
+
   /** Whether it may be left empty, which offers to clear it. */
   readonly isOptional?: boolean;
 
@@ -338,6 +345,9 @@ export type EntityPickerProps = {
 
   /** Only entities of these domains may be chosen; any of the house when not said. */
   readonly domains?: readonly EntityDomain[] | undefined;
+
+  /** Only entities this says yes to are offered, on top of `domains`. Since SDK 1.11. */
+  readonly accept?: ((entity: EntityView) => boolean) | undefined;
 
   /** Whether several may be chosen at once. */
   readonly isMultiple?: boolean;

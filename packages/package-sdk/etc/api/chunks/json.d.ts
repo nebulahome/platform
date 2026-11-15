@@ -1,4 +1,35 @@
-import { n as EntityDomain, r as EntityId } from "./entities.js";
+//#region src/entities.d.ts
+/**
+ * Entity identifiers: `<domain>.<object id>`, as the platform writes them everywhere - in its
+ * API, on its bus, in automations. A package never composes one by hand: the server's
+ * `ctx.entityId` does, and these read one back.
+ */
+/** The kinds of thing an entity is. */
+declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
+/** The kind of thing an entity is. */
+type EntityDomain = (typeof ENTITY_DOMAINS)[number];
+/** An entity's identifier: `sensor.weather_temperature`. */
+type EntityId = string;
+/** What an entity identifier is made of. */
+type ParsedEntityId = {
+  readonly domain: EntityDomain;
+  readonly objectId: string;
+};
+/**
+ * Reads an entity identifier.
+ *
+ * @param entityId - The identifier.
+ * @returns Its domain and object id, or undefined when it is not one.
+ */
+declare function parseEntityId(entityId: string): ParsedEntityId | undefined;
+/**
+ * Says whether a value is an entity identifier.
+ *
+ * @param value - The value.
+ * @returns True when it is a string the platform would take as one.
+ */
+declare function isEntityId(value: unknown): value is EntityId;
+//#endregion
 //#region src/capabilities.d.ts
 /** Every capability an entity may declare. */
 type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'effect' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'fan' | 'location' | 'image' | 'custom';
@@ -808,4 +839,4 @@ type JsonObject = {
   readonly [key: string]: JsonValue;
 };
 //#endregion
-export { DeclaredCapabilities as $, NumberField as A, TimestampField as B, Fields as C, ListField as D, IconOptions as E, SettingField as F, CapabilityCommand as G, ValueField as H, ShownWhen as I, CapabilityParams as J, CapabilityCommands as K, Simplify as L, OptionField as M, SecretField as N, ListOptions as O, SecretOptions as P, CustomValue as Q, TextField as R, Field as S, IconField as T, ValueOfField as U, TimestampOptions as V, field as W, CapabilityStates as X, CapabilityState as Y, CommandableCapability as Z, ChoiceOption as _, SettingsOf as a, ReportedStates as at, EntityOptions as b, CommandDeclaration as c, ThermostatMode as ct, EntityTypeDefinition as d, EntityStateClass as et, ValuesOf as f, ChoiceField as g, BooleanOptions as h, SettingsDefinition as i, ReportedCapabilityState as it, NumberOptions as j, NoFields as k, CommandDeclarations as l, VacuumActivity as lt, BooleanField as m, JsonPrimitive as n, LawnMowerActivity as nt, defineSettings as o, SelectOption as ot, defineEntityType as p, CapabilityName as q, JsonValue as r, PlaybackState as rt, ArgsOf as s, ThermostatAction as st, JsonObject as t, ImageContentType as tt, CommandsOf as u, VacuumRoom as ut, ChoiceOptions as v, FormValues as w, EntityValues as x, EntityField as y, TextOptions as z };
+export { DeclaredCapabilities as $, NumberField as A, TimestampField as B, Fields as C, ListField as D, IconOptions as E, SettingField as F, CapabilityCommand as G, ValueField as H, ShownWhen as I, CapabilityParams as J, CapabilityCommands as K, Simplify as L, OptionField as M, SecretField as N, ListOptions as O, SecretOptions as P, CustomValue as Q, TextField as R, Field as S, IconField as T, ValueOfField as U, TimestampOptions as V, field as W, CapabilityStates as X, CapabilityState as Y, CommandableCapability as Z, ChoiceOption as _, SettingsOf as a, ReportedStates as at, EntityOptions as b, CommandDeclaration as c, ThermostatMode as ct, EntityTypeDefinition as d, ENTITY_DOMAINS as dt, EntityStateClass as et, ValuesOf as f, EntityDomain as ft, ChoiceField as g, parseEntityId as gt, BooleanOptions as h, isEntityId as ht, SettingsDefinition as i, ReportedCapabilityState as it, NumberOptions as j, NoFields as k, CommandDeclarations as l, VacuumActivity as lt, BooleanField as m, ParsedEntityId as mt, JsonPrimitive as n, LawnMowerActivity as nt, defineSettings as o, SelectOption as ot, defineEntityType as p, EntityId as pt, CapabilityName as q, JsonValue as r, PlaybackState as rt, ArgsOf as s, ThermostatAction as st, JsonObject as t, ImageContentType as tt, CommandsOf as u, VacuumRoom as ut, ChoiceOptions as v, FormValues as w, EntityValues as x, EntityField as y, TextOptions as z };
