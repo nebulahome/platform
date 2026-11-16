@@ -490,6 +490,9 @@ function assertSceneTargetState(entityId: string, state: CapabilityState): Capab
       capability === 'lawn_mower' ||
       capability === 'select' ||
       capability === 'number' ||
+      capability === 'time_of_day' ||
+      capability === 'date' ||
+      capability === 'datetime' ||
       capability === 'vacuum' ||
       capability === 'image' ||
       capability === 'custom'
