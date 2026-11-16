@@ -401,7 +401,9 @@ function ClockParts(props: ClockPartsProps) {
               />
               <label
                 className={cn(
-                  'flex h-18 w-24 cursor-text items-center justify-center rounded-card border bg-surface-raised',
+                  'flex h-18 shrink-0 cursor-text items-center justify-center rounded-card border bg-surface-raised',
+                  // Three tiles and AM / PM in one row: narrower, so the row fits the dialog.
+                  parts.length > 2 ? 'w-18' : 'w-24',
                   'transition-colors duration-200 focus-within:border-primary/60',
                   isChanged ? 'border-violet/60' : 'border-border',
                 )}
@@ -437,7 +439,8 @@ function ClockParts(props: ClockPartsProps) {
                     }
                   }}
                   className={cn(
-                    'w-20 bg-transparent text-center text-[36px] leading-[1.3] font-medium tracking-[-0.03em] tabular outline-none',
+                    'bg-transparent text-center text-[36px] leading-[1.3] font-medium tracking-[-0.03em] tabular outline-none',
+                    parts.length > 2 ? 'w-16' : 'w-20',
                     isChanged ? 'text-violet' : 'text-foreground',
                   )}
                 />
@@ -458,7 +461,7 @@ function ClockParts(props: ClockPartsProps) {
         <div
           role="radiogroup"
           aria-label={t('entity.sheet.time.dayHalf', 'AM or PM')}
-          className="ml-1 flex h-18 w-14 flex-col justify-between rounded-card border border-border bg-surface-raised p-0.75"
+          className="ml-1 flex h-18 w-14 shrink-0 flex-col justify-between rounded-card border border-border bg-surface-raised p-0.75"
         >
           {[am, pm].map((word, half) => {
             const isChosen = seconds !== null && isPm === (half === 1);
@@ -659,6 +662,7 @@ function DateEditor(props: SheetBodyProps) {
             : `${daysAwayText(draft.shown, now, zone)} · ${weekdayOf(draft.shown)}`)}
       </HintLine>
       <Calendar
+        isRoomy
         // A day typed elsewhere, or a reported one, shows its own month.
         key={(draft.shown ?? '').slice(0, 7)}
         value={draft.shown}
@@ -769,6 +773,7 @@ function DateTimeEditor(props: SheetBodyProps) {
       </HintLine>
       {inUse === 'date' ? (
         <Calendar
+          isRoomy
           key={startDay.slice(0, 7)}
           value={at?.day ?? null}
           min={first?.day}

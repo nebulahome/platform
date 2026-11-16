@@ -151,6 +151,12 @@ export type CalendarProps = DayPick & {
   /** Whether the day picked takes the focus when the calendar appears: for one in a popover. */
   readonly takesFocus?: boolean;
 
+  /**
+   * Whether it fills the width it is given, with round days: an entity's dialog draws it so. A
+   * popover's is compact, 16 rem wide.
+   */
+  readonly isRoomy?: boolean;
+
   /** Anything extra for the outer element. */
   readonly className?: string;
 };
@@ -162,7 +168,7 @@ export type CalendarProps = DayPick & {
  * @returns The calendar.
  */
 export function Calendar(props: CalendarProps) {
-  const { min, max, takesFocus = false, className } = props;
+  const { min, max, takesFocus = false, isRoomy = false, className } = props;
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const today = todayKey();
@@ -268,7 +274,7 @@ export function Calendar(props: CalendarProps) {
   };
 
   return (
-    <div className={cn('flex w-64 flex-col gap-2', className)}>
+    <div className={cn('flex flex-col gap-2', isRoomy ? 'w-full' : 'w-64', className)}>
       <div className="flex items-center justify-between gap-2">
         <IconButton
           label={t('ui.calendar.previousMonth', 'Previous month')}
@@ -300,7 +306,10 @@ export function Calendar(props: CalendarProps) {
         role="group"
         aria-label={title}
         onKeyDown={onKeyDown}
-        className="grid grid-cols-7 gap-y-1 text-center text-ui-sm"
+        className={cn(
+          'grid grid-cols-7 text-center',
+          isRoomy ? 'gap-y-1.5 text-ui' : 'gap-y-1 text-ui-sm',
+        )}
       >
         {weekdays.map((weekday, index) => (
           // The days carry their weekday in their own names; these are for the eye.
@@ -329,7 +338,7 @@ export function Calendar(props: CalendarProps) {
             : undefined;
 
           return (
-            <span key={day} className={cn('flex px-0.5', band)}>
+            <span key={day} className={cn('flex px-0.5', isRoomy && 'justify-center', band)}>
               <button
                 type="button"
                 data-day={day}
@@ -342,7 +351,8 @@ export function Calendar(props: CalendarProps) {
                   pick(day);
                 }}
                 className={cn(
-                  'h-8 grow cursor-pointer rounded-chip tabular transition-colors',
+                  'cursor-pointer tabular transition-colors',
+                  isRoomy ? 'size-10 rounded-full' : 'h-8 grow rounded-chip',
                   'focus-visible:shadow-focus focus-visible:outline-none',
                   'disabled:cursor-not-allowed disabled:text-foreground-subtle disabled:opacity-50',
                   isPicked
