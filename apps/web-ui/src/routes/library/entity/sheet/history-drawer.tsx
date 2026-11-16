@@ -89,39 +89,41 @@ export function HistorySheet(props: HistorySheetProps) {
         }
       />
       <div className="flex min-h-0 grow flex-col gap-4 px-5 pb-5">
-        <div
-          // Drawn again each time the window changes.
-          key={history.range}
-          className="flex shrink-0 flex-col gap-2.5 rounded-panel border border-border bg-well p-4"
-        >
-          {history.isLoading === true ? (
-            <ChartLoading className={content.kind === 'band' ? 'h-12' : 'h-30'} />
-          ) : content.kind === 'band' ? (
-            <BandChart
-              segments={content.segments}
-              window={history.window}
-              tone={isStale ? 'muted' : tone}
-              label={t('entity.sheet.history.whenOn', 'When it was on, over the last {{range}}', {
-                range: history.range,
-              })}
-            />
-          ) : (
-            <LineChart
-              points={content.points}
-              window={history.window}
-              domain={content.domain}
-              tone={tone}
-              isStepped
-              isStale={isStale}
-              format={(value) => withUnit(value, content.unit)}
-              label={t('entity.sheet.history.overTime', '{{what}} over the last {{range}}', {
-                what: content.label,
-                range: history.range,
-              })}
-            />
-          )}
-          <AxisRow labels={axisLabels(history.window, history.range)} />
-        </div>
+        {content.kind === 'changes' ? null : (
+          <div
+            // Drawn again each time the window changes.
+            key={history.range}
+            className="flex shrink-0 flex-col gap-2.5 rounded-panel border border-border bg-well p-4"
+          >
+            {history.isLoading === true ? (
+              <ChartLoading className={content.kind === 'band' ? 'h-12' : 'h-30'} />
+            ) : content.kind === 'band' ? (
+              <BandChart
+                segments={content.segments}
+                window={history.window}
+                tone={isStale ? 'muted' : tone}
+                label={t('entity.sheet.history.whenOn', 'When it was on, over the last {{range}}', {
+                  range: history.range,
+                })}
+              />
+            ) : (
+              <LineChart
+                points={content.points}
+                window={history.window}
+                domain={content.domain}
+                tone={tone}
+                isStepped
+                isStale={isStale}
+                format={(value) => withUnit(value, content.unit)}
+                label={t('entity.sheet.history.overTime', '{{what}} over the last {{range}}', {
+                  what: content.label,
+                  range: history.range,
+                })}
+              />
+            )}
+            <AxisRow labels={axisLabels(history.window, history.range)} />
+          </div>
+        )}
         {history.isLoading === true ? (
           <div className="shrink-0">
             <StatsLoading isBoxed />

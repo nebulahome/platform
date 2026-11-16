@@ -106,7 +106,7 @@ function HistoryCard(props: HistoryCardProps) {
  * @param props.isStale - Whether the sensor no longer answers.
  * @returns The mark.
  */
-function RoundMark(props: { icon: UiIconId; tone: SheetTone; isStale: boolean }) {
+export function RoundMark(props: { icon: UiIconId; tone: SheetTone; isStale: boolean }) {
   return (
     <span
       className={cn(
@@ -517,16 +517,22 @@ function historyValueOf(state: unknown): string {
  * @param props.points - The changes, oldest first.
  * @param props.now - The time now.
  * @param props.current - The value now.
+ * @param props.readValue - Reads a value off a state from history; a sensor's by default.
  * @returns The list.
  */
-function LastValues(props: { points: readonly StateHistoryPoint[]; now: number; current: string }) {
+export function LastValues(props: {
+  points: readonly StateHistoryPoint[];
+  now: number;
+  current: string;
+  readValue?: (state: unknown) => string;
+}) {
   const { t } = useTranslation();
   const rows = [...props.points]
     .reverse()
     .slice(0, 5)
     .map((point) => ({
       at: point.time.getTime(),
-      value: historyValueOf(point.state),
+      value: (props.readValue ?? historyValueOf)(point.state),
     }));
 
   return (

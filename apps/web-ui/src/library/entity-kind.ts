@@ -241,6 +241,22 @@ export function entityKindOf(
     };
   }
 
+  if (has.has('time_of_day')) {
+    return { label: translate('library.entityKind.time', 'Time'), icon: 'clock', tone: 'power' };
+  }
+
+  if (has.has('date')) {
+    return { label: translate('library.entityKind.date', 'Date'), icon: 'calendar', tone: 'power' };
+  }
+
+  if (has.has('datetime')) {
+    return {
+      label: translate('library.entityKind.dateTime', 'Date and time'),
+      icon: 'calendar-clock',
+      tone: 'power',
+    };
+  }
+
   if (has.has('button')) {
     return {
       label: translate('library.entityKind.button', 'Button'),
@@ -305,6 +321,12 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return translate('library.entityKind.choice', 'Choice');
     case 'number':
       return translate('library.entityKind.value', 'Value');
+    case 'time_of_day':
+      return translate('library.entityKind.time', 'Time');
+    case 'date':
+      return translate('library.entityKind.date', 'Date');
+    case 'datetime':
+      return translate('library.entityKind.dateTime', 'Date and time');
     case 'vacuum':
       return translate('library.entityKind.cleaning', 'Cleaning');
     case 'fan':

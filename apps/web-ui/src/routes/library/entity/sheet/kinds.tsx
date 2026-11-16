@@ -21,6 +21,7 @@ import { translate } from '@/i18n/messages';
 import { hasCapability, paramsOf } from '@/library/entity-control';
 import { entityKindOf } from '@/library/entity-kind';
 import { BINARY_WORDS } from '@/library/entity-reading';
+import { TIME_CAPABILITIES, timeCapabilityOf } from '@/library/time-values';
 import { ENTITY_CONTROLS } from '@/routes/library/entity/controls/entity-controls';
 import { ClimateBody, climateLookOf } from '@/routes/library/entity/sheet/bodies/climate-body';
 import { CoverBody } from '@/routes/library/entity/sheet/bodies/cover-body';
@@ -43,6 +44,7 @@ import {
   SelectBody,
 } from '@/routes/library/entity/sheet/bodies/setting-bodies';
 import { SwitchBody } from '@/routes/library/entity/sheet/bodies/switch-body';
+import { canSetTime, TIME_GLYPHS, TimeBody } from '@/routes/library/entity/sheet/bodies/time-body';
 import { UpdateBody } from '@/routes/library/entity/sheet/bodies/update-body';
 import type { SheetBodyProps, SheetKind } from '@/routes/library/entity/sheet/sheet-types';
 import type { SheetTone } from '@/routes/library/entity/sheet/tones';
@@ -63,6 +65,7 @@ type KindId =
   | 'switch'
   | 'select'
   | 'number'
+  | 'time'
   | 'button'
   | 'image'
   | 'binary'
@@ -94,6 +97,7 @@ const KINDS: readonly KindRule[] = [
   { id: 'switch', anyOf: ['on_off'], history: 'drawer', Body: SwitchBody },
   { id: 'select', anyOf: ['select'], history: 'drawer', Body: SelectBody },
   { id: 'number', anyOf: ['number'], history: 'drawer', Body: NumberBody },
+  { id: 'time', anyOf: TIME_CAPABILITIES, history: 'drawer', Body: TimeBody },
   { id: 'button', anyOf: ['button'], history: 'none', Body: ButtonBody },
   { id: 'image', anyOf: ['image'], history: 'none', Body: ImageBody },
   { id: 'binary', anyOf: ['sensor_binary'], history: 'body', Body: BinaryBody },
@@ -142,7 +146,8 @@ function toneOf(id: KindId, entity: EntityView, state: CapabilityState): SheetTo
     }
     case 'cover':
     case 'switch':
-    case 'number': {
+    case 'number':
+    case 'time': {
       return 'primary';
     }
     case 'location':
@@ -180,6 +185,7 @@ function iconOf(id: KindId, entity: EntityView): UiIconId {
     switch: deviceClass === 'outlet' ? 'plug' : 'power',
     select: 'list',
     number: 'hash',
+    time: TIME_GLYPHS[timeCapabilityOf(entity) ?? 'time_of_day'],
     image: 'image',
     button:
       deviceClass === 'restart'
@@ -277,6 +283,15 @@ function wordsOf(id: KindId, entity: EntityView): string {
     }
     case 'number': {
       return translate('entity.sheet.kind.number', 'Number');
+    }
+    case 'time': {
+      const capability = timeCapabilityOf(entity);
+
+      return capability === 'date'
+        ? translate('entity.sheet.kind.date', 'Date')
+        : capability === 'datetime'
+          ? translate('entity.sheet.kind.dateTime', 'Date and time')
+          : translate('entity.sheet.kind.time', 'Time');
     }
     case 'button': {
       return translate('entity.sheet.kind.button', 'Button');
@@ -383,7 +398,8 @@ export function sheetKindOf(entity: EntityView, state: CapabilityState): SheetKi
     icon: iconOf(rule.id, entity),
     words: wordsOf(rule.id, entity),
     isLit: isLitOf(rule.id, state),
-    history: rule.history,
+    // A time the house may only read has its last values in the body, as a text sensor does.
+    history: rule.id === 'time' && !canSetTime(entity) ? 'body' : rule.history,
     Body: rule.Body,
   };
 }

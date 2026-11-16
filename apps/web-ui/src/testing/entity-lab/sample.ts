@@ -165,6 +165,15 @@ export function sampleValue(field: SchemaField, listLength = 4): unknown {
         return hint;
       }
 
+      // A day and a moment must be ones: a word would fail their schema.
+      if (kind.format === 'date') {
+        return '2026-11-24';
+      }
+
+      if (kind.format === 'date-time') {
+        return '2026-11-24T07:30:00+01:00';
+      }
+
       return field.hasDefault ? field.fallback : `Sample ${key}`;
     }
     case 'enum-list': {

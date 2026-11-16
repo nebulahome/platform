@@ -3357,7 +3357,10 @@
         "update": "Aggiornamento",
         "vacuum": "Robot aspirapolvere",
         "white": "bianco",
-        "picture": "Immagine"
+        "picture": "Immagine",
+        "time": "Ora",
+        "date": "Data",
+        "dateTime": "Data e ora"
       },
       "levelNumber": "{{n}}",
       "light": {
@@ -3578,6 +3581,21 @@
         "none": "Ancora nessuna immagine",
         "drawnAt": "Disegnata alle {{time}}",
         "fullScreen": "Schermo intero"
+      },
+      "time": {
+        "between": "Tra {{min}} e {{max}}",
+        "dateField": "Data",
+        "dayHalf": "AM o PM",
+        "down": "{{part}} giù",
+        "from": "Da {{min}}",
+        "hours": "Ore",
+        "minutes": "Minuti",
+        "seconds": "Secondi",
+        "set": "Imposta",
+        "timeField": "Ora",
+        "until": "Fino a {{max}}",
+        "up": "{{part}} su",
+        "was": "Era {{value}}"
       }
     },
     "dialog": {
@@ -4352,7 +4370,10 @@
       "tracker": "Localizzatore",
       "effect": "Effetto",
       "speed": "Velocità",
-      "location": "Posizione"
+      "location": "Posizione",
+      "time": "Ora",
+      "date": "Data",
+      "dateTime": "Data e ora"
     },
     "entityReading": {
       "away": "Assente",
@@ -5428,7 +5449,10 @@
       "vacuum": "Robot aspirapolvere",
       "lawn_mower": "Tosaerba",
       "update": "Aggiornamento",
-      "custom": "Personalizzato"
+      "custom": "Personalizzato",
+      "time_of_day": "Ora",
+      "date": "Data",
+      "datetime": "Data e ora"
     },
     "aliasTypePlurals": {
       "sensor": "Sensori",
@@ -5451,7 +5475,10 @@
       "vacuum": "Robot aspirapolvere",
       "lawn_mower": "Tosaerba",
       "update": "Aggiornamenti",
-      "custom": "Personalizzati"
+      "custom": "Personalizzati",
+      "time_of_day": "Orari",
+      "date": "Date",
+      "datetime": "Date e ore"
     },
     "aliasParts": {
       "value": "Valore",

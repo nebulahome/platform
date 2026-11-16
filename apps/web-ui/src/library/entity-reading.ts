@@ -27,6 +27,7 @@ import {
 import { numberFormat } from '@/i18n/formatters';
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { miredsToKelvin } from '@/library/entity-control';
+import { formatClock, formatDayOf, formatMoment, shownZone } from '@/library/time-values';
 import type { LiveReading } from '@/live/live-store';
 
 /** A catalogue numeric reading, split so a row can draw the figure and the unit apart. */
@@ -446,6 +447,18 @@ export function describeState(
 
   if (value.number?.value != null) {
     parts.push(withUnit(value.number.value, unit));
+  }
+
+  if (value.time_of_day?.value != null) {
+    parts.push(formatClock(value.time_of_day.value));
+  }
+
+  if (value.date?.value != null) {
+    parts.push(formatDayOf(value.date.value));
+  }
+
+  if (value.datetime?.value != null) {
+    parts.push(formatMoment(value.datetime.value, Date.now(), shownZone()));
   }
 
   if (value.button !== undefined && parts.length === 0) {

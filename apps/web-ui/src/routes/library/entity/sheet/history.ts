@@ -22,6 +22,7 @@ import {
   type TimeWindow,
 } from '@/library/history-series';
 import { activeStats, durationText } from '@/library/history-stats';
+import { timeCapabilityOf } from '@/library/time-values';
 import type { StatTile } from '@/routes/library/entity/sheet/parts/sheet-parts';
 import type { SheetRange } from '@/routes/library/entity/sheet/sheet-types';
 
@@ -34,6 +35,11 @@ export type DrawerContent =
       /** A band of when the thing was on, open or detected. */
       readonly kind: 'band';
       readonly segments: readonly StateSegment[];
+      readonly stats: readonly StatTile[];
+    }
+  | {
+      /** No chart: only its changes, for a value with no line or band to draw - a time. */
+      readonly kind: 'changes';
       readonly stats: readonly StatTile[];
     }
   | {
@@ -374,6 +380,10 @@ export function drawerContentOf(
     (each) => describeState(each, entity),
   );
   const main = mainNumberOf(entity);
+
+  if (timeCapabilityOf(entity) !== null) {
+    return { kind: 'changes', stats: [] };
+  }
 
   if (main !== null) {
     const line = numericSeries(points, [main], window, entity.state).flatMap((point) => {
