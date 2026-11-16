@@ -40,7 +40,8 @@ export const CORE_HISTORY_IMPORT_METHOD = 'history_import';
 
 /**
  * How far back a past reading may be: the raw readings are kept 30 days, and a summary is only
- * brought up to date where the raw readings of every entity are still there.
+ * brought up to date where the raw readings of every entity are still there. `core` keeps less
+ * when the raw readings are kept for less.
  */
 export const HISTORY_IMPORT_MAX_DAYS = 28;
 
@@ -62,8 +63,9 @@ export const historyImportRequestSchema = z.strictObject({
 export type HistoryImportRequest = z.output<typeof historyImportRequestSchema>;
 
 /**
- * How many readings were written, and how many left out: not finite, at or after the entity was
- * registered, or older than {@link HISTORY_IMPORT_MAX_DAYS}.
+ * How many readings were written, and how many left out: at or after the entity was registered,
+ * older than {@link HISTORY_IMPORT_MAX_DAYS} or than the raw readings are kept, or of an entity
+ * that keeps no numeric history of its own (not numeric, or linked to another).
  */
 export const historyImportReplySchema = z.object({
   written: z.number().int().nonnegative(),

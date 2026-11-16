@@ -358,6 +358,13 @@ export type SyncPackageReply = z.output<typeof syncPackageReplySchema>;
 export const registerDeviceReplySchema = z.object({
   deviceId: z.uuid(),
   entityIds: z.array(entityIdSchema).min(1),
+
+  /**
+   * The entities this registration wrote for the first time - every one on a device's first
+   * identification, adopted or typed in, none when it is heard again: what `hub` imports a
+   * device's past for.
+   */
+  createdEntityIds: z.array(entityIdSchema).default([]),
 });
 
 /** What `core` wrote. */

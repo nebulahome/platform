@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { wsServerMessageSchema } from './api-ws.js';
 import {
   deviceEventSchema,
+  registerDeviceReplySchema,
   registerDeviceRequestSchema,
   unregisterDeviceReplySchema,
   unregisterDeviceRequestSchema,
@@ -208,6 +209,21 @@ describe('unregisterDeviceRequestSchema', () => {
     expect(
       unregisterDeviceReplySchema.parse({ deviceId: null, entityIds: [] }).deviceId,
     ).toBeNull();
+  });
+});
+
+describe('registerDeviceReplySchema', () => {
+  it('names the entities written for the first time, none when a core before them did not', () => {
+    const written = {
+      deviceId: '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e6f',
+      entityIds: ['sensor.pun_this_hour'],
+    };
+
+    expect(registerDeviceReplySchema.parse(written).createdEntityIds).toEqual([]);
+    expect(
+      registerDeviceReplySchema.parse({ ...written, createdEntityIds: ['sensor.pun_this_hour'] })
+        .createdEntityIds,
+    ).toEqual(['sensor.pun_this_hour']);
   });
 });
 
