@@ -4,14 +4,16 @@
  * `hub` asks once a device was first added and its driver could tell its past (integration SDK
  * 1.10.0, `history`). The readings go straight into the telemetry table - not through the
  * telemetry stream, whose sampler and state path are for what happens now - and the stretch
- * they cover is queued for the database job that brings the 1m/1h/1d summaries up to date (0012):
- * their own policies look only at the last hours, and `core` may not refresh them itself.
+ * they cover is queued for the database job that brings the 1m/1h/1d summaries up to date (0012,
+ * 0013): their own policies look only at the last hours, and `core` may not refresh them itself.
  *
  * Only the past is taken: a reading at or after the entity was registered would sit among the
- * live ones, and one older than {@link HISTORY_IMPORT_MAX_DAYS} where the raw readings are about
- * to be dropped. Nothing is written twice by design - `hub` asks once and never again.
+ * live ones, and one older than {@link oldestKeptAt} where the raw readings are about to be
+ * dropped. Nothing is written twice by design - `hub` asks once, for entities registered just
+ * then. An entity that keeps no numeric history of its own has its readings left out, not refused:
+ * `hub` asks for every entity a driver reads, and a linked one is no fault of the driver's.
  */
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
@@ -29,6 +31,41 @@ import type { PlatformLogger } from '@nebulahome/logging';
 import type { EntityDirectory } from '../domain/entity-directory.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The oldest instant a past reading is kept from: {@link HISTORY_IMPORT_MAX_DAYS} back, or a day
+ * less than the raw readings are kept when that is shorter - the job summarises only where every
+ * entity's raw readings still are, and a reading it never summarises is dropped unseen.
+ *
+ * @param now - Now, in ms since the epoch.
+ * @param rawKeptMs - How long the raw readings are kept; undefined when there is no retention.
+ * @returns The instant, in ms since the epoch.
+ */
+export function oldestKeptAt(now: number, rawKeptMs: number | undefined): number {
+  const reach = Math.min(HISTORY_IMPORT_MAX_DAYS * DAY_MS, (rawKeptMs ?? Infinity) - DAY_MS);
+
+  return now - Math.max(reach, 0);
+}
+
+/**
+ * How long the raw readings are kept: the retention policy of `history.telemetry`, which is what
+ * drops them, whatever the settings say.
+ *
+ * @param db - The database.
+ * @returns The time in ms, or undefined when no policy drops them.
+ */
+async function rawKeptMs(db: Database): Promise<number | undefined> {
+  const rows = await db.execute<{ seconds: number | null }>(
+    sql`SELECT extract(epoch FROM (j.config ->> 'drop_after')::interval)::float8 AS seconds
+        FROM timescaledb_information.jobs AS j
+        WHERE j.proc_name = 'policy_retention'
+          AND j.hypertable_schema = 'history'
+          AND j.hypertable_name = 'telemetry'`,
+  );
+  const seconds = rows[0]?.seconds;
+
+  return typeof seconds === 'number' && Number.isFinite(seconds) ? seconds * 1000 : undefined;
+}
 
 /** What the history import is served with. */
 export type HistoryImportOptions = {
@@ -60,7 +97,7 @@ export function startHistoryImportService(options: HistoryImportOptions): BusSub
      *
      * @param request - The instance, the entity and its readings.
      * @returns How many readings were written and left out.
-     * @throws {Error} When the entity is not registered, not the instance's, or not numeric.
+     * @throws {Error} When the entity is not registered, or not the instance's.
      */
     async (request: HistoryImportRequest): Promise<HistoryImportReply> => {
       const record = options.directory.get(request.entityId);
@@ -71,7 +108,12 @@ export function startHistoryImportService(options: HistoryImportOptions): BusSub
 
       // A linked entity keeps no history of its own: its address means the entity it reads through.
       if (!record.capabilities.has('sensor_numeric') || record.linkedTo !== undefined) {
-        throw new Error(`${request.entityId} keeps no numeric history of its own`);
+        options.logger.debug(
+          { entityId: request.entityId, readings: request.readings.length },
+          'Left out the past readings of an entity that keeps no numeric history of its own',
+        );
+
+        return { written: 0, skipped: request.readings.length };
       }
 
       const [row] = await options.db
@@ -83,7 +125,10 @@ export function startHistoryImportService(options: HistoryImportOptions): BusSub
         throw new Error(`${request.entityId} is not registered`);
       }
 
-      const oldest = (options.now?.() ?? new Date()).getTime() - HISTORY_IMPORT_MAX_DAYS * DAY_MS;
+      const oldest = oldestKeptAt(
+        (options.now?.() ?? new Date()).getTime(),
+        await rawKeptMs(options.db),
+      );
       const registered = row.createdAt.getTime();
       const rows = request.readings
         .filter((reading) => {

@@ -1,6 +1,6 @@
 /**
  * `core` taking in a device's past readings: written into the telemetry table, summarised by the
- * job 0012 adds, and never into anything another entity has.
+ * job of 0012/0013 and the aggregates' own policies, and never into anything another entity has.
  *
  * Requires the development stack:
  *
@@ -41,13 +41,16 @@ const suffix = ulid().toLowerCase().slice(0, 10);
 const instanceId = `imp-${suffix}`;
 const imported = parseEntityId(`sensor.imp_${suffix}_price`);
 const live = parseEntityId(`sensor.imp_${suffix}_power`);
+const single = parseEntityId(`sensor.imp_${suffix}_rate`);
 const relay = parseEntityId(`switch.imp_${suffix}_relay`);
+const all = [imported, live, single, relay];
 
 let database: { db: Database; close: () => Promise<void> };
 let bus: BusConnection;
 let caller: BusClient;
 let serving: { unsubscribe: () => void }[];
 let rowIds: Map<string, string>;
+let firstReply: { createdEntityIds: string[] };
 
 /**
  * A logger that writes nowhere.
@@ -73,6 +76,29 @@ function silent(): PlatformLogger {
 }
 
 /**
+ * Asks `core` to register the device, as `hub` does once it identified it.
+ *
+ * @returns What `core` wrote.
+ */
+async function register(): Promise<{ createdEntityIds: string[] }> {
+  return caller.request(
+    busSubjects.service(CORE_SERVICE, CORE_REGISTER_METHOD),
+    {
+      integrationId: instanceId,
+      externalId: `imp-${suffix}`,
+      config: { claim: { deviceKey: 'lab', externalId: `imp-${suffix}`, descriptor: {} } },
+      entities: [
+        { entityId: imported, name: 'Price', capabilities: { sensor_numeric: {} } },
+        { entityId: live, name: 'Power', capabilities: { sensor_numeric: {} } },
+        { entityId: single, name: 'Rate', capabilities: { sensor_numeric: {} } },
+        { entityId: relay, name: 'Relay', capabilities: { on_off: {} } },
+      ],
+    },
+    registerDeviceReplySchema,
+  );
+}
+
+/**
  * Hands `core` past readings, as `hub` does.
  *
  * @param entityId - The entity.
@@ -93,18 +119,19 @@ async function importReadings(
 }
 
 /**
- * Runs the job that summarises imported stretches, as the scheduler would a minute later. The
- * scheduler may be running it at the same moment: a run that meets it is tried again, and one
- * that finds the queue empty means the other run summarised it.
+ * Runs a TimescaleDB job now. The scheduler may be running it, or a policy over the same
+ * stretch, at the same moment: a run that meets one is tried again.
+ *
+ * @param where - Which job, by what `timescaledb_information.jobs` says of it.
  */
-async function runRefreshJob(): Promise<void> {
+async function runJob(where: ReturnType<typeof sql>): Promise<void> {
   const rows = await database.db.execute<{ job_id: number }>(
-    sql`SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = 'refresh_imported_telemetry'`,
+    sql`SELECT job_id FROM timescaledb_information.jobs WHERE ${where}`,
   );
   const jobId = rows[0]?.job_id;
 
   if (jobId === undefined) {
-    throw new Error('The refresh job of 0012 is not there: run pnpm db:migrate');
+    throw new Error('A job is missing: run pnpm db:migrate');
   }
 
   for (let attempt = 1; ; attempt += 1) {
@@ -121,6 +148,20 @@ async function runRefreshJob(): Promise<void> {
 
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
+  }
+}
+
+/**
+ * Brings the summaries up to date as the scheduler would within the hour: the job of imported
+ * stretches, then each aggregate's own policy.
+ */
+async function summarise(): Promise<void> {
+  await runJob(sql`proc_name = 'refresh_imported_telemetry'`);
+
+  for (const view of ['telemetry_1m', 'telemetry_1h', 'telemetry_1d']) {
+    await runJob(
+      sql`proc_name = 'policy_refresh_continuous_aggregate' AND hypertable_name = ${view}`,
+    );
   }
 }
 
@@ -189,25 +230,12 @@ beforeAll(async () => {
     requestTimeoutMs: 5000,
   });
 
-  await caller.request(
-    busSubjects.service(CORE_SERVICE, CORE_REGISTER_METHOD),
-    {
-      integrationId: instanceId,
-      externalId: `imp-${suffix}`,
-      config: { claim: { deviceKey: 'lab', externalId: `imp-${suffix}`, descriptor: {} } },
-      entities: [
-        { entityId: imported, name: 'Price', capabilities: { sensor_numeric: {} } },
-        { entityId: live, name: 'Power', capabilities: { sensor_numeric: {} } },
-        { entityId: relay, name: 'Relay', capabilities: { on_off: {} } },
-      ],
-    },
-    registerDeviceReplySchema,
-  );
+  firstReply = await register();
 
   const rows = await database.db
     .select({ id: schema.registry.entities.id, entityId: schema.registry.entities.entityId })
     .from(schema.registry.entities)
-    .where(inArray(schema.registry.entities.entityId, [imported, live, relay]));
+    .where(inArray(schema.registry.entities.entityId, all));
 
   rowIds = new Map(rows.map((row) => [row.entityId, row.id]));
 });
@@ -227,10 +255,10 @@ afterAll(async () => {
     fromTime: new Date(Date.now() - 4 * 24 * HOUR_MS),
     toTime: new Date(),
   });
-  await runRefreshJob();
+  await summarise();
   await database.db
     .delete(schema.registry.entities)
-    .where(inArray(schema.registry.entities.entityId, [imported, live, relay]));
+    .where(inArray(schema.registry.entities.entityId, all));
   await database.db
     .delete(schema.registry.devices)
     .where(eq(schema.registry.devices.integrationId, instanceId));
@@ -242,62 +270,79 @@ afterAll(async () => {
   await database.close();
 });
 
+describe('registering a device', () => {
+  it('names the entities written for the first time, and none when it is heard again', async () => {
+    expect([...firstReply.createdEntityIds].sort()).toEqual([...all].sort());
+    expect((await register()).createdEntityIds).toEqual([]);
+  });
+});
+
 describe("a device's past readings", () => {
   it('are written and summarised, leaving every other entity as it was', async () => {
     const now = Date.now();
     const hourStart = Math.floor(now / HOUR_MS) * HOUR_MS;
     const at = (hoursAgo: number): Date => new Date(hourStart - hoursAgo * HOUR_MS);
 
-    // What another sensor read live over the same days, already summarised.
+    // What another sensor read live over the same days, already summarised. Up to two hours
+    // ago, so every bucket is one the hourly policy has closed.
     await database.db.insert(schema.history.telemetry).values(
-      Array.from({ length: 72 }, (unused, index) => ({
+      Array.from({ length: 71 }, (unused, index) => ({
         time: at(72 - index),
         entityId: rowIds.get(live) ?? '',
         value: 100 + index,
       })),
     );
     await database.db.insert(schema.history.telemetryRefreshes).values({
-      fromTime: at(73),
-      toTime: new Date(now),
+      fromTime: at(72),
+      toTime: at(2),
     });
-    await runRefreshJob();
+    await summarise();
 
     const before = await hourly(live);
 
-    expect(before).toHaveLength(72);
+    expect(before).toHaveLength(71);
 
     const reply = await importReadings(imported, [
-      ...Array.from({ length: 48 }, (unused, index) => ({
+      ...Array.from({ length: 47 }, (unused, index) => ({
         observedAt: at(48 - index).toISOString(),
         value: 0.2 + index / 1000,
       })),
       // After the entity was registered: among the live readings, left out.
       { observedAt: new Date(now + HOUR_MS).toISOString(), value: 9 },
-      // Older than the 28 days the raw readings are kept for, left out.
+      // Older than the 28 days kept, left out.
       { observedAt: new Date(now - 40 * 24 * HOUR_MS).toISOString(), value: 9 },
     ]);
 
-    expect(reply).toEqual({ written: 48, skipped: 2 });
+    expect(reply).toEqual({ written: 47, skipped: 2 });
 
-    await runRefreshJob();
+    await summarise();
 
     const summarised = await hourly(imported);
 
-    expect(summarised).toHaveLength(48);
+    expect(summarised).toHaveLength(47);
     expect(summarised[0]?.avg).toBeCloseTo(0.2, 9);
     expect(await hourly(live)).toEqual(before);
-
-    const queued = await database.db.select().from(schema.history.telemetryRefreshes);
-
-    expect(queued).toEqual([]);
+    expect(await database.db.select().from(schema.history.telemetryRefreshes)).toEqual([]);
   });
 
-  it("refuses another instance's entity and one with no numeric reading", async () => {
+  it('summarises a stretch of one reading', async () => {
+    const twoDaysAgo = Math.floor(Date.now() / HOUR_MS) * HOUR_MS - 48 * HOUR_MS;
+
+    expect(
+      await importReadings(single, [{ observedAt: new Date(twoDaysAgo).toISOString(), value: 7 }]),
+    ).toEqual({ written: 1, skipped: 0 });
+
+    await runJob(sql`proc_name = 'refresh_imported_telemetry'`);
+
+    expect((await hourly(single)).map((bucket) => bucket.avg)).toEqual([7]);
+  });
+
+  it("refuses another instance's entity, and leaves out one with no numeric reading", async () => {
     const reading = [{ observedAt: new Date(Date.now() - HOUR_MS).toISOString(), value: 1 }];
 
     await expect(importReadings(imported, reading, `other-${suffix}`)).rejects.toThrow(
       `is not an entity of other-${suffix}`,
     );
-    await expect(importReadings(relay, reading)).rejects.toThrow('keeps no numeric history');
+    await expect(importReadings(relay, reading)).resolves.toEqual({ written: 0, skipped: 1 });
   });
 });

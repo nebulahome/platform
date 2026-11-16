@@ -124,7 +124,8 @@ type NamedEntity = { readonly rowId: string; readonly entityId: EntityId; readon
  *
  * @param db - A connected database handle.
  * @param request - What `hub` heard.
- * @returns The device row, its name, its entities, and - described again - those added and removed.
+ * @returns The device row, its name, its entities, those written for the first time, and -
+ * described again - those added and removed.
  * @throws {NotFoundError} When no device row belongs to the instance. The API writes that row;
  * `hub` cannot, and must not, make it appear.
  * @throws {ConflictError} When a derived entity reads one the device no longer has.
@@ -138,6 +139,7 @@ async function write(
   entities: WrittenEntity[];
   added: NamedEntity[];
   removed: NamedEntity[];
+  created: EntityId[];
 }> {
   return db.transaction(async (tx) => {
     const { devices, entities } = schema.registry;
@@ -282,6 +284,9 @@ async function write(
               }))
           : [],
       removed: removed.map((entity) => ({ ...entity, entityId: parseEntityId(entity.entityId) })),
+      created: request.entities
+        .filter((entity) => !had.has(entity.entityId))
+        .map((entity) => entity.entityId),
     };
   });
 }
@@ -457,7 +462,10 @@ function serveRegister(options: RegistrationOptions): BusSubscription {
      * @returns What was written.
      */
     async (request: RegisterDeviceRequest): Promise<RegisterDeviceReply> => {
-      const { deviceId, name, entities, added, removed } = await write(options.db, request);
+      const { deviceId, name, entities, added, removed, created } = await write(
+        options.db,
+        request,
+      );
       const wasLinked = removed.some((entity) => {
         const record = options.directory.get(entity.entityId);
 
@@ -531,7 +539,7 @@ function serveRegister(options: RegistrationOptions): BusSubscription {
         request.replacesEntities === true ? 'Described a device again' : 'Completed a device',
       );
 
-      return { deviceId, entityIds };
+      return { deviceId, entityIds, createdEntityIds: created };
     },
   );
 }
