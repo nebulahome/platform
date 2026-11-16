@@ -251,6 +251,9 @@ export class HubService {
   readonly #pool: ConnectionPool;
   readonly #identification: IdentificationService;
   readonly #listening = new Map<string, Listening>();
+
+  /** The imports of a device's past under way, by instance, and how to stop each. */
+  readonly #importing = new Map<string, AbortController>();
   readonly #managementService: ManagementService;
   readonly #accounts: AccountService;
   readonly #images: ImageStore;
@@ -1661,7 +1664,7 @@ export class HubService {
     this.#vendorContainers.stop();
     await this.#discovery?.stop();
     this.#discovery = undefined;
-    await this.#stopListening([...this.#listening.keys()]);
+    await this.#stopListening([...new Set([...this.#listening.keys(), ...this.#importing.keys()])]);
 
     for (const running of this.#running.values()) {
       for (const subscription of running.subscriptions) {
@@ -2134,6 +2137,10 @@ export class HubService {
       ids.map(async (id): Promise<void> => {
         const listening = this.#listening.get(id);
 
+        // An import of the device's past only stops: it asks `core` nothing once it is told to.
+        this.#importing.get(id)?.abort();
+        this.#importing.delete(id);
+
         if (listening !== undefined) {
           listening.abort.abort();
           await listening.done;
@@ -2215,9 +2222,11 @@ export class HubService {
         'Integration instance started',
       );
 
-      // Added just now, not bound again after a restart: the one time its past is asked for.
-      if (expectedExternalId === null && running.integration.history !== undefined) {
-        await this.#importHistory(running, found.binding, signal);
+      // Entities `core` has just created - a device added, typed in or adopted - have no history
+      // yet: the one time their past is asked for. Not awaited, so a stop or a reload is never
+      // held up by a vendor's download; `#stopListening` ends it.
+      if (found.createdEntityIds.length > 0 && running.integration.history !== undefined) {
+        this.#startImport(running, found.binding, new Set(found.createdEntityIds));
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -2231,37 +2240,50 @@ export class HubService {
   }
 
   /**
-   * Imports a device's past readings, once it was first added. Never rejects: a past that could
-   * not be read leaves the device as it is, with its history starting now.
+   * Imports the past readings of a device's new entities, in the background. Never rejects: a
+   * past that could not be read leaves the device as it is, with its history starting now.
    *
    * @param running - The instance, as it is running.
    * @param binding - The device it identified.
-   * @param signal - Ends the import, with the search it follows.
-   * @returns A promise that settles once the import has ended, one way or the other.
+   * @param entityIds - The entities `core` has just created.
    */
-  async #importHistory(
+  #startImport(
     running: RunningInstance,
     binding: DeviceBinding,
-    signal: AbortSignal,
-  ): Promise<void> {
+    entityIds: ReadonlySet<EntityId>,
+  ): void {
     const { logger } = this.#options;
     const instanceId = running.instance.id;
+    const abort = new AbortController();
 
-    try {
-      const outcome = await importHistory({
-        instanceId,
-        integration: running.integration,
-        context: running.book.contextFor(binding, running.instance.options),
-        connection: running.connection,
-        client: running.client,
-        logger,
-        signal,
+    this.#importing.get(instanceId)?.abort();
+    this.#importing.set(instanceId, abort);
+
+    void importHistory({
+      instanceId,
+      integration: running.integration,
+      context: running.book.contextFor(binding, running.instance.options),
+      entityIds,
+      connection: running.connection,
+      client: running.client,
+      logger,
+      signal: abort.signal,
+    })
+      .then((outcome) => {
+        if (outcome !== undefined) {
+          logger.info({ instanceId, ...outcome }, "Imported the device's past readings");
+        }
+      })
+      .catch((error: unknown) => {
+        if (!abort.signal.aborted) {
+          logger.warn({ err: error, instanceId }, "Could not import the device's past readings");
+        }
+      })
+      .finally(() => {
+        if (this.#importing.get(instanceId) === abort) {
+          this.#importing.delete(instanceId);
+        }
       });
-
-      logger.info({ instanceId, ...outcome }, "Imported the device's past readings");
-    } catch (error: unknown) {
-      logger.warn({ err: error, instanceId }, "Could not import the device's past readings");
-    }
   }
 
   /**

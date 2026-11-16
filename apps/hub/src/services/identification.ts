@@ -70,6 +70,9 @@ export type Identified = {
   readonly binding: DeviceBinding;
   readonly externalId: string;
   readonly entityIds: readonly EntityId[];
+
+  /** The entities `core` wrote for the first time: all of them on a device's first identification. */
+  readonly createdEntityIds: readonly EntityId[];
 };
 
 /** How long to wait after a pass that heard nothing, when the caller does not say. */
@@ -310,7 +313,12 @@ export class IdentificationService {
       );
     }
 
-    return { binding: described.binding, externalId: descriptor.externalId, entityIds: composed };
+    return {
+      binding: described.binding,
+      externalId: descriptor.externalId,
+      entityIds: composed,
+      createdEntityIds: reply.createdEntityIds,
+    };
   }
 
   /**
