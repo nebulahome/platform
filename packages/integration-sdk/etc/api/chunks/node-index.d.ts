@@ -15,7 +15,7 @@ type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
 //#endregion
 //#region ../contracts/dist/capabilities.d.ts
 /** Every capability an entity may declare. */
-declare const CAPABILITIES: readonly ["on_off", "level", "color_hs", "color_temp", "effect", "cover", "lock", "thermostat", "sensor_numeric", "sensor_binary", "sensor_text", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "fan", "location", "image", "custom"];
+declare const CAPABILITIES: readonly ["on_off", "level", "color_hs", "color_temp", "effect", "cover", "lock", "thermostat", "sensor_numeric", "sensor_binary", "sensor_text", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "time_of_day", "date", "datetime", "vacuum", "fan", "location", "image", "custom"];
 /** The name of a single capability. */
 type CapabilityName = (typeof CAPABILITIES)[number];
 /**
@@ -164,6 +164,15 @@ declare const capabilityStateSchema: z.ZodObject<{
   number: z.ZodOptional<z.ZodObject<{
     value: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
   }, z.core.$strip>>;
+  time_of_day: z.ZodOptional<z.ZodObject<{
+    value: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+  }, z.core.$strip>>;
+  date: z.ZodOptional<z.ZodObject<{
+    value: z.ZodDefault<z.ZodNullable<z.ZodISODate>>;
+  }, z.core.$strip>>;
+  datetime: z.ZodOptional<z.ZodObject<{
+    value: z.ZodDefault<z.ZodNullable<z.ZodISODateTime>>;
+  }, z.core.$strip>>;
   vacuum: z.ZodOptional<z.ZodObject<{
     activity: z.ZodEnum<{
       error: "error";
@@ -226,7 +235,7 @@ type CapabilityState = z.output<typeof capabilityStateSchema>;
 //#endregion
 //#region ../contracts/dist/entity-id.d.ts
 /** The kinds of thing an entity can be. The domain is the part before the dot. */
-declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
+declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "time", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
 /** The kind of thing an entity is. */
 type EntityDomain = (typeof ENTITY_DOMAINS)[number];
 /**
@@ -295,17 +304,8 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
-  on_off: "on_off";
-  level: "level";
-  color_hs: "color_hs";
-  color_temp: "color_temp";
-  effect: "effect";
   cover: "cover";
   lock: "lock";
-  thermostat: "thermostat";
-  sensor_numeric: "sensor_numeric";
-  sensor_binary: "sensor_binary";
-  sensor_text: "sensor_text";
   media_player: "media_player";
   camera: "camera";
   button: "button";
@@ -314,9 +314,21 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   select: "select";
   vacuum: "vacuum";
   fan: "fan";
-  location: "location";
   image: "image";
   custom: "custom";
+  on_off: "on_off";
+  level: "level";
+  color_hs: "color_hs";
+  color_temp: "color_temp";
+  effect: "effect";
+  thermostat: "thermostat";
+  sensor_numeric: "sensor_numeric";
+  sensor_binary: "sensor_binary";
+  sensor_text: "sensor_text";
+  time_of_day: "time_of_day";
+  date: "date";
+  datetime: "datetime";
+  location: "location";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -484,6 +496,15 @@ declare const stateReportSchema: z.ZodObject<{
     }, z.core.$strip>>;
     number: z.ZodOptional<z.ZodObject<{
       value: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
+    }, z.core.$strip>>;
+    time_of_day: z.ZodOptional<z.ZodObject<{
+      value: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+    }, z.core.$strip>>;
+    date: z.ZodOptional<z.ZodObject<{
+      value: z.ZodDefault<z.ZodNullable<z.ZodISODate>>;
+    }, z.core.$strip>>;
+    datetime: z.ZodOptional<z.ZodObject<{
+      value: z.ZodDefault<z.ZodNullable<z.ZodISODateTime>>;
     }, z.core.$strip>>;
     vacuum: z.ZodOptional<z.ZodObject<{
       activity: z.ZodEnum<{
@@ -703,26 +724,27 @@ declare const setupFieldSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
   type: z.ZodLiteral<"entity">;
   domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
     number: "number";
+    light: "light";
+    switch: "switch";
+    sensor: "sensor";
+    binary_sensor: "binary_sensor";
     cover: "cover";
     lock: "lock";
+    climate: "climate";
     media_player: "media_player";
     camera: "camera";
     button: "button";
     update: "update";
     lawn_mower: "lawn_mower";
     select: "select";
+    time: "time";
     vacuum: "vacuum";
     fan: "fan";
+    device_tracker: "device_tracker";
+    geo_location: "geo_location";
     image: "image";
     custom: "custom";
     alias: "alias";
-    switch: "switch";
-    light: "light";
-    binary_sensor: "binary_sensor";
-    climate: "climate";
-    sensor: "sensor";
-    device_tracker: "device_tracker";
-    geo_location: "geo_location";
   }>>>;
   key: z.ZodString;
   label: z.ZodString;
@@ -850,26 +872,27 @@ declare const integrationSetupSchema: z.ZodObject<{
       type: z.ZodLiteral<"entity">;
       domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
         number: "number";
+        light: "light";
+        switch: "switch";
+        sensor: "sensor";
+        binary_sensor: "binary_sensor";
         cover: "cover";
         lock: "lock";
+        climate: "climate";
         media_player: "media_player";
         camera: "camera";
         button: "button";
         update: "update";
         lawn_mower: "lawn_mower";
         select: "select";
+        time: "time";
         vacuum: "vacuum";
         fan: "fan";
+        device_tracker: "device_tracker";
+        geo_location: "geo_location";
         image: "image";
         custom: "custom";
         alias: "alias";
-        switch: "switch";
-        light: "light";
-        binary_sensor: "binary_sensor";
-        climate: "climate";
-        sensor: "sensor";
-        device_tracker: "device_tracker";
-        geo_location: "geo_location";
       }>>>;
       key: z.ZodString;
       label: z.ZodString;
@@ -994,26 +1017,27 @@ declare const integrationSetupSchema: z.ZodObject<{
       type: z.ZodLiteral<"entity">;
       domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
         number: "number";
+        light: "light";
+        switch: "switch";
+        sensor: "sensor";
+        binary_sensor: "binary_sensor";
         cover: "cover";
         lock: "lock";
+        climate: "climate";
         media_player: "media_player";
         camera: "camera";
         button: "button";
         update: "update";
         lawn_mower: "lawn_mower";
         select: "select";
+        time: "time";
         vacuum: "vacuum";
         fan: "fan";
+        device_tracker: "device_tracker";
+        geo_location: "geo_location";
         image: "image";
         custom: "custom";
         alias: "alias";
-        switch: "switch";
-        light: "light";
-        binary_sensor: "binary_sensor";
-        climate: "climate";
-        sensor: "sensor";
-        device_tracker: "device_tracker";
-        geo_location: "geo_location";
       }>>>;
       key: z.ZodString;
       label: z.ZodString;
@@ -1075,8 +1099,8 @@ declare const integrationInstallSchema: z.ZodObject<{
   build: z.ZodString;
   version: z.ZodString;
   source: z.ZodEnum<{
-    index: "index";
     local: "local";
+    index: "index";
   }>;
   artifactSha256: z.ZodString;
   installedAt: z.ZodISODateTime;
@@ -1120,8 +1144,8 @@ declare const modbusTemplateSchema: z.ZodObject<{
       number: "number";
       button: "button";
       select: "select";
-      level: "level";
       on_off: "on_off";
+      level: "level";
       sensor_numeric: "sensor_numeric";
       sensor_binary: "sensor_binary";
       sensor_text: "sensor_text";
@@ -2336,26 +2360,27 @@ declare const accountDeclarationSchema: z.ZodObject<{
       type: z.ZodLiteral<"entity">;
       domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
         number: "number";
+        light: "light";
+        switch: "switch";
+        sensor: "sensor";
+        binary_sensor: "binary_sensor";
         cover: "cover";
         lock: "lock";
+        climate: "climate";
         media_player: "media_player";
         camera: "camera";
         button: "button";
         update: "update";
         lawn_mower: "lawn_mower";
         select: "select";
+        time: "time";
         vacuum: "vacuum";
         fan: "fan";
+        device_tracker: "device_tracker";
+        geo_location: "geo_location";
         image: "image";
         custom: "custom";
         alias: "alias";
-        switch: "switch";
-        light: "light";
-        binary_sensor: "binary_sensor";
-        climate: "climate";
-        sensor: "sensor";
-        device_tracker: "device_tracker";
-        geo_location: "geo_location";
       }>>>;
       key: z.ZodString;
       label: z.ZodString;
@@ -2529,8 +2554,8 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
-      matter: "matter";
       udp: "udp";
+      matter: "matter";
       mqtt: "mqtt";
       modbus: "modbus";
       serial: "serial";
@@ -2627,9 +2652,9 @@ declare const bundleManifestSchema: z.ZodObject<{
   modelCodes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
   modelSeries: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
   kind: z.ZodEnum<{
-    matter: "matter";
     declarative: "declarative";
     code: "code";
+    matter: "matter";
     mqtt: "mqtt";
     modbus: "modbus";
     infrared: "infrared";

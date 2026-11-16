@@ -3,6 +3,19 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.11.0
+
+- **A time the device keeps:** the `time` domain, an entity being one of three capabilities -
+  `time_of_day` (`HH:MM` or `HH:MM:SS`, 24 hours, the house's clock: a wake-up time, the start of a
+  charging window), `date` (`YYYY-MM-DD`) or `datetime` (ISO 8601 with its offset). Each reports
+  `{ value }`, null until the device says, and takes `set_value` with a value in the same form. Its
+  params say whether the house may set it (`canSet`, false by default: read only), the steps in
+  seconds (`step`, 60 by default; not for a `date`) and the earliest and latest it takes (`min`,
+  `max`); `core` refuses a value outside them, off a step, or sent to one that cannot be set. A
+  profile maps it as any other field - `"state": { "time_of_day": { "value": "values.start" } }`,
+  `"commands": { "time_of_day.set_value": … }` - and the value must arrive in its form already.
+  A moment measured rather than kept stays a sensor with the `timestamp` class.
+
 ## 1.10.2
 
 - `history` reaches 7 days back at most, no longer 28: bringing the hub's summaries up to date over

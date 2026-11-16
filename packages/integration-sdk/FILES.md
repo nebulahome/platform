@@ -333,6 +333,18 @@ on anything its device says, so it is available exactly when the device is, and 
 `"deviceClass": "restart"` the interface asks before pressing, since the device goes away for a
 while.
 
+An entity of the **`time`** domain is a time the device keeps, one of three capabilities:
+`time_of_day` (`"07:30"` or `"07:30:15"`, 24 hours, on the house's clock), `date`
+(`"2026-11-24"`) or `datetime` (`"2026-11-24T07:30:00+01:00"`, with its offset). Each has one
+state field, `value`, which must arrive in that form - a profile maps it, it does not convert it,
+so a device that counts minutes from midnight is read by a code driver. Its params say whether the
+house may change it, `"canSet": true` (read only without it), and for a time of day and a moment
+the steps in seconds, `"step": 900` for quarters of an hour (60 without it), and the earliest and
+latest it takes, `"min"` and `"max"` in the same form. One that can be set gives the request of
+`time_of_day.set_value` (or `date.`, `datetime.`), whose `command.value` is the new value; the
+platform has already refused one outside the limits or off a step. A moment the device measured -
+the last time it ran - is a sensor with the `timestamp` class, not this.
+
 An entity may carry **`link`**, for a vendor whose devices the house may also reach through the
 Matter broker (`twins`, above): `"link": { "key": "switch:0", "matter": { "endpoint": 1,
 "cluster": 6, "attribute": 0 } }`. `key` is the entity's name in the transport's terms, shown on
