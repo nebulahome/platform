@@ -532,7 +532,7 @@ describe('DiscoveryService', () => {
     expect(service.list()[0]?.firstSeenAt).toBe(first?.firstSeenAt);
   });
 
-  it('hides a device already added, whether by its id or its address', async () => {
+  it('hides a device already added, by its id or by an address not identified yet', async () => {
     const built = await start();
 
     built.taken = {
@@ -577,6 +577,26 @@ describe('DiscoveryService', () => {
 
     expect(built.service.list()).toHaveLength(1);
     expect(built.published.at(-1)).toBe(1);
+  });
+
+  it('proposes another device at the address of one already added and identified', async () => {
+    // An inverter and its EPS output answer at one Modbus server: adding one leaves the other.
+    const built = await start();
+
+    built.mdns.announce(heard('192.168.1.40'));
+    await until(() => built.service.list().length === 1);
+    built.taken = {
+      externalIds: new Set(['acme\ninverter']),
+      hosts: new Set(['acme\n192.168.1.40']),
+      locations: new Map([['acme\ninverter', { instanceId: 'solar', host: '192.168.1.40' }]]),
+      matter: new Map(),
+      mqtt: new Map(),
+      modbus: new Map(),
+      bluetooth: new Map(),
+    };
+    await built.service.refresh();
+
+    expect(built.service.list()).toMatchObject([{ externalId: 'r1', address: '192.168.1.40' }]);
   });
 
   it('shows a removed device again at once, probing its address again and asking mDNS', async () => {

@@ -12,8 +12,10 @@
  *
  * **Nothing is swept.** The hub listens, asks mDNS the question mDNS exists to answer, and probes
  * only an address a device announced - and a given address at most once in a while, however often
- * it announces itself, with a few probes in flight at a time. A device already added, by its id or
- * by its address, is not proposed again; one not heard from for a while is forgotten.
+ * it announces itself, with a few probes in flight at a time. A device already added is not
+ * proposed again: known by its id, or by its address when it has no id or the instance there has
+ * not been identified yet - another device at an identified address still is. One not heard from
+ * for a while is forgotten.
  */
 import { createHash } from 'node:crypto';
 
@@ -1671,6 +1673,13 @@ export class DiscoveryService {
   #visible(): Candidate[] {
     const { externalIds, hosts, locations } = this.#taken;
 
+    // The addresses an identified instance reaches, by `<vendor>\n<host>`.
+    const identifiedHosts = new Set(
+      [...locations].map(
+        ([key, location]) => `${key.slice(0, key.indexOf('\n'))}\n${location.host}`,
+      ),
+    );
+
     return [...this.#candidates.values()]
       .flatMap((candidate): Candidate[] => {
         const { device } = candidate;
@@ -1687,16 +1696,21 @@ export class DiscoveryService {
         }
 
         const host = reachedAt(device.transportConfig);
-        const key = `${device.vendorId}\n${device.externalId ?? ''}`;
-        const byId = device.externalId !== null && externalIds.has(key);
-        const byHost = host !== undefined && hosts.has(`${device.vendorId}\n${host}`);
+        const hostKey = `${device.vendorId}\n${host ?? ''}`;
+        const isHostTaken = host !== undefined && hosts.has(hostKey);
 
-        if (byHost) {
-          return [];
+        if (device.externalId === null) {
+          // Nothing tells it apart from what was added at its address: taken to be that.
+          return isHostTaken ? [] : [candidate];
         }
 
-        if (!byId) {
-          return [candidate];
+        const key = `${device.vendorId}\n${device.externalId}`;
+
+        // Not added by its id. One address may hold several devices - an inverter and its EPS
+        // output behind one Modbus server - so the address hides it only while the instance there
+        // has not said which device it reaches: still starting, or failed to.
+        if (!externalIds.has(key)) {
+          return isHostTaken && !identifiedHosts.has(hostKey) ? [] : [candidate];
         }
 
         // Added, and heard at an address its instance does not reach: the lease changed. Shown
