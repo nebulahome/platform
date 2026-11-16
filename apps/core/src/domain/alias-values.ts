@@ -403,6 +403,11 @@ export function applyCapabilityCommand(
     case 'number':
       set({ value: number('value') });
       break;
+    case 'time_of_day':
+    case 'date':
+    case 'datetime':
+      set({ value: command['value'] });
+      break;
     case 'fan':
       set(
         name === 'set_percentage'

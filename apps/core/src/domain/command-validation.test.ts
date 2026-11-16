@@ -234,6 +234,51 @@ describe('validateCommand', () => {
     );
   });
 
+  it('sets a time only when the device says it can, within its limits and on its steps', () => {
+    const start = record({
+      time_of_day: { canSet: true, step: 900, min: '06:00', max: '22:00' },
+    });
+
+    expect(
+      validateCommand(start, 'time_of_day', { command: 'set_value', value: '07:30' }),
+    ).toStrictEqual({ command: 'set_value', value: '07:30' });
+    expect(() =>
+      validateCommand(start, 'time_of_day', { command: 'set_value', value: '23:00' }),
+    ).toThrow(/between 06:00 and 22:00/);
+    expect(() =>
+      validateCommand(start, 'time_of_day', { command: 'set_value', value: '07:40' }),
+    ).toThrow(/step of 900 seconds/);
+    expect(() =>
+      validateCommand(record({ time_of_day: {} }), 'time_of_day', {
+        command: 'set_value',
+        value: '07:30',
+      }),
+    ).toThrow(/read, not set/);
+  });
+
+  it('sets a day and a moment within their limits, whatever the offset says', () => {
+    const away = record({ date: { canSet: true, min: '2026-11-01' } });
+    const boost = record({
+      datetime: { canSet: true, max: '2026-11-24T08:00:00+01:00' },
+    });
+
+    expect(() =>
+      validateCommand(away, 'date', { command: 'set_value', value: '2026-11-24' }),
+    ).not.toThrow();
+    expect(() =>
+      validateCommand(away, 'date', { command: 'set_value', value: '2026-10-31' }),
+    ).toThrow(/between 2026-11-01 and any/);
+    expect(() =>
+      validateCommand(boost, 'datetime', { command: 'set_value', value: '2026-11-24T07:00:00Z' }),
+    ).not.toThrow();
+    expect(() =>
+      validateCommand(boost, 'datetime', { command: 'set_value', value: '2026-11-24T07:01:00Z' }),
+    ).toThrow(/between any and/);
+    expect(() =>
+      validateCommand(boost, 'datetime', { command: 'set_value', value: '2026-11-24T06:00:30Z' }),
+    ).toThrow(/step of 60 seconds/);
+  });
+
   it('refuses to pause a mower that cannot be paused', () => {
     const mower = record({ lawn_mower: { canPause: false } });
 

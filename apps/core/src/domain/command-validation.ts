@@ -12,6 +12,7 @@ import {
   CAPABILITY_DEFINITIONS,
   commandSchemaFor,
   jsonObjectSchema,
+  secondsOfDay,
   ValidationError,
   type CapabilityName,
   type JsonObject,
@@ -335,6 +336,40 @@ function checkAgainstParams(
 
     if (Math.abs(steps - Math.round(steps)) > 1e-9) {
       reject(`value must be ${String(min)} plus a whole number of steps of ${String(step)}`);
+    }
+  }
+
+  if (capability === 'time_of_day' || capability === 'date' || capability === 'datetime') {
+    const { canSet, step, min, max } = params as {
+      canSet: boolean;
+      step?: number;
+      min?: string;
+      max?: string;
+    };
+    // The command's schema has made it a string in the capability's form.
+    const value = command['value'] as string;
+    /**
+     * Where a value falls: a time of day in seconds from midnight, a day and a moment in seconds
+     * of the epoch.
+     *
+     * @param text - The value.
+     * @returns The seconds.
+     */
+    const at = (text: string): number =>
+      capability === 'time_of_day' ? secondsOfDay(text) : Date.parse(text) / 1000;
+
+    if (!canSet) {
+      reject('it can be read, not set');
+    }
+
+    if ((min !== undefined && at(value) < at(min)) || (max !== undefined && at(value) > at(max))) {
+      reject(`value must be between ${min ?? 'any'} and ${max ?? 'any'}`);
+    }
+
+    // shortcut: a moment's steps count from the epoch, which is the house's clock for steps of up
+    // to a quarter of an hour; count from the house's midnight if a device ever steps by hours.
+    if (step !== undefined && at(value) % step !== 0) {
+      reject(`value must fall on a step of ${String(step)} seconds`);
     }
   }
 
