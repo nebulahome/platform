@@ -53,6 +53,9 @@ export const STATE_TOKEN_CAPABILITIES = [
   'location',
   'select',
   'sensor_text',
+  'time_of_day',
+  'date',
+  'datetime',
   'number',
   'sensor_numeric',
   'level',
@@ -145,6 +148,12 @@ export function stateTokenOf(
 
   if (state.sensor_text !== undefined) {
     return state.sensor_text.value;
+  }
+
+  const kept = state.time_of_day ?? state.date ?? state.datetime;
+
+  if (kept !== undefined) {
+    return kept.value ?? undefined;
   }
 
   if (state.number !== undefined) {
@@ -247,6 +256,9 @@ export function stateTokenChoices(
       }
       case 'location':
       case 'sensor_text':
+      case 'time_of_day':
+      case 'date':
+      case 'datetime':
       case 'number':
       case 'sensor_numeric':
       case 'level':

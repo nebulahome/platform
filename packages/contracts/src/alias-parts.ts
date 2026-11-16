@@ -731,6 +731,11 @@ function ownParams(
         mode: value?.numberMode ?? 'auto',
       };
     }
+    case 'time_of_day':
+    case 'date':
+    case 'datetime':
+      // Set like a number is: kept when Stored, sent on when the part reads an entity.
+      return { canSet: true };
     case 'fan':
       return {
         speedCount: get(parts, 'speed')?.speeds ?? 0,

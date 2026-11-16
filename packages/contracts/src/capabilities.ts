@@ -21,6 +21,7 @@
  */
 import { z } from 'zod';
 
+import { clockTimeSchema } from './automation-meta.js';
 import { PACKAGE_ID_PATTERN } from './package-id.js';
 
 /** Every capability an entity may declare. */
@@ -43,6 +44,9 @@ export const CAPABILITIES = [
   'lawn_mower',
   'select',
   'number',
+  'time_of_day',
+  'date',
+  'datetime',
   'vacuum',
   'fan',
   'location',
@@ -818,6 +822,111 @@ export const numberCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('set_value'), value: z.number() }),
 ]);
 
+// --- time_of_day, date, datetime ---------------------------------------------------------
+
+/*
+ * A time a device keeps: a time of day (a wake-up time, the start of a charging window), a day
+ * on the calendar (the day a holiday ends) or a moment (when a boost stops). The three are one
+ * domain, `time`, each entity being one of them. One the house may change says `canSet`; one it
+ * may only read - the next collection - does not, and nothing can be sent to it. A moment that
+ * happened, measured rather than kept, stays a sensor with the `timestamp` class.
+ */
+
+/** A day on the calendar, `YYYY-MM-DD`, with no time and no zone. */
+export const calendarDaySchema = z.iso.date();
+
+/** A moment: ISO 8601 date and time with its offset, `2026-11-24T07:30:00+01:00`. */
+export const momentSchema = z.iso.datetime({ offset: true });
+
+/**
+ * Seconds since midnight of a time of day.
+ *
+ * @param clock - `HH:MM` or `HH:MM:SS`, as {@link clockTimeSchema} takes it.
+ * @returns The seconds.
+ */
+export function secondsOfDay(clock: string): number {
+  const [hours = 0, minutes = 0, seconds = 0] = clock.split(':').map(Number);
+
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+/**
+ * Whether a pair of limits is in order, either side left out passing.
+ *
+ * @param min - The first.
+ * @param max - The last.
+ * @param at - Where a limit falls, as a number to compare.
+ * @returns True when `min` comes before `max`.
+ */
+function isOrdered<T>(min: T | undefined, max: T | undefined, at: (value: T) => number): boolean {
+  return min === undefined || max === undefined || at(min) < at(max);
+}
+
+/** A time of day the device keeps, on a 24-hour clock in the house's time zone. */
+export const timeOfDayStateSchema = z.object({ value: clockTimeSchema.nullable().default(null) });
+
+/**
+ * Whether the house may set it, in what steps - 900 seconds is a quarter of an hour, under 60
+ * shows seconds - and the earliest and latest it takes, within one day.
+ */
+export const timeOfDayParamsSchema = z
+  .object({
+    canSet: z.boolean().default(false),
+    step: z.number().int().positive().max(86_400).default(60),
+    min: clockTimeSchema.optional(),
+    max: clockTimeSchema.optional(),
+  })
+  .refine((params) => isOrdered(params.min, params.max, secondsOfDay), {
+    message: 'min must be before max',
+    path: ['max'],
+  });
+
+/** Setting the time of day. */
+export const timeOfDayCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('set_value'), value: clockTimeSchema }),
+]);
+
+/** A day the device keeps. */
+export const dateStateSchema = z.object({ value: calendarDaySchema.nullable().default(null) });
+
+/** Whether the house may set it, and the first and last day it takes. */
+export const dateParamsSchema = z
+  .object({
+    canSet: z.boolean().default(false),
+    min: calendarDaySchema.optional(),
+    max: calendarDaySchema.optional(),
+  })
+  .refine((params) => isOrdered(params.min, params.max, Date.parse), {
+    message: 'min must be before max',
+    path: ['max'],
+  });
+
+/** Setting the day. */
+export const dateCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('set_value'), value: calendarDaySchema }),
+]);
+
+/** A moment the device keeps, with its offset; it is shown in the house's time zone. */
+export const datetimeStateSchema = z.object({ value: momentSchema.nullable().default(null) });
+
+/** Whether the house may set it, in what steps of seconds, and the first and last moment. */
+export const datetimeParamsSchema = z
+  .object({
+    canSet: z.boolean().default(false),
+    step: z.number().int().positive().max(86_400).default(60),
+    min: momentSchema.optional(),
+    max: momentSchema.optional(),
+  })
+  .refine((params) => isOrdered(params.min, params.max, Date.parse), {
+    message: 'min must be before max',
+    path: ['max'],
+  });
+
+/** Setting the moment. */
+export const datetimeCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('set_value'), value: momentSchema }),
+]);
+
 // --- fan ---------------------------------------------------------------------------------
 
 /** Which way a fan's blades turn. */
@@ -959,6 +1068,17 @@ export const CAPABILITY_DEFINITIONS = {
   },
   select: { state: selectStateSchema, params: selectParamsSchema, commands: selectCommandSchema },
   number: { state: numberStateSchema, params: numberParamsSchema, commands: numberCommandSchema },
+  time_of_day: {
+    state: timeOfDayStateSchema,
+    params: timeOfDayParamsSchema,
+    commands: timeOfDayCommandSchema,
+  },
+  date: { state: dateStateSchema, params: dateParamsSchema, commands: dateCommandSchema },
+  datetime: {
+    state: datetimeStateSchema,
+    params: datetimeParamsSchema,
+    commands: datetimeCommandSchema,
+  },
   vacuum: { state: vacuumStateSchema, params: vacuumParamsSchema, commands: vacuumCommandSchema },
   fan: { state: fanStateSchema, params: fanParamsSchema, commands: fanCommandSchema },
   location: { state: locationStateSchema, params: locationParamsSchema, commands: NO_COMMANDS },
@@ -992,6 +1112,9 @@ export const capabilityStateSchema = z.object({
   lawn_mower: lawnMowerStateSchema.optional(),
   select: selectStateSchema.optional(),
   number: numberStateSchema.optional(),
+  time_of_day: timeOfDayStateSchema.optional(),
+  date: dateStateSchema.optional(),
+  datetime: datetimeStateSchema.optional(),
   vacuum: vacuumStateSchema.optional(),
   fan: fanStateSchema.optional(),
   location: locationStateSchema.optional(),
