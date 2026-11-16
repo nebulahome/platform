@@ -34,6 +34,7 @@ import {
   Braces,
   Cable,
   Calendar,
+  CalendarClock,
   Camera,
   ChartLine,
   Check,
@@ -330,6 +331,7 @@ export const BUILTIN_UI_NODES = {
   'arrow-right': drawing(ArrowRight),
   'arrow-up-down': drawing(ArrowUpDown),
   calendar: drawing(Calendar),
+  'calendar-clock': drawing(CalendarClock),
   radio: drawing(Radio),
   users: drawing(Users),
 
