@@ -61,6 +61,7 @@ describe('the migration set', () => {
       '0011_alias_action_runs.sql',
       '0012_telemetry_import.sql',
       '0013_telemetry_import_refresh.sql',
+      '0014_entity_time_capabilities.sql',
     ]);
   });
 
