@@ -60,6 +60,7 @@ describe('the migration set', () => {
       '0010_aliases_grants.sql',
       '0011_alias_action_runs.sql',
       '0012_telemetry_import.sql',
+      '0013_telemetry_import_refresh.sql',
     ]);
   });
 
@@ -95,6 +96,14 @@ describe('the brokers migrations', () => {
       'GRANT SELECT, INSERT ON history.telemetry_refreshes TO nebula_core;',
     );
     expect(imported).toContain("SELECT add_job('history.refresh_imported_telemetry'");
+  });
+
+  it('summarises only the queued rows it read, and only where no policy looks', () => {
+    const refresh =
+      files.find(({ name }) => name === '0013_telemetry_import_refresh.sql')?.sql ?? '';
+
+    expect(refresh).toContain('DELETE FROM history.telemetry_refreshes WHERE id = ANY (taken);');
+    expect(refresh.match(/config ->> 'start_offset'/g)).toHaveLength(3);
   });
 
   it('grants core and api the table of alias action runs', () => {

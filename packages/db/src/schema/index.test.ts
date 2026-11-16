@@ -24,7 +24,12 @@ const migrationsDirectory = path.join(
   'migrations',
 );
 
-const sql = (await readMigrations(migrationsDirectory)).map((file) => file.sql).join('\n');
+// Whole-line comments left out: a `Rollback:` header naming `ALTER TABLE x DROP COLUMN y` is not
+// a statement.
+const sql = (await readMigrations(migrationsDirectory))
+  .map((file) => file.sql)
+  .join('\n')
+  .replace(/^\s*--.*$/gm, '');
 
 /** A word that opens a table-level clause rather than a column definition. */
 const CLAUSE_KEYWORDS = new Set(['constraint', 'unique', 'primary', 'check', 'foreign', 'exclude']);

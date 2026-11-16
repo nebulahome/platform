@@ -79,10 +79,12 @@ export const telemetry = historySchema.table(
 );
 
 /**
- * The stretches of past readings `core` imported (0012), waiting for the job that brings the
+ * The stretches of past readings `core` imported (0012, 0013), waiting for the job that brings the
  * 1m/1h/1d summaries up to date over them; the job deletes what it summarised.
  */
 export const telemetryRefreshes = historySchema.table('telemetry_refreshes', {
+  /** What the job deletes the row by, once it summarised it (0013). */
+  id: uuid('id').notNull().defaultRandom(),
   fromTime: timestamp('from_time', { withTimezone: true }).notNull(),
   toTime: timestamp('to_time', { withTimezone: true }).notNull(),
   requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
