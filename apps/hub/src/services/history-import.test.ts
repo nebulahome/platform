@@ -50,7 +50,7 @@ function minutes(count: number): PastReadings['readings'] {
  * @param days - How far back the driver says it can tell.
  * @returns The driver's `history`, on an integration that is otherwise never called.
  */
-function driver(readings: PastReadings[], days = 7): Integration {
+function driver(readings: PastReadings[], days = 3): Integration {
   const integration: Partial<Integration> = {
     history: {
       days,
@@ -137,7 +137,7 @@ describe("a device's past", () => {
       {
         deviceKey: 'gme-nat',
         op: 'history',
-        args: { from: '2026-11-09T12:00:00.000Z', to: '2026-11-16T12:00:00.000Z' },
+        args: { from: '2026-11-13T12:00:00.000Z', to: '2026-11-16T12:00:00.000Z' },
       },
     ]);
     expect(asked.map((each) => each.payload.readings.length)).toEqual([5000, 5000, 2000]);
@@ -147,11 +147,11 @@ describe("a device's past", () => {
     expect(asked[0]?.options?.timeoutMs).toBe(60_000);
   });
 
-  it('never reaches further back than the hub keeps raw readings', async () => {
-    const { value, sent } = job(driver([{ entityId: price, readings: minutes(1) }], 365));
+  it('never reaches further back than a week', async () => {
+    const { value, sent } = job(driver([{ entityId: price, readings: minutes(1) }], 28));
 
     await importHistory(value);
-    expect(sent[0]?.args['from']).toBe('2026-10-19T12:00:00.000Z');
+    expect(sent[0]?.args['from']).toBe('2026-11-09T12:00:00.000Z');
   });
 
   it('is imported only for the entities core has just created', async () => {

@@ -39,11 +39,13 @@ export type TelemetryReading = z.output<typeof telemetryReadingSchema>;
 export const CORE_HISTORY_IMPORT_METHOD = 'history_import';
 
 /**
- * How far back a past reading may be: the raw readings are kept 30 days, and a summary is only
- * brought up to date where the raw readings of every entity are still there. `core` keeps less
- * when the raw readings are kept for less.
+ * How far back a past reading may be. Bringing the summaries up to date over the stretch an
+ * import covers recomputes them for the whole house, not the device alone - about 16 s a week of
+ * sixty sensors on a desktop, four times that for four weeks, and minutes on small hardware - so
+ * a week: the stretch the raw readings are still uncompressed (compression after 7 days). `core`
+ * keeps less when the raw readings are kept for less.
  */
-export const HISTORY_IMPORT_MAX_DAYS = 28;
+export const HISTORY_IMPORT_MAX_DAYS = 7;
 
 /** The most readings one request may carry. */
 export const HISTORY_IMPORT_MAX_READINGS = 5000;

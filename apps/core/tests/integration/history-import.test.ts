@@ -309,7 +309,7 @@ describe("a device's past readings", () => {
       })),
       // After the entity was registered: among the live readings, left out.
       { observedAt: new Date(now + HOUR_MS).toISOString(), value: 9 },
-      // Older than the 28 days kept, left out.
+      // Older than the 7 days kept, left out.
       { observedAt: new Date(now - 40 * 24 * HOUR_MS).toISOString(), value: 9 },
     ]);
 
