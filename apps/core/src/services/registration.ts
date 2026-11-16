@@ -190,6 +190,8 @@ async function write(
           stateClass: entity.stateClass ?? null,
           displayPrecision: entity.displayPrecision ?? null,
           config: entity.link === undefined ? {} : { link: entity.link },
+          // A new row only: the update below never touches it, so the owner's choice stays.
+          isEnabled: entity.isEnabledByDefault ?? true,
         })),
       )
       .onConflictDoUpdate({

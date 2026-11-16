@@ -396,6 +396,49 @@ describe('completing a device the API created', () => {
 
     expect(directory.get(press)).toBeUndefined();
   });
+
+  it("creates an entity few houses want disabled, and keeps the owner's choice after", async () => {
+    const firmware = parseEntityId(`sensor.reg_${suffix}_firmware`);
+    const entities = [
+      ...(request()['entities'] as unknown[]),
+      {
+        entityId: firmware,
+        name: 'Firmware',
+        capabilities: { sensor_text: {} },
+        isEnabledByDefault: false,
+      },
+    ];
+    /**
+     * Reads whether the entity is enabled, from its row.
+     *
+     * @returns The row's flag.
+     */
+    const isEnabled = async (): Promise<boolean | undefined> =>
+      (
+        await database.db
+          .select({ isEnabled: schema.registry.entities.isEnabled })
+          .from(schema.registry.entities)
+          .where(eq(schema.registry.entities.entityId, firmware))
+      )[0]?.isEnabled;
+
+    try {
+      await register({ entities });
+
+      expect(await isEnabled()).toBe(false);
+      expect(directory.get(firmware)?.isEnabled).toBe(false);
+
+      // The owner turns it on; the next time the device is heard, it stays on.
+      await database.db
+        .update(schema.registry.entities)
+        .set({ isEnabled: true })
+        .where(eq(schema.registry.entities.entityId, firmware));
+      await register({ entities });
+
+      expect(await isEnabled()).toBe(true);
+    } finally {
+      await register({ replacesEntities: true });
+    }
+  });
 });
 
 /**

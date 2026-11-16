@@ -608,6 +608,9 @@ export function createDeclarativeIntegration(
             ? {}
             : { displayPrecision: entity.displayPrecision }),
           ...(entity.link === undefined ? {} : { link: entity.link }),
+          ...(entity.isEnabledByDefault === undefined
+            ? {}
+            : { isEnabledByDefault: entity.isEnabledByDefault }),
         };
       });
 

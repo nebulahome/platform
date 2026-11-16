@@ -71,6 +71,12 @@ export type EntityDescriptor = {
 
   /** What links it to the same reading reached another way. */
   readonly link?: EntityLinkHint;
+
+  /**
+   * False for an entity few houses want - a diagnostic, a raw register: it is created disabled,
+   * until the owner enables it. The owner's choice outlives every later description.
+   */
+  readonly isEnabledByDefault?: boolean;
 };
 
 /** What a claimed device turns out to be. */

@@ -21,9 +21,10 @@ const OTHER = parseEntityId('switch.relay_two');
  * actually takes instead of a stand-in that agrees with them by construction.
  *
  * @param icon - The catalogue icon the entity starts with, when a test wants one.
+ * @param isEnabledByDefault - False for an entity created disabled, when a test wants one.
  * @returns The integration.
  */
-function relay(icon?: string): Integration {
+function relay(icon?: string, isEnabledByDefault?: boolean): Integration {
   return createDeclarativeIntegration(
     bundleManifestSchema.parse({
       id: 'generic/rest-relay',
@@ -45,6 +46,7 @@ function relay(icon?: string): Integration {
         {
           domain: 'switch',
           ...(icon === undefined ? {} : { icon }),
+          ...(isEnabledByDefault === undefined ? {} : { isEnabledByDefault }),
           capabilities: { on_off: {} },
           state: { on_off: { isOn: 'relay.on' } },
           commands: { 'on_off.turn_on': { op: 'get', args: { path: '/relay/on' } } },
@@ -102,6 +104,21 @@ describe('describeDevice', () => {
 
     expect(iconed.registrations[0]?.icon).toBe('relay');
     expect(bare.registrations[0] !== undefined && 'icon' in bare.registrations[0]).toBe(false);
+  });
+
+  it('registers an entity disabled at first when its profile says few houses want it', () => {
+    const hidden = describeDevice(
+      'relay_one',
+      relay(undefined, false),
+      claim('192.168.1.40', 'relay-one'),
+      {},
+    );
+    const shown = describeDevice('relay_one', relay(), claim('192.168.1.40', 'relay-one'), {});
+
+    expect(hidden.registrations[0]?.isEnabledByDefault).toBe(false);
+    expect(
+      shown.registrations[0] !== undefined && 'isEnabledByDefault' in shown.registrations[0],
+    ).toBe(false);
   });
 });
 

@@ -166,6 +166,13 @@ export const entityRegistrationSchema = z
 
     /** Kept in the entity's `config.link`: what links it to its twin on another transport. */
     link: entityLinkHintSchema.optional(),
+
+    /**
+     * False for an entity few houses want - a diagnostic, a raw register: it is created disabled,
+     * left out of pickers and of history until the owner enables it. Read when the entity is first
+     * created only; the owner's choice outlives every later registration.
+     */
+    isEnabledByDefault: z.boolean().optional(),
   })
   .superRefine((entity, ctx) => {
     const issue = sensorRegistrationIssue(entity);

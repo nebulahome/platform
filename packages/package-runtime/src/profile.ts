@@ -345,6 +345,12 @@ export const entityProfileSchema = z
     link: entityLinkHintSchema.optional(),
 
     /**
+     * False for an entity few houses want - a diagnostic, a raw register: it is created disabled,
+     * left out of pickers and of history until the owner enables it.
+     */
+    isEnabledByDefault: z.boolean().optional(),
+
+    /**
      * For a camera: the stream source that reads its picture, `<vendor>/<name>`, and what it is
      * told to read. The source is handed the instance's transport settings as well.
      */
