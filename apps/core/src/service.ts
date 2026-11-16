@@ -57,6 +57,7 @@ import { createCommandDispatcher } from './services/command-dispatch.js';
 import { startCommandRouter } from './services/command-router.js';
 import { startContainersService } from './services/containers.js';
 import { startEntityService } from './services/entity-service.js';
+import { startHistoryImportService } from './services/history-import.js';
 import { startHistoryService } from './services/history-service.js';
 import { startHouseService } from './services/house-service.js';
 import { LinkEngine } from './services/link-engine.js';
@@ -481,6 +482,7 @@ export class CoreService {
         },
       }),
       ...startLinkService({ client, db, directory: this.#directory, engine: linkEngine, logger }),
+      startHistoryImportService({ client, db, directory: this.#directory, logger }),
       startContainersService({
         client,
         db,
