@@ -59,6 +59,7 @@ describe('the migration set', () => {
       '0009_aliases_parts.sql',
       '0010_aliases_grants.sql',
       '0011_alias_action_runs.sql',
+      '0012_telemetry_import.sql',
     ]);
   });
 
@@ -79,8 +80,22 @@ describe('the migration set', () => {
 describe('the brokers migrations', () => {
   // Each later migration adds a broker's tables, written by `hub` alone; 0009 rebuilds the
   // aliases, which `core` and `api` write, granted by 0010; 0011 keeps the runs of their actions.
-  const ALIAS_MIGRATIONS = ['0009_aliases_parts.sql', '0011_alias_action_runs.sql'];
-  const later = files.slice(1).filter(({ name }) => !ALIAS_MIGRATIONS.includes(name));
+  // Tables `core` writes, not `hub`: each migration grants them itself, checked below.
+  const CORE_MIGRATIONS = [
+    '0009_aliases_parts.sql',
+    '0011_alias_action_runs.sql',
+    '0012_telemetry_import.sql',
+  ];
+  const later = files.slice(1).filter(({ name }) => !CORE_MIGRATIONS.includes(name));
+
+  it('lets core queue imported readings, and leaves the summaries to a job', () => {
+    const imported = files.find(({ name }) => name === '0012_telemetry_import.sql')?.sql ?? '';
+
+    expect(imported).toContain(
+      'GRANT SELECT, INSERT ON history.telemetry_refreshes TO nebula_core;',
+    );
+    expect(imported).toContain("SELECT add_job('history.refresh_imported_telemetry'");
+  });
 
   it('grants core and api the table of alias action runs', () => {
     const runs = files.find(({ name }) => name === '0011_alias_action_runs.sql')?.sql ?? '';

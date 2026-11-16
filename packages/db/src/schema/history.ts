@@ -79,6 +79,16 @@ export const telemetry = historySchema.table(
 );
 
 /**
+ * The stretches of past readings `core` imported (0012), waiting for the job that brings the
+ * 1m/1h/1d summaries up to date over them; the job deletes what it summarised.
+ */
+export const telemetryRefreshes = historySchema.table('telemetry_refreshes', {
+  fromTime: timestamp('from_time', { withTimezone: true }).notNull(),
+  toTime: timestamp('to_time', { withTimezone: true }).notNull(),
+  requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * The execution trace behind the automation timeline.
  *
  * `conditionNotMet` is a distinct result from `failed` on purpose: an automation whose
