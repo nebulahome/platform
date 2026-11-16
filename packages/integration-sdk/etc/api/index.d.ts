@@ -339,9 +339,17 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
-  custom: "custom";
+  on_off: "on_off";
+  level: "level";
+  color_hs: "color_hs";
+  color_temp: "color_temp";
+  effect: "effect";
   cover: "cover";
   lock: "lock";
+  thermostat: "thermostat";
+  sensor_numeric: "sensor_numeric";
+  sensor_binary: "sensor_binary";
+  sensor_text: "sensor_text";
   media_player: "media_player";
   camera: "camera";
   button: "button";
@@ -350,17 +358,9 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   select: "select";
   vacuum: "vacuum";
   fan: "fan";
-  image: "image";
-  level: "level";
-  on_off: "on_off";
-  color_hs: "color_hs";
-  color_temp: "color_temp";
-  effect: "effect";
-  thermostat: "thermostat";
-  sensor_numeric: "sensor_numeric";
-  sensor_binary: "sensor_binary";
-  sensor_text: "sensor_text";
   location: "location";
+  image: "image";
+  custom: "custom";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -1458,9 +1458,10 @@ type Integration<TOptions = JsonObject> = {
   streamOf?: (entityId: EntityId, context: MappingContext) => StreamRequest | undefined;
   /**
    * What a device can tell of its past numeric readings - prices already published, a meter's
-   * stored records - and how they are asked for. The hub asks once, right after the device is
-   * first added: one request for the last `days`, sent through the transport like a command, and
-   * what comes back goes into the entities' history, never into their state.
+   * stored records - and how they are asked for. The hub asks once, right after the device's
+   * entities are first registered - the device added by hand or adopted from those found: one
+   * request for the last `days`, sent through the transport like a command, and what comes back
+   * goes into those entities' history, never into their state.
    *
    * Optional: without it a device's history starts when it is added.
    */
@@ -1470,21 +1471,23 @@ type Integration<TOptions = JsonObject> = {
 type HistoryImport = {
   /**
    * How far back to ask, in days: at most 28, the time the hub keeps raw readings for, less a
-   * margin.
+   * margin. More is asked as 28.
    */
   readonly days: number;
   /**
    * The request asking for the past.
    *
-   * @param range - From when and until when, ISO 8601: until is the moment the device was added.
+   * @param range - From when and until when, ISO 8601: until is when the hub asks, moments after
+   * the entities were registered.
    * @param context - The claim, the settings and the entities' ids.
    * @returns The request, which the transport performs like a command's.
    */
   request: (range: HistoryRange, context: MappingContext) => TransportRequest;
   /**
-   * Reads the past readings an answer holds, entity by entity. Only numeric sensors keep them:
-   * readings for any other entity, at or after the moment the device was added, or older than
-   * `days`, are left out.
+   * Reads the past readings an answer holds, entity by entity. Left out: readings of an entity
+   * that is not a numeric sensor, is linked to another or was registered before; a reading whose
+   * time is not ISO 8601 with its zone or whose value is not a finite number; one at or after its
+   * entity was registered, or older than 28 days (less when the hub keeps raw readings for less).
    *
    * @param answer - What the transport answered.
    * @param context - The claim, the settings and the entities' ids.

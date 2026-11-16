@@ -1126,17 +1126,20 @@ history: {
 },
 ```
 
-Right after the device is added for the first time, the hub sends `request` once through the
-transport, as it sends a command - so the transport's `send` answers the op - with `range.to` the
-moment the device was added and `range.from` `days` before it. What `toReadings` reads from the
-answer goes into the entities' history, never into their state: the current value, the state
-history and the automations see nothing of it. The charts show it a minute later, once the hub's
-summaries are brought up to date.
+Right after the device's entities are registered for the first time - the device added by hand
+or adopted from those found - the hub sends `request` once through the transport, as it sends a
+command - so the transport's `send` answers the op - with `range.to` the moment it asks and
+`range.from` `days` before it. What `toReadings` reads from the answer goes into those entities'
+history, never into their state: the current value, the state history and the automations see
+nothing of it. The charts show it as the hub's summaries catch up: by minute within minutes, by
+hour within the hour, by day - the longest spans - within a day.
 
 - At most 28 days: the hub keeps raw readings 30 days, and summarises only what it still keeps.
-- Only numeric sensors (`sensor_numeric`) keep past readings; readings for another entity, at or
-  after the moment the device was added, or older than `days`, are left out.
+- Left out: readings of an entity that is not a numeric sensor (`sensor_numeric`), is linked to
+  another or was registered before; a reading whose `at` is not ISO 8601 with its zone or whose
+  value is not a finite number; one at or after its entity was registered, or older than 28 days.
 - It is asked once. A device that was not reachable then, or a hub that stopped meanwhile, does
-  not ask again, and a device set up differently later does not either.
+  not ask again, and a device set up differently later does not either. Stopping the device
+  stops the import.
 
 `driverHarness(...).importHistory(range, answer)` gives the request and the readings, to test both.

@@ -3,6 +3,15 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.10.1
+
+The documentation of `history` says what the hub does.
+
+- The past is asked for once the device's entities are first registered, whether the device was
+  added by hand or adopted from those found, and only for those entities.
+- `range.to` is when the hub asks; readings are kept back to 28 days whatever `days` says, and a
+  reading whose time has no zone, or whose value is not a finite number, is left out alone.
+
 ## 1.10.0
 
 A device's past readings, imported when it is added.
