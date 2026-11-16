@@ -114,9 +114,13 @@ export type {
   DeviceDescriptor,
   DeviceInfo,
   EntityDescriptor,
+  HistoryImport,
+  HistoryRange,
   ImageBlob,
   Integration,
   MappingContext,
+  PastReading,
+  PastReadings,
   ReportedState,
   StreamRequest,
 } from '@nebulahome/package-runtime';

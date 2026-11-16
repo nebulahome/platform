@@ -1105,3 +1105,38 @@ goes in as a `data:` URI. `sdk.images.png` makes one out of cells and a palette,
 **A command may be several messages.** On the `mqtt` transport, `"payloads": [ … ]` in place of
 `"payload"` publishes each in order on the one topic - a device whose one switch is two nodes to
 its firmware, like a Bambu H2's two chamber lights, is switched by one command.
+
+## A device's past
+
+A device that can tell its past numeric readings - prices already published, a meter's stored
+records - hands them over when it is added, so its charts do not start empty. A code driver says
+how, with `history`:
+
+```ts
+history: {
+  days: 28,
+  request: (range, context) => ({
+    deviceKey: context.claim.deviceKey,
+    op: 'history',
+    args: { from: range.from, to: range.to },
+  }),
+  toReadings: (answer, context) => [
+    { entityId: context.entities.get('price_hourly')!, readings: [{ at: '2026-11-02T13:00:00.000Z', value: 0.21 }] },
+  ],
+},
+```
+
+Right after the device is added for the first time, the hub sends `request` once through the
+transport, as it sends a command - so the transport's `send` answers the op - with `range.to` the
+moment the device was added and `range.from` `days` before it. What `toReadings` reads from the
+answer goes into the entities' history, never into their state: the current value, the state
+history and the automations see nothing of it. The charts show it a minute later, once the hub's
+summaries are brought up to date.
+
+- At most 28 days: the hub keeps raw readings 30 days, and summarises only what it still keeps.
+- Only numeric sensors (`sensor_numeric`) keep past readings; readings for another entity, at or
+  after the moment the device was added, or older than `days`, are left out.
+- It is asked once. A device that was not reachable then, or a hub that stopped meanwhile, does
+  not ask again, and a device set up differently later does not either.
+
+`driverHarness(...).importHistory(range, answer)` gives the request and the readings, to test both.

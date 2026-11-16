@@ -1,8 +1,22 @@
 import { z } from "zod";
 //#endregion
+//#region ../contracts/dist/json.d.ts
+/**
+ * A JSON object, the shape most `jsonb` columns actually hold.
+ *
+ * Written as an index signature rather than `Record<string, JsonValue>` because `Record` is a
+ * mapped type, which TypeScript resolves eagerly and therefore cannot use in the recursive
+ * definition below (TS2456). The index signature is deferred, so it can.
+ */
+type JsonObject = {
+  [key: string]: JsonValue;
+};
+/** Any value that survives a JSON round trip unchanged. */
+type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
+//#endregion
 //#region ../contracts/dist/capabilities.d.ts
 /** Every capability an entity may declare. */
-declare const CAPABILITIES: readonly ["on_off", "level", "color_hs", "color_temp", "cover", "lock", "thermostat", "sensor_numeric", "sensor_binary", "sensor_text", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "image", "custom"];
+declare const CAPABILITIES: readonly ["on_off", "level", "color_hs", "color_temp", "effect", "cover", "lock", "thermostat", "sensor_numeric", "sensor_binary", "sensor_text", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "fan", "location", "image", "custom"];
 /** The name of a single capability. */
 type CapabilityName = (typeof CAPABILITIES)[number];
 /**
@@ -22,9 +36,15 @@ declare const capabilityStateSchema: z.ZodObject<{
   color_hs: z.ZodOptional<z.ZodObject<{
     hue: z.ZodNumber;
     saturation: z.ZodNumber;
+    white: z.ZodOptional<z.ZodNumber>;
+    isActive: z.ZodOptional<z.ZodBoolean>;
   }, z.core.$strip>>;
   color_temp: z.ZodOptional<z.ZodObject<{
     mireds: z.ZodInt;
+    isActive: z.ZodOptional<z.ZodBoolean>;
+  }, z.core.$strip>>;
+  effect: z.ZodOptional<z.ZodObject<{
+    effect: z.ZodDefault<z.ZodNullable<z.ZodString>>;
   }, z.core.$strip>>;
   cover: z.ZodOptional<z.ZodObject<{
     position: z.ZodNumber;
@@ -41,10 +61,18 @@ declare const capabilityStateSchema: z.ZodObject<{
       unlocked: "unlocked";
       jammed: "jammed";
     }>;
+    motion: z.ZodOptional<z.ZodEnum<{
+      opening: "opening";
+      locking: "locking";
+      unlocking: "unlocking";
+    }>>;
+    isOpen: z.ZodOptional<z.ZodBoolean>;
   }, z.core.$strip>>;
   thermostat: z.ZodOptional<z.ZodObject<{
-    currentTemperature: z.ZodNumber;
+    currentTemperature: z.ZodOptional<z.ZodNumber>;
     targetTemperature: z.ZodNumber;
+    targetTemperatureLow: z.ZodOptional<z.ZodNumber>;
+    targetTemperatureHigh: z.ZodOptional<z.ZodNumber>;
     mode: z.ZodEnum<{
       off: "off";
       heat: "heat";
@@ -54,14 +82,21 @@ declare const capabilityStateSchema: z.ZodObject<{
       dry: "dry";
     }>;
     action: z.ZodEnum<{
+      fan: "fan";
       off: "off";
       idle: "idle";
       heating: "heating";
       cooling: "cooling";
       drying: "drying";
-      fan: "fan";
+      preheating: "preheating";
+      defrosting: "defrosting";
     }>;
     humidity: z.ZodOptional<z.ZodNumber>;
+    targetHumidity: z.ZodOptional<z.ZodNumber>;
+    preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    fanMode: z.ZodOptional<z.ZodString>;
+    swingMode: z.ZodOptional<z.ZodString>;
+    swingHorizontalMode: z.ZodOptional<z.ZodString>;
   }, z.core.$strip>>;
   sensor_numeric: z.ZodOptional<z.ZodObject<{
     value: z.ZodNumber;
@@ -83,8 +118,17 @@ declare const capabilityStateSchema: z.ZodObject<{
     volume: z.ZodNumber;
     isMuted: z.ZodBoolean;
     source: z.ZodOptional<z.ZodString>;
+    soundMode: z.ZodOptional<z.ZodString>;
+    isShuffled: z.ZodOptional<z.ZodBoolean>;
+    repeat: z.ZodOptional<z.ZodEnum<{
+      off: "off";
+      all: "all";
+      one: "one";
+    }>>;
     mediaTitle: z.ZodOptional<z.ZodString>;
     mediaArtist: z.ZodOptional<z.ZodString>;
+    mediaAlbum: z.ZodOptional<z.ZodString>;
+    mediaImagePath: z.ZodOptional<z.ZodString>;
     mediaDurationSeconds: z.ZodOptional<z.ZodNumber>;
     mediaPositionSeconds: z.ZodOptional<z.ZodNumber>;
   }, z.core.$strip>>;
@@ -92,6 +136,7 @@ declare const capabilityStateSchema: z.ZodObject<{
     isStreamAvailable: z.ZodBoolean;
     snapshotPath: z.ZodOptional<z.ZodString>;
     isRecording: z.ZodDefault<z.ZodBoolean>;
+    isMotionDetectionOn: z.ZodOptional<z.ZodBoolean>;
   }, z.core.$strip>>;
   button: z.ZodOptional<z.ZodObject<{}, z.core.$strip>>;
   update: z.ZodOptional<z.ZodObject<{
@@ -99,6 +144,9 @@ declare const capabilityStateSchema: z.ZodObject<{
     latestVersion: z.ZodDefault<z.ZodNullable<z.ZodString>>;
     isInstalling: z.ZodDefault<z.ZodBoolean>;
     progress: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
+    title: z.ZodOptional<z.ZodString>;
+    releaseSummary: z.ZodOptional<z.ZodString>;
+    releaseUrl: z.ZodOptional<z.ZodURL>;
   }, z.core.$strip>>;
   lawn_mower: z.ZodOptional<z.ZodObject<{
     activity: z.ZodEnum<{
@@ -129,8 +177,36 @@ declare const capabilityStateSchema: z.ZodObject<{
     rooms: z.ZodDefault<z.ZodArray<z.ZodObject<{
       id: z.ZodString;
       name: z.ZodString;
+      outline: z.ZodOptional<z.ZodArray<z.ZodTuple<[z.ZodNumber, z.ZodNumber], null>>>;
     }, z.core.$strip>>>;
     isResumable: z.ZodDefault<z.ZodBoolean>;
+    fanSpeed: z.ZodOptional<z.ZodString>;
+    cleanMode: z.ZodOptional<z.ZodEnum<{
+      vacuum: "vacuum";
+      mop: "mop";
+      vacuum_and_mop: "vacuum_and_mop";
+    }>>;
+    waterLevel: z.ZodOptional<z.ZodString>;
+  }, z.core.$strip>>;
+  fan: z.ZodOptional<z.ZodObject<{
+    percentage: z.ZodOptional<z.ZodNumber>;
+    preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    isOscillating: z.ZodOptional<z.ZodBoolean>;
+    direction: z.ZodOptional<z.ZodEnum<{
+      forward: "forward";
+      reverse: "reverse";
+    }>>;
+  }, z.core.$strip>>;
+  location: z.ZodOptional<z.ZodObject<{
+    zone: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+    latitude: z.ZodOptional<z.ZodNumber>;
+    longitude: z.ZodOptional<z.ZodNumber>;
+    accuracyMeters: z.ZodOptional<z.ZodNumber>;
+    locationName: z.ZodOptional<z.ZodString>;
+    distanceKm: z.ZodOptional<z.ZodNumber>;
+    ipAddress: z.ZodOptional<z.ZodString>;
+    macAddress: z.ZodOptional<z.ZodString>;
+    hostName: z.ZodOptional<z.ZodString>;
   }, z.core.$strip>>;
   image: z.ZodOptional<z.ZodObject<{
     contentType: z.ZodEnum<{
@@ -149,19 +225,21 @@ declare const capabilityStateSchema: z.ZodObject<{
 /** The composite state of an entity, keyed by capability. */
 type CapabilityState = z.output<typeof capabilityStateSchema>;
 //#endregion
-//#region ../contracts/dist/json.d.ts
+//#region ../contracts/dist/entity-id.d.ts
+/** The kinds of thing an entity can be. The domain is the part before the dot. */
+declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
+/** The kind of thing an entity is. */
+type EntityDomain = (typeof ENTITY_DOMAINS)[number];
 /**
- * A JSON object, the shape most `jsonb` columns actually hold.
+ * Validates an entity identifier and brands the result.
  *
- * Written as an index signature rather than `Record<string, JsonValue>` because `Record` is a
- * mapped type, which TypeScript resolves eagerly and therefore cannot use in the recursive
- * definition below (TS2456). The index signature is deferred, so it can.
+ * The brand means an `EntityId` cannot be produced from a bare string without going through
+ * validation. Identifiers reach the database as primary lookups and NATS as subject tokens, so
+ * an unvalidated one does not fail where it was created - it fails somewhere else, later.
  */
-type JsonObject = {
-  [key: string]: JsonValue;
-};
-/** Any value that survives a JSON round trip unchanged. */
-type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
+declare const entityIdSchema: z.core.$ZodBranded<z.ZodString, "EntityId", "out">;
+/** A validated `<domain>.<object_id>` identifier. */
+type EntityId = z.output<typeof entityIdSchema>;
 //#endregion
 //#region ../contracts/dist/bluetooth.d.ts
 /** How a scanner listens: passive only hears, active also asks devices for more. */
@@ -194,8 +272,8 @@ type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
  */
 declare const bluetoothProxyProfileSchema: z.ZodObject<{
   modes: z.ZodArray<z.ZodEnum<{
-    passive: "passive";
     active: "active";
+    passive: "passive";
   }>>;
 }, z.core.$strict>;
 /** What a device that can be a proxy declares. */
@@ -203,8 +281,8 @@ type BluetoothProxyProfile = z.output<typeof bluetoothProxyProfileSchema>;
 /** Arguments of `bluetooth-proxy.install`. */
 declare const bluetoothProxyInstallArgsSchema: z.ZodObject<{
   mode: z.ZodEnum<{
-    passive: "passive";
     active: "active";
+    passive: "passive";
   }>;
 }, z.core.$strip>;
 /** Arguments of `bluetooth-proxy.install`: the mode to rest in, which the hub picks. */
@@ -229,8 +307,8 @@ declare const bluetoothProxyStateSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
 }, z.core.$strip>, z.ZodObject<{
   eligible: z.ZodLiteral<false>;
   reason: z.ZodEnum<{
-    gen1: "gen1";
     battery: "battery";
+    gen1: "gen1";
     firmware: "firmware";
     "no-bluetooth": "no-bluetooth";
     unsupported: "unsupported";
@@ -239,22 +317,6 @@ declare const bluetoothProxyStateSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
 }, z.core.$strip>], "eligible">;
 /** Whether a device can be a proxy, and whether it is. */
 type BluetoothProxyState = z.output<typeof bluetoothProxyStateSchema>;
-//#endregion
-//#region ../contracts/dist/entity-id.d.ts
-/** The kinds of thing an entity can be. The domain is the part before the dot. */
-declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "image", "custom", "alias"];
-/** The kind of thing an entity is. */
-type EntityDomain = (typeof ENTITY_DOMAINS)[number];
-/**
- * Validates an entity identifier and brands the result.
- *
- * The brand means an `EntityId` cannot be produced from a bare string without going through
- * validation. Identifiers reach the database as primary lookups and NATS as subject tokens, so
- * an unvalidated one does not fail where it was created - it fails somewhere else, later.
- */
-declare const entityIdSchema: z.core.$ZodBranded<z.ZodString, "EntityId", "out">;
-/** A validated `<domain>.<object_id>` identifier. */
-type EntityId = z.output<typeof entityIdSchema>;
 //#endregion
 //#region ../contracts/dist/registration.d.ts
 /**
@@ -278,16 +340,8 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
   custom: "custom";
-  on_off: "on_off";
-  level: "level";
-  color_hs: "color_hs";
-  color_temp: "color_temp";
   cover: "cover";
   lock: "lock";
-  thermostat: "thermostat";
-  sensor_numeric: "sensor_numeric";
-  sensor_binary: "sensor_binary";
-  sensor_text: "sensor_text";
   media_player: "media_player";
   camera: "camera";
   button: "button";
@@ -295,7 +349,18 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   lawn_mower: "lawn_mower";
   select: "select";
   vacuum: "vacuum";
+  fan: "fan";
   image: "image";
+  level: "level";
+  on_off: "on_off";
+  color_hs: "color_hs";
+  color_temp: "color_temp";
+  effect: "effect";
+  thermostat: "thermostat";
+  sensor_numeric: "sensor_numeric";
+  sensor_binary: "sensor_binary";
+  sensor_text: "sensor_text";
+  location: "location";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -335,9 +400,15 @@ declare const stateReportSchema: z.ZodObject<{
     color_hs: z.ZodOptional<z.ZodObject<{
       hue: z.ZodNumber;
       saturation: z.ZodNumber;
+      white: z.ZodOptional<z.ZodNumber>;
+      isActive: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
     color_temp: z.ZodOptional<z.ZodObject<{
       mireds: z.ZodInt;
+      isActive: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strip>>;
+    effect: z.ZodOptional<z.ZodObject<{
+      effect: z.ZodDefault<z.ZodNullable<z.ZodString>>;
     }, z.core.$strip>>;
     cover: z.ZodOptional<z.ZodObject<{
       position: z.ZodNumber;
@@ -354,10 +425,18 @@ declare const stateReportSchema: z.ZodObject<{
         unlocked: "unlocked";
         jammed: "jammed";
       }>;
+      motion: z.ZodOptional<z.ZodEnum<{
+        opening: "opening";
+        locking: "locking";
+        unlocking: "unlocking";
+      }>>;
+      isOpen: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
     thermostat: z.ZodOptional<z.ZodObject<{
-      currentTemperature: z.ZodNumber;
+      currentTemperature: z.ZodOptional<z.ZodNumber>;
       targetTemperature: z.ZodNumber;
+      targetTemperatureLow: z.ZodOptional<z.ZodNumber>;
+      targetTemperatureHigh: z.ZodOptional<z.ZodNumber>;
       mode: z.ZodEnum<{
         off: "off";
         heat: "heat";
@@ -367,14 +446,21 @@ declare const stateReportSchema: z.ZodObject<{
         dry: "dry";
       }>;
       action: z.ZodEnum<{
+        fan: "fan";
         off: "off";
         idle: "idle";
         heating: "heating";
         cooling: "cooling";
         drying: "drying";
-        fan: "fan";
+        preheating: "preheating";
+        defrosting: "defrosting";
       }>;
       humidity: z.ZodOptional<z.ZodNumber>;
+      targetHumidity: z.ZodOptional<z.ZodNumber>;
+      preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+      fanMode: z.ZodOptional<z.ZodString>;
+      swingMode: z.ZodOptional<z.ZodString>;
+      swingHorizontalMode: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>;
     sensor_numeric: z.ZodOptional<z.ZodObject<{
       value: z.ZodNumber;
@@ -396,8 +482,17 @@ declare const stateReportSchema: z.ZodObject<{
       volume: z.ZodNumber;
       isMuted: z.ZodBoolean;
       source: z.ZodOptional<z.ZodString>;
+      soundMode: z.ZodOptional<z.ZodString>;
+      isShuffled: z.ZodOptional<z.ZodBoolean>;
+      repeat: z.ZodOptional<z.ZodEnum<{
+        off: "off";
+        all: "all";
+        one: "one";
+      }>>;
       mediaTitle: z.ZodOptional<z.ZodString>;
       mediaArtist: z.ZodOptional<z.ZodString>;
+      mediaAlbum: z.ZodOptional<z.ZodString>;
+      mediaImagePath: z.ZodOptional<z.ZodString>;
       mediaDurationSeconds: z.ZodOptional<z.ZodNumber>;
       mediaPositionSeconds: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strip>>;
@@ -405,6 +500,7 @@ declare const stateReportSchema: z.ZodObject<{
       isStreamAvailable: z.ZodBoolean;
       snapshotPath: z.ZodOptional<z.ZodString>;
       isRecording: z.ZodDefault<z.ZodBoolean>;
+      isMotionDetectionOn: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
     button: z.ZodOptional<z.ZodObject<{}, z.core.$strip>>;
     update: z.ZodOptional<z.ZodObject<{
@@ -412,6 +508,9 @@ declare const stateReportSchema: z.ZodObject<{
       latestVersion: z.ZodDefault<z.ZodNullable<z.ZodString>>;
       isInstalling: z.ZodDefault<z.ZodBoolean>;
       progress: z.ZodDefault<z.ZodNullable<z.ZodNumber>>;
+      title: z.ZodOptional<z.ZodString>;
+      releaseSummary: z.ZodOptional<z.ZodString>;
+      releaseUrl: z.ZodOptional<z.ZodURL>;
     }, z.core.$strip>>;
     lawn_mower: z.ZodOptional<z.ZodObject<{
       activity: z.ZodEnum<{
@@ -442,8 +541,36 @@ declare const stateReportSchema: z.ZodObject<{
       rooms: z.ZodDefault<z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         name: z.ZodString;
+        outline: z.ZodOptional<z.ZodArray<z.ZodTuple<[z.ZodNumber, z.ZodNumber], null>>>;
       }, z.core.$strip>>>;
       isResumable: z.ZodDefault<z.ZodBoolean>;
+      fanSpeed: z.ZodOptional<z.ZodString>;
+      cleanMode: z.ZodOptional<z.ZodEnum<{
+        vacuum: "vacuum";
+        mop: "mop";
+        vacuum_and_mop: "vacuum_and_mop";
+      }>>;
+      waterLevel: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
+    fan: z.ZodOptional<z.ZodObject<{
+      percentage: z.ZodOptional<z.ZodNumber>;
+      preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+      isOscillating: z.ZodOptional<z.ZodBoolean>;
+      direction: z.ZodOptional<z.ZodEnum<{
+        forward: "forward";
+        reverse: "reverse";
+      }>>;
+    }, z.core.$strip>>;
+    location: z.ZodOptional<z.ZodObject<{
+      zone: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+      latitude: z.ZodOptional<z.ZodNumber>;
+      longitude: z.ZodOptional<z.ZodNumber>;
+      accuracyMeters: z.ZodOptional<z.ZodNumber>;
+      locationName: z.ZodOptional<z.ZodString>;
+      distanceKm: z.ZodOptional<z.ZodNumber>;
+      ipAddress: z.ZodOptional<z.ZodString>;
+      macAddress: z.ZodOptional<z.ZodString>;
+      hostName: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>;
     image: z.ZodOptional<z.ZodObject<{
       contentType: z.ZodEnum<{
@@ -664,6 +791,52 @@ declare const setupFieldSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
   maxItems: z.ZodDefault<z.ZodInt>;
   pattern: z.ZodOptional<z.ZodString>;
   patternMessage: z.ZodOptional<z.ZodString>;
+  key: z.ZodString;
+  label: z.ZodString;
+  help: z.ZodOptional<z.ZodString>;
+  isRequired: z.ZodDefault<z.ZodBoolean>;
+  shownWhen: z.ZodOptional<z.ZodObject<{
+    key: z.ZodString;
+    equals: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodBoolean]>>;
+  }, z.core.$strict>>;
+  isLive: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strict>, z.ZodObject<{
+  type: z.ZodLiteral<"entity">;
+  domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+    number: "number";
+    cover: "cover";
+    lock: "lock";
+    media_player: "media_player";
+    camera: "camera";
+    button: "button";
+    update: "update";
+    lawn_mower: "lawn_mower";
+    select: "select";
+    vacuum: "vacuum";
+    fan: "fan";
+    image: "image";
+    custom: "custom";
+    alias: "alias";
+    switch: "switch";
+    light: "light";
+    binary_sensor: "binary_sensor";
+    climate: "climate";
+    sensor: "sensor";
+    device_tracker: "device_tracker";
+    geo_location: "geo_location";
+  }>>>;
+  key: z.ZodString;
+  label: z.ZodString;
+  help: z.ZodOptional<z.ZodString>;
+  isRequired: z.ZodDefault<z.ZodBoolean>;
+  shownWhen: z.ZodOptional<z.ZodObject<{
+    key: z.ZodString;
+    equals: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodBoolean]>>;
+  }, z.core.$strict>>;
+  isLive: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strict>, z.ZodObject<{
+  type: z.ZodLiteral<"icon">;
+  default: z.ZodOptional<z.ZodString>;
   key: z.ZodString;
   label: z.ZodString;
   help: z.ZodOptional<z.ZodString>;
@@ -1283,6 +1456,56 @@ type Integration<TOptions = JsonObject> = {
    * @returns The stream source and what it is told to read, or undefined for an entity with none.
    */
   streamOf?: (entityId: EntityId, context: MappingContext) => StreamRequest | undefined;
+  /**
+   * What a device can tell of its past numeric readings - prices already published, a meter's
+   * stored records - and how they are asked for. The hub asks once, right after the device is
+   * first added: one request for the last `days`, sent through the transport like a command, and
+   * what comes back goes into the entities' history, never into their state.
+   *
+   * Optional: without it a device's history starts when it is added.
+   */
+  history?: HistoryImport;
+};
+/** How a driver imports a device's past readings when it is added. */
+type HistoryImport = {
+  /**
+   * How far back to ask, in days: at most 28, the time the hub keeps raw readings for, less a
+   * margin.
+   */
+  readonly days: number;
+  /**
+   * The request asking for the past.
+   *
+   * @param range - From when and until when, ISO 8601: until is the moment the device was added.
+   * @param context - The claim, the settings and the entities' ids.
+   * @returns The request, which the transport performs like a command's.
+   */
+  request: (range: HistoryRange, context: MappingContext) => TransportRequest;
+  /**
+   * Reads the past readings an answer holds, entity by entity. Only numeric sensors keep them:
+   * readings for any other entity, at or after the moment the device was added, or older than
+   * `days`, are left out.
+   *
+   * @param answer - What the transport answered.
+   * @param context - The claim, the settings and the entities' ids.
+   * @returns The readings of each entity.
+   */
+  toReadings: (answer: unknown, context: MappingContext) => PastReadings[];
+};
+/** A stretch of the past, ISO 8601. */
+type HistoryRange = {
+  readonly from: string;
+  readonly to: string;
+};
+/** Past readings of one entity. */
+type PastReadings = {
+  readonly entityId: EntityId;
+  readonly readings: readonly PastReading[];
+};
+/** One past reading: when it was taken, ISO 8601, and its value. */
+type PastReading = {
+  readonly at: string;
+  readonly value: number;
 };
 /** How one camera's picture is read: which source, told what. */
 type StreamRequest = {
@@ -2039,4 +2262,4 @@ export declare function defineAccountModule(factory: AccountFactory): AccountFac
  */
 export declare function defineStreamModule(factory: StreamFactory): StreamFactory;
 //#endregion
-export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothProxyFilterArgs, BluetoothProxyInstallArgs, BluetoothProxyProfile, BluetoothProxyState, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandStep, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };
+export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothProxyFilterArgs, BluetoothProxyInstallArgs, BluetoothProxyProfile, BluetoothProxyState, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandStep, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, HistoryImport, HistoryRange, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PastReading, PastReadings, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };

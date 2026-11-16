@@ -315,6 +315,52 @@ describe('testing', () => {
     ).toEqual(['/state', '/state/again']);
   });
 
+  it("imports a device's past through the driver's history, leaving the state alone", async () => {
+    const loaded = await loadIntegration({ root });
+    const light = loaded.driver('light').integration;
+    const harness = driverHarness(
+      {
+        ...light,
+        history: {
+          days: 7,
+          request: (range, context) => ({
+            deviceKey: context.claim.deviceKey,
+            op: 'get',
+            args: { path: '/log', query: { from: range.from, to: range.to } },
+          }),
+          toReadings: (answer, context) => [
+            {
+              entityId: context.entities.get('') ?? ('light.unknown' as never),
+              readings: (answer as { at: string; level: number }[]).map((row) => ({
+                at: row.at,
+                value: row.level,
+              })),
+            },
+          ],
+        },
+      },
+      { options: { pollInterval: 10 }, deviceId: 'hall' },
+    );
+
+    harness.add({
+      deviceKey: '192.0.2.7',
+      payload: { vendor: 'Fixture', id: 'fx-1', name: 'Hall', model: 'FX1' },
+    });
+
+    const range = { from: '2026-11-09T00:00:00.000Z', to: '2026-11-16T00:00:00.000Z' };
+
+    expect(harness.importHistory(range, [{ at: '2026-11-10T08:00:00.000Z', level: 40 }])).toEqual({
+      request: { deviceKey: '192.0.2.7', op: 'get', args: { path: '/log', query: range } },
+      readings: [
+        { entityId: 'light.hall', readings: [{ at: '2026-11-10T08:00:00.000Z', value: 40 }] },
+      ],
+    });
+    expect(harness.lastState('light.hall')).toBeUndefined();
+    expect(() =>
+      driverHarness(light, { options: { pollInterval: 10 } }).importHistory(range, []),
+    ).toThrow('imports no past');
+  });
+
   it('says what discovery makes of a device heard', async () => {
     const integration = await loadIntegration({ root });
 

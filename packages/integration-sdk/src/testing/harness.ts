@@ -23,9 +23,11 @@ import type {
   Claim,
   DeviceDescriptor,
   Discovered,
+  HistoryRange,
   Integration,
   LoadedBundle,
   MappingContext,
+  PastReadings,
   ReportedState,
   TransportRequest,
   TransportSubscription,
@@ -127,6 +129,23 @@ export type DriverHarness = {
     command: JsonObject,
     answers: readonly unknown[],
   ) => TransportRequest[];
+
+  /**
+   * Imports a device's past, as the hub does once it is added, for a driver with `history`: the
+   * request the transport would be sent, and the readings the driver reads from its answer. No
+   * state changes.
+   *
+   * @param range - From when and until when, ISO 8601.
+   * @param answer - What the transport answers the request.
+   * @param deviceKey - Which device; the one added last when not said.
+   * @returns The request, and the readings of each entity.
+   * @throws {Error} When the driver imports no past.
+   */
+  importHistory: (
+    range: HistoryRange,
+    answer: unknown,
+    deviceKey?: string,
+  ) => { request: TransportRequest; readings: PastReadings[] };
 
   /**
    * The last state an entity reported.
@@ -346,6 +365,30 @@ export function driverHarness(
       }
 
       return requests;
+    },
+
+    /**
+     * Imports a device's past.
+     *
+     * @param range - From when and until when.
+     * @param answer - The transport's answer.
+     * @param deviceKey - Which device.
+     * @returns The request and the readings.
+     * @throws {Error} When the driver imports no past, or no device was added.
+     */
+    importHistory: (range, answer, deviceKey) => {
+      const { history } = integration;
+
+      if (history === undefined) {
+        throw new Error(`${integration.id} imports no past: it has no history`);
+      }
+
+      const context = contextFor(deviceOf(deviceKey));
+
+      return {
+        request: history.request(range, context),
+        readings: history.toReadings(answer, context),
+      };
     },
 
     /**

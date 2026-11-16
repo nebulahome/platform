@@ -3,6 +3,22 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.10.0
+
+A device's past readings, imported when it is added.
+
+- A code driver's `history` says how far back a device can tell its numeric readings (at most 28
+  days), the request asking for them, and how its answer reads as readings per entity. The hub
+  asks once, right after the device is first added, and writes the readings into the entities'
+  history and the charts' summaries, leaving their state alone.
+- `driverHarness(...).importHistory(range, answer)` tests it.
+
+Also in the contract since 1.9.0:
+
+- The capabilities `effect`, `fan` and `location`, and the domains `fan`, `device_tracker` and
+  `geo_location`.
+- `entity` and `icon` fields in `setup.json`: pick one of the house's entities, or an icon.
+
 ## 1.9.0
 
 A device whose entities depend on how it is set up.

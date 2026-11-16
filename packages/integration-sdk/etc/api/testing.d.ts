@@ -1,4 +1,4 @@
-import { A as CapabilityName, C as TransportRequest, D as BluetoothAdvert, E as EntityId, O as BluetoothAdvertInput, S as Discovered, T as SerialLine, _ as UdpPeer, a as LoadedListenSource, b as Integration, c as SightingIdentity, d as BundleSdk, f as ManagedSocketClose, g as PlatformServices, h as ManagedUdpSocketOptions, i as LoadedDiscovery, j as CapabilityState, k as JsonObject, m as ManagedSocketOptions, n as LoadedAccount, o as LoadedVendor, p as ManagedSocketHeaders, r as LoadedBundle, s as Association, t as BundleFailure, u as BluetoothScannerOptions, v as Claim, w as TransportSubscription, x as ReportedState, y as DeviceDescriptor } from "./chunks/node-index.js";
+import { A as EntityId, C as ReportedState, D as SerialLine, E as TransportSubscription, M as CapabilityState, N as JsonObject, O as BluetoothAdvert, S as PastReadings, T as TransportRequest, _ as UdpPeer, a as LoadedListenSource, b as HistoryRange, c as SightingIdentity, d as BundleSdk, f as ManagedSocketClose, g as PlatformServices, h as ManagedUdpSocketOptions, i as LoadedDiscovery, j as CapabilityName, k as BluetoothAdvertInput, m as ManagedSocketOptions, n as LoadedAccount, o as LoadedVendor, p as ManagedSocketHeaders, r as LoadedBundle, s as Association, t as BundleFailure, u as BluetoothScannerOptions, v as Claim, w as Discovered, x as Integration, y as DeviceDescriptor } from "./chunks/node-index.js";
 //#region src/testing/fake-sdk.d.ts
 /** The levels a bundle may log at. */
 type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
@@ -219,6 +219,21 @@ type DriverHarness = {
    * @returns Every request the command made; the last one unanswered when `answers` ran out.
    */
   converse: (entityId: string, capability: CapabilityName, command: JsonObject, answers: readonly unknown[]) => TransportRequest[];
+  /**
+   * Imports a device's past, as the hub does once it is added, for a driver with `history`: the
+   * request the transport would be sent, and the readings the driver reads from its answer. No
+   * state changes.
+   *
+   * @param range - From when and until when, ISO 8601.
+   * @param answer - What the transport answers the request.
+   * @param deviceKey - Which device; the one added last when not said.
+   * @returns The request, and the readings of each entity.
+   * @throws {Error} When the driver imports no past.
+   */
+  importHistory: (range: HistoryRange, answer: unknown, deviceKey?: string) => {
+    request: TransportRequest;
+    readings: PastReadings[];
+  };
   /**
    * The last state an entity reported.
    *

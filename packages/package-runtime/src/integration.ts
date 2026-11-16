@@ -271,6 +271,63 @@ export type Integration<TOptions = JsonObject> = {
    * @returns The stream source and what it is told to read, or undefined for an entity with none.
    */
   streamOf?: (entityId: EntityId, context: MappingContext) => StreamRequest | undefined;
+
+  /**
+   * What a device can tell of its past numeric readings - prices already published, a meter's
+   * stored records - and how they are asked for. The hub asks once, right after the device is
+   * first added: one request for the last `days`, sent through the transport like a command, and
+   * what comes back goes into the entities' history, never into their state.
+   *
+   * Optional: without it a device's history starts when it is added.
+   */
+  history?: HistoryImport;
+};
+
+/** How a driver imports a device's past readings when it is added. */
+export type HistoryImport = {
+  /**
+   * How far back to ask, in days: at most 28, the time the hub keeps raw readings for, less a
+   * margin.
+   */
+  readonly days: number;
+
+  /**
+   * The request asking for the past.
+   *
+   * @param range - From when and until when, ISO 8601: until is the moment the device was added.
+   * @param context - The claim, the settings and the entities' ids.
+   * @returns The request, which the transport performs like a command's.
+   */
+  request: (range: HistoryRange, context: MappingContext) => TransportRequest;
+
+  /**
+   * Reads the past readings an answer holds, entity by entity. Only numeric sensors keep them:
+   * readings for any other entity, at or after the moment the device was added, or older than
+   * `days`, are left out.
+   *
+   * @param answer - What the transport answered.
+   * @param context - The claim, the settings and the entities' ids.
+   * @returns The readings of each entity.
+   */
+  toReadings: (answer: unknown, context: MappingContext) => PastReadings[];
+};
+
+/** A stretch of the past, ISO 8601. */
+export type HistoryRange = {
+  readonly from: string;
+  readonly to: string;
+};
+
+/** Past readings of one entity. */
+export type PastReadings = {
+  readonly entityId: EntityId;
+  readonly readings: readonly PastReading[];
+};
+
+/** One past reading: when it was taken, ISO 8601, and its value. */
+export type PastReading = {
+  readonly at: string;
+  readonly value: number;
 };
 
 /** How one camera's picture is read: which source, told what. */
