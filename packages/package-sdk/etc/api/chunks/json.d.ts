@@ -5,7 +5,7 @@
  * `ctx.entityId` does, and these read one back.
  */
 /** The kinds of thing an entity is. */
-declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
+declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "time", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
 /** The kind of thing an entity is. */
 type EntityDomain = (typeof ENTITY_DOMAINS)[number];
 /** An entity's identifier: `sensor.weather_temperature`. */
@@ -32,7 +32,7 @@ declare function isEntityId(value: unknown): value is EntityId;
 //#endregion
 //#region src/capabilities.d.ts
 /** Every capability an entity may declare. */
-type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'effect' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'fan' | 'location' | 'image' | 'custom';
+type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'effect' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'vacuum' | 'fan' | 'location' | 'image' | 'custom';
 /** How a sensor's readings add up, for statistics: a reading, a running total, or a meter. */
 type EntityStateClass = 'measurement' | 'total' | 'total_increasing';
 /** The modes a thermostat may be set to. */
@@ -168,6 +168,18 @@ type CapabilityStates = {
   readonly number: {
     readonly value: number | null;
   };
+  /** A time of day, `HH:MM` or `HH:MM:SS` on a 24-hour clock in the house's time zone. */
+  readonly time_of_day: {
+    readonly value: string | null;
+  };
+  /** A day on the calendar, `YYYY-MM-DD`. */
+  readonly date: {
+    readonly value: string | null;
+  };
+  /** A moment, ISO 8601 with its offset: `2026-11-24T07:30:00+01:00`. */
+  readonly datetime: {
+    readonly value: string | null;
+  };
   readonly vacuum: {
     readonly activity: VacuumActivity;
     readonly rooms: readonly VacuumRoom[];
@@ -204,7 +216,7 @@ type CapabilityStates = {
   };
 };
 /** Each capability's state, as a package reports it: what has a default may be left out. */
-type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'location'> & {
+type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'vacuum' | 'location'> & {
   readonly effect: Partial<CapabilityStates['effect']>;
   readonly location: Partial<CapabilityStates['location']>;
   readonly camera: Omit<CapabilityStates['camera'], 'isRecording'> & {
@@ -216,6 +228,9 @@ type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'l
   };
   readonly select: Partial<CapabilityStates['select']>;
   readonly number: Partial<CapabilityStates['number']>;
+  readonly time_of_day: Partial<CapabilityStates['time_of_day']>;
+  readonly date: Partial<CapabilityStates['date']>;
+  readonly datetime: Partial<CapabilityStates['datetime']>;
   readonly vacuum: Pick<CapabilityStates['vacuum'], 'activity'> & Partial<Omit<CapabilityStates['vacuum'], 'activity'>>;
 };
 /** An entity's state, read back: one entry per capability it declares. */
@@ -302,6 +317,24 @@ type CapabilityParams = {
     readonly max: number;
     readonly step?: number;
     readonly mode?: NumberMode;
+  };
+  /** Whether the house may set it, in steps of seconds, and its earliest and latest. */
+  readonly time_of_day: {
+    readonly canSet?: boolean;
+    readonly step?: number;
+    readonly min?: string;
+    readonly max?: string;
+  };
+  readonly date: {
+    readonly canSet?: boolean;
+    readonly min?: string;
+    readonly max?: string;
+  };
+  readonly datetime: {
+    readonly canSet?: boolean;
+    readonly step?: number;
+    readonly min?: string;
+    readonly max?: string;
   };
   readonly vacuum: {
     readonly canPause?: boolean;
@@ -479,6 +512,18 @@ type CapabilityCommands = {
   readonly number: {
     readonly command: 'set_value';
     readonly value: number;
+  };
+  readonly time_of_day: {
+    readonly command: 'set_value';
+    readonly value: string;
+  };
+  readonly date: {
+    readonly command: 'set_value';
+    readonly value: string;
+  };
+  readonly datetime: {
+    readonly command: 'set_value';
+    readonly value: string;
   };
   readonly vacuum: {
     readonly command: 'start';

@@ -3,6 +3,13 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.13.0
+
+- **A time the device keeps:** the `time` domain and its three capabilities, `time_of_day`
+  (`HH:MM` or `HH:MM:SS`), `date` (`YYYY-MM-DD`) and `datetime` (ISO 8601 with its offset), in
+  `CapabilityName`, `CapabilityStates`, `CapabilityParams` (`canSet`, `step`, `min`, `max`) and
+  `CapabilityCommands` (`set_value`), and `time` in `ENTITY_DOMAINS`.
+
 ## 1.12.0
 
 - **Where a package's containers stand:** `ctx.containers.status()` answers, for each container

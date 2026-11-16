@@ -32,6 +32,9 @@ export type CapabilityName =
   | 'lawn_mower'
   | 'select'
   | 'number'
+  | 'time_of_day'
+  | 'date'
+  | 'datetime'
   | 'vacuum'
   | 'fan'
   | 'location'
@@ -164,6 +167,12 @@ export type CapabilityStates = {
   readonly lawn_mower: { readonly activity: LawnMowerActivity; readonly isResumable: boolean };
   readonly select: { readonly option: string | null };
   readonly number: { readonly value: number | null };
+  /** A time of day, `HH:MM` or `HH:MM:SS` on a 24-hour clock in the house's time zone. */
+  readonly time_of_day: { readonly value: string | null };
+  /** A day on the calendar, `YYYY-MM-DD`. */
+  readonly date: { readonly value: string | null };
+  /** A moment, ISO 8601 with its offset: `2026-11-24T07:30:00+01:00`. */
+  readonly datetime: { readonly value: string | null };
   readonly vacuum: {
     readonly activity: VacuumActivity;
     readonly rooms: readonly VacuumRoom[];
@@ -201,7 +210,17 @@ export type CapabilityStates = {
 /** Each capability's state, as a package reports it: what has a default may be left out. */
 export type ReportedStates = Omit<
   CapabilityStates,
-  'effect' | 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'vacuum' | 'location'
+  | 'effect'
+  | 'camera'
+  | 'update'
+  | 'lawn_mower'
+  | 'select'
+  | 'number'
+  | 'time_of_day'
+  | 'date'
+  | 'datetime'
+  | 'vacuum'
+  | 'location'
 > & {
   readonly effect: Partial<CapabilityStates['effect']>;
   readonly location: Partial<CapabilityStates['location']>;
@@ -214,6 +233,9 @@ export type ReportedStates = Omit<
   };
   readonly select: Partial<CapabilityStates['select']>;
   readonly number: Partial<CapabilityStates['number']>;
+  readonly time_of_day: Partial<CapabilityStates['time_of_day']>;
+  readonly date: Partial<CapabilityStates['date']>;
+  readonly datetime: Partial<CapabilityStates['datetime']>;
   readonly vacuum: Pick<CapabilityStates['vacuum'], 'activity'> &
     Partial<Omit<CapabilityStates['vacuum'], 'activity'>>;
 };
@@ -287,6 +309,20 @@ export type CapabilityParams = {
     readonly max: number;
     readonly step?: number;
     readonly mode?: NumberMode;
+  };
+  /** Whether the house may set it, in steps of seconds, and its earliest and latest. */
+  readonly time_of_day: {
+    readonly canSet?: boolean;
+    readonly step?: number;
+    readonly min?: string;
+    readonly max?: string;
+  };
+  readonly date: { readonly canSet?: boolean; readonly min?: string; readonly max?: string };
+  readonly datetime: {
+    readonly canSet?: boolean;
+    readonly step?: number;
+    readonly min?: string;
+    readonly max?: string;
   };
   readonly vacuum: {
     readonly canPause?: boolean;
@@ -376,6 +412,9 @@ export type CapabilityCommands = {
     | { readonly command: 'resume' };
   readonly select: { readonly command: 'select_option'; readonly option: string };
   readonly number: { readonly command: 'set_value'; readonly value: number };
+  readonly time_of_day: { readonly command: 'set_value'; readonly value: string };
+  readonly date: { readonly command: 'set_value'; readonly value: string };
+  readonly datetime: { readonly command: 'set_value'; readonly value: string };
   readonly vacuum:
     | { readonly command: 'start' }
     | { readonly command: 'pause' }

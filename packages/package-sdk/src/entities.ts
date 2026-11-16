@@ -20,6 +20,7 @@ export const ENTITY_DOMAINS = [
   'lawn_mower',
   'select',
   'number',
+  'time',
   'vacuum',
   'fan',
   'device_tracker',
