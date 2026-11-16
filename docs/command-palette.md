@@ -576,8 +576,8 @@ shadow are not utilities. The board `Anatomy` has every size measured on the dra
   26 px, `rounded-pill`, `bg-foreground/7 border-foreground/12`, the `Tab` key inside), the state in `font-mono
 text-mono-caption tabular` (`text-foreground/45` when off or unavailable), the `corner-down-left` glyph 15 px in
   `text-primary` (its place is kept on every row).
-- Active row: a plain veil, `bg-foreground/8`, no border and no edge of its own (a line of light on its top edge
-  was tried and read as a stray border). It is one separate element under the rows, so it can slide (12.5).
+- Active row: `bg-surface-raised`, the colour of the current page in the sidebar, with no border. Tried and turned
+  down: a line of light on its top edge (read as a stray border) and a white veil (too light for the theme). It is one separate element under the rows, so it can slide (12.5).
 - Group names: 34 px, `font-mono uppercase` 10.5 px, `text-foreground/42`.
 - "Show all" and the quiet lines (nothing found, a list that failed): 40 px.
 - Keys bar: 44 px, `border-t border-foreground/7`, `text-caption text-foreground/50`; key chips 22 px,
