@@ -96,7 +96,7 @@ import {
   type HubConfig,
 } from './config.js';
 import { createMdnsSource, type MdnsSource } from './discovery/mdns-source.js';
-import { DeviceBook, describeDevice } from './domain/devices.js';
+import { DeviceBook, describeDevice, type DeviceBinding } from './domain/devices.js';
 import { SetUpWaits } from './domain/set-up-waits.js';
 import { planSubscriptions } from './domain/subscriptions.js';
 import { withVendorSettings } from './domain/vendors.js';
@@ -143,6 +143,7 @@ import {
 import { CameraService, type CameraOwner } from './services/cameras.js';
 import { ConnectionPool } from './services/connections.js';
 import { DiscoveryService, type Detected } from './services/discovery.js';
+import { importHistory } from './services/history-import.js';
 import { IdentificationService, type Identified } from './services/identification.js';
 import { ImageStore } from './services/images.js';
 import { serveInfrared } from './services/infrared-management.js';
@@ -2213,6 +2214,11 @@ export class HubService {
         },
         'Integration instance started',
       );
+
+      // Added just now, not bound again after a restart: the one time its past is asked for.
+      if (expectedExternalId === null && running.integration.history !== undefined) {
+        await this.#importHistory(running, found.binding, signal);
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
 
@@ -2221,6 +2227,40 @@ export class HubService {
       void this.#infrared.refresh();
       await this.#announceUpdated(id);
       logger.error({ instanceId: id, kind: running.instance.kind }, message);
+    }
+  }
+
+  /**
+   * Imports a device's past readings, once it was first added. Never rejects: a past that could
+   * not be read leaves the device as it is, with its history starting now.
+   *
+   * @param running - The instance, as it is running.
+   * @param binding - The device it identified.
+   * @param signal - Ends the import, with the search it follows.
+   * @returns A promise that settles once the import has ended, one way or the other.
+   */
+  async #importHistory(
+    running: RunningInstance,
+    binding: DeviceBinding,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const { logger } = this.#options;
+    const instanceId = running.instance.id;
+
+    try {
+      const outcome = await importHistory({
+        instanceId,
+        integration: running.integration,
+        context: running.book.contextFor(binding, running.instance.options),
+        connection: running.connection,
+        client: running.client,
+        logger,
+        signal,
+      });
+
+      logger.info({ instanceId, ...outcome }, "Imported the device's past readings");
+    } catch (error: unknown) {
+      logger.warn({ err: error, instanceId }, "Could not import the device's past readings");
     }
   }
 
