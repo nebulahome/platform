@@ -1692,8 +1692,9 @@ type Integration<TOptions = JsonObject> = {
 /** How a driver imports a device's past readings when it is added. */
 type HistoryImport = {
   /**
-   * How far back to ask, in days: at most 28, the time the hub keeps raw readings for, less a
-   * margin. More is asked as 28.
+   * How far back to ask, in days: at most 7 - bringing the hub's summaries up to date over the
+   * stretch recomputes them for the whole house, and costs more the further back it goes. More is
+   * asked as 7.
    */
   readonly days: number;
   /**
@@ -1709,7 +1710,7 @@ type HistoryImport = {
    * Reads the past readings an answer holds, entity by entity. Left out: readings of an entity
    * that is not a numeric sensor, is linked to another or was registered before; a reading whose
    * time is not ISO 8601 with its zone or whose value is not a finite number; one at or after its
-   * entity was registered, or older than 28 days (less when the hub keeps raw readings for less).
+   * entity was registered, or older than 7 days (less when the hub keeps raw readings for less).
    *
    * @param answer - What the transport answered.
    * @param context - The claim, the settings and the entities' ids.

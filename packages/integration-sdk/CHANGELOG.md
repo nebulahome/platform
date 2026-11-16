@@ -3,6 +3,12 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.10.2
+
+- `history` reaches 7 days back at most, no longer 28: bringing the hub's summaries up to date over
+  the stretch an import covers recomputes them for the whole house, about four times longer for
+  four weeks than for one, and minutes on small hardware.
+
 ## 1.10.1
 
 The documentation of `history` says what the hub does.

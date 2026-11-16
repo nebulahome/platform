@@ -1114,7 +1114,7 @@ how, with `history`:
 
 ```ts
 history: {
-  days: 28,
+  days: 7,
   request: (range, context) => ({
     deviceKey: context.claim.deviceKey,
     op: 'history',
@@ -1134,10 +1134,12 @@ history, never into their state: the current value, the state history and the au
 nothing of it. The charts show it as the hub's summaries catch up: by minute within minutes, by
 hour within the hour, by day - the longest spans - within a day.
 
-- At most 28 days: the hub keeps raw readings 30 days, and summarises only what it still keeps.
+- At most 7 days: bringing the hub's summaries up to date over the stretch an import covers
+  recomputes them for the whole house, not the device alone, and takes longer the further back
+  it goes - minutes on small hardware for four weeks.
 - Left out: readings of an entity that is not a numeric sensor (`sensor_numeric`), is linked to
   another or was registered before; a reading whose `at` is not ISO 8601 with its zone or whose
-  value is not a finite number; one at or after its entity was registered, or older than 28 days.
+  value is not a finite number; one at or after its entity was registered, or older than 7 days.
 - It is asked once. A device that was not reachable then, or a hub that stopped meanwhile, does
   not ask again, and a device set up differently later does not either. Stopping the device
   stops the import.
