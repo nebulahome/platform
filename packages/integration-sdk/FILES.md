@@ -345,6 +345,12 @@ latest it takes, `"min"` and `"max"` in the same form. One that can be set gives
 platform has already refused one outside the limits or off a step. A moment the device measured -
 the last time it ran - is a sensor with the `timestamp` class, not this.
 
+An entity few houses want - a diagnostic, a raw register, a firmware version - says
+**`"isEnabledByDefault": false`**: it is created disabled, left out of the pickers and of the
+history, and listed apart on its device's page until the owner enables it. Only a new entity reads
+it: one the owner has enabled or disabled keeps that choice whenever the device is heard again or a
+newer bundle describes it. A code driver's `EntityDescriptor` takes the same field.
+
 An entity may carry **`link`**, for a vendor whose devices the house may also reach through the
 Matter broker (`twins`, above): `"link": { "key": "switch:0", "matter": { "endpoint": 1,
 "cluster": 6, "attribute": 0 } }`. `key` is the entity's name in the transport's terms, shown on

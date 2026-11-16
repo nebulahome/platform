@@ -348,31 +348,31 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
+  on_off: "on_off";
+  level: "level";
+  color_hs: "color_hs";
+  color_temp: "color_temp";
+  effect: "effect";
   cover: "cover";
   lock: "lock";
+  thermostat: "thermostat";
+  sensor_numeric: "sensor_numeric";
+  sensor_binary: "sensor_binary";
+  sensor_text: "sensor_text";
   media_player: "media_player";
   camera: "camera";
   button: "button";
   update: "update";
   lawn_mower: "lawn_mower";
   select: "select";
-  vacuum: "vacuum";
-  fan: "fan";
-  image: "image";
-  custom: "custom";
-  on_off: "on_off";
-  level: "level";
-  color_hs: "color_hs";
-  color_temp: "color_temp";
-  effect: "effect";
-  thermostat: "thermostat";
-  sensor_numeric: "sensor_numeric";
-  sensor_binary: "sensor_binary";
-  sensor_text: "sensor_text";
   time_of_day: "time_of_day";
   date: "date";
   datetime: "datetime";
+  vacuum: "vacuum";
+  fan: "fan";
   location: "location";
+  image: "image";
+  custom: "custom";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -825,26 +825,26 @@ declare const setupFieldSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
   type: z.ZodLiteral<"entity">;
   domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
     number: "number";
-    light: "light";
-    switch: "switch";
-    sensor: "sensor";
-    binary_sensor: "binary_sensor";
     cover: "cover";
     lock: "lock";
-    climate: "climate";
     media_player: "media_player";
     camera: "camera";
     button: "button";
     update: "update";
     lawn_mower: "lawn_mower";
     select: "select";
-    time: "time";
     vacuum: "vacuum";
     fan: "fan";
-    device_tracker: "device_tracker";
-    geo_location: "geo_location";
     image: "image";
     custom: "custom";
+    light: "light";
+    switch: "switch";
+    sensor: "sensor";
+    binary_sensor: "binary_sensor";
+    climate: "climate";
+    time: "time";
+    device_tracker: "device_tracker";
+    geo_location: "geo_location";
     alias: "alias";
   }>>>;
   key: z.ZodString;
@@ -1311,6 +1311,11 @@ type EntityDescriptor = {
   readonly displayPrecision?: number;
   /** What links it to the same reading reached another way. */
   readonly link?: EntityLinkHint;
+  /**
+   * False for an entity few houses want - a diagnostic, a raw register: it is created disabled,
+   * until the owner enables it. The owner's choice outlives every later description.
+   */
+  readonly isEnabledByDefault?: boolean;
 };
 /** What a claimed device turns out to be. */
 type DeviceDescriptor = {

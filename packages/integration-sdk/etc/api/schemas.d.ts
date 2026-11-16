@@ -21,8 +21,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }>>>;
     internetRequired: z.ZodDefault<z.ZodBoolean>;
     twins: z.ZodOptional<z.ZodArray<z.ZodEnum<{
-      serial: "serial";
       mac: "mac";
+      serial: "serial";
     }>>>;
     twinsPrefer: z.ZodOptional<z.ZodArray<z.ZodString>>;
     setup: z.ZodOptional<z.ZodString>;
@@ -30,16 +30,16 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
       module: z.ZodString;
       wires: z.ZodArray<z.ZodEnum<{
-        udp: "udp";
         matter: "matter";
+        ir: "ir";
         mqtt: "mqtt";
         modbus: "modbus";
         serial: "serial";
+        udp: "udp";
         http: "http";
         ble: "ble";
         zigbee: "zigbee";
         thread: "thread";
-        ir: "ir";
       }>>;
     }, z.core.$strict>]>>>;
     streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -117,12 +117,12 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     modelCodes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
     modelSeries: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
     kind: z.ZodEnum<{
-      declarative: "declarative";
-      code: "code";
       matter: "matter";
+      infrared: "infrared";
+      code: "code";
+      declarative: "declarative";
       mqtt: "mqtt";
       modbus: "modbus";
-      infrared: "infrared";
       serial: "serial";
       bluetooth: "bluetooth";
     }>;
@@ -254,26 +254,26 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         type: z.ZodLiteral<"entity">;
         domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
           number: "number";
-          light: "light";
-          switch: "switch";
-          sensor: "sensor";
-          binary_sensor: "binary_sensor";
           cover: "cover";
           lock: "lock";
-          climate: "climate";
           media_player: "media_player";
           camera: "camera";
           button: "button";
           update: "update";
           lawn_mower: "lawn_mower";
           select: "select";
-          time: "time";
           vacuum: "vacuum";
           fan: "fan";
-          device_tracker: "device_tracker";
-          geo_location: "geo_location";
           image: "image";
           custom: "custom";
+          light: "light";
+          switch: "switch";
+          sensor: "sensor";
+          binary_sensor: "binary_sensor";
+          climate: "climate";
+          time: "time";
+          device_tracker: "device_tracker";
+          geo_location: "geo_location";
           alias: "alias";
         }>>>;
         key: z.ZodString;
@@ -399,26 +399,26 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         type: z.ZodLiteral<"entity">;
         domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
           number: "number";
-          light: "light";
-          switch: "switch";
-          sensor: "sensor";
-          binary_sensor: "binary_sensor";
           cover: "cover";
           lock: "lock";
-          climate: "climate";
           media_player: "media_player";
           camera: "camera";
           button: "button";
           update: "update";
           lawn_mower: "lawn_mower";
           select: "select";
-          time: "time";
           vacuum: "vacuum";
           fan: "fan";
-          device_tracker: "device_tracker";
-          geo_location: "geo_location";
           image: "image";
           custom: "custom";
+          light: "light";
+          switch: "switch";
+          sensor: "sensor";
+          binary_sensor: "binary_sensor";
+          climate: "climate";
+          time: "time";
+          device_tracker: "device_tracker";
+          geo_location: "geo_location";
           alias: "alias";
         }>>>;
         key: z.ZodString;
@@ -503,7 +503,6 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     entities: z.ZodArray<z.ZodObject<{
       domain: z.ZodEnum<{
         number: "number";
-        image: "image";
         light: "light";
         switch: "switch";
         sensor: "sensor";
@@ -522,6 +521,7 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         fan: "fan";
         device_tracker: "device_tracker";
         geo_location: "geo_location";
+        image: "image";
         custom: "custom";
         alias: "alias";
       }>;
@@ -530,59 +530,59 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       icon: z.ZodOptional<z.ZodString>;
       capabilities: z.ZodRecord<z.ZodEnum<{
         number: "number";
+        on_off: "on_off";
+        level: "level";
+        color_hs: "color_hs";
+        color_temp: "color_temp";
+        effect: "effect";
         cover: "cover";
         lock: "lock";
+        thermostat: "thermostat";
+        sensor_numeric: "sensor_numeric";
+        sensor_binary: "sensor_binary";
+        sensor_text: "sensor_text";
         media_player: "media_player";
         camera: "camera";
         button: "button";
         update: "update";
         lawn_mower: "lawn_mower";
         select: "select";
-        vacuum: "vacuum";
-        fan: "fan";
-        image: "image";
-        custom: "custom";
-        on_off: "on_off";
-        level: "level";
-        color_hs: "color_hs";
-        color_temp: "color_temp";
-        effect: "effect";
-        thermostat: "thermostat";
-        sensor_numeric: "sensor_numeric";
-        sensor_binary: "sensor_binary";
-        sensor_text: "sensor_text";
         time_of_day: "time_of_day";
         date: "date";
         datetime: "datetime";
+        vacuum: "vacuum";
+        fan: "fan";
         location: "location";
+        image: "image";
+        custom: "custom";
       }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
       state: z.ZodRecord<z.ZodEnum<{
         number: "number";
+        on_off: "on_off";
+        level: "level";
+        color_hs: "color_hs";
+        color_temp: "color_temp";
+        effect: "effect";
         cover: "cover";
         lock: "lock";
+        thermostat: "thermostat";
+        sensor_numeric: "sensor_numeric";
+        sensor_binary: "sensor_binary";
+        sensor_text: "sensor_text";
         media_player: "media_player";
         camera: "camera";
         button: "button";
         update: "update";
         lawn_mower: "lawn_mower";
         select: "select";
-        vacuum: "vacuum";
-        fan: "fan";
-        image: "image";
-        custom: "custom";
-        on_off: "on_off";
-        level: "level";
-        color_hs: "color_hs";
-        color_temp: "color_temp";
-        effect: "effect";
-        thermostat: "thermostat";
-        sensor_numeric: "sensor_numeric";
-        sensor_binary: "sensor_binary";
-        sensor_text: "sensor_text";
         time_of_day: "time_of_day";
         date: "date";
         datetime: "datetime";
+        vacuum: "vacuum";
+        fan: "fan";
         location: "location";
+        image: "image";
+        custom: "custom";
       }> & z.core.$partial, z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
         path: z.ZodString;
         bits: z.ZodOptional<z.ZodTuple<[z.ZodInt, z.ZodInt], null>>;
@@ -677,6 +677,7 @@ export declare const BUNDLE_FILE_SCHEMAS: {
           attribute: z.ZodInt;
         }, z.core.$strict>>;
       }, z.core.$strict>>;
+      isEnabledByDefault: z.ZodOptional<z.ZodBoolean>;
       stream: z.ZodOptional<z.ZodObject<{
         source: z.ZodString;
         args: z.ZodDefault<z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
@@ -689,8 +690,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
           "image/jpeg": "image/jpeg";
         }>;
         encoding: z.ZodDefault<z.ZodEnum<{
-          base64: "base64";
           utf8: "utf8";
+          base64: "base64";
         }>>;
         minIntervalMs: z.ZodDefault<z.ZodInt>;
       }, z.core.$strict>>;
@@ -1153,26 +1154,26 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         type: z.ZodLiteral<"entity">;
         domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
           number: "number";
-          light: "light";
-          switch: "switch";
-          sensor: "sensor";
-          binary_sensor: "binary_sensor";
           cover: "cover";
           lock: "lock";
-          climate: "climate";
           media_player: "media_player";
           camera: "camera";
           button: "button";
           update: "update";
           lawn_mower: "lawn_mower";
           select: "select";
-          time: "time";
           vacuum: "vacuum";
           fan: "fan";
-          device_tracker: "device_tracker";
-          geo_location: "geo_location";
           image: "image";
           custom: "custom";
+          light: "light";
+          switch: "switch";
+          sensor: "sensor";
+          binary_sensor: "binary_sensor";
+          climate: "climate";
+          time: "time";
+          device_tracker: "device_tracker";
+          geo_location: "geo_location";
           alias: "alias";
         }>>>;
         key: z.ZodString;
@@ -1217,22 +1218,22 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       icon: z.ZodOptional<z.ZodString>;
       domain: z.ZodEnum<{
         number: "number";
+        button: "button";
+        select: "select";
         light: "light";
         switch: "switch";
         sensor: "sensor";
         binary_sensor: "binary_sensor";
-        button: "button";
-        select: "select";
       }>;
       capabilities: z.ZodRecord<z.ZodEnum<{
         number: "number";
-        button: "button";
-        select: "select";
         on_off: "on_off";
         level: "level";
         sensor_numeric: "sensor_numeric";
         sensor_binary: "sensor_binary";
         sensor_text: "sensor_text";
+        button: "button";
+        select: "select";
       }> & z.core.$partial, z.ZodObject<{
         read: z.ZodOptional<z.ZodObject<{
           function: z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>, z.ZodLiteral<4>]>;

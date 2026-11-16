@@ -3,6 +3,13 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.11.1
+
+- **Entities disabled at first:** a profile's entity, and a code driver's `EntityDescriptor`,
+  may say `isEnabledByDefault: false` - a diagnostic, a raw register, a firmware version. It is
+  created disabled, left out of pickers and of history until the owner enables it; the owner's
+  choice is kept whenever the device registers again.
+
 ## 1.11.0
 
 - **A time the device keeps:** the `time` domain, an entity being one of three capabilities -
