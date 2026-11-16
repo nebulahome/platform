@@ -53,13 +53,18 @@ It is navigation first. If a result has no sensible destination, it is not a res
 11. **No phone layout for now** (owner, 2026-11-16: not sure it makes sense on a phone). Build for a pointer
     and a keyboard. The sidebar row stays, so a touch screen can still open the palette and tap a row, but no
     full-screen sheet, no per-row icon buttons, no touch-only rules. The two `Phone-*` boards are parked.
+12. **An id in the clipboard** (owner, 2026-11-16). When the palette opens and the clipboard holds the id of an
+    entity, a scene, an automation (or an area, tag, device), that item is the first row, already active. Only
+    for real ids of this house, only with an empty field, and the browser is never made to ask for permission
+    by opening the palette. See 6.5.
 
 ## 3. Phases
 
 Build in this order; each phase is shippable alone.
 
 - **Phase 1 - Find and go.** Store, shortcut, sidebar trigger, palette UI, all result kinds,
-  ranking, recents, settings-index extraction, gallery page, tests.
+  ranking, recents, settings-index extraction, gallery page, tests. The clipboard row (6.5) comes last in this phase, as
+  its own PR, with the "Copy id" buttons it depends on.
 - **Phase 2 - Do.** Global actions, quick actions on results, per-integration "Add device"
   (including the `?add=1` deep link on the vendor page).
 - **Phase 3 - Extensible (do not build now).** Packages and integrations registering their own
@@ -106,8 +111,32 @@ Notes:
 ### Entity state on the row
 
 Show the state on the right in mono (`On`, `21.5 °C`), read from `useLive` readings
-(`W/live/live-store.ts`). Reuse the entity picker's formatting (`W/routes/library/entity-picker/`);
-do not write a second formatter. Unavailable entities show their unavailable state, not a stale value.
+(`W/live/live-store.ts`). Reuse the entity picker's formatting; do not write a second formatter. That is
+`readingOf(entity, live)` (`W/library/entity-reading.ts`) rendered by `<EntityStateSummary>`
+(`W/routes/library/entity-state-summary.tsx`), as the picker row does (`entity-picker-tree.tsx`).
+`describeState` alone is not enough: the component is what writes "Unavailable" (never a stale value),
+"Updating…", and a numeric sensor as figure plus unit.
+
+The board `Kinds` draws one row for every kind, with the text that formatter produces today:
+
+- on/off kinds (light, switch, a fan or an alias with `on_off`): `On · 60%`, `On · 80% · 2700 K`, `Off`. These
+  are the only rows with Tab (section 8).
+- numeric sensor and `number`: `21.5 °C`, `58%` (no space before `%`), the unit in `text-foreground/45`. Text
+  sensor and `select`: the value itself.
+- binary sensor: the words of its class (`Open`/`Closed`, `Detected`/`Clear`, `Occupied`/`Clear`, `Wet`/`Dry`,
+  ...). The resting state is in `text-foreground/45`, like `Off`.
+- cover `Open 60%`, `Open 35% · Opening`, `Closed`; lock `Locked`/`Unlocked`/`Jammed`; climate
+  `21.5 °C → 22 °C · Heating`; media player `Playing · 40% · <title>`; camera `Streaming · Recording`; vacuum
+  and lawn mower `Cleaning`, `In its station`, ...; update `Update available · 1.3.0`; button `Ready`; image
+  `Picture`.
+- no reading (`—`): location trackers, a fan's speed and custom entities have no branch in the formatter today.
+  The row still opens the entity. Giving them a reading is a change to the formatter, not to the palette.
+- the state is capped at 250 px with an ellipsis, so a long media title never takes the name's room.
+- the icon is the entity's catalogue icon, or the default of its kind (`entityKindOf`,
+  `W/library/entity-kind.ts`).
+
+Covers, locks, media players, buttons and vacuums have commands, but **no Tab action here**: section 8 stays
+on/off only (a door is not unlocked with one key from a search box). Add one only when the owner asks.
 
 ## 5. Opening and closing
 
@@ -233,6 +262,51 @@ with the arrows, and a click on it does what Tab does. A row without a secondary
 the permission for it, simply has no button. This is also how a pointer or a finger reaches the quick action;
 there is no separate touch layout (Decided 11).
 
+### 6.5 An id in the clipboard
+
+Copy an id, press Ctrl+K: the thing is the first row. Boards: `Clipboard` and `Clipboard-Rules`.
+
+**What shows.** With an empty query, a group "Clipboard" above "Recent" with exactly one row: the normal row of
+that kind (same Enter, same Tab), active on open. The id is written in mono at the right of the group's name.
+Typing the first letter replaces the group with results. Once the row has been opened from here, the same text
+is not offered again until something else is copied (keep the last consumed text in memory, not in storage).
+
+**What counts as an id** (a pure function, `clipboard-id.ts`; trim, one line, at most 128 characters):
+
+| Shape                                                                                      | Example                                          | Looked up in                                      |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------- |
+| `<domain>.<object_id>`, domain in `ENTITY_DOMAINS` (`packages/contracts/src/entity-id.ts`) | `light.hallway_light`, `alias.downstairs_lights` | entities by `entityId`                            |
+| UUID                                                                                       | `0193a5c2-7d1e-7b4a-9f3e-2c6d8a41b7e0`           | scenes, automations, areas, tags, devices by `id` |
+| `area.<key>`, `tag.<key>`                                                                  | `area.living_room`                               | areas and tags (the scope form)                   |
+| anything else                                                                              | a word, a sentence, a password                   | nothing: a plain word is never an id              |
+
+The lookup runs against the lists the palette already has, after the permission gate of section 10: no row for
+something the person may not read. Hidden and disabled entities are not offered here either.
+
+**Where the text comes from**, in this order:
+
+1. **The app's own Copy buttons.** `copyText` (`W/lib/clipboard.ts`) remembers the last value it copied in a
+   module variable (this tab, memory only). Works everywhere, also on plain http, and asks nothing.
+2. **The system clipboard**, `navigator.clipboard.readText()`, only when `globalThis.isSecureContext`, the method
+   exists (the same guard as `routes/library/broker-matter/code-field.tsx`) **and**
+   `navigator.permissions.query({ name: 'clipboard-read' })` answers `granted`. A hub is reached on
+   `http://<host>:8080` or `https://<host>:8443`: on the first there is no clipboard API at all. Where the query
+   throws or answers anything else (Firefox and Safari show a paste bubble on every read), do not read.
+3. **Pasting into the field** always works and needs nothing: an exact id match is the first result whatever its
+   kind (add each item's id to the ranking as an exact-only field; never match a fragment of a UUID).
+
+**Asking once.** Where the answer of the query is `prompt`, the empty state ends with one quiet line, "See the
+id you just copied as the first result." with "Allow" and "Not now". "Allow" calls `readText()` from the click,
+which makes the browser ask. Either answer, or "Not now", and the line never shows again (a flag in
+`localStorage`, keyed with the user id, in try/catch). Opening the palette never triggers the browser's prompt.
+
+**Privacy.** Clipboard text that is not an id of this house is dropped in the same tick: not rendered, not
+stored, not sent, not logged. Nothing about the clipboard leaves the browser.
+
+**Needed outside the palette.** Today only the alias panel copies an id (`routes/library/aliases/alias-side.tsx`,
+`copyText(alias.entityId)`). For the feature to be reachable, the entity dialog, the scene page and the
+automation page need a "Copy id" item that goes through `copyText`. Small, and its own PR.
+
 ## 7. Global actions
 
 Only these (a long list becomes noise; add more only when the owner asks). An action whose
@@ -316,6 +390,7 @@ Design:
   hide that by catching silently.
 - Recents hold only `{kind, id}` and are validated on read (section 6.1).
 - No telemetry on what was searched.
+- The clipboard is read only as section 6.5 says; text that is not an id is never kept or shown.
 
 ## 11. Implementation
 
@@ -355,6 +430,8 @@ palette/
   use-palette-items.ts      builds items from the sources, permission-gated, lazy (only while open)
   rank.ts                   score(item, words) and ordering; pure
   palette-recents.ts        read/write recents (try/catch around localStorage)
+  clipboard-id.ts           text in, { kind, id } or null out (the shapes of 6.5); pure
+  use-clipboard-item.ts     reads the text (6.5, sources 1 and 2) when the palette opens, resolves it to an item
   sources/
     entities.ts devices.ts scenes.ts automations.ts pages.ts settings.ts
     integrations.ts packages.ts tags.ts actions.ts   (each: data in, PaletteItem[] out, pure)
@@ -453,13 +530,16 @@ no arbitrary values, build from the kit).
 
 ### 12.2 Boards
 
-As published on 2026-11-16 (canvas version 297), all `N-Command-Palette-*`, all in the chosen look. The variant
+As published on 2026-11-16 (canvas version 299), all `N-Command-Palette-*`, all in the chosen look. The variant
 boards (`Var-*`) were removed from the canvas once the choice was made; their generator is still `variants.mjs`.
 
 - **The palette**: `Live` (one loop in the app), `Empty`, `Results` (query "light").
 - **Rows and sizes**: `Rows` (every kind with what Enter and Tab do, every state of a row), `Anatomy` (sizes,
   tokens, the key table).
 - **States**: `Add-Verb`, `Group-Expanded`, `No-Results`, `Loading`, `Group-Error`.
+- **Every kind of entity**: `Kinds` (one row per kind and per state, with the reading as the app writes it).
+- **An id in the clipboard**: `Clipboard` (in the app), `Clipboard-Rules` (other kinds, the line that asks once,
+  what counts as an id, where the text comes from).
 - **Where it opens**: `Over-Entity`, `Sidebar-Trigger`.
 - **Motion**: `Motion-Panel`, `Motion-Actions`, `Motion-Values` (the full table and the CSS to start from).
 - **Parked**: `Phone-Empty`, `Phone-Results` (Decided 11).
@@ -496,8 +576,8 @@ shadow are not utilities. The board `Anatomy` has every size measured on the dra
   26 px, `rounded-pill`, `bg-foreground/7 border-foreground/12`, the `Tab` key inside), the state in `font-mono
 text-mono-caption tabular` (`text-foreground/45` when off or unavailable), the `corner-down-left` glyph 15 px in
   `text-primary` (its place is kept on every row).
-- Active row: `bg-foreground/6` with `inset 0 1px 0 foreground/16`: lit from above, the panel's own motif. It is
-  one separate element under the rows, so it can slide (12.5).
+- Active row: a plain veil, `bg-foreground/8`, no border and no edge of its own (a line of light on its top edge
+  was tried and read as a stray border). It is one separate element under the rows, so it can slide (12.5).
 - Group names: 34 px, `font-mono uppercase` 10.5 px, `text-foreground/42`.
 - "Show all" and the quiet lines (nothing found, a list that failed): 40 px.
 - Keys bar: 44 px, `border-t border-foreground/7`, `text-caption text-foreground/50`; key chips 22 px,
@@ -513,7 +593,8 @@ Placeholder: "Search or run a command". Groups: "Recent", "Actions", "Entities",
 "Scenes", "Automations", "Pages", "Settings", "Integrations", "Packages", "Tags". Empty:
 "Nothing matches “{{query}}”." Hub row: "Search the Hub for “{{query}}”". Expand row: "Show all
 ({{count}})". Quick-action hints: "Turn on", "Turn off", "Apply", "Open", "Enable", "Disable",
-"Add device". Toasts reuse the existing ones.
+"Add device". Toasts reuse the existing ones. Clipboard: group "Clipboard"; the line "See the id you just
+copied as the first result.", buttons "Allow" and "Not now".
 
 ### 12.5 Motion
 
@@ -591,6 +672,12 @@ Must cover:
   row; recents survive a reopen and drop vanished items; Escape over the entity dialog closes only
   the palette.
 - `VendorPage` `?add=1`: opens the dialog when eligible, ignored otherwise, param removed.
+- `clipboard-id.ts`: an entity id with a known domain, a UUID, `area.key` and `tag.key` are recognised; a plain
+  word, an unknown domain, two lines, 129 characters and an empty string are not.
+- Clipboard row: shown for an id that resolves and that the person may read; absent for an unknown id, for an
+  entity outside the person's scopes, with a non-empty query, and after it was opened once; `readText` is not
+  called outside a secure context or when the permission is not `granted`; the asking line shows only on
+  `prompt` and never again after an answer.
 - Regression: `settings-search` tests unchanged and green after 11.1.
 
 Commands (from `platform/`, with the `rtk` prefix per CLAUDE.md; note `rtk pnpm typecheck` can say
@@ -652,3 +739,8 @@ Still open:
 8. **Cost of the two blurs** (3 px on the whole page behind, 28 px under the panel) on the slow wall tablets: not
    measured. If opening drops frames there, drop the scrim's blur first (the panel is 84% opaque, so it survives
    without its own too).
+9. **Device ids** (6.5): `DeviceView.id` is a slug in `api-registry.ts` while `EntityView.deviceId` is a UUID in
+   `api-entities.ts`. Settle which one a device carries at runtime before matching devices from the clipboard; a
+   slug is a plain word and must not be matched.
+10. **"Copy id" buttons** (6.5): the owner expects ids to be copyable for entities, scenes and automations; in the
+    code only aliases have the button. Confirm where they go.
