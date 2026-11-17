@@ -95,6 +95,8 @@ export function aDevice(overrides: Partial<DeviceView> = {}): DeviceView {
     createdAt: null,
     linked: null,
     suggestedLinks: [],
+    parentId: null,
+    childIds: [],
     ...overrides,
   };
 }

@@ -1,7 +1,8 @@
 /**
  * The ⋮ of an integration's page: updating its bundle to what the integrations index has,
  * reinstalling a rebuild from the local folder, and removing the integration - with everything
- * that came in through it, after the owner sees what that is.
+ * that came in through it, after the owner sees what that is: what stops working with its devices
+ * gone, and the aliases reading one of them, which hold it back.
  *
  * Only for a vendor the platform installed, and only for who may install: a copy under
  * development - read from the hub's development folder - has nothing to update or take away
@@ -17,13 +18,18 @@ import { Button, Modal, OverflowMenu, toast, type MenuItem } from '@nebulahome/u
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
 import { useIntegrationRemove, useVendorUpdate } from '@/library/use-integration-install';
+import {
+  RemovalBlockers,
+  RemovalSummary,
+  useRemovalPreview,
+} from '@/routes/library/device-removal';
 
 /** What the menu needs. */
 export type VendorInstallMenuProps = {
   readonly vendor: IntegrationVendorView;
 
-  /** How many devices were added under it: what removing it takes with it. */
-  readonly deviceCount: number;
+  /** The devices added under it: what removing it takes with it. */
+  readonly deviceIds: readonly string[];
 };
 
 /**
@@ -35,10 +41,14 @@ export type VendorInstallMenuProps = {
 export function VendorInstallMenu(props: VendorInstallMenuProps) {
   const { t } = useTranslation();
 
-  const { vendor, deviceCount } = props;
+  const { vendor, deviceIds } = props;
+  const deviceCount = deviceIds.length;
   const canInstall = useSession((state) => state.can('integration:install'));
   const navigate = useNavigate();
   const [isConfirming, setConfirming] = useState(false);
+  const preview = useRemovalPreview(isConfirming ? deviceIds : null);
+  const removal = preview.data;
+  const isBlocked = (removal?.blockedBy.aliases.length ?? 0) > 0;
   const install = useVendorUpdate(vendor.name);
   const remove = useIntegrationRemove(() => {
     setConfirming(false);
@@ -134,6 +144,7 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
             <Button
               variant="danger"
               isBusy={remove.isPending}
+              disabled={isBlocked || preview.isLoading}
               onClick={() => {
                 remove.mutate(vendor.id);
               }}
@@ -178,6 +189,11 @@ export function VendorInstallMenu(props: VendorInstallMenuProps) {
             {t('library.vendorInstallActions.itsSettingsAndIts', 'Its settings, and its bundle')}
           </li>
         </ul>
+        {removal === undefined ? null : isBlocked ? (
+          <RemovalBlockers removal={removal} asked={deviceIds} />
+        ) : (
+          <RemovalSummary removal={removal} asked={deviceIds} />
+        )}
         {remove.error === null ? null : (
           <p role="alert" className="text-ui text-danger">
             {toMessage(remove.error)}

@@ -62,6 +62,8 @@ export const PRINTER: DeviceView = {
   createdAt: null,
   linked: null,
   suggestedLinks: [],
+  parentId: null,
+  childIds: [],
 };
 
 /** A relay of another vendor, switched off. */

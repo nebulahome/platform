@@ -58,6 +58,11 @@ import { ModbusSettingsDialog } from '@/routes/library/broker-modbus/modbus-sett
 import { ModbusTemplates } from '@/routes/library/broker-modbus/modbus-templates';
 import { brokerStateOf, BrokerMark } from '@/routes/library/brokers-page';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
+import {
+  RemovalBlockers,
+  RemovalSummary,
+  useRemovalPreview,
+} from '@/routes/library/device-removal';
 import { useVendorsById } from '@/routes/library/transport-marks';
 import { useAreas } from '@/routes/library/use-areas';
 
@@ -110,6 +115,12 @@ export function ModbusBrokerPage() {
     queryFn: signalled(fetchDevices),
   });
   const { roomOf } = useAreas();
+  // A device not yet in the house has nothing that reads it.
+  const removingId = removing?.deviceId ?? null;
+  const asked = removingId === null ? null : [removingId];
+  const preview = useRemovalPreview(asked);
+  const removal = preview.data;
+  const isBlocked = (removal?.blockedBy.aliases.length ?? 0) > 0;
 
   /** Reads everything the broker touches again. */
   const refresh = (): void => {
@@ -488,6 +499,7 @@ export function ModbusBrokerPage() {
                 <Button
                   variant="danger"
                   isBusy={remove.isPending}
+                  disabled={isBlocked || preview.isLoading}
                   onClick={() => {
                     if (removing !== null) {
                       remove.mutate(removing);
@@ -499,7 +511,11 @@ export function ModbusBrokerPage() {
               </>
             }
           >
-            {null}
+            {removal === undefined || asked === null ? null : isBlocked ? (
+              <RemovalBlockers removal={removal} asked={asked} />
+            ) : (
+              <RemovalSummary removal={removal} asked={asked} />
+            )}
           </Modal>
         </>
       )}

@@ -160,7 +160,12 @@ export function VendorOverview(props: VendorOverviewProps) {
   const connection = connectionHealth(vendor);
   const deviceLine = devicesHealth(vendor, devices, found.length);
   const updates = updatesHealth(vendor);
-  const rows = [...devices].sort((left, right) => left.name.localeCompare(right.name));
+  // A part of another device is shown with its parent, on the Devices tab: here only the parents.
+  const rows = devices
+    .filter(
+      (device) => device.parentId === null || !devices.some((one) => one.id === device.parentId),
+    )
+    .sort((left, right) => left.name.localeCompare(right.name));
   const isInstallable = canInstall && vendor.origin !== 'development';
 
   return (
@@ -357,7 +362,7 @@ export function VendorOverview(props: VendorOverviewProps) {
             <button type="button" onClick={onAllDevices} className={ROW_LIST_MORE}>
               {rows.length > ROWS_SHOWN
                 ? t('library.vendorOverview.allCountDevices', 'All {{count}} devices', {
-                    count: rows.length,
+                    count: devices.length,
                   })
                 : t('library.vendorOverview.allDevices', 'All devices')}
               <AppIcon id="chevron-right" size={14} />

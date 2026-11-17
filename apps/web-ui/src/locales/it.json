@@ -2945,7 +2945,12 @@
       "editButtons": "Modifica tasti",
       "showDisabled": "Mostra disattivate ({{count}})",
       "hideDisabled": "Nascondi disattivate",
-      "allDisabled": "Tutte disattivate."
+      "allDisabled": "Tutte disattivate.",
+      "childOf": "Fa parte di",
+      "entityCount_many": "{{count}} entità",
+      "entityCount_one": "{{count}} entità",
+      "entityCount_other": "{{count}} entità",
+      "parentOf": "È composto da"
     },
     "deviceProblem": {
       "deviceIsNotWorking": "Il dispositivo non funziona. L'ultima cosa che ha detto l'hub:",
@@ -4219,14 +4224,10 @@
       "virtualDevice": "Un dispositivo virtuale che contiene alias: come si chiama, i suoi tag e la sua stanza.",
       "disabled": "Disattivato",
       "enabled": "Attivo",
-      "entitiesGoWithIt_many": "Le sue {{count}} entità vanno via con lui",
-      "entitiesGoWithIt_one": "La sua {{count}} entità va via con lui",
-      "entitiesGoWithIt_other": "Le sue {{count}} entità vanno via con lui",
       "hubNoLongerHas": "L'hub non ha più il driver {{kind}}, quindi i suoi campi non si possono mostrare.",
       "iconStartsAsThe": "L'icona parte da quella del driver; scegline un'altra dal catalogo.",
       "id": "Id",
       "idMustBeLowercase": "L'id deve essere fatto di lettere minuscole, cifre e trattini, e iniziare con una lettera.",
-      "itHasNoEntities": "Non ha ancora entità",
       "itSaysItIs": "Dice di essere un {{model}}.",
       "itsEntitiesAreIn": "Le sue entità stanno nella stessa stanza, a meno che una di esse dica altrimenti.",
       "lowercaseLettersDigitsAnd": "Lettere minuscole, cifre e trattini. È quello che ogni entità di questo dispositivo porta come sorgente.",
@@ -4237,7 +4238,6 @@
       "otherTakesOver": "L'altro subentra quando questo non risponde.",
       "overTransport": "{{model}}, via {{transport}}. Prova controlla l'indirizzo prima di salvare qualsiasi cosa.",
       "preferredTransport": "Transport preferito",
-      "removeLinked": "Togliere {{name}}? Se ne va da {{ways}}: {{entities}}, e l'hub smette di ascoltarlo da entrambe le vie.",
       "room": "Stanza",
       "running": "In funzione",
       "test": "Prova",
@@ -4933,7 +4933,9 @@
       "searchThisVendorS": "Cerca tra i dispositivi di questo produttore…",
       "shownOfTotal": "{{shown}} di {{total}} mostrati",
       "status": "Stato",
-      "stillListeningSeeWhy": "Ancora in ascolto - guarda perché"
+      "stillListeningSeeWhy": "Ancora in ascolto - guarda perché",
+      "hideParts": "Nascondi i dispositivi di {{name}}",
+      "showParts": "Mostra i dispositivi di {{name}}"
     },
     "vendorFound": {
       "address": "Indirizzo",
@@ -4964,7 +4966,14 @@
       "selected": "selezionati",
       "underModelName": "{{names}} sono in Dispositivi con il nome del modello. Lì puoi dare loro un nome e una stanza.",
       "wakes": "Si sveglia per rispondere",
-      "wasAt": "Era a {{address}}"
+      "wasAt": "Era a {{address}}",
+      "dismissed": "ignorati",
+      "dismissedOn": "Ignorato il {{date}}",
+      "dismissedTag": "Ignorato",
+      "hideDismissed": "Nascondi ignorati",
+      "restore": "Ripristina",
+      "restoreFailed": "Impossibile ripristinarlo",
+      "showDismissed": "Mostra ignorati ({{count}})"
     },
     "vendorHealth": {
       "addOneByIts": "Aggiungine uno con il suo indirizzo",
@@ -5623,11 +5632,44 @@
       "reaches": "{{part}} raggiunge {{value}}",
       "leaves": "{{part}} lascia {{value}}"
     },
-    "copyId": "Copia id"
+    "copyId": "Copia id",
+    "deviceRemoval": {
+      "aliasesRead_many": "Degli alias leggono le sue entità: prima falli puntare altrove",
+      "aliasesRead_one": "Un alias legge le sue entità: prima fallo puntare altrove",
+      "aliasesRead_other": "Degli alias leggono le sue entità: prima falli puntare altrove",
+      "cannotYet": "Non puoi ancora rimuovere {{name}}",
+      "childrenCountToo_many": "I suoi {{count}} dispositivi figli vanno via con lui, quindi contano anche le loro entità.",
+      "childrenCountToo_one": "Il suo dispositivo figlio va via con lui, quindi contano anche le sue entità.",
+      "childrenCountToo_other": "I suoi {{count}} dispositivi figli vanno via con lui, quindi contano anche le loro entità.",
+      "childrenGo_many": "I suoi {{count}} dispositivi figli vanno via con lui · storico compreso · non si annulla",
+      "childrenGo_one": "Il suo dispositivo figlio va via con lui · storico compreso · non si annulla",
+      "childrenGo_other": "I suoi {{count}} dispositivi figli vanno via con lui · storico compreso · non si annulla",
+      "entitiesGo_many": "Le sue {{count}} entità vanno via con lui · storico compreso · non si annulla",
+      "entitiesGo_one": "La sua entità va via con lui · storico compreso · non si annulla",
+      "entitiesGo_other": "Le sue {{count}} entità vanno via con lui · storico compreso · non si annulla",
+      "entities_many": "{{count}} entità",
+      "entities_one": "{{count}} entità",
+      "entities_other": "{{count}} entità",
+      "noEntities": "Non ha ancora entità · non si annulla",
+      "notRead": "Non è stato possibile leggere cosa porta via con sé.",
+      "openAlias": "Apri {{name}}",
+      "readByAliases": "Letto da alias · {{count}}",
+      "readOf": "{{entity}} di {{device}}",
+      "reads": "Legge {{entities}}",
+      "removeDevices": "Rimuovi {{count}} dispositivi",
+      "removeName": "Rimuovere {{name}}?",
+      "removedWithIt": "Rimossi con lui · {{count}}",
+      "stopsWorking": "Smette di funzionare finché non punta altrove · {{count}}"
+    }
   },
   "live": {
     "cameraPlayer": {
       "thisBrowserCannotDecode": "Questo browser non sa decodificare {{codec}}"
+    },
+    "duplicate": {
+      "message": "{{name}} è già {{existing}}, quindi il dispositivo che hai appena aggiunto è stato rimosso.",
+      "open": "Apri {{existing}}",
+      "title": "Già in casa"
     }
   },
   "logs": {

@@ -6,7 +6,8 @@
  * form to save (`account-dialog.tsx`). Each account is a row - its name, where it stands, since
  * when, and why not when it is not - with **Sign in again** for one the cloud stopped taking, and
  * **Remove**, which asks first and offers to remove the devices that came with it too: they stay,
- * unreachable, otherwise, until the account is signed in to again.
+ * unreachable, otherwise, until the account is signed in to again. The question says what removing
+ * them stops, and an alias that reads one of them holds it back.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -25,6 +26,11 @@ import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
 import { deleteDevice, LIBRARY_QUERY_KEYS, signOutOfAccount } from '@/library/api';
 import { AccountDialog } from '@/routes/library/account-dialog';
+import {
+  RemovalBlockers,
+  RemovalSummary,
+  useRemovalPreview,
+} from '@/routes/library/device-removal';
 
 /** How each standing reads on its badge. */
 const STATUS: Readonly<
@@ -112,7 +118,13 @@ export function VendorAccounts(props: VendorAccountsProps) {
       readonly withDevices: boolean;
     }): Promise<void> => {
       if (target.withDevices) {
-        for (const device of devicesOf(devices, target.account.id)) {
+        const all = devicesOf(devices, target.account.id);
+        const ids = new Set(all.map((device) => device.id));
+
+        // A part goes with its parent on the server: asked for again, it would be gone already.
+        for (const device of all.filter(
+          (each) => each.parentId === null || !ids.has(each.parentId),
+        )) {
           // One after another, as the page removes them one by one.
           // eslint-disable-next-line no-await-in-loop -- see above
           await deleteDevice(device.id);
@@ -129,6 +141,12 @@ export function VendorAccounts(props: VendorAccountsProps) {
     },
   });
 
+  const removingDevices = removing === null ? [] : devicesOf(devices, removing.id);
+  const asked = removingDevices.map((device) => device.id);
+  const preview = useRemovalPreview(alsoDevices && asked.length > 0 ? asked : null);
+  const removal = alsoDevices ? preview.data : undefined;
+  const isBlocked = (removal?.blockedBy.aliases.length ?? 0) > 0;
+
   if (vendor.account === null) {
     return null;
   }
@@ -144,8 +162,6 @@ export function VendorAccounts(props: VendorAccountsProps) {
     setDialogKey((key) => key + 1);
     setSigningIn(again === undefined ? {} : { again });
   };
-
-  const removingDevices = removing === null ? [] : devicesOf(devices, removing.id);
 
   return (
     <>
@@ -307,6 +323,7 @@ export function VendorAccounts(props: VendorAccountsProps) {
             <Button
               variant="danger"
               isBusy={remove.isPending}
+              disabled={isBlocked || (alsoDevices && preview.isLoading)}
               onClick={() => {
                 if (removing !== null) {
                   remove.mutate({ account: removing, withDevices: alsoDevices });
@@ -351,6 +368,11 @@ export function VendorAccounts(props: VendorAccountsProps) {
                 )}
               </p>
             </div>
+          )}
+          {removal === undefined ? null : isBlocked ? (
+            <RemovalBlockers removal={removal} asked={asked} />
+          ) : (
+            <RemovalSummary removal={removal} asked={asked} />
           )}
           {remove.error === null ? null : (
             <p role="alert" className="text-ui text-danger">

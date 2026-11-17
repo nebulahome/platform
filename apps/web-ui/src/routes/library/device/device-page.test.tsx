@@ -6,7 +6,7 @@
  * feed it.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -218,6 +218,25 @@ describe('DevicePage', () => {
     expect(controls.compareDocumentPosition(sensors) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
+  });
+
+  it('lists the devices it is made of, and on each of them the device it is part of', async () => {
+    vi.mocked(fetchDevices).mockResolvedValue([
+      { ...PRINTER, childIds: [RELAY.id] },
+      { ...RELAY, parentId: PRINTER.id },
+    ]);
+    renderPage();
+
+    const parts = await screen.findByRole('heading', { name: /Parent of/u });
+
+    expect(parts.textContent).toContain('1');
+    expect(screen.getByRole('link', { name: new RegExp(RELAY.name, 'u') })).toBeTruthy();
+    cleanup();
+
+    renderPage(RELAY.id);
+
+    await screen.findByRole('heading', { name: 'Child of' });
+    expect(screen.getByRole('link', { name: new RegExp(`^${PRINTER.name}`, 'u') })).toBeTruthy();
   });
 
   it('links to the device web page from its header and its details', async () => {

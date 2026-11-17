@@ -1,13 +1,20 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IntegrationAccountView, IntegrationVendorView } from '@nebulahome/contracts';
+import {
+  entityIdSchema,
+  type DeviceRemoval,
+  type IntegrationAccountView,
+  type IntegrationVendorView,
+} from '@nebulahome/contracts';
 
 import {
   answerAccountSignIn,
   beginAccountSignIn,
   deleteDevice,
+  previewDeviceRemoval,
   signOutOfAccount,
 } from '@/library/api';
 import { aDevice } from '@/testing/fixtures';
@@ -15,13 +22,18 @@ import { VENDORS } from '@/testing/printer-fixtures';
 
 import { VendorAccounts } from './vendor-accounts';
 
-vi.mock('@/library/api', () => ({
+vi.mock('@/library/api', async (importOriginal) => ({
+  // The query keys, and what the removal preview's modules read at load.
+  ...(await importOriginal<object>()),
   beginAccountSignIn: vi.fn(),
   answerAccountSignIn: vi.fn(),
   pollAccountSignIn: vi.fn(),
   signOutOfAccount: vi.fn(),
   deleteDevice: vi.fn(),
-  LIBRARY_QUERY_KEYS: { vendors: ['library', 'vendors'], devices: ['library', 'devices'] },
+  previewDeviceRemoval: vi.fn(),
+  fetchDevices: vi.fn(() => Promise.resolve([])),
+  fetchIcons: vi.fn(() => Promise.resolve([])),
+  fetchVendors: vi.fn(() => Promise.resolve([])),
 }));
 
 /** An account, signed in. */
@@ -83,7 +95,7 @@ function ecovacs(accounts: IntegrationAccountView[] = []): IntegrationVendorView
  * @returns The last.
  * @throws {Error} When there is none.
  */
-function last(elements: readonly HTMLElement[]): HTMLElement {
+function last<TElement extends HTMLElement>(elements: readonly TElement[]): TElement {
   const element = elements.at(-1);
 
   if (element === undefined) {
@@ -102,16 +114,26 @@ function last(elements: readonly HTMLElement[]): HTMLElement {
 function renderPanel(vendor: IntegrationVendorView, devices = [aDevice()]): void {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <VendorAccounts vendor={vendor} devices={devices} canConfigure />
+      <MemoryRouter>
+        <VendorAccounts vendor={vendor} devices={devices} canConfigure />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
+
+/** A removal that takes only what was asked and stops nothing. */
+const NOTHING_ELSE: DeviceRemoval = {
+  devices: [],
+  usedBy: { automations: [], scenes: [], dashboards: [], aliases: [] },
+  blockedBy: { aliases: [] },
+};
 
 beforeEach(() => {
   vi.mocked(beginAccountSignIn).mockReset();
   vi.mocked(answerAccountSignIn).mockReset();
   vi.mocked(signOutOfAccount).mockReset();
   vi.mocked(deleteDevice).mockReset();
+  vi.mocked(previewDeviceRemoval).mockReset().mockResolvedValue(NOTHING_ELSE);
 });
 
 describe('VendorAccounts', () => {
@@ -191,12 +213,86 @@ describe('VendorAccounts', () => {
     expect(screen.getByText(/1 device/u)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
-    fireEvent.click(last(await screen.findAllByRole('button', { name: 'Remove' })));
+    // Once what the removal takes has been read.
+    await waitFor(() => {
+      expect(
+        last(screen.getAllByRole<HTMLButtonElement>('button', { name: 'Remove' })).disabled,
+      ).toBe(false);
+    });
+    fireEvent.click(last(screen.getAllByRole('button', { name: 'Remove' })));
 
     await waitFor(() => {
       expect(signOutOfAccount).toHaveBeenCalledWith('ecovacs', 'uid-42');
     });
     expect(deleteDevice).toHaveBeenCalledWith('ecovacs-goat');
     expect(deleteDevice).not.toHaveBeenCalledWith('ecovacs-other');
+  });
+
+  it('removes a parent and leaves its parts to the server, saying what stops working', async () => {
+    vi.mocked(signOutOfAccount).mockResolvedValue({ wasSignedIn: true });
+    vi.mocked(deleteDevice).mockResolvedValue();
+    vi.mocked(previewDeviceRemoval).mockResolvedValue({
+      ...NOTHING_ELSE,
+      usedBy: { ...NOTHING_ELSE.usedBy, scenes: [{ id: 'scene-1', name: 'Evening' }] },
+    });
+    const station = aDevice({
+      id: 'ecovacs-station',
+      transportConfig: { account: 'uid-42' },
+      childIds: ['ecovacs-dock'],
+    });
+    const dock = aDevice({
+      id: 'ecovacs-dock',
+      transportConfig: { account: 'uid-42' },
+      parentId: 'ecovacs-station',
+    });
+
+    renderPanel(ecovacs([SIGNED_IN]), [station, dock]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    expect(await screen.findByText(/Stops working until pointed elsewhere · 1/u)).toBeTruthy();
+    expect(previewDeviceRemoval).toHaveBeenCalledWith(
+      ['ecovacs-station', 'ecovacs-dock'],
+      expect.anything(),
+    );
+
+    fireEvent.click(last(screen.getAllByRole('button', { name: 'Remove' })));
+
+    await waitFor(() => {
+      expect(signOutOfAccount).toHaveBeenCalledWith('ecovacs', 'uid-42');
+    });
+    expect(deleteDevice).toHaveBeenCalledTimes(1);
+    expect(deleteDevice).toHaveBeenCalledWith('ecovacs-station');
+  });
+
+  it('holds the removal back while an alias reads one of the devices', async () => {
+    vi.mocked(previewDeviceRemoval).mockResolvedValue({
+      ...NOTHING_ELSE,
+      blockedBy: {
+        aliases: [
+          {
+            id: 'alias-1',
+            name: 'House battery',
+            reads: [
+              {
+                entityId: entityIdSchema.parse('sensor.goat_battery'),
+                name: 'Battery',
+                deviceName: 'GOAT',
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const mower = aDevice({ id: 'ecovacs-goat', transportConfig: { account: 'uid-42' } });
+
+    renderPanel(ecovacs([SIGNED_IN]), [mower]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    expect(await screen.findByText('House battery')).toBeTruthy();
+    expect(
+      last(screen.getAllByRole<HTMLButtonElement>('button', { name: 'Remove' })).disabled,
+    ).toBe(true);
   });
 });
