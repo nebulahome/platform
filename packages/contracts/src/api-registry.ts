@@ -168,10 +168,73 @@ export const deviceViewSchema = z.object({
    * suggests to link. Empty for a device reached one way.
    */
   suggestedLinks: z.array(suggestedLinkSchema).default([]),
+
+  /**
+   * The device this one is part of, when its integration says so and that device is in the house:
+   * the inverter of an EPS output. Null otherwise.
+   */
+  parentId: integrationIdSchema.nullable().default(null),
+
+  /** The devices that are part of this one, in the order of their names. Empty for most. */
+  childIds: z.array(integrationIdSchema).default([]),
 });
 
 /** One device. */
 export type DeviceView = z.output<typeof deviceViewSchema>;
+
+/** Asks what removing some devices would take with it and stop. */
+export const deviceRemovalPreviewRequestSchema = z.object({
+  deviceIds: z.array(z.string().min(1).max(64)).min(1).max(500),
+});
+
+/** Asks what removing some devices would take with it and stop. */
+export type DeviceRemovalPreviewRequest = z.output<typeof deviceRemovalPreviewRequestSchema>;
+
+/** Something that uses a device's entities, by id and name. */
+export const deviceRemovalUserSchema = z.object({ id: z.string(), name: z.string() });
+
+/** One device a removal takes: one asked for, or a part that goes with its parent. */
+export const deviceRemovalDeviceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  model: z.string().nullable(),
+
+  /** How many entities go with it. */
+  entities: z.int().min(0),
+
+  /** The device it goes with, for a part taken with its parent; null for one asked for. */
+  parentId: z.string().nullable(),
+});
+
+/** An alias that reads an entity a removal would take, which blocks it. */
+export const deviceRemovalBlockerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+
+  /** What it reads that would go, each with the device it belongs to. */
+  reads: z.array(z.object({ entityId: entityIdSchema, name: z.string(), deviceName: z.string() })),
+});
+
+/**
+ * What removing some devices would do: every device that goes, parts included; what stops
+ * working until pointed elsewhere; and the aliases that read one of the entities, which block
+ * the removal until they read something else.
+ */
+export const deviceRemovalSchema = z.object({
+  devices: z.array(deviceRemovalDeviceSchema),
+  usedBy: z.object({
+    automations: z.array(deviceRemovalUserSchema),
+    scenes: z.array(deviceRemovalUserSchema),
+    dashboards: z.array(deviceRemovalUserSchema),
+
+    /** Aliases whose actions command one of the entities: they go on, without that command. */
+    aliases: z.array(deviceRemovalUserSchema),
+  }),
+  blockedBy: z.object({ aliases: z.array(deviceRemovalBlockerSchema) }),
+});
+
+/** What removing some devices would do. */
+export type DeviceRemoval = z.output<typeof deviceRemovalSchema>;
 
 /**
  * What adding a device accepts.

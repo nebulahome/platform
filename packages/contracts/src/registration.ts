@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { CAPABILITY_DEFINITIONS, capabilityNameSchema } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { entityStateSchema, sourceRefSchema } from './entity-state.js';
+import { ConflictError } from './errors.js';
 import { iconIdSchema } from './icons.js';
 import { integrationIdSchema } from './integrations.js';
 import { jsonObjectSchema } from './json.js';
@@ -224,6 +225,13 @@ export const registerDeviceRequestSchema = z.strictObject({
   serialNumber: z.string().min(1).max(256).optional(),
 
   /**
+   * The `externalId` of the device of the same vendor this one is part of, when the integration
+   * says: the inverter an EPS output belongs to. Left out, the device is part of nothing, even if
+   * it was before.
+   */
+  parentExternalId: z.string().min(1).max(256).optional(),
+
+  /**
    * What the owner needs to find the device again after a restart.
    *
    * Kept in `registry.devices.config` and handed back to nobody but the owner: for `hub` it is
@@ -377,6 +385,51 @@ export const registerDeviceReplySchema = z.object({
 /** What `core` wrote. */
 export type RegisterDeviceReply = z.output<typeof registerDeviceReplySchema>;
 
+/** Why a device went without the owner removing it: it was the same hardware as another. */
+export const DEVICE_REMOVAL_REASONS = ['duplicate'] as const;
+
+/** Why a device went without the owner removing it. */
+export type DeviceRemovalReason = (typeof DEVICE_REMOVAL_REASONS)[number];
+
+/** The device already in the house that another turned out to be, by its public id and name. */
+export const duplicateOfSchema = z.object({
+  id: integrationIdSchema,
+  name: z.string().min(1).max(128),
+});
+
+/** The device already in the house that another turned out to be. */
+export type DuplicateOf = z.output<typeof duplicateOfSchema>;
+
+/**
+ * The details of the `ConflictError` `core` answers a registration with when another device of
+ * the same vendor already has the `externalId`: the hardware is in the house already. `hub` reads
+ * them to stop the instance and have it removed, rather than asking again.
+ */
+export const duplicateDeviceDetailsSchema = z.object({
+  reason: z.literal('duplicate'),
+  duplicateOf: duplicateOfSchema,
+});
+
+/** What `core` says about a device that is another already in the house. */
+export type DuplicateDeviceDetails = z.output<typeof duplicateDeviceDetailsSchema>;
+
+/**
+ * What a refusal says about hardware already in the house, when that is what an error is: `core`
+ * completing a device, or `api` adding one found.
+ *
+ * @param error - What was thrown.
+ * @returns The details naming the device it already is, or nothing for any other error.
+ */
+export function duplicateOf(error: unknown): DuplicateDeviceDetails | undefined {
+  if (!(error instanceof ConflictError)) {
+    return undefined;
+  }
+
+  const parsed = duplicateDeviceDetailsSchema.safeParse(error.details);
+
+  return parsed.success ? parsed.data : undefined;
+}
+
 /**
  * Asks `core` to release a device the owner is removing.
  *
@@ -386,6 +439,15 @@ export type RegisterDeviceReply = z.output<typeof registerDeviceReplySchema>;
  */
 export const unregisterDeviceRequestSchema = z.strictObject({
   integrationId: integrationIdSchema,
+
+  /**
+   * Why it goes, when nobody asked: `duplicate`, sent by `hub` for a device added by hand that
+   * turned out to be one already in the house. Carried into the `removed` event.
+   */
+  reason: z.enum(DEVICE_REMOVAL_REASONS).optional(),
+
+  /** With `duplicate`: the device it was. */
+  duplicateOf: duplicateOfSchema.optional(),
 });
 
 /** Asks `core` to release a device the owner is removing. */
@@ -550,6 +612,12 @@ export const deviceEventSchema = z.object({
       removed: z.array(z.object({ entityId: entityIdSchema, name: z.string().max(128) })),
     })
     .optional(),
+
+  /** On `removed`, when nobody asked: why it went. */
+  reason: z.enum(DEVICE_REMOVAL_REASONS).optional(),
+
+  /** On `removed` with `duplicate`: the device it was, which the owner is offered to open. */
+  duplicateOf: duplicateOfSchema.optional(),
 });
 
 /** What a device lifecycle event carries. */
