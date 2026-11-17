@@ -38,11 +38,18 @@ describe('snapSize', () => {
 });
 
 describe('cardKindOf', () => {
-  it('gives what is told rather than switched the entity page control on a card', () => {
-    expect(cardKindOf(entity('vacuum', 'vacuum', 'on_off'))).toBe('control');
-    expect(cardKindOf(entity('select', 'select'))).toBe('control');
-    expect(cardKindOf(entity('update', 'update'))).toBe('control');
-    expect(CARD_SIZES.control.preferred).toEqual({ w: 2, h: 2 });
+  it('gives what is told rather than switched a card of its own, at the sizes its board draws', () => {
+    expect(cardKindOf(entity('vacuum', 'vacuum', 'on_off'))).toBe('vacuum');
+    expect(cardKindOf(entity('lawn_mower', 'lawn_mower'))).toBe('mower');
+    expect(cardKindOf(entity('select', 'select'))).toBe('select');
+    expect(cardKindOf(entity('number', 'number'))).toBe('number');
+    expect(cardKindOf(entity('button', 'button'))).toBe('button');
+    expect(cardKindOf(entity('update', 'update'))).toBe('update');
+    expect(cardKindOf(entity('image', 'image'))).toBe('picture');
+    expect(cardKindOf(entity('custom', 'custom'))).toBe('custom');
+    expect(CARD_SIZES.vacuum.sizes.map(sizeName)).toEqual(['1×1', '1×2', '2×2']);
+    expect(CARD_SIZES.button.sizes.map(sizeName)).toEqual(['1×1']);
+    expect(CARD_SIZES.picture.sizes.map(sizeName)).toEqual(['2×2', '2×3']);
   });
 
   it('draws the richest thing an entity can do', () => {

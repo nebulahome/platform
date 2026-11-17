@@ -9,6 +9,7 @@
 import type { CapabilityName, EntityView, PackageCardSize } from '@nebulahome/contracts';
 
 import type { GridSize } from '@/dashboard/grid-engine';
+import { translate } from '@/i18n/messages';
 import { hasCapability } from '@/library/entity-control';
 
 /** A size a card is drawn for. */
@@ -25,7 +26,14 @@ export const ENTITY_CARD_KINDS = [
   'switch',
   'sensor',
   'binary',
-  'control',
+  'vacuum',
+  'mower',
+  'select',
+  'number',
+  'button',
+  'update',
+  'picture',
+  'custom',
   'text',
 ] as const;
 
@@ -56,9 +64,18 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
   binary: { sizes: [TILE, CARD], preferred: TILE },
   text: { sizes: [TILE, STRIP], preferred: TILE },
 
-  // A robot, a choice, a number, a button, a firmware update, a picture: the platform's own
-  // control for it, on a card tall or square enough to hold it.
-  control: { sizes: [CARD, SQUARE, LARGE], preferred: SQUARE },
+  // What is told rather than switched: a robot's status and its buttons, the rooms on the square;
+  // a choice, a number, a button and a firmware update in a tile or a strip; a picture full bleed.
+  vacuum: { sizes: [TILE, CARD, SQUARE], preferred: CARD },
+  mower: { sizes: [TILE, CARD], preferred: CARD },
+  select: { sizes: [TILE, STRIP], preferred: TILE },
+  number: { sizes: [TILE, STRIP], preferred: TILE },
+  button: { sizes: [TILE], preferred: TILE },
+  update: { sizes: [TILE, STRIP], preferred: TILE },
+  picture: { sizes: [SQUARE, LARGE], preferred: SQUARE },
+
+  // An entity of a kind a package defines: its fields as a grid of figures.
+  custom: { sizes: [STRIP, SQUARE], preferred: STRIP },
   thermostat: { sizes: [CARD, SQUARE], preferred: CARD },
   cover: { sizes: [TILE, CARD], preferred: CARD },
   lock: { sizes: [TILE, CARD], preferred: CARD },
@@ -182,9 +199,9 @@ const RICHEST_FIRST: readonly (readonly [CapabilityName, EntityCardKind])[] = [
   ['thermostat', 'thermostat'],
   ['media_player', 'media'],
   ['camera', 'camera'],
-  ['vacuum', 'control'],
-  ['lawn_mower', 'control'],
-  ['image', 'control'],
+  ['vacuum', 'vacuum'],
+  ['lawn_mower', 'mower'],
+  ['image', 'picture'],
   ['cover', 'cover'],
   ['lock', 'lock'],
   ['level', 'light'],
@@ -193,10 +210,11 @@ const RICHEST_FIRST: readonly (readonly [CapabilityName, EntityCardKind])[] = [
   ['on_off', 'switch'],
   ['sensor_numeric', 'sensor'],
   ['sensor_binary', 'binary'],
-  ['select', 'control'],
-  ['number', 'control'],
-  ['button', 'control'],
-  ['update', 'control'],
+  ['select', 'select'],
+  ['number', 'number'],
+  ['button', 'button'],
+  ['update', 'update'],
+  ['custom', 'custom'],
 ];
 
 /**
@@ -214,4 +232,51 @@ export function cardKindOf(entity: Pick<EntityView, 'domain' | 'capabilities'>):
   const kind = found?.[1] ?? 'text';
 
   return entity.domain === 'light' && (kind === 'switch' || kind === 'text') ? 'light' : kind;
+}
+
+/** A size of an entity's kind that this entity cannot fill, and why, in a few words. */
+export type MissingSize = { readonly size: CardSize; readonly reason: string };
+
+/**
+ * The sizes of its kind an entity cannot fill: a size with nothing left to show once the controls
+ * it lacks are left out is not offered. The settings panel names them under its size choice.
+ *
+ * @param entity - Its domain and capabilities.
+ * @returns Each size it cannot take, with why.
+ */
+export function missingSizes(
+  entity: Pick<EntityView, 'domain' | 'capabilities'>,
+): readonly MissingSize[] {
+  const kind = cardKindOf(entity);
+
+  // A light that only switches is drawn as a switch: its square would be a switch with a hole.
+  if (kind === 'light' && !hasCapability(entity, 'level')) {
+    return [
+      {
+        size: SQUARE,
+        reason: translate(
+          'dashboard.cardSizes.lightWithoutBrightness',
+          'this light has no brightness',
+        ),
+      },
+    ];
+  }
+
+  return [];
+}
+
+/**
+ * The sizes an entity's card may take: those of its kind, less the ones it cannot fill.
+ *
+ * @param entity - Its domain and capabilities.
+ * @returns The sizes, smallest first as its kind lists them.
+ */
+export function allowedSizes(
+  entity: Pick<EntityView, 'domain' | 'capabilities'>,
+): readonly CardSize[] {
+  const missing = missingSizes(entity);
+
+  return CARD_SIZES[cardKindOf(entity)].sizes.filter(
+    (size) => !missing.some((each) => sameSize(each.size, size)),
+  );
 }

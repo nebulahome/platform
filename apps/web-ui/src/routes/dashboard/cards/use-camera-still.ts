@@ -10,6 +10,7 @@ import { useEffect, useMemo } from 'react';
 
 import { apiBlob } from '@/lib/api-client';
 import { PICTURE_QUERY_KEYS } from '@/library/use-entity-image';
+import { useCardSample } from '@/routes/dashboard/cards/card-sample';
 
 /** How often a still is fetched again while it is shown. */
 const REFRESH_MS = 15_000;
@@ -22,9 +23,10 @@ const REFRESH_MS = 15_000;
  * @returns The still's address, or null before there is one.
  */
 export function useCameraStill(entityId: string, isWanted: boolean): string | null {
+  const sample = useCardSample();
   const still = useQuery({
     queryKey: [...PICTURE_QUERY_KEYS.cameraStill, entityId],
-    enabled: isWanted,
+    enabled: isWanted && sample === null,
     refetchInterval: REFRESH_MS,
     retry: false,
 
@@ -56,5 +58,9 @@ export function useCameraStill(entityId: string, isWanted: boolean): string | nu
     [address],
   );
 
-  return isWanted ? address : null;
+  if (!isWanted) {
+    return null;
+  }
+
+  return sample === null ? address : sample.still(entityId);
 }

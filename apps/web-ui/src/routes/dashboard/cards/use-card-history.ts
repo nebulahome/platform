@@ -17,6 +17,7 @@ import {
   type HistoryRange,
   type TimeWindow,
 } from '@/library/history-series';
+import { useCardSample } from '@/routes/dashboard/cards/card-sample';
 
 /** How often a card reads its history again. */
 const REFRESH_MS = 60_000;
@@ -40,6 +41,7 @@ export function useTelemetry(
   range: HistoryRange,
   isWanted: boolean,
 ): CardHistory<TelemetryPoint> | undefined {
+  const sample = useCardSample();
   const query = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.history, entityId, 'telemetry', range],
     /**
@@ -59,11 +61,11 @@ export function useTelemetry(
 
       return { window, points };
     },
-    enabled: isWanted,
+    enabled: isWanted && sample === null,
     refetchInterval: REFRESH_MS,
   });
 
-  return query.data;
+  return sample === null ? query.data : isWanted ? sample.telemetry(entityId) : undefined;
 }
 
 /**
@@ -79,6 +81,7 @@ export function useStateChanges(
   range: HistoryRange,
   isWanted: boolean,
 ): CardHistory<StateHistoryPoint> | undefined {
+  const sample = useCardSample();
   const query = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.history, entityId, 'state', range],
     /**
@@ -97,9 +100,9 @@ export function useStateChanges(
 
       return { window, points };
     },
-    enabled: isWanted,
+    enabled: isWanted && sample === null,
     refetchInterval: REFRESH_MS,
   });
 
-  return query.data;
+  return sample === null ? query.data : isWanted ? sample.stateChanges(entityId) : undefined;
 }

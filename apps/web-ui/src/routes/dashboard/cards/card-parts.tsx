@@ -6,8 +6,9 @@
  * own colour at its edge and in a wash rising from one corner; everything else is the plain card
  * face every panel in the interface has.
  */
-import type { CSSProperties, ReactNode } from 'react';
+import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 
 import type { IconView } from '@nebulahome/contracts';
 import { AppIcon, CardHeading, cn } from '@nebulahome/ui';
@@ -32,8 +33,25 @@ export type CardFrameProps = {
   /** Anything extra for the outer element. */
   readonly className?: string;
 
+  /**
+   * What a tap on the card does, beside its own controls: open the entity, or switch it. Absent,
+   * the card does nothing of its own.
+   */
+  readonly tap?: CardTap | undefined;
+
   readonly children: ReactNode;
 };
+
+/** What a tap on a card's face does. */
+export type CardTap =
+  | { readonly kind: 'open'; readonly to: string; readonly label: string }
+  | { readonly kind: 'press'; readonly onPress: () => void; readonly label: string };
+
+/**
+ * The tap of the entity card being drawn, set once by the entity card around its kind so every
+ * kind's frame takes it without passing it down.
+ */
+export const CardTapContext = createContext<CardTap | undefined>(undefined);
 
 /**
  * The glow a lit card is drawn with: 14% of its colour from the top-left, the one place colour is
@@ -54,12 +72,17 @@ function glowStyle(color: string): CSSProperties & Record<'--glow', string> {
  */
 export function CardFrame(props: CardFrameProps) {
   const { label, tone = 'plain', glow, className, children } = props;
+  const inherited = useContext(CardTapContext);
+  const tap = props.tap ?? inherited;
+  const face =
+    'absolute inset-0 z-0 rounded-card transition-colors duration-150 hover:bg-foreground/[0.025] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary';
 
   return (
     <article
       aria-label={label}
       className={cn(
         'relative flex h-full min-w-0 flex-col overflow-hidden rounded-card border p-4',
+        'transition-[border-color,opacity] duration-200',
         tone === 'plain'
           ? 'border-border bg-surface entity-wash'
           : 'border-dashed border-border-strong bg-surface-raised/60',
@@ -69,7 +92,20 @@ export function CardFrame(props: CardFrameProps) {
       the palette does not hold (RULES.md 15.3). */
       style={glow === undefined ? undefined : glowStyle(glow)}
     >
-      {children}
+      {tap === undefined ? null : tap.kind === 'open' ? (
+        <Link to={tap.to} aria-label={tap.label} className={face} />
+      ) : (
+        <button type="button" aria-label={tap.label} className={face} onClick={tap.onPress} />
+      )}
+      {tap === undefined ? (
+        children
+      ) : (
+        // The face takes the taps the card's own controls do not: everything drawn on it lets them
+        // through, its controls keep theirs.
+        <div className="pointer-events-none relative z-10 flex min-h-0 grow flex-col [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto">
+          {children}
+        </div>
+      )}
     </article>
   );
 }

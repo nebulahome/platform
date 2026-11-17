@@ -10,6 +10,7 @@
  * it cannot, rather than a switch that is refused when pressed.
  */
 import { useQuery } from '@tanstack/react-query';
+import { createContext, useContext } from 'react';
 
 import type {
   ApiPackage,
@@ -20,7 +21,7 @@ import type {
 } from '@nebulahome/contracts';
 
 import { useSession } from '@/auth/session-store';
-import { CARD_SIZES, cardKindOf, packageCardSizes } from '@/dashboard/card-sizes';
+import { allowedSizes, CARD_SIZES, packageCardSizes } from '@/dashboard/card-sizes';
 import { allCards, type SizesOf } from '@/dashboard/dashboard-layout';
 import { entityTitle } from '@/dashboard/entity-title';
 import { signalled } from '@/lib/signalled';
@@ -58,6 +59,9 @@ export type DashboardData = {
   /** Whether this person may read an entity's history, for a card that draws it. */
   readonly canReadHistory: (entity: EntityView) => boolean;
 
+  /** Whether this person may change an entity: enable it again from its card. */
+  readonly canWriteEntity: (entity: EntityView) => boolean;
+
   /** Whether this person may apply scenes. */
   readonly canApplyScenes: boolean;
 
@@ -69,12 +73,19 @@ export type DashboardData = {
 };
 
 /**
+ * What the cards read instead of the hub's answer, where something gives it: the development lab
+ * draws the editor with sample data under it. Empty everywhere else.
+ */
+export const DashboardDataContext = createContext<DashboardData | null>(null);
+
+/**
  * Reads what a dashboard's cards need.
  *
  * @param layout - The layout on screen, for the icons its cards were given.
  * @returns See {@link DashboardData}.
  */
 export function useDashboardData(layout: DashboardLayout | undefined): DashboardData {
+  const given = useContext(DashboardDataContext);
   const directory = useEntityDirectory();
   const { tags } = useTags();
   const can = useSession((state) => state.can);
@@ -111,6 +122,10 @@ export function useDashboardData(layout: DashboardLayout | undefined): Dashboard
       entity.deviceId === null ? [] : (deviceById.get(entity.deviceId)?.tagIds ?? []),
     );
 
+  if (given !== null) {
+    return given;
+  }
+
   return {
     entityById,
     sceneById,
@@ -145,6 +160,14 @@ export function useDashboardData(layout: DashboardLayout | undefined): Dashboard
      * @returns True when they may.
      */
     canReadHistory: (entity) => can('history:read', scopesOf(entity)),
+
+    /**
+     * Whether this person may change an entity.
+     *
+     * @param entity - The entity.
+     * @returns True when they may.
+     */
+    canWriteEntity: (entity) => can('entity:write', scopesOf(entity)),
     canApplyScenes: can('scene:apply'),
 
     /**
@@ -169,7 +192,7 @@ export function useDashboardData(layout: DashboardLayout | undefined): Dashboard
 
       const entity = entityById.get(card.entityId);
 
-      return CARD_SIZES[entity === undefined ? 'missing' : cardKindOf(entity)].sizes;
+      return entity === undefined ? CARD_SIZES.missing.sizes : allowedSizes(entity);
     },
     isPending: directory.isPending,
   };
