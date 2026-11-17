@@ -265,6 +265,13 @@ export type ModalProps = Pick<VariantProps<typeof dialogBox>, 'size'> & {
 
   /** Extra classes for the dialog: a tone for its card, such as `warning-glow`, or its backdrop. */
   readonly className?: string;
+
+  /**
+   * In the `bare` layout: where the card stands. `centre`, the default; `top`, a little below the
+   * window's top edge - for a card whose height changes as it is used (the command palette, as it
+   * is typed in), which would otherwise jump up and down around the window's middle.
+   */
+  readonly placement?: 'centre' | 'top';
 };
 
 /**
@@ -292,6 +299,7 @@ export function Modal(props: ModalProps) {
     trail,
     hasCloseButton = false,
     className,
+    placement = 'centre',
   } = props;
   const closeLabel = givenCloseLabel ?? t('ui.modal.close', 'Close');
 
@@ -581,8 +589,15 @@ export function Modal(props: ModalProps) {
           <div className={cn(CARD, 'min-w-0')}>{body}</div>
         </div>
       ) : isBare ? (
-        // The card arrives by itself, so the frame only centres it.
-        <div className="m-auto max-w-full">{body}</div>
+        // The card arrives by itself, so the frame only places it.
+        <div
+          className={cn(
+            'max-w-full',
+            placement === 'top' ? 'mx-auto mt-[calc(12vh-1rem)] mb-auto' : 'm-auto',
+          )}
+        >
+          {body}
+        </div>
       ) : (
         body
       )}
