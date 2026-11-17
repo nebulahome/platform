@@ -40,6 +40,7 @@ describe('readPreferences', () => {
         motion: 'reduced',
         startPage: '/devices',
         sidebar: 'collapsed',
+        foldedSections: ['system'],
       }),
     );
 
@@ -48,7 +49,17 @@ describe('readPreferences', () => {
       motion: 'reduced',
       startPage: '/devices',
       sidebar: 'collapsed',
+      foldedSections: ['system'],
     });
+  });
+
+  it('keeps only the sidebar sections it knows as folded, once each', () => {
+    globalThis.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ foldedSections: ['system', 'garage', 'system', 'automate'] }),
+    );
+
+    expect(readPreferences().foldedSections).toEqual(['automate', 'system']);
   });
 
   it('keeps the preferences it recognises and defaults only the one it does not', () => {
@@ -63,6 +74,7 @@ describe('readPreferences', () => {
       motion: 'system',
       startPage: '/scenes',
       sidebar: 'expanded',
+      foldedSections: [],
     });
   });
 
@@ -98,7 +110,7 @@ describe('applyPreferences', () => {
     const root = globalThis.document.createElement('html');
 
     applyPreferences(
-      { theme: 'light', motion: 'reduced', startPage: '/devices', sidebar: 'expanded' },
+      { ...DEFAULT_PREFERENCES, theme: 'light', motion: 'reduced', startPage: '/devices' },
       root,
     );
 
@@ -112,10 +124,7 @@ describe('applyPreferences', () => {
     root.setAttribute('data-theme', 'dark');
     root.setAttribute('data-motion', 'full');
 
-    applyPreferences(
-      { theme: 'system', motion: 'system', startPage: '/devices', sidebar: 'collapsed' },
-      root,
-    );
+    applyPreferences({ ...DEFAULT_PREFERENCES, startPage: '/devices', sidebar: 'collapsed' }, root);
 
     expect(root.hasAttribute('data-theme')).toBe(false);
     expect(root.hasAttribute('data-motion')).toBe(false);

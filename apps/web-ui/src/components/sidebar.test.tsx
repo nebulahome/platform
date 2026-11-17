@@ -97,7 +97,7 @@ function aScene(key: string): SceneView {
  * @param permissions - What they hold.
  */
 function renderAt(pathname: string, permissions: readonly string[] = []): void {
-  usePreferences.setState({ sidebar: 'expanded', theme: 'system' });
+  usePreferences.setState({ sidebar: 'expanded', theme: 'system', foldedSections: [] });
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -198,7 +198,7 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Settings' })).toBeTruthy();
   });
 
-  it('keeps every section open wherever you are, with nothing to fold one', () => {
+  it('opens every section until one is folded, wherever you are', () => {
     renderAt('/dashboards', EVERYTHING);
 
     for (const name of [
@@ -211,7 +211,70 @@ describe('Sidebar', () => {
     ]) {
       expect(screen.getByRole('link', { name })).toBeTruthy();
     }
-    expect(screen.queryByRole('button', { name: /Automate|House|System/u })).toBeNull();
+    for (const name of ['Automate', 'House', 'System']) {
+      expect(screen.getByRole('button', { name }).getAttribute('aria-expanded')).toBe('true');
+    }
+  });
+
+  it('folds a section by its heading and unfolds it again, and remembers it', () => {
+    renderAt('/dashboards', EVERYTHING);
+
+    const system = screen.getByRole('button', { name: 'System' });
+    fireEvent.click(system);
+
+    expect(system.getAttribute('aria-expanded')).toBe('false');
+    expect(usePreferences.getState().foldedSections).toEqual(['system']);
+    expect(screen.queryByRole('link', { name: /Brokers/u })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Containers/u })).toBeNull();
+    expect(screen.getByRole('link', { name: /Devices/u })).toBeTruthy();
+
+    fireEvent.click(system);
+
+    expect(system.getAttribute('aria-expanded')).toBe('true');
+    expect(usePreferences.getState().foldedSections).toEqual([]);
+    expect(screen.getByRole('link', { name: /Brokers/u })).toBeTruthy();
+  });
+
+  it('keeps the page you are on in sight in a folded section', () => {
+    renderAt('/devices/shelly-kitchen?entity=light.kitchen', EVERYTHING);
+
+    fireEvent.click(screen.getByRole('button', { name: 'House' }));
+
+    expect(screen.getByRole('link', { name: /Devices/u }).getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(screen.queryByRole('link', { name: /Areas/u })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Tags/u })).toBeNull();
+  });
+
+  it('puts a dot on a folded heading when a page it hides has an update waiting', async () => {
+    vi.mocked(fetchAvailablePackages).mockResolvedValue({
+      items: [anOffer({ installedVersion: '1.3.0', hasUpdate: true })],
+      checkedAt: null,
+      error: null,
+    });
+    renderAt('/dashboards', EVERYTHING);
+    await within(screen.getByRole('link', { name: /Packages/u })).findByText('1 update');
+
+    fireEvent.click(screen.getByRole('button', { name: 'System' }));
+
+    expect(screen.getByRole('button', { name: 'System, 1 update' })).toBeTruthy();
+  });
+
+  it('shows every icon on the shut card, folded sections too, and folds nothing there', () => {
+    renderAt('/dashboards', EVERYTHING);
+
+    fireEvent.click(screen.getByRole('button', { name: 'System' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+
+    expect(screen.getByRole('link', { name: 'Brokers' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Containers' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'System' })).toBeNull();
+    expect(section('System')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+
+    expect(screen.queryByRole('link', { name: /Brokers/u })).toBeNull();
   });
 
   it('puts devices, areas and tags together, then the setup of the dashboards', () => {

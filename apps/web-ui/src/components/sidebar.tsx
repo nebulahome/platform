@@ -10,8 +10,10 @@
  * packages, containers); then the settings and you. Each entry carries how many there are, read
  * from the lists the pages read, and an update waiting puts a dot on its icon.
  *
- * Every section is always open: a heading over its rows, not a drawer. Nothing folds, so every
- * page is one click away and no row ever moves.
+ * On the open card a section's heading folds and unfolds it, and the folds are kept on this device
+ * with the width. A folded section still shows the row of the page you are on, so where you are
+ * is never folded away, and a dot beside its heading says when something inside wants a look. The
+ * shut card shows every icon whatever is folded: an icon has no heading to be found under.
  *
  * The card is 64px wide with one icon per page, or 280px with their names and counts. The button
  * that changes it is the last row at both widths, so it is always found in the same place. The
@@ -44,7 +46,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, NavLink } from 'react-router';
+import { Link, NavLink, useLocation } from 'react-router';
 
 import { LOCALE_NAMES, type ApiPackage } from '@nebulahome/contracts';
 import { AppIcon, CatalogueIcon, cn, Logo, type UiIconId } from '@nebulahome/ui';
@@ -64,7 +66,7 @@ import { packageAppPath } from '@/packages/package-paths';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { PackageLogo } from '@/routes/packages/package-tile';
-import { THEME_LABELS, usePreferences } from '@/settings/preferences';
+import { THEME_LABELS, usePreferences, type SidebarSection } from '@/settings/preferences';
 
 /** One entry of the sidebar. */
 type Entry = {
@@ -92,6 +94,9 @@ type Entry = {
 
 /** A section of the sidebar, before the permissions narrow it. */
 type Group = {
+  /** What its fold is kept under. */
+  readonly id: SidebarSection;
+
   readonly label: Message;
   readonly entries: readonly Entry[];
 
@@ -102,6 +107,7 @@ type Group = {
 /** The three sections, in the order they read. */
 const GROUPS: readonly Group[] = [
   {
+    id: 'automate',
     label: defineMessage('nav.groups.automate', 'Automate'),
     entries: [
       {
@@ -128,6 +134,7 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
+    id: 'house',
     label: defineMessage('nav.groups.house', 'House'),
     permission: 'device:read',
     entries: [
@@ -161,6 +168,7 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
+    id: 'system',
     label: defineMessage('nav.groups.system', 'System'),
     entries: [
       {
@@ -446,43 +454,136 @@ type SectionProps = {
   /** What it is called. */
   readonly label: string;
 
-  /** The rows under it. */
+  /** Whether it is folded on the open card. */
+  readonly isFolded: boolean;
+
+  /** What wants a look in the rows a fold hides, in words, when something does. */
+  readonly alert?: string | undefined;
+
+  /** Called when the heading is pressed. */
+  readonly onToggle: () => void;
+
+  /** The rows under it, each in a {@link Fold}. */
   readonly children: ReactNode;
 };
 
 /**
- * A heading and the rows under it. The heading keeps its 22px at both widths, so no row moves
- * when the card opens or shuts: open it is the section's name, shut a line parting it from the
- * one above, and the two cross-fade. The name stays the group's label for a screen reader at both.
+ * A heading and the rows under it.
+ *
+ * On the open card the heading is the button that folds and unfolds the section: its name, and a
+ * chevron at the right edge, in the column of the counts, that turns from down to right as it
+ * folds. Folded with something waiting inside, a dot beside the name says so.
+ *
+ * The heading keeps its 22px at both widths: shut, it is a line parting the section from the one
+ * above, and the two cross-fade. The button is inert then, since a shut card folds nothing. The
+ * name stays the group's label for a screen reader at both.
  *
  * @param props - See {@link SectionProps}.
  * @returns The section.
  */
 function Section(props: SectionProps) {
-  const { label, children } = props;
+  const { label, isFolded, alert, onToggle, children } = props;
   const rail = useContext(RailContext);
   const id = useId();
+  const rows = useId();
 
   return (
-    <div role="group" aria-labelledby={id} className="flex flex-col gap-0.5">
-      <div className="relative flex h-5.5 shrink-0 items-center overflow-hidden px-3">
-        <span
-          id={id}
-          className={cn(
-            'font-mono text-label whitespace-nowrap text-foreground-subtle uppercase',
-            fading(rail),
-          )}
-        >
-          {label}
-        </span>
+    <div role="group" aria-labelledby={id} className="flex flex-col">
+      <div className="relative flex h-5.5 shrink-0">
+        <div className="flex w-full" inert={rail.isCollapsed} aria-hidden={rail.isCollapsed}>
+          <button
+            type="button"
+            aria-expanded={!isFolded}
+            aria-controls={rows}
+            onClick={onToggle}
+            className="press group/heading flex w-full overflow-hidden rounded-chip px-3 text-left whitespace-nowrap focus-visible:-outline-offset-2"
+          >
+            {/* The fade on a span of its own: `press` sets the button's transition timing. */}
+            <span className={cn('flex grow items-center gap-2', fading(rail))}>
+              <span
+                id={id}
+                className="font-mono text-label text-foreground-subtle uppercase transition-colors group-hover/heading:text-foreground-muted"
+              >
+                {label}
+              </span>
+              {isFolded && alert !== undefined ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="size-1.5 shrink-0 animate-fade-in rounded-full bg-warning"
+                  />
+                  <span className="sr-only">, {alert}</span>
+                </>
+              ) : null}
+              <span className="grow" />
+              <AppIcon
+                id="chevron-down"
+                size={14}
+                className={cn(
+                  'shrink-0 text-foreground-subtle group-hover/heading:text-foreground-muted',
+                  rail.isReduced ? undefined : `transition-[rotate,color] ${MOTION}`,
+                  isFolded ? '-rotate-90' : undefined,
+                )}
+              />
+            </span>
+          </button>
+        </div>
         <span
           aria-hidden="true"
-          className={cn('absolute inset-x-3 top-1/2 h-px bg-border', lining(rail))}
+          className={cn(
+            'pointer-events-none absolute inset-x-3 top-1/2 h-px bg-border',
+            lining(rail),
+          )}
         />
       </div>
-      {children}
+      <div id={rows} className="flex flex-col">
+        {children}
+      </div>
     </div>
   );
+}
+
+/**
+ * One entry of a section - its row, and under Packages the packages' pages - and the fold that
+ * hides it: a one-row grid whose row goes from nothing to its content, which is the one height
+ * CSS can move to without being told a number. Its 2px of space comes inside it, so a folded
+ * entry leaves none behind. Hidden, it is also `inert` and gone from a screen reader: a row
+ * nobody can see must not take the focus or be read out.
+ *
+ * @param props - The entry.
+ * @param props.isShown - Whether it shows.
+ * @param props.children - Its rows.
+ * @returns The fold.
+ */
+function Fold(props: { readonly isShown: boolean; readonly children: ReactNode }) {
+  const { isShown, children } = props;
+  const rail = useContext(RailContext);
+
+  return (
+    <div
+      inert={!isShown}
+      className={cn(
+        'grid',
+        rail.isReduced ? undefined : `transition-[grid-template-rows,opacity] ${MOTION}`,
+        isShown ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+      )}
+    >
+      <div className="min-h-0 overflow-hidden" aria-hidden={!isShown}>
+        <div className="flex flex-col gap-0.5 pt-0.5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Whether a page is under an entry: the entry itself, or a page beneath it.
+ *
+ * @param pathname - The page.
+ * @param to - The entry.
+ * @returns True when the page belongs to it.
+ */
+function isUnder(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
 }
 
 /**
@@ -792,6 +893,8 @@ export function Sidebar() {
   const can = useSession((state) => state.can);
   const width = usePreferences((state) => state.sidebar);
   const setPreferences = usePreferences((state) => state.set);
+  const foldedSections = usePreferences((state) => state.foldedSections);
+  const { pathname } = useLocation();
   const counts = useRailCounts();
   const alerts = useRailAlerts();
   const isReduced = useReducedMotion();
@@ -1002,20 +1105,50 @@ export function Sidebar() {
             <div ref={content} className="flex shrink-0 flex-col gap-0.5">
               <Row entry={DASHBOARDS} />
 
-              {groups.map((group) => (
-                <Section key={group.label.key} label={text(group.label)}>
-                  {group.entries.map((entry) => (
-                    <div key={entry.to} className="flex flex-col gap-0.5">
-                      <Row
-                        entry={entry}
-                        count={entry.count === undefined ? undefined : counts[entry.count]}
-                        alert={alertOf(entry)}
-                      />
-                      {entry.to === '/packages' ? <PackagePages /> : null}
-                    </div>
-                  ))}
-                </Section>
-              ))}
+              {groups.map((group) => {
+                const isFolded = foldedSections.includes(group.id);
+
+                /**
+                 * Whether an entry shows: always on the shut card, and on the open one unless its
+                 * section is folded and you are elsewhere.
+                 *
+                 * @param entry - The entry.
+                 * @returns True when it shows.
+                 */
+                const isShown = (entry: Entry): boolean =>
+                  isCollapsed || !isFolded || isUnder(pathname, entry.to);
+                const hidden = group.entries
+                  .filter((entry) => !isShown(entry))
+                  .map(alertOf)
+                  .filter((alert) => alert !== undefined);
+
+                return (
+                  <Section
+                    key={group.id}
+                    label={text(group.label)}
+                    isFolded={isFolded}
+                    alert={hidden.length === 0 ? undefined : hidden.join(', ')}
+                    onToggle={() => {
+                      setPreferences({
+                        foldedSections: isFolded
+                          ? foldedSections.filter((section) => section !== group.id)
+                          : [...foldedSections, group.id],
+                      });
+                    }}
+                  >
+                    {group.entries.map((entry) => (
+                      <Fold key={entry.to} isShown={isShown(entry)}>
+                        <Row
+                          entry={entry}
+                          count={entry.count === undefined ? undefined : counts[entry.count]}
+                          alert={alertOf(entry)}
+                        />
+                        {entry.to === '/packages' ? <PackagePages /> : null}
+                      </Fold>
+                    ))}
+                  </Section>
+                );
+              })}
             </div>
           </div>
 
