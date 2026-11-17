@@ -23,8 +23,27 @@ export const CONTAINER_PADDING_PX = 12;
 /** How tall a container's heading is: its first row, less the padding under its cards. */
 export const CONTAINER_HEADING_PX = ROW_PX + GAP_PX - CONTAINER_PADDING_PX;
 
-/** Narrower than this and the page is drawn on two columns rather than four. */
+/** Narrower than this and the layout cannot be edited: moving cards needs the four columns. */
 export const NARROW_WIDTH_PX = 720;
+
+/**
+ * The grid widths at which the page drops to fewer columns: four from 900 px, two from 480 px,
+ * one below - so no column is narrower than about 210 px, for cards designed at 267 px.
+ */
+export const COLUMN_BREAKS: readonly (readonly [number, number])[] = [
+  [900, 4],
+  [480, 2],
+];
+
+/**
+ * How many columns a grid of a width is drawn on.
+ *
+ * @param width - The grid's width, in pixels.
+ * @returns 4, 2 or 1.
+ */
+export function columnsFor(width: number): number {
+  return COLUMN_BREAKS.find(([from]) => width >= from)?.[1] ?? 1;
+}
 
 /** A card's box on its grid, in pixels. */
 export type Box = {

@@ -48,6 +48,9 @@ export type NameIconFieldProps = {
 
   /** Whether the name may be blank. */
   readonly required?: boolean;
+
+  /** What the name field shows while it is empty: the name it falls back to. */
+  readonly placeholder?: string | undefined;
 };
 
 /** What the icon button needs. */
@@ -168,6 +171,7 @@ export function NameIconField(props: NameIconFieldProps) {
     hint,
     error,
     required = false,
+    placeholder,
   } = props;
 
   return (
@@ -185,6 +189,7 @@ export function NameIconField(props: NameIconFieldProps) {
             id={ids.id}
             type="text"
             value={value}
+            placeholder={placeholder}
             required={required}
             aria-invalid={ids.isInvalid}
             aria-describedby={ids.describedBy}

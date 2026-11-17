@@ -1,34 +1,41 @@
 /**
- * The cards "Add card" makes, each at the size its kind starts at.
+ * The cards "Add card" makes, each at the smallest size its kind is drawn at.
  *
- * Where a new card sits is left to the layout, which puts it in the first place it fits; these only
- * say what it is. An entity's card starts at the size its kind is drawn best at - a light as a tall
- * card, a camera as a square - so the first thing on a new dashboard already looks like the mockup.
+ * Where a new card sits is left to the editor - the empty space chosen, or the first place it
+ * fits; these only say what it is. A card starts small and is made larger in its settings, with
+ * the card itself in sight, rather than in a choice of sizes before it is seen.
  */
-import type {
-  DashboardClockCard,
-  DashboardContainerCard,
-  DashboardEnergyCard,
-  DashboardEntityCard,
-  DashboardPackageCard,
-  DashboardSceneCard,
-  EntityView,
-  PackageCard,
+import {
+  entityIdSchema,
+  type DashboardClockCard,
+  type DashboardContainerCard,
+  type DashboardEnergyCard,
+  type DashboardEntityCard,
+  type DashboardPackageCard,
+  type DashboardSceneCard,
+  type EntityView,
+  type PackageCard,
 } from '@nebulahome/contracts';
 
-import { CARD_SIZES, cardKindOf, packageCardSizes } from '@/dashboard/card-sizes';
+import {
+  allowedSizes,
+  CARD_SIZES,
+  cardKindOf,
+  packageCardSizes,
+  type EntityCardKind,
+} from '@/dashboard/card-sizes';
 import { newCardId } from '@/dashboard/dashboard-layout';
 
 /**
  * A card showing an entity.
  *
  * @param entity - The entity.
- * @returns The card, at the size its kind starts at.
+ * @returns The card, at the smallest size the entity's card takes: the rest is set in its settings.
  */
 export function entityCardFor(
   entity: Pick<EntityView, 'entityId' | 'domain' | 'capabilities'>,
 ): DashboardEntityCard {
-  const size = CARD_SIZES[cardKindOf(entity)].preferred;
+  const size = allowedSizes(entity)[0] ?? CARD_SIZES[cardKindOf(entity)].preferred;
 
   return {
     id: newCardId(),
@@ -37,6 +44,31 @@ export function entityCardFor(
     y: 0,
     ...size,
     entityId: entity.entityId,
+    title: null,
+    icon: null,
+    range: null,
+  };
+}
+
+/**
+ * A card of a kind added from the catalogue before its entity is chosen: it points at no entity
+ * (`pending.<its id>`), is drawn dashed while the layout is edited, and is left out when it is
+ * saved without one.
+ *
+ * @param kind - The kind of card it will be.
+ * @returns The card, at the smallest size of its kind.
+ */
+export function pendingCardFor(kind: EntityCardKind): DashboardEntityCard {
+  const id = newCardId();
+  const [size = CARD_SIZES[kind].preferred] = CARD_SIZES[kind].sizes;
+
+  return {
+    id,
+    type: 'entity',
+    x: 0,
+    y: 0,
+    ...size,
+    entityId: entityIdSchema.parse(`pending.${id}`),
     title: null,
     icon: null,
     range: null,
@@ -73,7 +105,7 @@ export function clockCard(): DashboardClockCard {
     type: 'clock',
     x: 0,
     y: 0,
-    ...CARD_SIZES.clock.preferred,
+    ...(CARD_SIZES.clock.sizes[0] ?? CARD_SIZES.clock.preferred),
     showSeconds: false,
     showDate: true,
   };

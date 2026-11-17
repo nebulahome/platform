@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NebulaHome — dashboard editor lab</title>
+  </head>
+  <body>
+    <!--
+      The dashboard editor lab: the real editor page (`dashboard-editor-page.tsx`) on a sample
+      dashboard, with the cards' samples in place of the hub's answers, so the editor can be seen and
+      tried with no sign-in. `?selected=<card id>` opens a card's settings; `?screen=tablet|phone`.
+
+      Served in development only: `vite build` takes `index.html` alone, so nothing here reaches
+      production.
+    -->
+    <div id="root"></div>
+    <script type="module" src="/src/gallery-dashboard-editor.tsx"></script>
+  </body>
+</html>
