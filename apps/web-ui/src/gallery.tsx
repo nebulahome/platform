@@ -1210,14 +1210,14 @@ function Gallery() {
         </Section>
 
         <Section
-          title="Rail"
-          note="The sidebar: Automate, House and System, counts beside the entries, and the 72px rail it collapses to."
+          title="Sidebar"
+          note="A card floating 16px off the edges: Automate, House and System always open, counts beside the entries, and the 64px card of icons it collapses to, each named beside it on hover."
         >
           <QueryClientProvider client={RAIL_CACHE}>
             <MemoryRouter initialEntries={['/devices']}>
-              <div className="flex h-180 overflow-hidden rounded-panel border border-border">
+              <div className="flex h-180 w-full overflow-hidden rounded-panel border border-border bg-canvas">
                 <Sidebar />
-                <div className="grow bg-canvas" />
+                <div className="grow" />
               </div>
             </MemoryRouter>
           </QueryClientProvider>

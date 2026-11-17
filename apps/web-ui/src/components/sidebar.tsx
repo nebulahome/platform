@@ -1,52 +1,72 @@
 /**
- * The left rail.
+ * The sidebar: a card on the left of every page.
+ *
+ * It floats 16px off the window's top, bottom and left edges, over the canvas, and the page beside
+ * it always makes room: opening it pushes the page over, it never covers it.
  *
  * It reads top to bottom by scope: the dashboards you built; what the house does on its own
  * (Automate: automations, scenes, aliases); how the house is described (House: devices, areas,
  * tags, and the setup of the dashboards); what the platform runs (System: brokers, integrations,
  * packages, containers); then the settings and you. Each entry carries how many there are, read
- * from the lists the pages read.
+ * from the lists the pages read, and an update waiting puts a dot on its icon.
  *
- * A group is open when you are inside it and shut otherwise, and it can be toggled by hand.
- * That is not two behaviours: the automatic part answers "where am I", the manual part answers
- * "let me look at something else", and a group that only ever did the first would fight anyone
- * trying to navigate. One group is open at a time, and a toggle by hand holds only on the page it
- * was made on: held any longer, it outlived the navigation it was for.
+ * Every section is always open: a heading over its rows, not a drawer. Nothing folds, so every
+ * page is one click away and no row ever moves.
  *
- * The rail collapses to 72px of glyphs - every entry of every group, flat, parted by a line, each
- * named on hover and to a screen reader - and opens again, by the same button, the last row at
- * both widths. The change is animated: the width moves, the words fade and the headings fold,
- * while the glyphs stay where they are. The choice is the person's alone and is kept with their
- * interface preferences; no page overrides it.
+ * The card is 64px wide with one icon per page, or 280px with their names and counts. The button
+ * that changes it is the last row at both widths, so it is always found in the same place. The
+ * icons never move between the two: the card widens around them, the names fade in after them,
+ * and each section's heading cross-fades with the line that stands for it when shut. Shut, a
+ * page's name - with how many there are, or what wants a look - shows beside the card on hover
+ * and on keyboard focus.
  *
- * It shows only what the role may see: an entry without its permission is not drawn, a group with
- * nothing left is not drawn, and House is drawn only for someone who may read the devices it is
- * about.
+ * The width is the person's choice, kept on this device with their interface preferences; no page
+ * overrides it. A window narrower than 1100px starts it shut and leaves the choice as it was.
+ *
+ * It shows only what the role may see: an entry without its permission is not drawn, a section
+ * with nothing left is not drawn, and House is drawn only for someone who may read the devices it
+ * is about.
  *
  * Under Packages, the pages of the packages that ask for an entry (`ui.sidebar`), while they run:
  * a package managed from its own page is one click away, like the platform's own sections.
  */
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, useLocation } from 'react-router';
+import { Link, NavLink } from 'react-router';
 
-import type { ApiPackage } from '@nebulahome/contracts';
+import { LOCALE_NAMES, type ApiPackage } from '@nebulahome/contracts';
 import { AppIcon, CatalogueIcon, cn, Logo, type UiIconId } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
-import { ChevronIcon } from '@/components/icons';
 import { defineMessage, text, type Message } from '@/i18n/messages';
 import { roleName } from '@/lib/role-names';
-import { useRailCounts, type RailCountKey } from '@/lib/use-rail-counts';
+import {
+  useRailAlerts,
+  useRailCounts,
+  type RailAlertKey,
+  type RailCountKey,
+} from '@/lib/use-rail-counts';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { packageAppPath } from '@/packages/package-paths';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { PackageLogo } from '@/routes/packages/package-tile';
-import { usePreferences } from '@/settings/preferences';
+import { THEME_LABELS, usePreferences } from '@/settings/preferences';
 
-/** One entry of the rail. */
+/** One entry of the sidebar. */
 type Entry = {
   /** Where it goes. */
   readonly to: string;
@@ -65,18 +85,21 @@ type Entry = {
 
   /** Which count it carries, when it carries one. */
   readonly count?: RailCountKey;
+
+  /** Which updates it shows waiting, when it can show some. */
+  readonly alert?: RailAlertKey;
 };
 
-/** A group of the rail, before the permissions narrow it. */
+/** A section of the sidebar, before the permissions narrow it. */
 type Group = {
   readonly label: Message;
   readonly entries: readonly Entry[];
 
-  /** The permission without which the whole group is not drawn. */
+  /** The permission without which the whole section is not drawn. */
   readonly permission?: string;
 };
 
-/** The three groups, in the order they read. */
+/** The three sections, in the order they read. */
 const GROUPS: readonly Group[] = [
   {
     label: defineMessage('nav.groups.automate', 'Automate'),
@@ -152,6 +175,7 @@ const GROUPS: readonly Group[] = [
         icon: 'library',
         permission: 'integration:read',
         count: 'integrations',
+        alert: 'integrations',
       },
       {
         to: '/packages',
@@ -159,6 +183,7 @@ const GROUPS: readonly Group[] = [
         icon: 'package',
         permission: 'package:read',
         count: 'packages',
+        alert: 'packages',
       },
       {
         to: '/containers',
@@ -171,7 +196,7 @@ const GROUPS: readonly Group[] = [
   },
 ];
 
-/** The rows above and below the groups. */
+/** The row above the sections. */
 const DASHBOARDS: Entry = {
   to: '/dashboards',
   label: defineMessage('nav.dashboards', 'Dashboards'),
@@ -185,43 +210,122 @@ const SETTINGS: Entry = {
   icon: 'settings',
 };
 
-/** How the rail moves: one curve and one length for its width and for everything inside it. */
-const MOTION = 'duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]';
+/** Narrower than this, the card starts shut. In jsdom no query matches: a wide window. */
+const NARROW_QUERY = '(max-width: 1099.98px)';
+
+/** How long the pointer rests on an icon before its name shows. */
+const TIP_DELAY_MS = 120;
 
 /**
- * The classes a row shares whether or not it is the current one. Its glyph sits 12px in at both
- * widths, which is the middle of the 72px rail: the rail narrows around the glyphs rather than
- * moving them, and only the words after them go.
+ * How soon after one name went another shows at once: running the pointer down the icons reads
+ * them one after another, rather than waiting on each.
  */
-// The focus ring sits inside the row: the folding groups clip anything drawn outside it.
+const TIP_GRACE_MS = 300;
+
+/** How the card moves: one length and one curve for its width and everything that follows it. */
+const MOTION = 'duration-220 ease-[cubic-bezier(0.22,1,0.36,1)]';
+
+/**
+ * The classes a row shares whether or not it is the current one. Its 20px icon sits 11px in, past
+ * the card's 9px and the row's own edge, which is the middle of the 64px card: the card narrows
+ * around the icons rather than moving them, and only the words after them go.
+ */
+// The focus ring sits inside the row: the part that scrolls clips anything drawn outside it.
 const ROW =
-  'press flex h-10 w-full shrink-0 items-center gap-3 overflow-hidden rounded-field border px-3 ' +
-  'text-ui whitespace-nowrap transition-colors focus-visible:-outline-offset-2';
+  'press group flex h-11 w-full shrink-0 items-center gap-3.25 overflow-hidden rounded-tile border ' +
+  'px-2.75 text-ui whitespace-nowrap transition-colors focus-visible:-outline-offset-2';
+
+/**
+ * A package's page under Packages: a shorter row with a 16px icon in the same column as the
+ * others, and its name where theirs starts. Smaller rather than indented, because an indent would
+ * move the icon when the card opens.
+ */
+const SUB_ROW =
+  'press group flex h-9 w-full shrink-0 items-center gap-3.75 overflow-hidden rounded-field border ' +
+  'px-3.25 text-ui-sm whitespace-nowrap transition-colors focus-visible:-outline-offset-2';
 
 /** A row that is the current page: outlined, raised, its glyph in the accent. */
 const ROW_ACTIVE =
   'border-border-strong bg-surface-raised font-medium text-foreground [&_svg]:text-primary';
 
-/** A row that is not. */
+/** A row that is not: a hover lifts it half a step, so it never reads as the current one. */
 const ROW_IDLE =
-  'border-transparent text-foreground-muted hover:bg-surface-raised hover:text-foreground';
+  'border-transparent text-foreground-muted hover:bg-surface-raised/60 hover:text-foreground';
 
-/** What everything inside the rail reads about it. */
+/** A row of the account menu. */
+const MENU_ROW =
+  'flex h-10 w-full shrink-0 items-center gap-3 rounded-field px-3 text-left text-ui whitespace-nowrap ' +
+  'transition-colors focus-visible:outline-none';
+
+/**
+ * What a control spreads on itself for its name to show beside the shut card. The words are its
+ * `data-tip`, set only while the card is shut: open, the name is on the row already.
+ */
+type TipHandlers = {
+  readonly onMouseEnter: (event: { readonly currentTarget: HTMLElement }) => void;
+  readonly onMouseLeave: () => void;
+  readonly onFocus: (event: FocusEvent<HTMLElement>) => void;
+  readonly onBlur: () => void;
+  readonly onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
+};
+
+/** What everything inside the sidebar reads about it. */
 type RailState = {
-  /** Whether it is the 72px one. */
+  /** Whether it is the 64px one. */
   readonly isCollapsed: boolean;
 
   /** Whether it may move, or only change. */
   readonly isReduced: boolean;
+
+  /** See {@link TipHandlers}. */
+  readonly tip: TipHandlers;
+
+  /** Takes the name away now. */
+  readonly hideTip: () => void;
 };
 
-const RailContext = createContext<RailState>({ isCollapsed: false, isReduced: false });
+const RailContext = createContext<RailState>({
+  isCollapsed: false,
+  isReduced: false,
+  tip: { onMouseEnter: noop, onMouseLeave: noop, onFocus: noop, onBlur: noop, onKeyDown: noop },
+  hideTip: noop,
+});
+
+/** Does nothing: the context's default, outside a sidebar. */
+function noop(): void {
+  // Nothing to do.
+}
 
 /**
- * The classes of words that leave when the rail narrows: gone at once on the way in, back only
- * once there is room for them on the way out, so a label is never seen squeezed.
+ * Listens for the window crossing 1100px.
  *
- * @param rail - How the rail stands.
+ * @param onChange - Called when it does.
+ * @returns What stops listening.
+ */
+function subscribeNarrow(onChange: () => void): () => void {
+  const query = globalThis.matchMedia(NARROW_QUERY);
+
+  query.addEventListener('change', onChange);
+
+  return (): void => {
+    query.removeEventListener('change', onChange);
+  };
+}
+
+/**
+ * Whether the window is narrower than 1100px.
+ *
+ * @returns True when it is.
+ */
+function isNarrowNow(): boolean {
+  return globalThis.matchMedia(NARROW_QUERY).matches;
+}
+
+/**
+ * The classes of words that leave when the card narrows: gone at once on the way in, back only
+ * as there is room for them on the way out, so a name is never seen squeezed.
+ *
+ * @param rail - How the card stands.
  * @returns The classes.
  */
 function fading(rail: RailState): string {
@@ -231,12 +335,32 @@ function fading(rail: RailState): string {
 
   return cn(
     'transition-opacity',
-    rail.isCollapsed ? 'opacity-0 duration-100' : 'opacity-100 delay-150 duration-200',
+    rail.isCollapsed ? 'opacity-0 duration-100' : 'opacity-100 delay-60 duration-160',
   );
 }
 
 /**
- * Words that leave when the rail narrows.
+ * The classes of the line that stands for a section's heading on the shut card: the heading's
+ * timing the other way round, and drawn out from its middle as it comes.
+ *
+ * @param rail - How the card stands.
+ * @returns The classes.
+ */
+function lining(rail: RailState): string {
+  if (rail.isReduced) {
+    return rail.isCollapsed ? '' : 'opacity-0';
+  }
+
+  return cn(
+    'transition-[opacity,scale]',
+    rail.isCollapsed
+      ? 'scale-x-100 opacity-100 delay-60 duration-160'
+      : 'scale-x-50 opacity-0 duration-100',
+  );
+}
+
+/**
+ * Words that leave when the card narrows.
  *
  * @param props - The words.
  * @param props.className - Their own classes.
@@ -250,19 +374,17 @@ function Fading(props: { readonly className?: string; readonly children: ReactNo
 }
 
 /**
- * The classes of a part that opens and shuts by its height - a group's heading, a group's rows:
- * a one-row grid whose row goes from nothing to its content, which is the one height CSS can
- * move to without being told a number.
+ * The dot an icon carries while something under it wants a look, ringed in the row's own ground
+ * so it reads as cut out of the icon.
  *
- * @param isOpen - Whether it is shown.
- * @param rail - How the rail stands.
- * @returns The classes.
+ * @returns The dot.
  */
-function folding(isOpen: boolean, rail: RailState): string {
-  return cn(
-    'grid',
-    rail.isReduced ? undefined : `transition-[grid-template-rows,opacity] ${MOTION}`,
-    isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+function AlertDot() {
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute -top-0.75 -right-1.5 size-3 animate-fade-in rounded-full border-2 border-surface bg-warning group-aria-[current=page]:border-surface-raised"
+    />
   );
 }
 
@@ -272,29 +394,45 @@ type RowProps = {
 
   /** How many there are, when it is known. */
   readonly count?: number | undefined;
+
+  /** What wants a look, in words, when something does. */
+  readonly alert?: string | undefined;
 };
 
 /**
- * One row: the glyph, and - while the rail is open - the name and how many. Shut, the name is
- * what the row is called and what a hover shows.
+ * One row: the icon, and - while the card is open - the name and how many, or what wants a look
+ * in place of the count. Shut, the name is what the row is called and what shows beside the card.
  *
  * @param props - See {@link RowProps}.
  * @returns The row.
  */
 function Row(props: RowProps) {
-  const { entry, count } = props;
-  const { isCollapsed } = useContext(RailContext);
+  const { entry, count, alert } = props;
+  const rail = useContext(RailContext);
+  const label = text(entry.label);
+  const detail = alert ?? (count === undefined ? undefined : String(count));
 
   return (
     <NavLink
       to={entry.to}
-      title={isCollapsed ? text(entry.label) : undefined}
-      aria-label={isCollapsed ? text(entry.label) : undefined}
+      aria-label={rail.isCollapsed ? [label, alert].filter(Boolean).join(', ') : undefined}
       className={({ isActive }) => cn(ROW, isActive ? ROW_ACTIVE : ROW_IDLE)}
+      data-tip={
+        rail.isCollapsed
+          ? [label, detail].filter((part) => part !== undefined).join(' · ')
+          : undefined
+      }
+      {...rail.tip}
     >
-      <AppIcon id={entry.icon} size={18} />
-      <Fading className="grow truncate">{text(entry.label)}</Fading>
-      {count === undefined ? null : (
+      <span className="relative flex shrink-0">
+        <AppIcon id={entry.icon} size={20} />
+        {alert === undefined ? null : <AlertDot />}
+      </span>
+      <Fading className="grow truncate">{label}</Fading>
+      {alert === undefined ? null : (
+        <Fading className="text-caption font-normal text-warning">{alert}</Fading>
+      )}
+      {alert !== undefined || count === undefined ? null : (
         <Fading className="font-mono text-mono-caption font-normal text-foreground-subtle tabular">
           {count}
         </Fading>
@@ -303,97 +441,142 @@ function Row(props: RowProps) {
   );
 }
 
-/** What a group needs. */
-type NavGroupProps = {
+/** What a section needs. */
+type SectionProps = {
   /** What it is called. */
   readonly label: string;
-
-  /** Whether it is open, which the rail decides for every group together. */
-  readonly isOpen: boolean;
-
-  /** Called when the heading is pressed. */
-  readonly onToggle: () => void;
 
   /** The rows under it. */
   readonly children: ReactNode;
 };
 
 /**
- * A heading and the rows under it. On the narrow rail the heading folds away and a line parts
- * the group from the one above, and every row is shown: a glyph has no group to be found in.
+ * A heading and the rows under it. The heading keeps its 22px at both widths, so no row moves
+ * when the card opens or shuts: open it is the section's name, shut a line parting it from the
+ * one above, and the two cross-fade. The name stays the group's label for a screen reader at both.
  *
- * What is folded away is also `inert` and hidden from a screen reader: a row nobody can see must
- * not take the focus or be read out.
- *
- * @param props - See {@link NavGroupProps}.
- * @returns The group.
+ * @param props - See {@link SectionProps}.
+ * @returns The section.
  */
-function NavGroup(props: NavGroupProps) {
-  const { label, isOpen, onToggle, children } = props;
+function Section(props: SectionProps) {
+  const { label, children } = props;
   const rail = useContext(RailContext);
-  const isShown = isOpen || rail.isCollapsed;
+  const id = useId();
 
   return (
-    <div
-      className={cn(
-        'flex flex-col border-t',
-        rail.isReduced ? undefined : `transition-[margin,padding,border-color] ${MOTION}`,
-        rail.isCollapsed ? 'mt-2 border-border pt-2' : 'mt-2.5 border-transparent pt-0',
-      )}
-    >
-      <div className={folding(!rail.isCollapsed, rail)} inert={rail.isCollapsed}>
-        <div className="min-h-0 overflow-hidden" aria-hidden={rail.isCollapsed}>
-          <button
-            type="button"
-            aria-expanded={isOpen}
-            onClick={onToggle}
-            className="press flex h-8.5 w-full items-center gap-2 rounded-field px-3 font-mono text-label whitespace-nowrap text-foreground-subtle uppercase transition-colors hover:text-foreground-muted focus-visible:-outline-offset-2"
-          >
-            <span className="grow text-left">{label}</span>
-            <ChevronIcon isOpen={isOpen} className="text-foreground-subtle" />
-          </button>
-        </div>
+    <div role="group" aria-labelledby={id} className="flex flex-col gap-0.5">
+      <div className="relative flex h-5.5 shrink-0 items-center overflow-hidden px-3">
+        <span
+          id={id}
+          className={cn(
+            'font-mono text-label whitespace-nowrap text-foreground-subtle uppercase',
+            fading(rail),
+          )}
+        >
+          {label}
+        </span>
+        <span
+          aria-hidden="true"
+          className={cn('absolute inset-x-3 top-1/2 h-px bg-border', lining(rail))}
+        />
       </div>
-
-      <div className={folding(isShown, rail)} inert={!isShown}>
-        <div className="min-h-0 overflow-hidden" aria-hidden={!isShown}>
-          <div className="flex flex-col gap-0.5 pt-0.5">{children}</div>
-        </div>
-      </div>
+      {children}
     </div>
   );
 }
 
 /**
- * The person, and the menu the chip opens.
+ * The person, and the menu the chip opens: their profile, the theme and the language they read
+ * the house in - each said as it stands, each a way to the setting - and signing out.
  *
  * A menu rather than a button that signs out on click: a control that looks like it opens
- * something and instead ends your session is a small betrayal. Escape and a click elsewhere
- * both close it, because a menu that can only be dismissed by choosing something is a trap.
- *
- * On the open rail the menu opens upward over the chip; on the narrow one it opens to the right,
- * over the page, since 72px has no room for "Sign out". Either way it sits outside the part of
- * the rail that scrolls, so nothing clips it.
+ * something and instead ends your session is a small betrayal. It opens beside the card at both
+ * widths, level with the chip, so it never covers a row; the chip's chevron points there. Opened,
+ * the focus is on its first choice; the arrow keys move along, Escape and a click elsewhere both
+ * close it, because a menu that can only be dismissed by choosing something is a trap.
  *
  * @returns The chip.
  */
 function UserChip() {
   const { t } = useTranslation();
   const rail = useContext(RailContext);
-  const { isCollapsed } = rail;
   const user = useSession((state) => state.user);
   const endSession = useSession((state) => state.signOut);
+  const theme = usePreferences((state) => state.theme);
   const [isOpen, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLDivElement>(null);
   const name = user?.displayName ?? t('nav.notSignedIn', 'Not signed in');
   const role = user === undefined ? '' : roleName(user.role);
+  const locale = user === undefined ? undefined : (user.locale ?? user.houseLocale);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Without scrolling: the menu stands beside the card, and a box that clips it must not be
+      // scrolled sideways to bring it in.
+      list.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
+    }
+  }, [isOpen]);
+
+  /** Closes the menu and gives the focus back to the chip. */
+  const close = (): void => {
+    setOpen(false);
+    button.current?.focus();
+  };
+
+  /**
+   * Moves along the choices, or closes the menu.
+   *
+   * @param event - The key pressed inside the menu.
+   */
+  const onMenuKey = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+      return;
+    }
+
+    const choices = [...(list.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+    const at = choices.findIndex((choice) => choice === document.activeElement);
+    const next = {
+      ArrowDown: at + 1,
+      ArrowUp: at - 1,
+      Home: 0,
+      End: choices.length - 1,
+    }[event.key];
+
+    if (next !== undefined) {
+      event.preventDefault();
+      choices[(next + choices.length) % choices.length]?.focus();
+    }
+  };
+
+  const links: readonly {
+    readonly to: string;
+    readonly icon: UiIconId;
+    readonly label: string;
+    readonly value?: string | undefined;
+  }[] = [
+    { to: '/settings/account', icon: 'user-round', label: t('nav.profile', 'Profile') },
+    {
+      to: '/settings/interface?highlight=theme',
+      icon: 'moon',
+      label: t('settings.interface.theme', 'Theme'),
+      value: text(THEME_LABELS[theme]),
+    },
+    {
+      to: '/settings/account?highlight=language',
+      icon: 'globe',
+      label: t('settings.language.title', 'Language'),
+      value: locale === undefined ? undefined : LOCALE_NAMES[locale],
+    },
+  ];
 
   return (
     // `onBlur` on the wrapper closes the menu when focus leaves the whole subtree, which is
-    // what "clicked elsewhere" means for a keyboard as well as a mouse. Escape is handled on
-    // the controls themselves rather than here: a div with a key handler is not a control, and
-    // saying otherwise to the linter would be lying to it.
+    // what "clicked elsewhere" means for a keyboard as well as a mouse.
     <div
-      className="relative"
+      className="relative shrink-0"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
           setOpen(false);
@@ -402,61 +585,100 @@ function UserChip() {
     >
       {isOpen ? (
         <div
+          ref={list}
           role="menu"
-          className={cn(
-            'absolute z-30 animate-rise overflow-hidden rounded-tile border border-border-strong bg-surface p-1 shadow-float',
-            isCollapsed
-              ? 'bottom-0 left-full ml-4.5 w-48'
-              : 'bottom-full left-0 mb-1.5 w-full min-w-48',
-          )}
+          aria-label={t('nav.account', 'Account')}
+          tabIndex={-1}
+          onKeyDown={onMenuKey}
+          // Past the card's 9px and its edge, then 8px of air: level with the chip, beside the card.
+          className="absolute bottom-0 left-full z-30 ml-4.5 flex w-60 animate-nudge flex-col gap-0.5 rounded-card border border-border-strong bg-surface p-1.5 shadow-float"
         >
+          {links.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+              }}
+              className={cn(
+                MENU_ROW,
+                'text-foreground-muted hover:bg-surface-raised/60 hover:text-foreground focus-visible:bg-surface-raised/60 focus-visible:text-foreground',
+              )}
+            >
+              <AppIcon id={link.icon} size={18} className="shrink-0" />
+              <span className="grow">{link.label}</span>
+              {link.value === undefined ? null : (
+                <>
+                  <span className="text-ui-sm text-foreground-subtle">{link.value}</span>
+                  <AppIcon id="chevron-right" size={14} className="text-foreground-subtle" />
+                </>
+              )}
+            </Link>
+          ))}
+
+          <div role="separator" className="mx-2 my-1 h-px shrink-0 bg-border" />
+
           <button
             type="button"
             role="menuitem"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                setOpen(false);
-              }
-            }}
             onClick={() => {
               setOpen(false);
               void endSession();
             }}
-            className="press flex h-8 w-full items-center rounded-chip px-2.5 text-ui text-foreground-muted hover:bg-surface-raised hover:text-danger"
+            className={cn(
+              MENU_ROW,
+              'text-danger hover:bg-danger-soft focus-visible:bg-danger-soft',
+            )}
           >
+            <AppIcon id="log-out" size={18} className="shrink-0" />
             {t('nav.signOut', 'Sign out')}
           </button>
         </div>
       ) : null}
 
       <button
+        ref={button}
         type="button"
         aria-label={
-          isCollapsed ? t('nav.accountMenu', 'Account menu: {{name}}', { name }) : undefined
+          rail.isCollapsed ? t('nav.accountMenu', 'Account menu: {{name}}', { name }) : undefined
         }
-        title={isCollapsed ? `${name} · ${role}` : undefined}
         aria-haspopup="menu"
         aria-expanded={isOpen}
+        data-tip={rail.isCollapsed && !isOpen && role !== '' ? `${name} · ${role}` : undefined}
+        {...rail.tip}
         onKeyDown={(event) => {
+          rail.tip.onKeyDown(event);
+
           if (event.key === 'Escape') {
             setOpen(false);
           }
         }}
         onClick={() => {
+          rail.hideTip();
           setOpen(!isOpen);
         }}
         className={cn(
-          'press mt-1.5 flex w-full items-center gap-2.5 overflow-hidden rounded-tile border text-left whitespace-nowrap hover:bg-surface-raised',
-          rail.isReduced
-            ? 'transition-colors'
-            : `transition-[padding,border-color,background-color] ${MOTION}`,
-          isCollapsed ? 'border-transparent p-1.25' : 'border-border p-2.5',
+          'press flex h-11 w-full items-center gap-2.5 overflow-hidden rounded-tile border px-1.25 text-left whitespace-nowrap transition-colors focus-visible:-outline-offset-2',
+          isOpen
+            ? 'border-border-strong bg-surface-raised'
+            : 'border-transparent hover:bg-surface-raised/60',
         )}
       >
         <Avatar displayName={user?.displayName ?? ''} avatarUrl={user?.avatarUrl} isAccented />
-        <Fading className="flex min-w-0 grow flex-col">
-          <span className="truncate text-ui font-medium text-foreground">{name}</span>
-          <span className="text-caption text-foreground-subtle">{role}</span>
+        <Fading className="flex min-w-0 grow items-baseline gap-1 text-ui">
+          <span className="truncate font-medium text-foreground">{name}</span>
+          {role === '' ? null : (
+            <>
+              <span aria-hidden="true" className="text-foreground-subtle">
+                ·
+              </span>
+              <span className="shrink-0 text-foreground-subtle">{role}</span>
+            </>
+          )}
+        </Fading>
+        <Fading className="flex shrink-0 pr-1.5">
+          <AppIcon id="chevron-right" size={14} className="text-foreground-subtle" />
         </Fading>
       </button>
     </div>
@@ -466,14 +688,11 @@ function UserChip() {
 /**
  * The entries of the packages' own pages, under Packages: each running package with a page that
  * asks for one, by the label and icon it asks for - its name and logo when it says neither.
- * Indented under Packages on the open rail; glyphs in the column like every other on the narrow
- * one.
  *
  * @returns The entries; nothing when no package asks.
  */
 function PackagePages() {
   const rail = useContext(RailContext);
-  const { isCollapsed } = rail;
   const { packages } = useInstalledPackages();
   const pages = packages.filter(
     (found): found is ApiPackage & { ui: NonNullable<ApiPackage['ui']> } =>
@@ -486,13 +705,7 @@ function PackagePages() {
   }
 
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-0.5 border-l',
-        rail.isReduced ? undefined : `transition-[margin,padding,border-color] ${MOTION}`,
-        isCollapsed ? 'ml-0 border-transparent pl-0' : 'ml-4.5 border-border pl-2',
-      )}
-    >
+    <div className="flex flex-col gap-0.5">
       {pages.map((found) => {
         const iconId = found.ui.sidebar?.icon;
         const icon = iconId === undefined ? undefined : icons.get(iconId);
@@ -502,19 +715,10 @@ function PackagePages() {
           <NavLink
             key={found.id}
             to={packageAppPath(found.id)}
-            title={isCollapsed ? label : undefined}
-            aria-label={isCollapsed ? label : undefined}
-            className={({ isActive }) =>
-              cn(
-                'press flex h-8.5 w-full shrink-0 items-center overflow-hidden rounded-field border text-ui-sm whitespace-nowrap focus-visible:-outline-offset-2',
-                rail.isReduced
-                  ? 'transition-colors'
-                  : `transition-[padding,gap,background-color,border-color,color] ${MOTION}`,
-                // Shut, its 16px glyph sits where the rows' 18px ones do.
-                isCollapsed ? 'gap-3 px-3.25' : 'gap-2 px-2.5',
-                isActive ? ROW_ACTIVE : ROW_IDLE,
-              )
-            }
+            aria-label={rail.isCollapsed ? label : undefined}
+            className={({ isActive }) => cn(SUB_ROW, isActive ? ROW_ACTIVE : ROW_IDLE)}
+            data-tip={rail.isCollapsed ? label : undefined}
+            {...rail.tip}
           >
             {iconId === undefined ? (
               <PackageLogo found={found} size={16} />
@@ -533,52 +737,197 @@ function PackagePages() {
   );
 }
 
+/** A name showing beside the shut card, and where: the middle of its row, from the card's top. */
+type Tip = {
+  readonly words: string;
+  readonly top: number;
+};
+
+/** Which edges the entries run on past, when the window is too short for them all. */
+type Edges = 'none' | 'top' | 'bottom' | 'both';
+
+/** The fade each edge the entries run on past takes: the last 24px going to nothing. */
+const FADES: Readonly<Record<Edges, string>> = {
+  none: '',
+  top: '[mask-image:linear-gradient(to_bottom,transparent,black_1.5rem)]',
+  bottom: '[mask-image:linear-gradient(to_bottom,black_calc(100%_-_1.5rem),transparent)]',
+  both: '[mask-image:linear-gradient(to_bottom,transparent,black_1.5rem,black_calc(100%_-_1.5rem),transparent)]',
+};
+
 /**
- * Whether a page is under an entry: the entry itself, or a page beneath it.
+ * Reads which edges a scrolling list runs on past.
  *
- * @param pathname - The page.
- * @param to - The entry.
- * @returns True when the page belongs to it.
+ * @param list - The list.
+ * @returns The edges.
  */
-function isUnder(pathname: string, to: string): boolean {
-  return pathname === to || pathname.startsWith(`${to}/`);
+function edgesOf(list: HTMLElement): Edges {
+  const isAbove = list.scrollTop > 0;
+  const isBelow = list.scrollTop + list.clientHeight < list.scrollHeight - 1;
+
+  if (isAbove && isBelow) {
+    return 'both';
+  }
+
+  if (isAbove) {
+    return 'top';
+  }
+
+  return isBelow ? 'bottom' : 'none';
 }
 
 /**
- * Which group a page opens: the one holding an entry it is under.
+ * The sidebar.
  *
- * @param pathname - The page.
- * @param groups - The groups, narrowed to what may be opened.
- * @returns The key of the group's label, or null for a page in none.
- */
-function groupOf(pathname: string, groups: readonly Group[]): string | null {
-  return (
-    groups.find((group) => group.entries.some((entry) => isUnder(pathname, entry.to)))?.label.key ??
-    null
-  );
-}
-
-/**
- * The rail.
+ * One element at both widths, so that the change between them can be watched rather than cut.
+ * Four parts top to bottom: the name; the entries, the only part that scrolls; the settings and
+ * the person; and, under a line, the button that opens or shuts the card.
  *
- * One element at both widths, so that the change between them can be watched rather than cut:
- * the width moves, the words fade, the headings fold into lines, and the glyphs stay where they
- * are. Three parts top to bottom - the name, the entries (the only part that scrolls), and the
- * foot with the settings, the person and the button that collapses or opens the rail, which is
- * the last row at both widths so it is always found in the same place.
+ * The names beside the shut card hang off the frame around the card rather than off their rows:
+ * the part that scrolls would clip anything drawn outside it.
  *
  * @returns The sidebar.
  */
 export function Sidebar() {
   const { t } = useTranslation();
-  const { pathname } = useLocation();
   const can = useSession((state) => state.can);
   const width = usePreferences((state) => state.sidebar);
   const setPreferences = usePreferences((state) => state.set);
   const counts = useRailCounts();
+  const alerts = useRailAlerts();
   const isReduced = useReducedMotion();
-  const isCollapsed = width === 'collapsed';
-  const rail = useMemo(() => ({ isCollapsed, isReduced }), [isCollapsed, isReduced]);
+  const isNarrow = useSyncExternalStore(subscribeNarrow, isNarrowNow, () => false);
+
+  // Opened by hand on a narrow window: held for this visit, never saved, because the saved
+  // choice is the one for a window with room for it.
+  const [isOpenedNarrow, setOpenedNarrow] = useState(false);
+  const isCollapsed = isNarrow ? !isOpenedNarrow : width === 'collapsed';
+
+  const frame = useRef<HTMLDivElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const isTipShown = useRef(false);
+  const hiddenAt = useRef(Number.NEGATIVE_INFINITY);
+  const [tip, setTip] = useState<Tip | null>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState<Edges>('none');
+
+  useEffect(
+    () => (): void => {
+      globalThis.clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  // The list's own height changes with the window, its content's with the counts and the
+  // packages' pages: either can make it run on past an edge, or stop.
+  useEffect(() => {
+    const box = list.current;
+    const inner = content.current;
+
+    if (box === null || inner === null || typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const observer = new ResizeObserver(() => {
+      setEdges(edgesOf(box));
+    });
+
+    observer.observe(box);
+    observer.observe(inner);
+
+    return (): void => {
+      observer.disconnect();
+    };
+  }, []);
+
+  const rail = useMemo((): RailState => {
+    /** Takes the name away. */
+    const hideTip = (): void => {
+      globalThis.clearTimeout(timer.current);
+
+      if (isTipShown.current) {
+        isTipShown.current = false;
+        hiddenAt.current = performance.now();
+      }
+
+      setTip(null);
+    };
+
+    /**
+     * Shows a control's name beside it, when it has one to show: at once for the keyboard or
+     * right after another, after a short rest for a pointer passing by.
+     *
+     * @param target - The control.
+     * @param isNow - Whether to skip the rest.
+     */
+    const showTip = (target: HTMLElement, isNow: boolean): void => {
+      globalThis.clearTimeout(timer.current);
+
+      const words = target.dataset['tip'];
+
+      if (words === undefined) {
+        return;
+      }
+
+      /** Measures the control against the frame and shows the name there. */
+      const place = (): void => {
+        const box = frame.current?.getBoundingClientRect();
+        const row = target.getBoundingClientRect();
+
+        if (box !== undefined) {
+          isTipShown.current = true;
+          setTip({ words, top: row.top - box.top + row.height / 2 });
+        }
+      };
+
+      if (isNow || performance.now() - hiddenAt.current < TIP_GRACE_MS) {
+        place();
+      } else {
+        timer.current = globalThis.setTimeout(place, TIP_DELAY_MS);
+      }
+    };
+
+    return {
+      isCollapsed,
+      isReduced,
+      hideTip,
+      tip: {
+        onMouseLeave: hideTip,
+        onBlur: hideTip,
+
+        /**
+         * Shows the name after a short rest.
+         *
+         * @param event - The pointer arriving.
+         * @param event.currentTarget - The control.
+         */
+        onMouseEnter: (event: { readonly currentTarget: HTMLElement }): void => {
+          showTip(event.currentTarget, false);
+        },
+
+        /**
+         * Shows the name at once.
+         *
+         * @param event - The focus arriving.
+         */
+        onFocus: (event: FocusEvent<HTMLElement>): void => {
+          showTip(event.currentTarget, true);
+        },
+
+        /**
+         * Lets Escape take the name away, as from any tooltip.
+         *
+         * @param event - The key pressed on the control.
+         */
+        onKeyDown: (event: KeyboardEvent<HTMLElement>): void => {
+          if (event.key === 'Escape') {
+            hideTip();
+          }
+        },
+      },
+    };
+  }, [isCollapsed, isReduced]);
+
   const groups = GROUPS.filter((group) => group.permission === undefined || can(group.permission))
     .map((group) => ({
       ...group,
@@ -588,81 +937,97 @@ export function Sidebar() {
     }))
     .filter((group) => group.entries.length > 0);
 
-  // What was chosen by hand, and on which page: it stops holding the moment the page changes.
-  const [chosen, setChosen] = useState<{ readonly path: string; readonly open: string | null }>();
-  const open = chosen?.path === pathname ? chosen.open : groupOf(pathname, groups);
-
   /**
-   * Opens a group, closing the other, or closes it when it is the open one.
+   * The words of what an entry has waiting.
    *
-   * @param id - The group pressed: the key of its label.
+   * @param entry - The entry.
+   * @returns "1 update", or undefined when nothing waits.
    */
-  const toggle = (id: string): void => {
-    setChosen({ path: pathname, open: open === id ? null : id });
+  const alertOf = (entry: Entry): string | undefined => {
+    const count = entry.alert === undefined ? 0 : alerts[entry.alert];
+
+    return count === 0
+      ? undefined
+      : t('nav.updates', {
+          count,
+          defaultValue_one: '{{count}} update',
+          defaultValue_other: '{{count}} updates',
+        });
+  };
+
+  /** Opens or shuts the card: the saved choice on a wide window, this visit's on a narrow one. */
+  const toggle = (): void => {
+    rail.hideTip();
+
+    if (isNarrow) {
+      setOpenedNarrow(!isOpenedNarrow);
+    } else {
+      setPreferences({ sidebar: isCollapsed ? 'expanded' : 'collapsed' });
+    }
   };
 
   return (
     <RailContext.Provider value={rail}>
-      <nav
-        aria-label={t('nav.main', 'Main')}
-        className={cn(
-          'relative z-20 flex shrink-0 flex-col border-r border-border bg-rail py-4.5',
-          isReduced ? undefined : `transition-[width] ${MOTION}`,
-          isCollapsed ? 'w-18' : 'w-60',
-        )}
-      >
-        <div className="mx-3.5 mb-3.5 flex h-10 shrink-0 items-center gap-2.5 overflow-hidden px-2 whitespace-nowrap">
-          <Logo size={26} />
-          {/* The product's name, the same in every language. */}
-          <Fading className="text-subhead font-semibold tracking-tight">
-            <span translate="no">Nebula Home</span>
-          </Fading>
-        </div>
-
-        {/* Narrow, the rows have exactly the 43px between the gutters: a scrollbar on a short
-            window would take its width out of them and push every glyph off the middle, so it
-            still scrolls but draws none. */}
-        <div
+      <div ref={frame} className="relative z-20 flex shrink-0 py-4 pl-4">
+        <nav
+          aria-label={t('nav.main', 'Main')}
           className={cn(
-            'flex min-h-0 grow flex-col gap-0.5 overflow-x-hidden overflow-y-auto px-3.5',
-            isCollapsed ? 'scrollbar-none' : undefined,
+            'flex flex-col gap-0.5 rounded-dialog border border-border-strong bg-surface px-2.25 py-2.5 shadow-rail',
+            isReduced ? undefined : `transition-[width] ${MOTION}`,
+            isCollapsed ? 'w-16' : 'w-70',
           )}
         >
-          <Row entry={DASHBOARDS} />
+          <div className="flex h-11 shrink-0 items-center gap-3.25 overflow-hidden px-2.25 whitespace-nowrap">
+            <Logo size={26} />
+            {/* The product's name, the same in every language. */}
+            <Fading className="text-subhead font-semibold tracking-tight">
+              <span translate="no">Nebula Home</span>
+            </Fading>
+          </div>
 
-          {groups.map((group) => (
-            <NavGroup
-              key={group.label.key}
-              label={text(group.label)}
-              isOpen={open === group.label.key}
-              onToggle={() => {
-                toggle(group.label.key);
-              }}
-            >
-              {group.entries.map((entry) => (
-                <div key={entry.to} className="flex flex-col gap-0.5">
-                  <Row
-                    entry={entry}
-                    count={entry.count === undefined ? undefined : counts[entry.count]}
-                  />
-                  {entry.to === '/packages' ? <PackagePages /> : null}
-                </div>
+          {/* On a short window the entries scroll, and draw no scrollbar: its width would come
+              out of the rows and push every icon off the card's middle. The edge the list runs on
+              past fades out instead, which says there is more without taking any room. */}
+          <div
+            ref={list}
+            onScroll={(event) => {
+              rail.hideTip();
+              setEdges(edgesOf(event.currentTarget));
+            }}
+            className={cn(
+              'flex min-h-0 grow scrollbar-none flex-col overflow-x-hidden overflow-y-auto',
+              FADES[edges],
+            )}
+          >
+            <div ref={content} className="flex shrink-0 flex-col gap-0.5">
+              <Row entry={DASHBOARDS} />
+
+              {groups.map((group) => (
+                <Section key={group.label.key} label={text(group.label)}>
+                  {group.entries.map((entry) => (
+                    <div key={entry.to} className="flex flex-col gap-0.5">
+                      <Row
+                        entry={entry}
+                        count={entry.count === undefined ? undefined : counts[entry.count]}
+                        alert={alertOf(entry)}
+                      />
+                      {entry.to === '/packages' ? <PackagePages /> : null}
+                    </div>
+                  ))}
+                </Section>
               ))}
-            </NavGroup>
-          ))}
+            </div>
+          </div>
 
-          <div className="min-h-4 grow" />
-        </div>
-
-        {/*
-         * Settings above the person, not below. The rail is ordered by scope and a person is the
-         * narrowest thing in it; it is also the row that opens a menu rather than navigating,
-         * so it sits near the bottom where a menu has room to open. The button that collapses or
-         * opens the rail is the last row at both widths: it never moves.
-         */}
-        <div className="flex shrink-0 flex-col gap-0.5 px-3.5 pt-2">
+          {/*
+           * Settings above the person, not below. The sidebar is ordered by scope and a person is
+           * the narrowest thing in it; it is also the row that opens a menu rather than
+           * navigating. The button that opens or shuts the card is the last row at both widths:
+           * it never moves.
+           */}
           <Row entry={SETTINGS} />
           <UserChip />
+          <div aria-hidden="true" className="mx-2 my-1.5 h-px shrink-0 bg-border" />
           <button
             type="button"
             aria-label={
@@ -670,25 +1035,32 @@ export function Sidebar() {
                 ? t('nav.expand', 'Expand sidebar')
                 : t('nav.collapseSidebar', 'Collapse sidebar')
             }
-            title={isCollapsed ? t('nav.expand', 'Expand sidebar') : undefined}
             aria-expanded={!isCollapsed}
-            onClick={() => {
-              setPreferences({ sidebar: isCollapsed ? 'expanded' : 'collapsed' });
-            }}
-            className={cn(ROW, ROW_IDLE, 'mt-1.5 text-ui-sm')}
+            data-tip={isCollapsed ? t('nav.expand', 'Expand sidebar') : undefined}
+            {...rail.tip}
+            onClick={toggle}
+            className={cn(ROW, ROW_IDLE)}
           >
-            <AppIcon
-              id="chevrons-left"
-              size={18}
-              className={cn(
-                isReduced ? undefined : `transition-transform ${MOTION}`,
-                isCollapsed ? 'rotate-180' : undefined,
-              )}
-            />
+            <AppIcon id="panel-left" size={20} />
             <Fading className="truncate">{t('nav.collapse', 'Collapse')}</Fading>
           </button>
-        </div>
-      </nav>
+        </nav>
+
+        {tip === null || !isCollapsed ? null : (
+          <span
+            aria-hidden="true"
+            className={cn(
+              'pointer-events-none absolute left-full z-30 ml-2 flex h-7.5 -translate-y-1/2 animate-nudge items-center rounded-chip border border-border-strong bg-surface-raised px-2.5 text-ui-sm whitespace-nowrap text-foreground shadow-float',
+              isReduced ? undefined : 'transition-[top] duration-150 ease-out',
+            )}
+            /* eslint-disable-next-line react/forbid-dom-props -- where the row is, measured at run
+               time. */
+            style={{ top: tip.top }}
+          >
+            {tip.words}
+          </span>
+        )}
+      </div>
     </RailContext.Provider>
   );
 }

@@ -5692,6 +5692,7 @@
     "working": "Al lavoro"
   },
   "nav": {
+    "account": "Account",
     "accountMenu": "Menu dell'account: {{name}}",
     "aliases": "Alias",
     "areas": "Aree",
@@ -5713,10 +5714,14 @@
     "main": "Principale",
     "notSignedIn": "Nessun accesso",
     "packages": "Pacchetti",
+    "profile": "Profilo",
     "scenes": "Scene",
     "settings": "Impostazioni",
     "signOut": "Esci",
-    "tags": "Tag"
+    "tags": "Tag",
+    "updates_many": "{{count}} aggiornamenti",
+    "updates_one": "{{count}} aggiornamento",
+    "updates_other": "{{count}} aggiornamenti"
   },
   "packages": {
     "count_many": "{{count}} pacchetti",
@@ -6206,7 +6211,7 @@
       "openOn": "Apri su",
       "openOnNote": "La pagina su cui arrivi quando accedi.",
       "sidebar": "Barra laterale",
-      "sidebarNote": "Compressa tiene solo i simboli, per avere più spazio. L'editor delle dashboard la comprime comunque.",
+      "sidebarNote": "Compressa tiene un'icona per pagina, per avere più spazio. Una finestra più stretta di 1100 px la apre compressa.",
       "sidebars": {
         "collapsed": "Compressa",
         "expanded": "Espansa"

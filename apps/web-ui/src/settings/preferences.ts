@@ -16,11 +16,20 @@
  */
 import { create } from 'zustand';
 
+import { defineMessage, type Message } from '@/i18n/messages';
+
 /** How the interface picks its palette. */
 export const THEME_CHOICES = ['system', 'light', 'dark'] as const;
 
 /** How the interface picks its palette. */
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
+
+/** What each theme is called on screen: on the Interface page, and beside Theme in the account menu. */
+export const THEME_LABELS: Readonly<Record<ThemeChoice, Message>> = {
+  system: defineMessage('settings.interface.themes.system', 'System'),
+  light: defineMessage('settings.interface.themes.light', 'Light'),
+  dark: defineMessage('settings.interface.themes.dark', 'Dark'),
+};
 
 /** How much the interface moves. */
 export const MOTION_CHOICES = ['system', 'full', 'reduced'] as const;
@@ -29,8 +38,8 @@ export const MOTION_CHOICES = ['system', 'full', 'reduced'] as const;
 export type MotionChoice = (typeof MOTION_CHOICES)[number];
 
 /**
- * How wide the rail is: 240px with its labels, or 72px of glyphs. Collapsed gives a page the
- * room; the dashboard editor collapses it whatever is chosen here.
+ * How wide the sidebar is: 280px with its names, or 64px of icons. Collapsed gives a page the
+ * room; a window narrower than 1100px starts it collapsed whatever is chosen here.
  */
 export const SIDEBAR_CHOICES = ['expanded', 'collapsed'] as const;
 

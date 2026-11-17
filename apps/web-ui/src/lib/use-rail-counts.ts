@@ -10,6 +10,9 @@
  * Areas count the rooms: the house and its floors are how rooms are arranged, not more places.
  * Integrations count what the Integrations page lists: the brokers the platform brings are not
  * integrations somebody installed.
+ *
+ * Beside the counts, what wants a look: the updates waiting for the integrations and the packages,
+ * read from the same lists their pages filter by, so the rail asks for nothing a page would not.
  */
 import { useQuery } from '@tanstack/react-query';
 
@@ -26,10 +29,14 @@ import {
   fetchVendors,
   LIBRARY_QUERY_KEYS,
 } from '@/library/api';
+import { fetchAvailablePackages, PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { useInstalledPackages } from '@/packages/use-packages';
 
 /** What a count is kept for before it is asked again. */
 const COUNT_STALE_MS = 60_000;
+
+/** What the packages index is kept for: it changes by the day, as on the Packages page. */
+const INDEX_STALE_MS = 5 * 60_000;
 
 /** The entries of the rail that carry a count. */
 export type RailCountKey =
@@ -112,5 +119,48 @@ export function useRailCounts(): RailCounts {
     areas: can('area:read') ? rooms.data?.filter((area) => area.kind === 'room').length : undefined,
     packages: can('package:read') && !arePackagesPending ? packages.length : undefined,
     containers: can('container:read') ? containers.data?.items.length : undefined,
+  };
+}
+
+/** The entries of the rail that can ask for a look. */
+export type RailAlertKey = 'integrations' | 'packages';
+
+/** How many updates each has waiting: zero when none, or while it is read, or when it may not be. */
+export type RailAlerts = Readonly<Record<RailAlertKey, number>>;
+
+/**
+ * Reads what wants a look: the integrations with a newer release or another build waiting (the
+ * Integrations page's "update" filter), and the installed packages with a newer release out (the
+ * Packages page's "Version … is out").
+ *
+ * @returns See {@link RailAlerts}.
+ */
+export function useRailAlerts(): RailAlerts {
+  const can = useSession((state) => state.can);
+  const mayReadIntegrations = can('integration:read');
+  const mayReadPackages = can('package:read');
+  const vendors = useQuery({
+    queryKey: LIBRARY_QUERY_KEYS.vendors,
+    enabled: mayReadIntegrations,
+    staleTime: COUNT_STALE_MS,
+    queryFn: signalled(fetchVendors),
+  });
+  const available = useQuery({
+    queryKey: PACKAGE_QUERY_KEYS.available,
+    enabled: mayReadPackages,
+    staleTime: INDEX_STALE_MS,
+    queryFn: signalled(fetchAvailablePackages),
+  });
+
+  return {
+    integrations: mayReadIntegrations
+      ? (vendors.data?.filter(
+          (vendor) => vendor.update?.hasUpdate === true || vendor.update?.hasNewBuild === true,
+        ).length ?? 0)
+      : 0,
+    packages: mayReadPackages
+      ? (available.data?.items.filter((offered) => offered.hasUpdate && offered.latest !== null)
+          .length ?? 0)
+      : 0,
   };
 }
