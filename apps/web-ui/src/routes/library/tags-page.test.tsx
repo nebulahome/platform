@@ -92,6 +92,8 @@ const RELAY: DeviceView = {
   createdAt: null,
   linked: null,
   suggestedLinks: [],
+  parentId: null,
+  childIds: [],
 };
 
 const SWITCH: EntityView = {

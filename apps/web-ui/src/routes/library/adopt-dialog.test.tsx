@@ -130,6 +130,7 @@ function found(overrides: Partial<DiscoveredDevice> = {}): DiscoveredDevice {
     mac: null,
     notes: [],
     isDismissed: false,
+    dismissedAt: null,
     adoption: 'owner',
     firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
     lastSeenAt: new Date('2026-09-23T10:00:00.000Z'),
@@ -190,6 +191,8 @@ const ADOPTED: DeviceView = {
   createdAt: null,
   linked: null,
   suggestedLinks: [],
+  parentId: null,
+  childIds: [],
 };
 
 beforeAll(() => {

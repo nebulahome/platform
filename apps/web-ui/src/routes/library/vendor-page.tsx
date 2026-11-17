@@ -340,7 +340,10 @@ export function VendorPage() {
                       {t('library.vendor.settings', 'Settings')}
                     </Button>
                   ) : null}
-                  <VendorInstallMenu vendor={found} deviceCount={devices.length} />
+                  <VendorInstallMenu
+                    vendor={found}
+                    deviceIds={devices.map((device) => device.id)}
+                  />
                 </>
               )
             }

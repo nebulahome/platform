@@ -123,6 +123,7 @@ import {
   EmptyLibrarySample,
   ScenePageSample,
 } from './gallery-automations';
+import { DeviceParentingSamples } from './gallery-parenting';
 
 import './styles/globals.css';
 
@@ -881,6 +882,13 @@ function Gallery() {
           note="A thermostat on every tab, a light, a sensor, failing code, read-only code."
         >
           <AliasPageSamples />
+        </Section>
+
+        <Section
+          title="Devices made of others"
+          note="An inverter with its EPS and dry contact: the Devices tab (open the inverter, search for eps), the Parent of and Child of sections, and the removal dialog three ways."
+        >
+          <DeviceParentingSamples />
         </Section>
 
         <Section title="Empty library" note="Automations, scenes and aliases with nothing yet.">

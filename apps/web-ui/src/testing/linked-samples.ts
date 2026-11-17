@@ -35,6 +35,8 @@ export const LINKED_SAMPLE_DEVICE: DeviceView = {
   mac: '08:f9:e0:12:4c:7a',
   swVersion: '1.4.2',
   suggestedLinks: [],
+  parentId: null,
+  childIds: [],
 };
 
 /**
@@ -384,6 +386,7 @@ const FOUND_SAMPLES: DiscoveredDevice[] = [
   mac: mac as string,
   notes: notes as DiscoveredDevice['notes'],
   isDismissed: false,
+  dismissedAt: null,
   firstSeenAt: new Date(Date.now() - 3_600_000),
   lastSeenAt: new Date(Date.now() - 120_000 * (index + 1)),
 }));

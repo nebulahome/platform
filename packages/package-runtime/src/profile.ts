@@ -178,6 +178,12 @@ export const identityMappingSchema = z.strictObject({
    */
   mac: pathSchema.optional(),
   serialNumber: pathSchema.optional(),
+
+  /**
+   * The `externalId` of the device this one is part of: the inverter an EPS output belongs to.
+   * The house groups the two and removes the child with its parent.
+   */
+  parent: pathSchema.optional(),
 });
 
 /** Where a device's identity is found in what the probe returned. */

@@ -55,7 +55,6 @@ import { AppIcon, Button, Modal, Segmented, SelectField, TextField } from '@nebu
 
 import { CheckIcon, WarningIcon } from '@/components/icons';
 import { listFormat } from '@/i18n/formatters';
-import { translate } from '@/i18n/messages';
 import { roomChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
 import { createDevice, deleteDevice, probeDevice, updateDevice } from '@/library/api';
@@ -68,8 +67,8 @@ import {
   type DraftValue,
   type SetupDraft,
 } from '@/library/setup-values';
-import { ConfirmRemoval } from '@/routes/library/confirm-removal';
 import { DeviceIcon, useCatalogueIcons } from '@/routes/library/device-icon';
+import { DeviceRemovalDialog } from '@/routes/library/device-removal';
 import { ModelList } from '@/routes/library/model-list';
 import { NameIconField } from '@/routes/library/name-icon-field';
 import { SerialPortFields } from '@/routes/library/serial-port-fields';
@@ -633,69 +632,42 @@ export function DeviceDialog(props: DeviceDialogProps) {
   const hasModelList = choices.length > 1;
 
   return (
-    <Modal
-      isOpen={target !== null}
-      onClose={onClose}
-      title={title}
-      description={description}
-      {...(isLinked
-        ? {
-            layout: 'card' as const,
-            size: 'form' as const,
-            lead: (
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-inner border border-border-strong bg-surface-raised text-foreground-muted">
-                <DeviceIcon
-                  icon={deviceIcons.get(icon ?? '')}
-                  {...(existing === undefined ? {} : { device: existing })}
-                  size={20}
-                />
-              </span>
-            ),
-          }
-        : {})}
-      aside={
-        hasModelList ? (
-          <ModelList
-            choices={choices}
-            value={choice}
-            vendor={vendor}
-            disabled={isBusy}
-            onPick={(next) => {
-              choose(next, 'picked');
-            }}
-          />
-        ) : undefined
-      }
-      asideLabel={t('library.deviceDialog.models', 'Models')}
-      footer={
-        isRemoving && existing !== undefined ? (
-          <ConfirmRemoval
-            question={
-              isLinked
-                ? t(
-                    'library.deviceDialog.removeLinked',
-                    'Remove {{name}}? It goes from {{ways}}: {{entities}}, and the hub stops listening for it both ways.',
-                    {
-                      name: existing.name,
-                      ways: listFormat({ type: 'conjunction' }).format(
-                        ways.map((way) =>
-                          wayName(way, vendorsById, t('library.matterTag', 'Matter')),
-                        ),
-                      ),
-                      entities: describeEntities(existing).toLocaleLowerCase(),
-                    },
-                  )
-                : `Remove ${existing.name}? ${describeEntities(existing)} and the hub stops listening for it.`
+    <>
+      <Modal
+        isOpen={target !== null && !isRemoving}
+        onClose={onClose}
+        title={title}
+        description={description}
+        {...(isLinked
+          ? {
+              layout: 'card' as const,
+              size: 'form' as const,
+              lead: (
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-inner border border-border-strong bg-surface-raised text-foreground-muted">
+                  <DeviceIcon
+                    icon={deviceIcons.get(icon ?? '')}
+                    {...(existing === undefined ? {} : { device: existing })}
+                    size={20}
+                  />
+                </span>
+              ),
             }
-            isBusy={removal.isPending}
-            onCancel={() => {
-              setRemoving(false);
-            }}
-            onConfirm={() => {
-              removal.mutate();
-            }}
-          />
-        ) : (
+          : {})}
+        aside={
+          hasModelList ? (
+            <ModelList
+              choices={choices}
+              value={choice}
+              vendor={vendor}
+              disabled={isBusy}
+              onPick={(next) => {
+                choose(next, 'picked');
+              }}
+            />
+          ) : undefined
+        }
+        asideLabel={t('library.deviceDialog.models', 'Models')}
+        footer={
           <>
             {existing !== undefined && canRemove && !isSystem ? (
               <Button
@@ -754,200 +726,196 @@ export function DeviceDialog(props: DeviceDialogProps) {
               </Button>
             </span>
           </>
-        )
-      }
-    >
-      <div className="flex flex-col gap-4">
-        {serialConfig === null || vendor === undefined || driver?.serial === undefined ? null : (
-          <SerialPortFields
-            vendorId={vendor.id}
-            deviceId={existing?.id}
-            driverLine={driver.serial}
-            value={serialConfig}
-            onChange={setSerial}
-          />
-        )}
-        <NameIconField
-          value={name}
-          onChange={rename}
-          icon={icon}
-          onIconChange={(view) => {
-            setIcon(view.id);
-          }}
-          hint={
-            existing === undefined
-              ? t(
-                  'library.deviceDialog.iconStartsAsThe',
-                  "The icon starts as the driver's; pick another from the catalogue.",
-                )
-              : undefined
-          }
-          required
-        />
-
-        <TagField
-          value={tagIds}
-          onChange={setTagIds}
-          tags={tags}
-          icons={tagIcons}
-          canCreate={canCreateTags}
-          onCreate={createTagNamed}
-          {...(isLinked
-            ? {}
-            : {
-                hint: t(
-                  'library.deviceDialog.whatAutomationsAndScenes',
-                  'What automations and scenes will pick this device by.',
-                ),
-              })}
-        />
-
-        <SelectField
-          label={t('library.deviceDialog.room', 'Room')}
-          options={rooms}
-          value={areaId ?? ''}
-          hint={
-            rooms.length === 1
-              ? t(
-                  'library.deviceDialog.noRoomsYetMake',
-                  'No rooms yet: make the house, its floors and their rooms under Areas.',
-                )
-              : t(
-                  'library.deviceDialog.itsEntitiesAreIn',
-                  'Its entities are in the same room unless one of them says otherwise.',
-                )
-          }
-          onChange={(value) => {
-            setAreaId(value === '' ? null : value);
-          }}
-        />
-
-        {existing === undefined ? (
-          <TextField
-            label={t('library.deviceDialog.id', 'Id')}
-            size="medium"
-            hint={t(
-              'library.deviceDialog.lowercaseLettersDigitsAnd',
-              'Lowercase letters, digits and dashes. It is what every entity of this device carries as its source.',
-            )}
-            value={id}
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {serialConfig === null || vendor === undefined || driver?.serial === undefined ? null : (
+            <SerialPortFields
+              vendorId={vendor.id}
+              deviceId={existing?.id}
+              driverLine={driver.serial}
+              value={serialConfig}
+              onChange={setSerial}
+            />
+          )}
+          <NameIconField
+            value={name}
+            onChange={rename}
+            icon={icon}
+            onIconChange={(view) => {
+              setIcon(view.id);
+            }}
+            hint={
+              existing === undefined
+                ? t(
+                    'library.deviceDialog.iconStartsAsThe',
+                    "The icon starts as the driver's; pick another from the catalogue.",
+                  )
+                : undefined
+            }
             required
-            onChange={(event) => {
-              setId(event.target.value);
-              setIdEdited(true);
-            }}
           />
-        ) : driver === undefined && !isSystem && !isLinked ? (
-          <p role="alert" className="text-ui text-danger">
-            {t(
-              'library.deviceDialog.hubNoLongerHas',
-              'The hub no longer has the driver {{kind}}, so its fields cannot be shown.',
-              { kind: existing.kind },
-            )}
-          </p>
-        ) : null}
 
-        {isLinked ? (
-          <div className="flex flex-col gap-2">
-            <span aria-hidden="true" className="text-ui-sm font-medium text-foreground-muted">
-              {t('library.deviceDialog.preferredTransport', 'Preferred transport')}
-            </span>
-            <Segmented
-              label={t('library.deviceDialog.preferredTransport', 'Preferred transport')}
-              options={ways.map((way) => ({
-                value: way.deviceId,
-                label: wayName(way, vendorsById, t('library.matterTag', 'Matter')),
-              }))}
-              value={preferred ?? ways[0]?.deviceId ?? ''}
-              onChange={setPreferred}
-              isFilled
-            />
-            <span className="text-caption text-foreground-subtle">
-              {t('library.deviceDialog.otherTakesOver', 'The other takes over when it is silent.')}
-            </span>
-          </div>
-        ) : null}
+          <TagField
+            value={tagIds}
+            onChange={setTagIds}
+            tags={tags}
+            icons={tagIcons}
+            canCreate={canCreateTags}
+            onCreate={createTagNamed}
+            {...(isLinked
+              ? {}
+              : {
+                  hint: t(
+                    'library.deviceDialog.whatAutomationsAndScenes',
+                    'What automations and scenes will pick this device by.',
+                  ),
+                })}
+          />
 
-        {driver === undefined || isLinked ? null : (
-          <>
-            <SetupForm
-              group={driver.setup.transport}
-              draft={drafts.transport}
-              errors={errors.transport}
-              kept={kept.transport}
-              onChange={change('transport')}
-            />
-            <SetupForm
-              group={driver.setup.options}
-              draft={drafts.options}
-              errors={errors.options}
-              kept={kept.options}
-              onChange={change('options')}
-            />
-          </>
-        )}
-
-        {existing === undefined || isSystem || isLinked ? null : (
-          <Segmented
-            label={t('library.deviceDialog.running', 'Running')}
-            options={[
-              { value: 'on', label: t('library.deviceDialog.enabled', 'Enabled') },
-              { value: 'off', label: t('library.deviceDialog.disabled', 'Disabled') },
-            ]}
-            value={isEnabled ? 'on' : 'off'}
+          <SelectField
+            label={t('library.deviceDialog.room', 'Room')}
+            options={rooms}
+            value={areaId ?? ''}
+            hint={
+              rooms.length === 1
+                ? t(
+                    'library.deviceDialog.noRoomsYetMake',
+                    'No rooms yet: make the house, its floors and their rooms under Areas.',
+                  )
+                : t(
+                    'library.deviceDialog.itsEntitiesAreIn',
+                    'Its entities are in the same room unless one of them says otherwise.',
+                  )
+            }
             onChange={(value) => {
-              setEnabled(value === 'on');
+              setAreaId(value === '' ? null : value);
             }}
           />
-        )}
 
-        {verdict === null ? null : verdict.isReachable ? (
-          <p role="status" className="flex items-start gap-2 text-ui text-success">
-            <CheckIcon width="16" height="16" className="mt-0.5 shrink-0" />
-            <span>
-              {verdict.detail}
-              {verdict.detected === undefined || existing !== undefined
-                ? null
-                : ` ${t('library.deviceDialog.itSaysItIs', 'It says it is a {{model}}.', {
-                    model:
-                      verdict.detected.model ??
-                      listFormat({ type: 'disjunction' }).format(verdict.detected.modelChoices),
-                  })}`}
-            </span>
-          </p>
-        ) : (
-          <p role="alert" className="flex items-start gap-2 text-ui text-danger">
-            <WarningIcon width="16" height="16" className="mt-0.5 shrink-0" />
-            <span>{verdict.detail}</span>
-          </p>
-        )}
+          {existing === undefined ? (
+            <TextField
+              label={t('library.deviceDialog.id', 'Id')}
+              size="medium"
+              hint={t(
+                'library.deviceDialog.lowercaseLettersDigitsAnd',
+                'Lowercase letters, digits and dashes. It is what every entity of this device carries as its source.',
+              )}
+              value={id}
+              required
+              onChange={(event) => {
+                setId(event.target.value);
+                setIdEdited(true);
+              }}
+            />
+          ) : driver === undefined && !isSystem && !isLinked ? (
+            <p role="alert" className="text-ui text-danger">
+              {t(
+                'library.deviceDialog.hubNoLongerHas',
+                'The hub no longer has the driver {{kind}}, so its fields cannot be shown.',
+                { kind: existing.kind },
+              )}
+            </p>
+          ) : null}
 
-        {errors.general === undefined ? null : (
-          <p role="alert" className="text-ui text-danger">
-            {errors.general}
-          </p>
-        )}
-      </div>
-    </Modal>
+          {isLinked ? (
+            <div className="flex flex-col gap-2">
+              <span aria-hidden="true" className="text-ui-sm font-medium text-foreground-muted">
+                {t('library.deviceDialog.preferredTransport', 'Preferred transport')}
+              </span>
+              <Segmented
+                label={t('library.deviceDialog.preferredTransport', 'Preferred transport')}
+                options={ways.map((way) => ({
+                  value: way.deviceId,
+                  label: wayName(way, vendorsById, t('library.matterTag', 'Matter')),
+                }))}
+                value={preferred ?? ways[0]?.deviceId ?? ''}
+                onChange={setPreferred}
+                isFilled
+              />
+              <span className="text-caption text-foreground-subtle">
+                {t(
+                  'library.deviceDialog.otherTakesOver',
+                  'The other takes over when it is silent.',
+                )}
+              </span>
+            </div>
+          ) : null}
+
+          {driver === undefined || isLinked ? null : (
+            <>
+              <SetupForm
+                group={driver.setup.transport}
+                draft={drafts.transport}
+                errors={errors.transport}
+                kept={kept.transport}
+                onChange={change('transport')}
+              />
+              <SetupForm
+                group={driver.setup.options}
+                draft={drafts.options}
+                errors={errors.options}
+                kept={kept.options}
+                onChange={change('options')}
+              />
+            </>
+          )}
+
+          {existing === undefined || isSystem || isLinked ? null : (
+            <Segmented
+              label={t('library.deviceDialog.running', 'Running')}
+              options={[
+                { value: 'on', label: t('library.deviceDialog.enabled', 'Enabled') },
+                { value: 'off', label: t('library.deviceDialog.disabled', 'Disabled') },
+              ]}
+              value={isEnabled ? 'on' : 'off'}
+              onChange={(value) => {
+                setEnabled(value === 'on');
+              }}
+            />
+          )}
+
+          {verdict === null ? null : verdict.isReachable ? (
+            <p role="status" className="flex items-start gap-2 text-ui text-success">
+              <CheckIcon width="16" height="16" className="mt-0.5 shrink-0" />
+              <span>
+                {verdict.detail}
+                {verdict.detected === undefined || existing !== undefined
+                  ? null
+                  : ` ${t('library.deviceDialog.itSaysItIs', 'It says it is a {{model}}.', {
+                      model:
+                        verdict.detected.model ??
+                        listFormat({ type: 'disjunction' }).format(verdict.detected.modelChoices),
+                    })}`}
+              </span>
+            </p>
+          ) : (
+            <p role="alert" className="flex items-start gap-2 text-ui text-danger">
+              <WarningIcon width="16" height="16" className="mt-0.5 shrink-0" />
+              <span>{verdict.detail}</span>
+            </p>
+          )}
+
+          {errors.general === undefined ? null : (
+            <p role="alert" className="text-ui text-danger">
+              {errors.general}
+            </p>
+          )}
+        </div>
+      </Modal>
+      {/* Only while removing: it asks what the removal would do as soon as it is drawn. */}
+      {isRemoving && existing !== undefined ? (
+        <DeviceRemovalDialog
+          device={existing}
+          isBusy={removal.isPending}
+          onCancel={() => {
+            setRemoving(false);
+          }}
+          onConfirm={() => {
+            removal.mutate();
+          }}
+        />
+      ) : null}
+    </>
   );
-}
-
-/**
- * Says what goes with a device when it is removed.
- *
- * @param device - The device.
- * @returns "Its 6 entities go with it", or a sentence for none.
- */
-function describeEntities(device: DeviceView): string {
-  const count = device.entityIds.length;
-
-  if (count === 0) {
-    return translate('library.deviceDialog.itHasNoEntities', 'It has no entities yet');
-  }
-
-  return translate('library.deviceDialog.entitiesGoWithIt', {
-    count,
-    defaultValue_one: 'Its {{count}} entity goes with it',
-    defaultValue_other: 'Its {{count}} entities go with it',
-  });
 }

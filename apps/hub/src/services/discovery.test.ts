@@ -35,6 +35,7 @@ import type { MdnsSource } from '../discovery/mdns-source.js';
 import type { TakenDevices } from '../domain/taken.js';
 import type { MatterSighting } from '../matter/broker.js';
 import type { ModbusSighting } from '../modbus/broker.js';
+import type { DismissalStore } from '../persistence/dismissed.js';
 
 import type { LoadedListenSource } from './bundles.js';
 import { DiscoveryService, SCAN_DURATION_MS, type DiscoveryVendor } from './discovery.js';
@@ -267,6 +268,7 @@ let harness: Harness | undefined;
  * @param options.probeIntervalMs - How long an address's answer is trusted.
  * @param options.withTransport - Whether the vendor's transport is registered.
  * @param options.now - The clock; the wall clock when not said.
+ * @param options.dismissals - Where the devices set aside are kept; nowhere when not said.
  * @returns The harness.
  */
 async function start(
@@ -278,6 +280,7 @@ async function start(
     readonly probeIntervalMs?: number;
     readonly withTransport?: boolean;
     readonly now?: () => number;
+    readonly dismissals?: DismissalStore;
   } = {},
 ): Promise<Harness> {
   const mdns = fakeMdns();
@@ -320,6 +323,7 @@ async function start(
       ttlMs: options.ttlMs ?? 60_000,
       probeIntervalMs: options.probeIntervalMs ?? 60_000,
       ...(options.now === undefined ? {} : { now: options.now }),
+      ...(options.dismissals === undefined ? {} : { dismissals: options.dismissals }),
     }),
   };
 
@@ -639,6 +643,59 @@ describe('DiscoveryService', () => {
     // What the address answered before is not trusted any more: it is asked again.
     built.mdns.announce(heard('192.168.1.40'));
     await until(() => built.transport.scans.length > scansBefore);
+  });
+
+  it('keeps a device set aside where it is kept, and reads it back when it starts', async () => {
+    const kept = new Map<string, Date>([['acme/r2', new Date('2026-11-12T10:00:00Z')]]);
+    const dismissals: DismissalStore = {
+      list: () =>
+        Promise.resolve(
+          [...kept].map(([key, dismissedAt]) => {
+            const [vendorId = '', identity = ''] = key.split('/');
+
+            return { vendorId, key: identity, dismissedAt };
+          }),
+        ),
+      set: (entries, isDismissed) => {
+        for (const { vendorId, key } of entries) {
+          if (isDismissed) {
+            kept.set(`${vendorId}/${key}`, new Date());
+          } else {
+            kept.delete(`${vendorId}/${key}`);
+          }
+        }
+
+        return Promise.resolve();
+      },
+    };
+    const built = await start({ dismissals });
+
+    built.mdns.announce(heard('192.168.1.40'));
+    await until(() => built.service.list().length === 1);
+
+    const [r1] = built.service.list();
+
+    expect(r1).toMatchObject({ externalId: 'r1', isDismissed: false, dismissedAt: null });
+    await built.service.dismiss([r1?.id ?? ''], true);
+    expect(kept.has('acme/r1')).toBe(true);
+    expect(built.service.list()[0]?.dismissedAt).toBeInstanceOf(Date);
+
+    // Added, then removed: offered again, the dismissal from before it was added gone.
+    built.taken = { ...built.taken, externalIds: new Set(['acme\nr1']) };
+    await built.service.refresh();
+    built.taken = { ...built.taken, externalIds: new Set() };
+    await built.service.release('acme');
+
+    expect(kept.has('acme/r1')).toBe(false);
+    expect(built.service.list()[0]?.isDismissed).toBe(false);
+
+    // Set aside before this start, read back: heard, it is listed as set aside since then.
+    built.mdns.announce(heard('192.168.1.41', 8081));
+    await until(() => built.service.list().length === 2);
+    expect(built.service.list().find((device) => device.externalId === 'r2')).toMatchObject({
+      isDismissed: true,
+      dismissedAt: new Date('2026-11-12T10:00:00Z'),
+    });
   });
 
   it('proposes moving a device added at one address and heard answering at another', async () => {

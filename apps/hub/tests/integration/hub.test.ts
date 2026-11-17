@@ -25,8 +25,10 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
 import {
   busSubjects,
+  ConflictError,
   CORE_REGISTER_METHOD,
   CORE_SERVICE,
+  CORE_UNREGISTER_METHOD,
   forgetReplySchema,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
@@ -36,7 +38,9 @@ import {
   probeReplySchema,
   registerDeviceRequestSchema,
   reloadReplySchema,
+  unregisterDeviceRequestSchema,
   type RegisterDeviceRequest,
+  type UnregisterDeviceRequest,
 } from '@nebulahome/contracts';
 import { createDatabase, schema, sealSecrets, secretsKeyFrom, type Database } from '@nebulahome/db';
 import { createLogger, type PlatformLogger } from '@nebulahome/logging';
@@ -497,6 +501,89 @@ describe('matching an instance to its row on request', () => {
       );
     } finally {
       serving.unsubscribe();
+      await fakePrinter.endAsync();
+      await database.db
+        .update(schema.registry.integrations)
+        .set({ isEnabled: false })
+        .where(eq(schema.registry.integrations.id, printer));
+      await stop();
+      await database.db
+        .delete(schema.registry.devices)
+        .where(eq(schema.registry.devices.integrationId, printer));
+    }
+  }, 40_000);
+
+  it('stops a device added by hand that is already in the house, and has core remove it', async () => {
+    // The printer is in the house already as another device: `core` refuses to complete this
+    // row, `hub` does not ask again, stops the instance and asks `core` to remove it, saying why.
+    await database.db.insert(schema.registry.devices).values({
+      integrationId: printer,
+      externalId: null,
+      name: 'Studio printer again',
+      manufacturer: 'Acme',
+      model: 'P1',
+    });
+
+    const inHouseAs = { id: 'studio-printer', name: 'Studio printer' };
+    const asked: RegisterDeviceRequest[] = [];
+    const removed: UnregisterDeviceRequest[] = [];
+    const core = new BusClient({ transport: bus.transport, source: 'core', logger });
+    const serving = [
+      core.serve(
+        busSubjects.service(CORE_SERVICE, CORE_REGISTER_METHOD),
+        registerDeviceRequestSchema,
+        (request) => {
+          if (request.integrationId === printer) {
+            asked.push(request);
+          }
+
+          throw new ConflictError('Already in the house', {
+            details: { reason: 'duplicate', duplicateOf: inHouseAs },
+          });
+        },
+      ),
+      core.serve(
+        busSubjects.service(CORE_SERVICE, CORE_UNREGISTER_METHOD),
+        unregisterDeviceRequestSchema,
+        (request) => {
+          if (request.integrationId === printer) {
+            removed.push(request);
+          }
+
+          return { deviceId: null, entityIds: [] };
+        },
+      ),
+    ];
+    const fakePrinter = await connectAsync(BROKER, { reconnectPeriod: 0 });
+    const { service, stop } = await startHub();
+    const report = JSON.stringify({ print: { nozzle_temper: 25, bed_temper: 30 } });
+    const speaking = setInterval(() => {
+      void fakePrinter.publishAsync(`device/${SERIAL}/report`, report);
+    }, 300);
+
+    try {
+      await database.db
+        .update(schema.registry.integrations)
+        .set({ isEnabled: true })
+        .where(eq(schema.registry.integrations.id, printer));
+      await service.reloadInstance(printer);
+
+      for (let waited = 0; removed.length === 0 && waited < 15_000; waited += 100) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      expect(asked).toHaveLength(1);
+      expect(removed).toEqual([
+        { integrationId: printer, reason: 'duplicate', duplicateOf: inHouseAs },
+      ]);
+      expect(service.running.has(printer)).toBe(false);
+    } finally {
+      clearInterval(speaking);
+
+      for (const each of serving) {
+        each.unsubscribe();
+      }
+
       await fakePrinter.endAsync();
       await database.db
         .update(schema.registry.integrations)

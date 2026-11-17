@@ -67,7 +67,7 @@ import {
   type IntegrationVendor,
   type JsonObject,
 } from '@nebulahome/contracts';
-import { isSealed, schema } from '@nebulahome/db';
+import { deviceWithIdentity, isSealed, lockDeviceIdentity, schema } from '@nebulahome/db';
 
 import { checkRoom } from './areas.js';
 import { checkIcon, type IconLookup } from './icon-lookup.js';
@@ -147,6 +147,9 @@ export type DeviceRow = {
   readonly mac: string | null;
   readonly serialNumber: string | null;
   readonly createdAt: Date | null;
+
+  /** The `externalId` of the device this one is part of, as its integration said. */
+  readonly parentExternalId: string | null;
 };
 
 /**
@@ -281,6 +284,7 @@ async function deviceRows(context: DevicesContext): Promise<DeviceRow[]> {
       mac: devices.mac,
       serialNumber: devices.serialNumber,
       createdAt: devices.createdAt,
+      parentExternalId: devices.parentExternalId,
     })
     .from(integrations)
     .leftJoin(devices, eq(devices.integrationId, integrations.id))
@@ -578,6 +582,77 @@ export function deviceViewIdOf(row: {
   return row.integrationId ?? platformHalfOf({ ...row, packageName: null, swVersion: null }).id;
 }
 
+/** Where a device stands among the parts of one piece of hardware. */
+export type DeviceFamily = {
+  readonly parentId: string | null;
+  readonly childIds: readonly string[];
+};
+
+/**
+ * Which device each listed one is part of, and the parts of each.
+ *
+ * The parent is the device of the same vendor whose `externalId` a part names, as the house lists
+ * it: one way into a linked device stands for the device it is linked to. One level: a part whose
+ * parent is itself a part is listed on its own, and a device never parents itself.
+ *
+ * @param rows - The devices, by name: the parts of each come in that order.
+ * @returns Each listed device's parent and parts, by id; absent for one with neither.
+ */
+export function familiesOf(rows: readonly DeviceRow[]): Map<string, DeviceFamily> {
+  const byRow = new Map(rows.flatMap((row) => (row.rowId === null ? [] : [[row.rowId, row]])));
+  /**
+   * The device the house lists a row as: the one it is linked to, for one way into another.
+   *
+   * @param row - The row.
+   * @returns The listed device's id.
+   */
+  const listedAs = (row: DeviceRow): string =>
+    row.linkedTo === null ? row.id : (byRow.get(row.linkedTo)?.id ?? row.id);
+  const byIdentity = new Map(
+    rows.flatMap((row) =>
+      row.externalId === null
+        ? []
+        : [[`${vendorIdOf(row.kind)}\n${row.externalId}`, listedAs(row)]],
+    ),
+  );
+  const named = new Map<string, string>();
+
+  for (const row of rows) {
+    const parent =
+      row.linkedTo === null && row.parentExternalId !== null
+        ? byIdentity.get(`${vendorIdOf(row.kind)}\n${row.parentExternalId}`)
+        : undefined;
+
+    if (parent !== undefined && parent !== row.id) {
+      named.set(row.id, parent);
+    }
+  }
+
+  const families = new Map<string, { parentId: string | null; childIds: string[] }>();
+  /**
+   * A device's family, made the first time it is asked for.
+   *
+   * @param id - The device.
+   * @returns Its family, to fill in.
+   */
+  const familyOf = (id: string) => {
+    const family = families.get(id) ?? { parentId: null, childIds: [] };
+
+    families.set(id, family);
+
+    return family;
+  };
+
+  for (const [child, parent] of named) {
+    if (!named.has(parent)) {
+      familyOf(child).parentId = parent;
+      familyOf(parent).childIds.push(child);
+    }
+  }
+
+  return families;
+}
+
 /**
  * Lists every device, with where each stands and what it exposes.
  *
@@ -599,6 +674,7 @@ export async function listDevices(context: DevicesContext): Promise<DeviceView[]
 
   // One more way into another device is listed as that device, and only as it.
   const others = new Map<string, DeviceRow[]>();
+  const families = familiesOf(rows);
 
   for (const row of rows) {
     if (row.linkedTo !== null) {
@@ -613,13 +689,17 @@ export async function listDevices(context: DevicesContext): Promise<DeviceView[]
       .map((row) => {
         const ways = row.rowId === null ? [] : (others.get(row.rowId) ?? []);
 
-        return toDeviceView(
-          row,
-          catalogue,
-          [row, ...ways].flatMap((way) => entityIds.get(way.id) ?? []).sort(),
-          tagIds.get(row.id) ?? [],
-          ways,
-        );
+        return {
+          ...toDeviceView(
+            row,
+            catalogue,
+            [row, ...ways].flatMap((way) => entityIds.get(way.id) ?? []).sort(),
+            tagIds.get(row.id) ?? [],
+            ways,
+          ),
+          parentId: families.get(row.id)?.parentId ?? null,
+          childIds: [...(families.get(row.id)?.childIds ?? [])],
+        };
       }),
     ...platform.filter((device) => device.origin === 'package'),
     ...platform.filter((device) => device.origin === 'virtual'),
@@ -804,6 +884,22 @@ export async function createDevice(
   // identity without a connection is a row nothing will ever hear from.
   await context.db
     .transaction(async (tx) => {
+      const expected = adopted.expectedExternalId;
+
+      // Found with its id known: hardware already in the house is refused before it is added. One
+      // typed in is checked by `core` once identified, under the same lock.
+      if (expected !== null) {
+        await lockDeviceIdentity(tx, vendorIdOf(driver.id), expected);
+
+        const taken = await deviceWithIdentity(tx, vendorIdOf(driver.id), expected);
+
+        if (taken !== undefined) {
+          throw new ConflictError('That hardware is already in the house as another device', {
+            details: { reason: 'duplicate', duplicateOf: taken },
+          });
+        }
+      }
+
       await tx.insert(schema.registry.integrations).values({
         id: body.id,
         kind: driver.id,
@@ -1281,7 +1377,22 @@ export type RemovedDevice = {
   readonly name: string;
   readonly kind: string;
   readonly entityIds: readonly string[];
+
+  /** Its parts, which went with it, first. */
+  readonly children?: readonly { readonly id: string; readonly name: string }[];
 };
+
+/**
+ * The other ways into a device, for one removed whole.
+ *
+ * @param device - The device the house shows.
+ * @returns The instances linked to it, without its own.
+ */
+function otherWaysOf(device: DeviceView): string[] {
+  return device.linked === null
+    ? []
+    : device.linked.ways.map((way) => way.deviceId).filter((each) => each !== device.id);
+}
 
 /**
  * Removes a device: the hub stops the instance, then `core` releases the rows.
@@ -1337,25 +1448,38 @@ export async function deleteDevice(context: DevicesContext, id: string): Promise
   }
 
   const device = await readDevice(context, id);
+  const isWhole = device.id === id;
 
-  // The device the house shows goes with every way into it; one way in goes alone.
-  const ways =
-    device.id === id && device.linked !== null
-      ? device.linked.ways.map((way) => way.deviceId).filter((each) => each !== id)
+  // The device the house shows goes with every way into it, and with its parts, each with its
+  // own ways in, before it; one way in goes alone.
+  const children =
+    isWhole && device.childIds.length > 0
+      ? (await listDevices(context)).filter((one) => device.childIds.includes(one.id))
       : [];
+  const order = [
+    ...children.flatMap((child) => [...otherWaysOf(child), child.id]),
+    ...(isWhole ? otherWaysOf(device) : []),
+    id,
+  ];
 
   // Asked here as well as in `core`, and before the hub: `core` refusing after the hub had let
   // go would leave the device stopped by a removal that did not happen.
-  await assertNotReadByAliases(context, [...ways, id]);
+  await assertNotReadByAliases(context, order);
 
   const entityIds: string[] = [];
 
-  for (const each of [...ways, id]) {
+  // Not one transaction: a part that fails to go leaves its parent, and the removal is asked again.
+  for (const each of order) {
     // eslint-disable-next-line no-await-in-loop -- one way at a time, the device last
     entityIds.push(...(await releaseOne(context, each)));
   }
 
-  return { name: device.name, kind: device.kind, entityIds };
+  return {
+    name: device.name,
+    kind: device.kind,
+    entityIds,
+    children: children.map((child) => ({ id: child.id, name: child.name })),
+  };
 }
 
 /**

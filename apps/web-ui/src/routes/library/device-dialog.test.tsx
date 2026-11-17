@@ -8,10 +8,13 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   entityIdSchema,
+  parseEntityId,
+  type DeviceRemoval,
   type DeviceView,
   type IconView,
   type IntegrationSetup,
@@ -25,6 +28,7 @@ import {
   fetchAreas,
   fetchIcons,
   fetchTags,
+  previewDeviceRemoval,
   probeDevice,
   updateDevice,
 } from '@/library/api';
@@ -37,11 +41,14 @@ vi.mock('@/library/api', () => ({
   createDevice: vi.fn(),
   updateDevice: vi.fn(),
   deleteDevice: vi.fn(),
+  previewDeviceRemoval: vi.fn(),
+  fetchDevices: vi.fn(() => Promise.resolve([])),
   fetchIcons: vi.fn(),
   fetchTags: vi.fn(),
   createTag: vi.fn(),
   fetchAreas: vi.fn(),
   LIBRARY_QUERY_KEYS: {
+    aliases: ['library', 'aliases'],
     icons: ['library', 'icons'],
     tags: ['library', 'tags'],
     areas: ['library', 'areas'],
@@ -51,6 +58,28 @@ vi.mock('@/library/api', () => ({
 }));
 
 const HOUSE_ID = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e80';
+
+/**
+ * What removing the printer would do, as the API says it.
+ *
+ * @param fields - What to change.
+ * @returns The removal: the printer alone, one automation stopping, nothing blocking.
+ */
+function removalOf(fields: Partial<DeviceRemoval> = {}): DeviceRemoval {
+  return {
+    devices: [
+      { id: 'bambu-lab-x1c', name: 'Studio printer', model: 'X1C', entities: 1, parentId: null },
+    ],
+    usedBy: {
+      automations: [{ id: 'night-print', name: 'Night print' }],
+      scenes: [],
+      dashboards: [],
+      aliases: [],
+    },
+    blockedBy: { aliases: [] },
+    ...fields,
+  };
+}
 const FLOOR_ID = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e81';
 const ROOM_ID = '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e82';
 
@@ -242,6 +271,8 @@ const EXISTING: DeviceView = {
   createdAt: null,
   linked: null,
   suggestedLinks: [],
+  parentId: null,
+  childIds: [],
 };
 
 /**
@@ -293,15 +324,17 @@ function renderDialog(target: Parameters<typeof DeviceDialog>[0]['target'], canR
   const onRemoved = vi.fn();
 
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <DeviceDialog
-        target={target}
-        canRemove={canRemove}
-        onClose={onClose}
-        onSaved={onSaved}
-        onRemoved={onRemoved}
-      />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient()}>
+        <DeviceDialog
+          target={target}
+          canRemove={canRemove}
+          onClose={onClose}
+          onSaved={onSaved}
+          onRemoved={onRemoved}
+        />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 
   return { onSaved, onClose, onRemoved };
@@ -698,14 +731,17 @@ describe('changing a device', () => {
     });
   });
 
-  it('removes the device after a second press, saying what goes with it, and tells the page', async () => {
+  it('removes the device after a second press, saying what stops working, and tells the page', async () => {
     vi.mocked(deleteDevice).mockResolvedValue(undefined);
+    vi.mocked(previewDeviceRemoval).mockResolvedValue(removalOf());
     const { onRemoved } = renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     expect(deleteDevice).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert').textContent).toMatch(/Studio printer.*1 entity/u);
+    expect(await screen.findByText('Automations · 1')).toBeTruthy();
+    expect(screen.getByText('Remove Studio printer?')).toBeTruthy();
+    expect(screen.getByText(/Its entity goes with it/u)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
@@ -725,9 +761,11 @@ describe('changing a device', () => {
         details: {},
       }),
     );
+    vi.mocked(previewDeviceRemoval).mockResolvedValue(removalOf());
     const { onRemoved } = renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    await screen.findByText('Automations · 1');
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     await waitFor(() => {
@@ -735,6 +773,60 @@ describe('changing a device', () => {
     });
     expect(onRemoved).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+  });
+
+  it('takes the parts with their parent, saying so on the button', async () => {
+    vi.mocked(previewDeviceRemoval).mockResolvedValue(
+      removalOf({
+        devices: [
+          {
+            id: 'bambu-lab-x1c',
+            name: 'Studio printer',
+            model: 'X1C',
+            entities: 1,
+            parentId: null,
+          },
+          { id: 'ams-1', name: 'AMS 1', model: 'AMS', entities: 4, parentId: 'bambu-lab-x1c' },
+        ],
+      }),
+    );
+    renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    expect(await screen.findByText('Removed with it · 1')).toBeTruthy();
+    expect(screen.getByText('AMS · 4 entities')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove 2 devices' })).toBeTruthy();
+  });
+
+  it('says an alias blocks the removal, and offers the alias instead', async () => {
+    vi.mocked(previewDeviceRemoval).mockResolvedValue(
+      removalOf({
+        blockedBy: {
+          aliases: [
+            {
+              id: '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e99',
+              name: 'Print watts',
+              reads: [
+                {
+                  entityId: parseEntityId('sensor.bambu_lab_x1c_power'),
+                  name: 'Power',
+                  deviceName: 'Studio printer',
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    renderDialog({ mode: 'edit', vendor: BAMBU, device: EXISTING });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    expect(await screen.findByText("Studio printer can't be removed yet")).toBeTruthy();
+    expect(screen.getByText('Reads Power')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Open Print watts/u })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
   });
 
   it('offers no removal to somebody who may not remove', () => {

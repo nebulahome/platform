@@ -27,7 +27,7 @@ export const HUB_DISCOVERED_METHOD = 'discovered';
  */
 export const HUB_DISCOVER_METHOD = 'discover';
 
-/** Sets heard devices aside, or brings them back, until they are next forgotten. */
+/** Sets heard devices aside, or brings them back; kept until the owner changes it. */
 export const HUB_DISCOVERY_DISMISS_METHOD = 'discovery_dismiss';
 
 /**
@@ -103,10 +103,13 @@ export const discoveredDeviceSchema = z.object({
   notes: z.array(z.enum(DISCOVERY_NOTES)).max(DISCOVERY_NOTES.length).default([]),
 
   /**
-   * Set aside by the owner: not offered until the hub forgets it - it went quiet - and hears it
-   * again.
+   * Set aside by the owner: listed only when the owner asks to see what was set aside, until the
+   * owner restores it or adds it. Kept across restarts and silences.
    */
   isDismissed: z.boolean().default(false),
+
+  /** When the owner set it aside; null while it is not. */
+  dismissedAt: timestampSchema.nullable().default(null),
 
   firstSeenAt: timestampSchema,
   lastSeenAt: timestampSchema,

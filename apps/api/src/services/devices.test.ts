@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { IntegrationVendor } from '@nebulahome/contracts';
 
-import { toDeviceView, type DeviceRow } from './devices.js';
+import { familiesOf, toDeviceView, type DeviceRow } from './devices.js';
 
 /** The catalogue as the hub lists it, with the one driver the row names. */
 const CATALOGUE: IntegrationVendor[] = [
@@ -68,6 +68,7 @@ function row(fields: Partial<DeviceRow> = {}): DeviceRow {
     mac: null,
     serialNumber: null,
     createdAt: null,
+    parentExternalId: null,
     lastStartedAt: new Date('2026-09-17T08:00:00Z'),
     name: 'Studio printer',
     icon: 'printer',
@@ -139,5 +140,56 @@ describe('toDeviceView', () => {
 
     expect(toDeviceView(row(), CATALOGUE, [], [tagId]).tagIds).toEqual([tagId]);
     expect(toDeviceView(row(), CATALOGUE, []).tagIds).toEqual([]);
+  });
+});
+
+describe('familiesOf', () => {
+  /**
+   * A device of the SolaX vendor.
+   *
+   * @param id - Its id.
+   * @param externalId - Its serial.
+   * @param fields - What else to set.
+   * @returns The row.
+   */
+  const solax = (id: string, externalId: string, fields: Partial<DeviceRow> = {}): DeviceRow =>
+    row({ id, kind: 'solax/inverter', externalId, rowId: `row-${id}`, ...fields });
+
+  it('puts each part under the device it names, in the order the rows come', () => {
+    const families = familiesOf([
+      solax('dry', 'H450:dry', { parentExternalId: 'H450' }),
+      solax('eps', 'H450:eps', { parentExternalId: 'H450' }),
+      solax('inverter', 'H450'),
+      solax('wallbox', 'W1'),
+    ]);
+
+    expect(families.get('inverter')).toEqual({ parentId: null, childIds: ['dry', 'eps'] });
+    expect(families.get('eps')).toEqual({ parentId: 'inverter', childIds: [] });
+    expect(families.has('wallbox')).toBe(false);
+  });
+
+  it('names the device the house shows when the parent is one way into it', () => {
+    const families = familiesOf([
+      solax('inverter-cloud', 'H450', { linkedTo: 'row-inverter' }),
+      solax('inverter', 'H450-modbus'),
+      solax('eps', 'H450:eps', { parentExternalId: 'H450' }),
+    ]);
+
+    expect(families.get('eps')?.parentId).toBe('inverter');
+  });
+
+  it('keeps one level, another vendor and the device itself out', () => {
+    const families = familiesOf([
+      solax('inverter', 'H450'),
+      solax('eps', 'H450:eps', { parentExternalId: 'H450' }),
+      solax('deep', 'H450:eps:1', { parentExternalId: 'H450:eps' }),
+      solax('self', 'S1', { parentExternalId: 'S1' }),
+      row({ id: 'other', kind: 'acme/relay', externalId: 'A1', parentExternalId: 'H450' }),
+    ]);
+
+    expect(families.get('deep')).toBeUndefined();
+    expect(families.get('eps')).toEqual({ parentId: 'inverter', childIds: [] });
+    expect(families.has('self')).toBe(false);
+    expect(families.has('other')).toBe(false);
   });
 });

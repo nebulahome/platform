@@ -28,8 +28,10 @@ import {
   MATTER_TRANSPORT,
   MATTER_VENDOR,
   MQTT_VENDOR,
+  type DeviceView,
   type DeviceWay,
   type EntityView,
+  type IconView,
 } from '@nebulahome/contracts';
 import {
   AppIcon,
@@ -41,7 +43,9 @@ import {
   HeroFact,
   HeroMark,
   OverflowMenu,
+  ListRow,
   Pill,
+  RowList,
   Section,
   TabPanel,
   Tabs,
@@ -62,9 +66,11 @@ import {
 } from '@/library/device-health';
 import { deviceStatusOf } from '@/library/device-status';
 import { entityKindOf } from '@/library/entity-kind';
+import { CountTag } from '@/routes/library/broker-parts';
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { ActivityPanel } from '@/routes/library/device/activity-panel';
 import { BluetoothProxyRow } from '@/routes/library/device/bluetooth-proxy-row';
+import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceProblem } from '@/routes/library/device/device-problem';
 import { entityGroupsOf } from '@/routes/library/device/entity-groups';
 import { LinkDialog, type LinkRequest } from '@/routes/library/device/link-dialog';
@@ -316,6 +322,81 @@ function EntityGroups(props: {
         {drag.announcement}
       </span>
     </>
+  );
+}
+
+/**
+ * The devices this one is part of or made of: "Parent of" with its parts, or "Child of" with the
+ * device it is part of, each a row that opens that device.
+ *
+ * @param props - The device's family, and the icons to draw it with.
+ * @param props.parent - The device it is part of, when it is in the house.
+ * @param props.parts - The devices that are part of it.
+ * @param props.icons - The catalogue's icons, by id.
+ * @returns The section, or nothing for a device part of nothing.
+ */
+export function FamilySection(props: {
+  readonly parent: DeviceView | undefined;
+  readonly parts: readonly DeviceView[];
+  readonly icons: ReadonlyMap<string, IconView>;
+}) {
+  const { t } = useTranslation();
+  const { parent, parts, icons } = props;
+  const isParent = parts.length > 0;
+  const family = isParent ? parts : parent === undefined ? [] : [parent];
+
+  if (family.length === 0) {
+    return null;
+  }
+
+  return (
+    <Section
+      title={
+        isParent ? (
+          <span className="flex items-center gap-2">
+            {t('device.device.parentOf', 'Parent of')}
+            <CountTag>{parts.length}</CountTag>
+          </span>
+        ) : (
+          t('device.device.childOf', 'Child of')
+        )
+      }
+    >
+      <RowList>
+        {family.map((device) => {
+          const status = deviceStatusOf(device, { isReporting: device.state === 'running' }, false);
+
+          return (
+            <ListRow
+              key={device.id}
+              icon={
+                <DeviceIcon
+                  icon={icons.get(device.icon ?? '')}
+                  device={device}
+                  className="text-foreground-muted"
+                />
+              }
+              title={device.name}
+              subtitle={[device.model ?? device.driverName, device.areaName]
+                .filter((part) => part !== null)
+                .join(' · ')}
+              meta={t('device.device.entityCount', {
+                count: device.entityIds.length,
+                defaultValue_one: '{{count}} entity',
+                defaultValue_other: '{{count}} entities',
+              })}
+              trailing={<Pill tone={status.tone}>{status.label}</Pill>}
+              hasChevron
+              wrap={(className, parts) => (
+                <Link to={devicePath(device.id)} className={className}>
+                  {parts}
+                </Link>
+              )}
+            />
+          );
+        })}
+      </RowList>
+    </Section>
   );
 }
 
@@ -829,6 +910,8 @@ export function DevicePage() {
               name={view.device.name}
               canBeProxy={view.vendor?.roles?.includes('bluetooth-proxy') === true}
             />
+
+            <FamilySection parent={view.parent} parts={view.parts} icons={view.icons} />
 
             <Section title={t('device.device.details', 'Details')}>
               <FactGrid facts={factsOf(view, webPage, wayNameOf)} />

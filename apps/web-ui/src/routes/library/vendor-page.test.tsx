@@ -29,10 +29,11 @@ import {
   fetchEntity,
   fetchIcons,
   fetchVendor,
+  previewDeviceRemoval,
   scanNetwork,
 } from '@/library/api';
 import { removeIntegration } from '@/library/integration-catalogue-api';
-import { adoptFound, fetchFound } from '@/library/links-api';
+import { adoptFound, dismissFound, fetchFound } from '@/library/links-api';
 
 import { VendorPage } from './vendor-page';
 
@@ -74,6 +75,13 @@ vi.mock('@/library/api', () => ({
   createTag: vi.fn(),
   fetchEntity: vi.fn(),
   commandEntity: vi.fn(),
+  previewDeviceRemoval: vi.fn(() =>
+    Promise.resolve({
+      devices: [],
+      usedBy: { automations: [], scenes: [], dashboards: [], aliases: [] },
+      blockedBy: { aliases: [] },
+    }),
+  ),
   LIBRARY_QUERY_KEYS: {
     vendors: ['library', 'vendors'],
     devices: ['library', 'devices'],
@@ -82,6 +90,7 @@ vi.mock('@/library/api', () => ({
     tags: ['library', 'tags'],
     discovered: ['library', 'discovered'],
     areas: ['library', 'areas'],
+    aliases: ['library', 'aliases'],
   },
 }));
 
@@ -104,6 +113,7 @@ const FOUND: DiscoveredDevice = {
   mac: null,
   notes: [],
   isDismissed: false,
+  dismissedAt: null,
   adoption: 'owner',
   firstSeenAt: new Date('2026-09-23T10:00:00.000Z'),
   lastSeenAt: new Date('2026-09-23T10:05:00.000Z'),
@@ -235,6 +245,8 @@ function device(overrides: Partial<DeviceView>): DeviceView {
     createdAt: null,
     linked: null,
     suggestedLinks: [],
+    parentId: null,
+    childIds: [],
     ...overrides,
   };
 }
@@ -486,6 +498,18 @@ describe('a vendor page', () => {
       accounts: 0,
       isRestartNeeded: false,
     });
+    vi.mocked(previewDeviceRemoval).mockResolvedValueOnce({
+      devices: [
+        { id: 'bambu-lab-x1c', name: 'Studio printer', model: 'X1C', entities: 1, parentId: null },
+      ],
+      usedBy: {
+        automations: [{ id: 'auto-1', name: 'Print done' }],
+        scenes: [],
+        dashboards: [],
+        aliases: [],
+      },
+      blockedBy: { aliases: [] },
+    });
     renderPage('bambu-lab', ['integration:install']);
 
     // The Updates card offers it, and so does the menu.
@@ -498,6 +522,8 @@ describe('a vendor page', () => {
     const confirm = await screen.findByRole('dialog', { name: 'Remove Bambu Lab?' });
 
     expect(confirm.textContent).toContain('1 device, and every entity they have');
+    expect(previewDeviceRemoval).toHaveBeenCalledWith(['bambu-lab-x1c'], expect.anything());
+    expect(await screen.findByText(/Stops working until pointed elsewhere · 1/u)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove Bambu Lab' }));
 
@@ -580,6 +606,51 @@ describe('the devices of a vendor found on the network', () => {
 
     expect(await screen.findByRole('dialog', { name: 'Adopt Loft printer' })).toBeTruthy();
     expect(adoptFound).not.toHaveBeenCalled();
+  });
+
+  it('keep the dismissed out of sight and out of the count until shown, then restore one', async () => {
+    const setAside: DiscoveredDevice = {
+      ...FOUND,
+      id: '0123456789abcdef',
+      model: 'A1',
+      address: '192.168.1.71',
+      isDismissed: true,
+      dismissedAt: new Date('2026-11-12T10:00:00.000Z'),
+    };
+    vi.mocked(fetchVendor).mockResolvedValue({ ...BAMBU, discoverySources: ['module'] });
+    vi.mocked(fetchDevices).mockResolvedValue([device({})]);
+    vi.mocked(fetchDiscovered).mockResolvedValue([FOUND, setAside]);
+    vi.mocked(fetchFound).mockResolvedValue([FOUND, setAside]);
+    vi.mocked(dismissFound).mockResolvedValue(1);
+    renderPage('bambu-lab', ['device:read', 'device:write'], 'found');
+
+    const show = await screen.findByRole('button', { name: 'Show dismissed (1)' });
+
+    expect(screen.getByRole('tab', { name: /Found/u }).textContent).toBe('Found1');
+    expect(screen.getByText(/found on your network/u).textContent).toBe('1 found on your network');
+    expect(screen.queryByText('A1')).toBeNull();
+
+    fireEvent.click(show);
+
+    expect(await screen.findByText('A1')).toBeTruthy();
+    expect(screen.getByText(/found on your network/u).textContent).toBe(
+      '1 found on your network · 1 dismissed',
+    );
+    // The day and the month, in the order the browser's region writes them.
+    expect(screen.getByText(/^Dismissed (?:12 nov|nov 12)/iu)).toBeTruthy();
+    // A dismissed row is not adopted, in bulk or on its own: it is restored first.
+    expect(screen.queryByRole('checkbox', { name: 'A1' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Adopt' })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+
+    await waitFor(() => {
+      expect(dismissFound).toHaveBeenCalledWith(['0123456789abcdef'], false);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide dismissed' }));
+
+    expect(screen.queryByText('A1')).toBeNull();
   });
 
   it('draw nothing when nothing of the vendor was found', async () => {

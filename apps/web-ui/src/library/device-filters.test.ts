@@ -42,6 +42,8 @@ const PRINTER: DeviceView = {
   createdAt: null,
   linked: null,
   suggestedLinks: [],
+  parentId: null,
+  childIds: [],
 };
 
 /** One of its entities. */

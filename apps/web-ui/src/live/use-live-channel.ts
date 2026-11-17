@@ -9,7 +9,8 @@
  * lists: they are read again, a moment later and once for a burst of messages. A device added,
  * removed or described again also opens the socket afresh, because the server decided what this
  * socket may hear when it authenticated and those entities are not in that decision. An account
- * or a role changed takes a new token first: the permissions are written into it.
+ * or a role changed takes a new token first: the permissions are written into it. A device the hub
+ * removed because it was hardware already in the house is also said, in a toast that leads to it.
  *
  * A channel that comes back after a drop forgets what it had said and has every list it keeps
  * fresh read again: nothing replays the changes made while it was down, and a reading kept from
@@ -18,14 +19,17 @@
  * back-off says ({@link reconnectsNow}).
  */
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router';
 
-import type { LibraryKind, WsServerMessage } from '@nebulahome/contracts';
+import type { DuplicateOf, LibraryKind, WsServerMessage } from '@nebulahome/contracts';
+import { toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { BACKUP_QUERY_KEYS } from '@/backup/api';
 import { CONTAINER_QUERY_KEYS } from '@/containers/api';
 import { DASHBOARD_QUERY_KEYS } from '@/dashboard/api';
+import { translate } from '@/i18n/messages';
 import { refreshAccessToken } from '@/lib/api-client';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { INTEGRATION_CATALOGUE_KEYS } from '@/library/integration-catalogue-api';
@@ -34,6 +38,7 @@ import { LiveClient, type LiveStatus } from '@/live/live-client';
 import { useLive } from '@/live/live-store';
 import { packageLive } from '@/live/package-live';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
+import { devicePath } from '@/routes/library/device/device-path';
 import { SETTINGS_QUERY_KEYS } from '@/settings/api';
 import { fetchPlatformState, UPDATES_QUERY_KEY } from '@/settings/updates-api';
 import { usePlatform, type PlatformStage } from '@/system/platform-store';
@@ -225,11 +230,44 @@ export function liveChannelUrl(): string {
 export function useLiveChannel(): void {
   const status = useSession((state) => state.status);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  // The latest navigate, read when a toast's action is chosen: it changes with every address, and
+  // the socket must not be opened afresh for that.
+  const navigateRef = useRef(navigate);
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
 
   useEffect(() => {
     if (status !== 'signed-in') {
       return undefined;
     }
+
+    /**
+     * Says that a device added by hand was hardware already in the house, so the hub removed it.
+     *
+     * @param name - The device that was removed.
+     * @param existing - The device it already was.
+     */
+    const sayDuplicate = (name: string, existing: DuplicateOf): void => {
+      toast.warning({
+        title: translate('live.duplicate.title', 'Already in the house'),
+        message: translate(
+          'live.duplicate.message',
+          '{{name}} is already {{existing}}, so the device you just added was removed.',
+          { name, existing: existing.name },
+        ),
+        action: {
+          label: translate('live.duplicate.open', 'Open {{existing}}', { existing: existing.name }),
+
+          /** Opens the device it already was. */
+          onSelect: () => {
+            void navigateRef.current(devicePath(existing.id));
+          },
+        },
+      });
+    };
 
     // Whether the channel has been live before, which makes the next time it is live a return.
     let hasBeenLive = false;
@@ -294,6 +332,15 @@ export function useLiveChannel(): void {
             reconnectDue = undefined;
             client.reconnect();
           }, RECONNECT_DELAY_MS);
+        }
+
+        if (
+          message.type === 'device_event' &&
+          message.event === 'removed' &&
+          message.payload.reason === 'duplicate' &&
+          message.payload.duplicateOf !== undefined
+        ) {
+          sayDuplicate(message.payload.name, message.payload.duplicateOf);
         }
 
         if (message.type === 'platform_event') {

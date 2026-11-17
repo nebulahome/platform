@@ -593,6 +593,7 @@ export function createDeclarativeIntegration(
       const hwVersion = text(identity.hwVersion);
       const mac = normalizeMac(text(identity.mac)) ?? undefined;
       const serialNumber = text(identity.serialNumber);
+      const parentExternalId = text(identity.parent);
 
       const entities = profile.entities.map((entity): EntityDescriptor => {
         const measurement = registeredMeasurement(entity);
@@ -623,6 +624,9 @@ export function createDeclarativeIntegration(
         ...(hwVersion === undefined ? {} : { hwVersion }),
         ...(mac === undefined ? {} : { mac }),
         ...(serialNumber === undefined ? {} : { serialNumber }),
+        ...(parentExternalId === undefined || parentExternalId === claimed.externalId
+          ? {}
+          : { parentExternalId }),
         entities,
       };
     },

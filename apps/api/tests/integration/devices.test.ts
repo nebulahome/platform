@@ -14,7 +14,7 @@
 import { randomUUID } from 'node:crypto';
 import { Writable } from 'node:stream';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -26,6 +26,7 @@ import { listDevices, type DevicesContext } from '@/services/devices.js';
 import {
   bearer,
   buildTestServer,
+  DISCOVERED_PRINTER,
   forgotten,
   makeCoreRefuse,
   reloaded,
@@ -528,5 +529,184 @@ describe('removing a device through the route', () => {
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.details).toMatchObject({ kind: 'bambu-lab/printer' });
+  });
+});
+
+describe('a device part of another', () => {
+  const inverter = `${instanceId}-inv`;
+  const eps = `${instanceId}-eps`;
+  const epsPower = `sensor.${eps.replaceAll('-', '_')}_power`;
+  const readerId = `alias.${eps.replaceAll('-', '_')}_reader`;
+
+  /**
+   * Asks the API what removing the inverter would do.
+   *
+   * @returns The status and the answer.
+   */
+  async function preview(): Promise<{ status: number; body: Record<string, unknown> }> {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/api/v1/devices/removal-preview',
+      headers: { authorization: await bearer('device:read') },
+      payload: { deviceIds: [inverter] },
+    });
+
+    return { status: response.statusCode, body: response.json() };
+  }
+
+  beforeAll(async () => {
+    await database.db.insert(schema.registry.integrations).values(
+      [inverter, eps].map((id) => ({
+        id,
+        kind: 'bambu-lab/printer',
+        kindVersion: '1.0.0',
+        model: 'X1C',
+        transport: 'mqtt',
+        transportConfig: { url: 'mqtts://192.168.1.61:8883' },
+        options: {},
+        isEnabled: true,
+        state: 'running',
+      })),
+    );
+
+    const [, child] = await database.db
+      .insert(schema.registry.devices)
+      .values([
+        { integrationId: inverter, externalId: 'H450', name: 'Inverter garage' },
+        {
+          integrationId: eps,
+          externalId: 'H450:eps',
+          parentExternalId: 'H450',
+          name: 'X1-Hybrid G4 EPS',
+        },
+      ])
+      .returning({ id: schema.registry.devices.id });
+
+    await database.db.insert(schema.registry.entities).values({
+      entityId: epsPower,
+      deviceId: child?.id ?? '',
+      integrationId: eps,
+      source: 'adapter',
+      name: 'EPS power',
+    });
+  });
+
+  afterAll(async () => {
+    await database.db
+      .delete(schema.registry.entities)
+      .where(inArray(schema.registry.entities.entityId, [epsPower, readerId]));
+    await database.db
+      .delete(schema.registry.integrations)
+      .where(inArray(schema.registry.integrations.id, [inverter, eps]));
+  });
+
+  it('lists the part under the device it names, by id', async () => {
+    const all = await listDevices(context);
+
+    expect(all.find((device) => device.id === inverter)).toMatchObject({
+      parentId: null,
+      childIds: [eps],
+    });
+    expect(all.find((device) => device.id === eps)).toMatchObject({
+      parentId: inverter,
+      childIds: [],
+    });
+  });
+
+  it('says a removal takes the parts, and what blocks it', async () => {
+    const [readerEntity] = await database.db
+      .insert(schema.registry.entities)
+      .values({ entityId: readerId, source: 'derived', name: 'House battery' })
+      .returning({ id: schema.registry.entities.id });
+    const [reader] = await database.db
+      .insert(schema.registry.aliases)
+      .values({
+        entityId: readerEntity?.id ?? '',
+        behavesAs: 'sensor',
+        parts: { value: { from: 'entity', entity: epsPower } },
+      })
+      .returning({ id: schema.registry.aliases.id });
+
+    await database.db
+      .insert(schema.registry.aliasReads)
+      .values({ aliasId: reader?.id ?? '', entityId: epsPower });
+
+    try {
+      const { status, body } = await preview();
+
+      expect(status).toBe(200);
+      expect(body['devices']).toEqual([
+        { id: inverter, name: 'Inverter garage', model: 'X1C', entities: 0, parentId: null },
+        { id: eps, name: 'X1-Hybrid G4 EPS', model: 'X1C', entities: 1, parentId: inverter },
+      ]);
+      expect(body['blockedBy']).toEqual({
+        aliases: [
+          {
+            id: reader?.id,
+            name: 'House battery',
+            reads: [{ entityId: epsPower, name: 'EPS power', deviceName: 'X1-Hybrid G4 EPS' }],
+          },
+        ],
+      });
+
+      // The alias reads the part: removing the parent is refused before the hub is asked.
+      forgotten.length = 0;
+
+      const refused = await server.inject({
+        method: 'DELETE',
+        url: `/api/v1/devices/${inverter}`,
+        headers: { authorization: await bearer('device:delete') },
+      });
+
+      expect(refused.statusCode).toBe(409);
+      expect(forgotten).toEqual([]);
+    } finally {
+      await database.db
+        .delete(schema.registry.entities)
+        .where(eq(schema.registry.entities.entityId, readerId));
+    }
+  });
+
+  it('removes the parts first, then the parent, and records them', async () => {
+    forgotten.length = 0;
+    unregistered.length = 0;
+
+    const response = await server.inject({
+      method: 'DELETE',
+      url: `/api/v1/devices/${inverter}`,
+      headers: { authorization: await bearer('device:delete') },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(unregistered).toEqual([eps, inverter]);
+
+    const [entry] = await database.db
+      .select({ details: schema.system.auditLog.details })
+      .from(schema.system.auditLog)
+      .where(
+        and(
+          eq(schema.system.auditLog.resourceId, inverter),
+          eq(schema.system.auditLog.action, 'device.delete'),
+        ),
+      );
+
+    expect(entry?.details).toMatchObject({ children: [eps] });
+  });
+
+  it('refuses a found device that is hardware already in the house, naming it', async () => {
+    // The fake hub proposes the printer this file added first, by the same serial.
+    const response = await server.inject({
+      method: 'POST',
+      url: `/api/v1/discovery/${DISCOVERED_PRINTER.id}/adopt`,
+      headers: { authorization: await bearer('device:write') },
+      payload: {
+        id: `${instanceId}-again`,
+        name: 'Workshop again',
+        transportConfig: { password: '12345678' },
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(JSON.stringify(response.json())).toContain(instanceId);
   });
 });

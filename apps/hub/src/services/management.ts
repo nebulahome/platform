@@ -98,7 +98,7 @@ export type ManagementServiceOptions = {
   readonly discovered: () => readonly DiscoveredDevice[];
 
   /** Sets found devices aside, or brings them back; how many discovery still had. */
-  readonly dismiss: (ids: readonly string[], isDismissed: boolean) => number;
+  readonly dismiss: (ids: readonly string[], isDismissed: boolean) => Promise<number>;
 
   /**
    * How one vendor's devices are being heard, read when asked: what its own listener says, and
@@ -487,8 +487,8 @@ export class ManagementService {
          * @param request - Which, and which way.
          * @returns How many discovery still had.
          */
-        (request: DiscoveryDismissRequest) => ({
-          changed: this.#options.dismiss(request.ids, request.isDismissed),
+        async (request: DiscoveryDismissRequest) => ({
+          changed: await this.#options.dismiss(request.ids, request.isDismissed),
         }),
       ),
 

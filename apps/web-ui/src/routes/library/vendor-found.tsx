@@ -11,6 +11,9 @@
  * so and leads to the Devices tab to name them - so a device that cannot come in without one, a
  * password or a code to type, cannot be ticked. A device the house has, found at another
  * address, offers Move here.
+ *
+ * What was dismissed stays set aside, hidden until asked for: shown, it is dimmed, says when it was
+ * dismissed, and offers Restore instead of Adopt.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -19,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 import type { DiscoveredDevice, IntegrationVendorView } from '@nebulahome/contracts';
 import { AppIcon, Button, Checkbox, cn, TableFooter, toast, type UiIconId } from '@nebulahome/ui';
 
-import { listFormat } from '@/i18n/formatters';
+import { dateTimeFormat, listFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -71,6 +74,7 @@ export function VendorFound(props: VendorFoundProps) {
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [page, setPage] = useState(1);
   const [size, setSize] = useState<number>(SIZES[0]);
+  const [showsDismissed, setShowsDismissed] = useState(false);
 
   const found = useQuery({
     queryKey: [...LINK_QUERY_KEYS.found, vendor.id],
@@ -84,11 +88,13 @@ export function VendorFound(props: VendorFoundProps) {
      */
     queryFn: async ({ signal }) => fetchFound(vendor.id, signal),
   });
-  const rows = (found.data ?? []).filter((each) => !each.isDismissed);
+  const active = (found.data ?? []).filter((each) => !each.isDismissed);
+  const dismissed = (found.data ?? []).filter((each) => each.isDismissed);
+  const rows = showsDismissed ? [...active, ...dismissed] : active;
   const pageCount = Math.max(1, Math.ceil(rows.length / size));
   const shownPage = Math.min(page, pageCount);
   const shown = rows.slice((shownPage - 1) * size, shownPage * size);
-  const chosen = rows.filter((each) => picked.has(each.id));
+  const chosen = active.filter((each) => picked.has(each.id));
   const icons = useCatalogueIcons(
     rows.map(
       (each) => vendor.drivers.find((driver) => driver.id === each.kind)?.defaultIcon ?? null,
@@ -196,6 +202,29 @@ export function VendorFound(props: VendorFoundProps) {
     },
   });
 
+  const restore = useMutation({
+    /**
+     * Offers a dismissed one again.
+     *
+     * @param id - Which.
+     * @returns How many the hub still had.
+     */
+    mutationFn: async (id: string) => dismissFound([id], false),
+    onSuccess: refresh,
+
+    /**
+     * Says why it is still set aside.
+     *
+     * @param error - What failed.
+     */
+    onError: (error) => {
+      toast.error({
+        title: t('library.vendorFound.restoreFailed', 'Couldn’t restore it'),
+        message: toMessage(error),
+      });
+    },
+  });
+
   /**
    * Ticks or unticks rows.
    *
@@ -219,13 +248,13 @@ export function VendorFound(props: VendorFoundProps) {
   };
 
   /**
-   * Whether a row can be ticked: not one to move, nor one that needs the dialog.
+   * Whether a row can be ticked: not one dismissed, nor one to move, nor one that needs the dialog.
    *
    * @param row - The row.
    * @returns True when it can be adopted in bulk.
    */
   const isPickable = (row: DiscoveredDevice): boolean =>
-    row.movedFrom === null && !needsSettings(row, vendor);
+    !row.isDismissed && row.movedFrom === null && !needsSettings(row, vendor);
   const pageIds = shown.filter(isPickable).map((each) => each.id);
   const onItsOwn = t(
     'library.vendorFound.adoptOnItsOwn',
@@ -237,8 +266,15 @@ export function VendorFound(props: VendorFoundProps) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-ui text-foreground-muted">
-          <span className="font-medium text-foreground tabular">{rows.length}</span>{' '}
+          <span className="font-medium text-foreground tabular">{active.length}</span>{' '}
           {t('library.vendorFound.foundOnNetwork', 'found on your network')}
+          {showsDismissed && dismissed.length > 0 ? (
+            <>
+              {' · '}
+              <span className="font-medium text-foreground tabular">{dismissed.length}</span>{' '}
+              {t('library.vendorFound.dismissed', 'dismissed')}
+            </>
+          ) : null}
           {chosen.length === 0 ? null : (
             <>
               {' · '}
@@ -247,29 +283,50 @@ export function VendorFound(props: VendorFoundProps) {
             </>
           )}
         </p>
-        {canAdopt && chosen.length > 0 ? (
-          <span className="flex items-center gap-2">
+        <span className="flex items-center gap-2">
+          {dismissed.length === 0 ? null : (
             <Button
-              variant="ghost"
-              isBusy={dismiss.isPending}
+              variant="bare"
+              size="compact"
+              aria-pressed={showsDismissed}
               onClick={() => {
-                dismiss.mutate(chosen.map((each) => each.id));
+                setShowsDismissed(!showsDismissed);
               }}
             >
-              <AppIcon id="x" size={15} />
-              {t('library.vendorFound.dismissCount', 'Dismiss {{count}}', { count: chosen.length })}
+              <AppIcon id={showsDismissed ? 'eye-off' : 'eye'} size={15} />
+              {showsDismissed
+                ? t('library.vendorFound.hideDismissed', 'Hide dismissed')
+                : t('library.vendorFound.showDismissed', 'Show dismissed ({{count}})', {
+                    count: dismissed.length,
+                  })}
             </Button>
-            <Button
-              isBusy={adopt.isPending}
-              onClick={() => {
-                adopt.mutate(chosen.map((each) => each.id));
-              }}
-            >
-              <AppIcon id="plus" size={15} />
-              {t('library.vendorFound.adoptCount', 'Adopt {{count}}', { count: chosen.length })}
-            </Button>
-          </span>
-        ) : null}
+          )}
+          {canAdopt && chosen.length > 0 ? (
+            <>
+              <Button
+                variant="ghost"
+                isBusy={dismiss.isPending}
+                onClick={() => {
+                  dismiss.mutate(chosen.map((each) => each.id));
+                }}
+              >
+                <AppIcon id="x" size={15} />
+                {t('library.vendorFound.dismissCount', 'Dismiss {{count}}', {
+                  count: chosen.length,
+                })}
+              </Button>
+              <Button
+                isBusy={adopt.isPending}
+                onClick={() => {
+                  adopt.mutate(chosen.map((each) => each.id));
+                }}
+              >
+                <AppIcon id="plus" size={15} />
+                {t('library.vendorFound.adoptCount', 'Adopt {{count}}', { count: chosen.length })}
+              </Button>
+            </>
+          ) : null}
+        </span>
       </div>
 
       {found.isPending ? (
@@ -333,7 +390,7 @@ export function VendorFound(props: VendorFoundProps) {
                 return (
                   <tr key={row.id} className="border-t border-border first:border-t-0">
                     <td className="py-3 pl-5">
-                      {canAdopt && row.movedFrom === null ? (
+                      {canAdopt && row.movedFrom === null && !row.isDismissed ? (
                         <span title={isPickable(row) ? undefined : onItsOwn}>
                           <Checkbox
                             label={
@@ -352,14 +409,37 @@ export function VendorFound(props: VendorFoundProps) {
                     </td>
                     <td className="py-3 pr-4">
                       <span className="flex items-center gap-3">
-                        <span className="flex size-7.5 shrink-0 items-center justify-center rounded-field bg-surface-raised text-foreground-muted">
+                        <span
+                          className={cn(
+                            'flex size-7.5 shrink-0 items-center justify-center rounded-field bg-surface-raised text-foreground-muted',
+                            row.isDismissed && 'opacity-50',
+                          )}
+                        >
                           <DeviceIcon
                             icon={icon === undefined ? undefined : icons.get(icon)}
                             size={15}
                           />
                         </span>
-                        <span className="text-ui font-medium text-foreground">{model}</span>
-                        {row.movedFrom === null ? (
+                        <span
+                          className={cn(
+                            'text-ui font-medium',
+                            row.isDismissed ? 'text-foreground-muted' : 'text-foreground',
+                          )}
+                        >
+                          {model}
+                        </span>
+                        {row.isDismissed ? (
+                          <span className="inline-flex items-center gap-1.5 text-caption whitespace-nowrap text-foreground-subtle">
+                            <AppIcon id="eye-off" size={13} />
+                            {row.dismissedAt === null
+                              ? t('library.vendorFound.dismissedTag', 'Dismissed')
+                              : t('library.vendorFound.dismissedOn', 'Dismissed {{date}}', {
+                                  date: dateTimeFormat({ day: 'numeric', month: 'short' }).format(
+                                    row.dismissedAt,
+                                  ),
+                                })}
+                          </span>
+                        ) : row.movedFrom === null ? (
                           note === undefined ? null : (
                             <span
                               className={cn(
@@ -395,17 +475,39 @@ export function VendorFound(props: VendorFoundProps) {
                         )}
                       </span>
                     </td>
-                    <td className="py-3 pr-4 font-mono text-mono-ui text-foreground">
+                    <td
+                      className={cn(
+                        'py-3 pr-4 font-mono text-mono-ui',
+                        row.isDismissed ? 'text-foreground-muted' : 'text-foreground',
+                      )}
+                    >
                       {row.address}
                     </td>
-                    <td className="py-3 pr-4 font-mono text-mono-caption text-foreground-muted">
+                    <td
+                      className={cn(
+                        'py-3 pr-4 font-mono text-mono-caption',
+                        row.isDismissed ? 'text-foreground-subtle' : 'text-foreground-muted',
+                      )}
+                    >
                       {row.mac?.toUpperCase() ?? '—'}
                     </td>
                     <td className="py-3 pr-4 text-ui-sm whitespace-nowrap text-foreground-muted">
                       {relativeTime(row.lastSeenAt)}
                     </td>
                     <td className="py-3 pr-5 text-right">
-                      {!canAdopt ? null : row.movedFrom === null ? (
+                      {!canAdopt ? null : row.isDismissed ? (
+                        <Button
+                          variant="bare"
+                          size="compact"
+                          isBusy={restore.isPending && restore.variables === row.id}
+                          onClick={() => {
+                            restore.mutate(row.id);
+                          }}
+                        >
+                          <AppIcon id="rotate-ccw" size={14} />
+                          {t('library.vendorFound.restore', 'Restore')}
+                        </Button>
+                      ) : row.movedFrom === null ? (
                         <Button
                           variant="ghost"
                           size="compact"

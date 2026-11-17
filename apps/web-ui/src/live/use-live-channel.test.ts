@@ -3,11 +3,13 @@
  * without waiting.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { createElement } from 'react';
+import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LIBRARY_KINDS, wsServerMessageSchema, type WsServerMessage } from '@nebulahome/contracts';
+import { toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { BACKUP_QUERY_KEYS } from '@/backup/api';
@@ -172,6 +174,7 @@ describe('useLiveChannel', () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
     useSession.setState({ status: 'signed-out', accessToken: null });
+    vi.restoreAllMocks();
   });
 
   it('reads the entities once on first welcome, and opens one socket for a burst of devices', () => {
@@ -180,7 +183,11 @@ describe('useLiveChannel', () => {
 
     renderHook(useLiveChannel, {
       wrapper: ({ children }) =>
-        createElement(QueryClientProvider, { client: queryClient }, children),
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(MemoryRouter, null, children),
+        ),
     });
 
     FakeWebSocket.opened[0]?.deliver({
@@ -198,6 +205,51 @@ describe('useLiveChannel', () => {
 
     vi.advanceTimersByTime(1000);
     expect(FakeWebSocket.opened).toHaveLength(2);
+  });
+
+  it('says a device removed as a duplicate is already in the house, and leads to it', () => {
+    const queryClient = new QueryClient();
+    const { result } = renderHook(
+      () => {
+        useLiveChannel();
+
+        return useLocation();
+      },
+      {
+        wrapper: ({ children }) =>
+          createElement(
+            QueryClientProvider,
+            { client: queryClient },
+            createElement(MemoryRouter, null, children),
+          ),
+      },
+    );
+
+    const warning = vi.spyOn(toast, 'warning');
+
+    FakeWebSocket.opened[0]?.deliver(deviceEvent('removed'));
+    expect(warning).not.toHaveBeenCalled();
+
+    FakeWebSocket.opened[0]?.deliver(
+      deviceEvent('removed', {
+        name: '192.168.1.50 unit 1',
+        reason: 'duplicate',
+        duplicateOf: { id: 'solax-inverter', name: 'Inverter garage' },
+      }),
+    );
+
+    const shown = warning.mock.calls[0]?.[0];
+
+    expect(shown?.title).toBe('Already in the house');
+    expect(shown?.message).toBe(
+      '192.168.1.50 unit 1 is already Inverter garage, so the device you just added was removed.',
+    );
+    expect(shown?.action?.label).toBe('Open Inverter garage');
+
+    act(() => {
+      shown?.action?.onSelect();
+    });
+    expect(result.current.pathname).toBe('/devices/solax-inverter');
   });
 });
 

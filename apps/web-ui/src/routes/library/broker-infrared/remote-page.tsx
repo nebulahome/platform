@@ -67,6 +67,11 @@ import { CopyButton, DeviceTag, PulseStrip } from '@/routes/library/broker-parts
 import { BackLink, DetailFrame } from '@/routes/library/detail-page';
 import { devicePath } from '@/routes/library/device/device-path';
 import { useCatalogueIcons, type DeviceIcons } from '@/routes/library/device-icon';
+import {
+  RemovalBlockers,
+  RemovalSummary,
+  useRemovalPreview,
+} from '@/routes/library/device-removal';
 import { NameIconField } from '@/routes/library/name-icon-field';
 
 import { ImportDialog } from './import-dialog';
@@ -239,6 +244,13 @@ export function InfraredRemotePage() {
     },
     onError: toastFailure(t('brokers.infrared.remote.removeFailed', 'Couldn’t remove the remote')),
   });
+
+  // A remote whose device is not in the house has nothing that reads it.
+  const removingId = isRemoving ? (current?.deviceId ?? null) : null;
+  const asked = removingId === null ? null : [removingId];
+  const preview = useRemovalPreview(asked);
+  const removal = preview.data;
+  const isBlocked = (removal?.blockedBy.aliases.length ?? 0) > 0;
 
   const protocols = new Map<string, number>();
 
@@ -538,6 +550,7 @@ export function InfraredRemotePage() {
                 <Button
                   variant="danger"
                   isBusy={remove.isPending}
+                  disabled={isBlocked || preview.isLoading}
                   onClick={() => {
                     remove.mutate();
                   }}
@@ -547,7 +560,11 @@ export function InfraredRemotePage() {
               </>
             }
           >
-            {null}
+            {removal === undefined || asked === null ? null : isBlocked ? (
+              <RemovalBlockers removal={removal} asked={asked} />
+            ) : (
+              <RemovalSummary removal={removal} asked={asked} />
+            )}
           </Modal>
         </>
       )}

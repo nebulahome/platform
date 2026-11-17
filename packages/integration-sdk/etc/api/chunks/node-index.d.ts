@@ -1559,6 +1559,11 @@ type DeviceDescriptor = {
    * interface answer "why did six things go offline at once" with the one that actually did.
    */
   readonly viaExternalId?: string;
+  /**
+   * The device this one is part of, by its `externalId`: the inverter an EPS output belongs to.
+   * Same vendor, one level. The house groups the two and removes the child with its parent.
+   */
+  readonly parentExternalId?: string;
   readonly entities: readonly EntityDescriptor[];
 };
 /** What a mapper may look at besides its own arguments. */
@@ -2550,8 +2555,8 @@ declare const vendorManifestSchema: z.ZodObject<{
   }>>>;
   internetRequired: z.ZodDefault<z.ZodBoolean>;
   twins: z.ZodOptional<z.ZodArray<z.ZodEnum<{
-    mac: "mac";
     serial: "serial";
+    mac: "mac";
   }>>>;
   twinsPrefer: z.ZodOptional<z.ZodArray<z.ZodString>>;
   setup: z.ZodOptional<z.ZodString>;
@@ -2559,16 +2564,16 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
+      udp: "udp";
       matter: "matter";
-      ir: "ir";
       mqtt: "mqtt";
       modbus: "modbus";
       serial: "serial";
-      udp: "udp";
       http: "http";
       ble: "ble";
       zigbee: "zigbee";
       thread: "thread";
+      ir: "ir";
     }>>;
   }, z.core.$strict>]>>>;
   streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -2657,12 +2662,12 @@ declare const bundleManifestSchema: z.ZodObject<{
   modelCodes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
   modelSeries: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
   kind: z.ZodEnum<{
-    matter: "matter";
-    infrared: "infrared";
-    code: "code";
     declarative: "declarative";
+    code: "code";
+    matter: "matter";
     mqtt: "mqtt";
     modbus: "modbus";
+    infrared: "infrared";
     serial: "serial";
     bluetooth: "bluetooth";
   }>;

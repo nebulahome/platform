@@ -100,6 +100,12 @@ export type DeviceDescriptor = {
    */
   readonly viaExternalId?: string;
 
+  /**
+   * The device this one is part of, by its `externalId`: the inverter an EPS output belongs to.
+   * Same vendor, one level. The house groups the two and removes the child with its parent.
+   */
+  readonly parentExternalId?: string;
+
   readonly entities: readonly EntityDescriptor[];
 };
 

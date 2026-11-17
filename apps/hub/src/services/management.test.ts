@@ -260,7 +260,7 @@ function harness(
       return Promise.resolve({ wasRunning: true });
     },
     vendorChanged: (vendorId): Promise<boolean> => Promise.resolve(vendorId === 'acme'),
-    dismiss: (): number => 0,
+    dismiss: (): Promise<number> => Promise.resolve(0),
   });
   const subscriptions = service.serve();
 

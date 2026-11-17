@@ -75,6 +75,12 @@ export type DevicePageView = {
 
   /** Whether this person may make a tag from the settings. */
   readonly canCreateTags: boolean;
+
+  /** The device this one is part of, when it is in the house. */
+  readonly parent: DeviceView | undefined;
+
+  /** The devices that are part of this one, by name. */
+  readonly parts: readonly DeviceView[];
 };
 
 /** What the page gets. */
@@ -159,10 +165,15 @@ export function useDevicePage(deviceId: string): DevicePageData {
       : (device.linked?.ways.map((way) => way.deviceId) ?? [device.id]).flatMap(
           (id) => sources.get(id) ?? [],
         );
+  const parent = devices.data?.find((candidate) => candidate.id === device?.parentId);
+  const parts = (device?.childIds ?? []).flatMap(
+    (id) => devices.data?.find((candidate) => candidate.id === id) ?? [],
+  );
   const icons = useCatalogueIcons([
     device?.icon ?? null,
     ...owned.map((entity) => entity.icon),
     ...tags.map((tag) => tag.icon),
+    ...[parent, ...parts].map((each) => each?.icon ?? null),
   ]);
 
   if (device === undefined) {
@@ -222,6 +233,8 @@ export function useDevicePage(deviceId: string): DevicePageData {
       canRemove: can('device:delete'),
       canEditEntities: can('entity:write'),
       canCreateTags: can('tag:write'),
+      parent,
+      parts,
     },
     isPending: false,
     error: entities.error,

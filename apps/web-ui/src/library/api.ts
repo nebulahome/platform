@@ -24,6 +24,7 @@ import {
   automationTestReplySchema,
   automationViewSchema,
   deviceProbeReplySchema,
+  deviceRemovalSchema,
   deviceViewSchema,
   discoveredReplySchema,
   discoverReplySchema,
@@ -65,6 +66,7 @@ import {
   type DeviceProbeReply,
   type DeviceProbeRequest,
   type DeviceUpdate,
+  type DeviceRemoval,
   type DeviceView,
   type DiscoveredDevice,
   type DiscoverReply,
@@ -410,6 +412,25 @@ export async function updateDevice(deviceId: string, request: DeviceUpdate): Pro
  */
 export async function deleteDevice(deviceId: string): Promise<void> {
   await apiRequest(`/devices/${deviceId}`, z.undefined(), { method: 'DELETE' });
+}
+
+/**
+ * Asks what removing some devices would do: the devices that go - their parts too - what stops
+ * working until pointed elsewhere, and the aliases that block it. Nothing is removed.
+ *
+ * @param deviceIds - The devices.
+ * @param signal - Cancels the request.
+ * @returns What the removal would do.
+ */
+export async function previewDeviceRemoval(
+  deviceIds: readonly string[],
+  signal?: AbortSignal,
+): Promise<DeviceRemoval> {
+  return apiRequest('/devices/removal-preview', deviceRemovalSchema, {
+    method: 'POST',
+    body: { deviceIds },
+    signal,
+  });
 }
 
 /**
