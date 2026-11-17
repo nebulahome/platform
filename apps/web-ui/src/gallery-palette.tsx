@@ -3,7 +3,7 @@
  * check it without signing in: `pnpm preview:palette`, or `/palette.html` on the dev server.
  *
  * `?role=guest` drops the permissions to read-only, `?empty=1` starts with no recents, `?fail=1`
- * leaves the devices list failing. The palette is open on arrival; Ctrl+K closes and opens it.
+ * leaves the devices list failing, `?closed=1` arrives with it shut. Ctrl+K closes and opens it.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode, useEffect } from 'react';
@@ -249,7 +249,9 @@ function PaletteGallery() {
   usePaletteShortcut();
 
   useEffect(() => {
-    usePaletteStore.getState().open();
+    if (params.get('closed') !== '1') {
+      usePaletteStore.getState().open();
+    }
   }, []);
 
   return (
