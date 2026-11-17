@@ -7,6 +7,7 @@
  */
 
 export * from './client.js';
+export * from './device-identity.js';
 export * from './history-reads.js';
 export * from './migrate.js';
 export * from './schema-version.js';

@@ -535,6 +535,13 @@ export const devices = registrySchema.table(
 
     /** The hardware's serial number, as it said it; null when it never said. */
     serialNumber: text('serial_number'),
+
+    /**
+     * The `externalId` of the device this one is part of (the inverter of an EPS output), as
+     * the integration declares it. The parent is the device of the same vendor with that
+     * `externalId`; no reference, so the order the two arrive in does not matter.
+     */
+    parentExternalId: text('parent_external_id'),
     config: jsonb('config')
       .notNull()
       .default(sql`'{}'::jsonb`),
@@ -552,6 +559,21 @@ export const devices = registrySchema.table(
       .on(table.mac)
       .where(sql`mac IS NOT NULL`),
   ],
+);
+
+/**
+ * The Found candidates the owner dismissed, kept so a dismissal outlives the candidate going
+ * quiet and the hub restarting. `key` is the candidate's `externalId`, or `@` and its address
+ * when it has none. Written by `hub` and by nothing else.
+ */
+export const discoveryDismissed = registrySchema.table(
+  'discovery_dismissed',
+  {
+    vendorId: text('vendor_id').notNull(),
+    key: text('key').notNull(),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.vendorId, table.key] })],
 );
 
 /** One thing that matched two devices: which fact, and the value both have. */
