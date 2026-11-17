@@ -465,9 +465,11 @@ Confirm with the owner before, or build so they are one constant away:
 9. The field names of the new card types (5, 6).
 10. A card with no entity yet is left out when Done saves (7.5).
 11. The settings panel goes to the top left when the selected card is under it (8).
+12. The group is added from the Add card dialog, as a card kind under Other (7.4).
+13. Cards at full strength while editing, with their handles only under the pointer (7.2).
 
-Not designed: the light theme, the settings bottom sheet on a phone, the settings of a group, the drag to move and swap (unchanged), the list a
-Summary opens, the full-screen map of a Person.
+Not designed: the light theme, the settings bottom sheet on a phone, the settings of a group, the
+drag to move and swap (unchanged), the list a Summary opens, the full-screen map of a Person.
 
 ---
 
