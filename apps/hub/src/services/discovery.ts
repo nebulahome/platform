@@ -62,6 +62,7 @@ import type { InfraredSighting } from '../infrared/broker.js';
 import type { MatterSighting } from '../matter/broker.js';
 import type { ModbusSighting } from '../modbus/broker.js';
 import type { MqttSighting } from '../mqtt/broker.js';
+import type { DismissalStore } from '../persistence/dismissed.js';
 
 import type { LoadedDiscovery, LoadedListenSource } from './bundles.js';
 
@@ -108,6 +109,9 @@ export type DiscoveryServiceOptions = {
    * @returns The external ids and addresses of every instance.
    */
   readonly taken: () => Promise<TakenDevices>;
+
+  /** Where the candidates set aside are kept; in memory only when absent. */
+  readonly dismissals?: DismissalStore;
 
   /**
    * Announces that the proposed devices changed.
@@ -400,13 +404,41 @@ function signatureOf(list: readonly PassedOverDevice[]): string {
   return JSON.stringify(list.map(({ id, name, model, reason }) => [id, name, model, reason]));
 }
 
+/** The candidate fields its dismissal is kept by. */
+type Dismissable = Pick<DiscoveredDevice, 'vendorId' | 'externalId' | 'address'>;
+
+/**
+ * What a candidate is set aside by within its vendor: its `externalId`, or `@` and its address
+ * when it has none. The same device heard again, or after a restart, has the same.
+ *
+ * @param device - The candidate.
+ * @returns The key `registry.discovery_dismissed` keeps.
+ */
+function identityOf(device: Dismissable): string {
+  return device.externalId ?? `@${device.address}`;
+}
+
+/**
+ * What a candidate is set aside by, with its vendor: `vendor\nexternalId` or `vendor\n@address`,
+ * the form `TakenDevices.externalIds` has.
+ *
+ * @param device - The candidate.
+ * @returns The key.
+ */
+function dismissalKeyOf(device: Dismissable): string {
+  return `${device.vendorId}\n${identityOf(device)}`;
+}
+
 /** Proposes the devices that announce themselves. */
 export class DiscoveryService {
   readonly #options: DiscoveryServiceOptions;
   readonly #candidates = new Map<string, Candidate>();
 
-  /** The candidates the owner set aside, until they are forgotten. */
-  readonly #dismissed = new Set<string>();
+  /**
+   * The candidates the owner set aside, by vendor and identity ({@link dismissalKeyOf}), with
+   * when. Kept while the candidate is quiet, so heard again it is still aside.
+   */
+  #dismissed = new Map<string, Date>();
 
   /** The MAC addresses of the fabric's devices, by each vendor whose rules take them. */
   #matterMacs = new Map<string, Set<string>>();
@@ -462,6 +494,7 @@ export class DiscoveryService {
     this.#isListening = true;
     this.#isLanListening = options.lan;
     this.#taken = await this.#options.taken();
+    await this.#loadDismissed();
 
     const services = [
       ...new Set(
@@ -603,26 +636,37 @@ export class DiscoveryService {
           : []),
         ...device.notes,
       ],
-      isDismissed: this.#dismissed.has(device.id),
+      isDismissed: this.#dismissed.has(dismissalKeyOf(device)),
+      dismissedAt: this.#dismissed.get(dismissalKeyOf(device)) ?? null,
     }));
   }
 
   /**
-   * Sets heard devices aside, or brings them back. A device set aside stays aside until the hub
-   * forgets it - it went quiet - and hears it again.
+   * Sets heard devices aside, or brings them back. A device set aside stays aside, across
+   * silences and restarts, until the owner brings it back or adds it and removes it again.
    *
    * @param ids - The devices, as listed.
    * @param isDismissed - Whether to set them aside.
    * @returns How many of them the hub still had.
    */
-  public dismiss(ids: readonly string[], isDismissed: boolean): number {
-    const known = ids.filter((id) => this.#candidates.has(id));
+  public async dismiss(ids: readonly string[], isDismissed: boolean): Promise<number> {
+    const known = ids.flatMap((id) => {
+      const candidate = this.#candidates.get(id);
 
-    for (const id of known) {
+      return candidate === undefined ? [] : [candidate.device];
+    });
+
+    // Saved first: a dismissal the database did not keep would come back at the next restart.
+    await this.#options.dismissals?.set(
+      known.map((device) => ({ vendorId: device.vendorId, key: identityOf(device) })),
+      isDismissed,
+    );
+
+    for (const device of known) {
       if (isDismissed) {
-        this.#dismissed.add(id);
+        this.#dismissed.set(dismissalKeyOf(device), new Date(this.#now()));
       } else {
-        this.#dismissed.delete(id);
+        this.#dismissed.delete(dismissalKeyOf(device));
       }
     }
 
@@ -630,6 +674,23 @@ export class DiscoveryService {
     this.#publishIfChanged();
 
     return known.length;
+  }
+
+  /** Reads the candidates set aside from where they are kept, when they are kept somewhere. */
+  async #loadDismissed(): Promise<void> {
+    const store = this.#options.dismissals;
+
+    if (store === undefined) {
+      return;
+    }
+
+    try {
+      this.#dismissed = new Map(
+        (await store.list()).map((row) => [`${row.vendorId}\n${row.key}`, row.dismissedAt]),
+      );
+    } catch (error: unknown) {
+      this.#options.logger.warn({ err: error }, 'Could not read the found devices set aside');
+    }
   }
 
   /**
@@ -742,7 +803,10 @@ export class DiscoveryService {
    * @returns A promise that settles once the proposals reflect the removal.
    */
   public async release(vendorId?: string): Promise<void> {
+    const before = this.#taken.externalIds;
+
     this.#taken = await this.#options.taken();
+    await this.#forgetDismissalsOfRemoved(before);
 
     for (const key of [...this.#probed.keys()]) {
       if (vendorId === undefined || key.startsWith(`${vendorId}\n`)) {
@@ -1316,6 +1380,7 @@ export class DiscoveryService {
           ...(identity.needsPassword ? (['password'] as const) : []),
         ],
         isDismissed: false,
+        dismissedAt: null,
         firstSeenAt: previous?.device.firstSeenAt ?? new Date(nowMs),
         lastSeenAt: new Date(nowMs),
       },
@@ -1566,6 +1631,7 @@ export class DiscoveryService {
           mac: device.macs[0] ?? null,
           notes: [],
           isDismissed: false,
+          dismissedAt: null,
           firstSeenAt: previous?.device.firstSeenAt ?? new Date(nowMs),
           lastSeenAt: new Date(nowMs),
         },
@@ -1580,11 +1646,43 @@ export class DiscoveryService {
     for (const [id, candidate] of this.#candidates) {
       if (candidate.device.source === source && !heard.has(id)) {
         this.#candidates.delete(id);
-        this.#dismissed.delete(id);
       }
     }
 
     this.#publishIfChanged();
+  }
+
+  /**
+   * Brings back the candidates of devices just removed: a device the owner removes is offered
+   * again, even one set aside before it was added.
+   *
+   * @param before - What was added before the removal, as `vendor\nexternalId`.
+   */
+  async #forgetDismissalsOfRemoved(before: ReadonlySet<string>): Promise<void> {
+    const gone = [...before].filter(
+      (key) => !this.#taken.externalIds.has(key) && this.#dismissed.has(key),
+    );
+
+    if (gone.length === 0) {
+      return;
+    }
+
+    try {
+      await this.#options.dismissals?.set(
+        gone.map((key) => {
+          const cut = key.indexOf('\n');
+
+          return { vendorId: key.slice(0, cut), key: key.slice(cut + 1) };
+        }),
+        false,
+      );
+
+      for (const key of gone) {
+        this.#dismissed.delete(key);
+      }
+    } catch (error: unknown) {
+      this.#options.logger.warn({ err: error }, 'Could not bring back a removed device');
+    }
   }
 
   /**
@@ -1644,9 +1742,8 @@ export class DiscoveryService {
 
     for (const [id, candidate] of this.#candidates) {
       if (nowMs - candidate.heardAtMs > this.#options.ttlMs) {
+        // Its dismissal stays: heard again, it is still set aside.
         this.#candidates.delete(id);
-        // Forgotten, so heard again it is offered again.
-        this.#dismissed.delete(id);
       }
     }
 

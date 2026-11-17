@@ -21,6 +21,7 @@ import {
   busSubjects,
   CORE_REGISTER_METHOD,
   CORE_SERVICE,
+  duplicateOf,
   NotFoundError,
   registerDeviceReplySchema,
   type EntityId,
@@ -293,6 +294,9 @@ export class IdentificationService {
         ...(descriptor.serialNumber === undefined
           ? {}
           : { serialNumber: descriptor.serialNumber.slice(0, 256) }),
+        ...(descriptor.parentExternalId === undefined
+          ? {}
+          : { parentExternalId: descriptor.parentExternalId.slice(0, 256) }),
 
         // The claim goes with the row, so the instance can bind this device again on its next
         // start instead of listening for it a second time.
@@ -434,6 +438,11 @@ export class IdentificationService {
           );
 
           return undefined;
+        }
+
+        // The hardware is in the house already: asking again would be refused again, forever.
+        if (duplicateOf(error) !== undefined) {
+          throw error;
         }
 
         logger.warn(

@@ -39,9 +39,11 @@ import {
   CORE_DEVICE_INFO_METHOD,
   CORE_REGISTER_METHOD,
   CORE_SERVICE,
+  CORE_UNREGISTER_METHOD,
   deviceEventSchema,
   deviceInfoReplySchema,
   dockerStatusSchema,
+  duplicateOf,
   INFRARED_TRANSPORT,
   INFRARED_VENDOR,
   MATTER_TRANSPORT,
@@ -53,11 +55,13 @@ import {
   NotFoundError,
   registerDeviceReplySchema,
   serialDeviceConfigSchema,
+  unregisterDeviceReplySchema,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   supervisorAcknowledgementSchema,
   type DeviceEventPayload,
   type DeviceInfoRequest,
+  type DuplicateDeviceDetails,
   type EntityId,
   type DiscoverReply,
   type DiscoveryEventPayload,
@@ -109,6 +113,7 @@ import { MqttBroker } from './mqtt/broker.js';
 import { databaseAccountStore } from './persistence/accounts.js';
 import { databaseBluetoothStore, loadBluetoothInstances } from './persistence/bluetooth.js';
 import { configOf, loadBinding, loadDeviceName, loadExternalId } from './persistence/devices.js';
+import { createDismissalStore } from './persistence/dismissed.js';
 import { databaseInfraredStore } from './persistence/infrared.js';
 import {
   loadInstance,
@@ -708,7 +713,7 @@ export class HubService {
        * @param isDismissed - Which way.
        * @returns How many discovery still had.
        */
-      dismiss: (ids, isDismissed) => this.#discovery?.dismiss(ids, isDismissed) ?? 0,
+      dismiss: async (ids, isDismissed) => (await this.#discovery?.dismiss(ids, isDismissed)) ?? 0,
 
       /**
        * Says how a vendor's devices are being heard; nothing before discovery has started.
@@ -1493,6 +1498,7 @@ export class HubService {
        * @returns Every instance's id and address.
        */
       taken: async () => loadTakenDevices(db),
+      dismissals: createDismissalStore(db),
 
       /**
        * Tells whoever is listening that the proposals changed.
@@ -2092,6 +2098,37 @@ export class HubService {
   }
 
   /**
+   * Removes a device added by hand that turned out to be hardware already in the house: the
+   * instance stops, then `core` releases its rows, as a removal by the owner does, and the
+   * `removed` event says why, so the owner is told which device it already is.
+   *
+   * @param id - The instance.
+   * @param duplicate - What `core` said: the device it already is.
+   */
+  async #removeDuplicate(id: string, duplicate: DuplicateDeviceDetails): Promise<void> {
+    const { logger } = this.#options;
+
+    logger.warn(
+      { instanceId: id, duplicateOf: duplicate.duplicateOf.id },
+      'The device is already in the house as another: removing this one',
+    );
+
+    try {
+      await this.forgetInstance(id);
+      await this.#client.request(
+        busSubjects.service(CORE_SERVICE, CORE_UNREGISTER_METHOD),
+        { integrationId: id, reason: 'duplicate', duplicateOf: duplicate.duplicateOf },
+        unregisterDeviceReplySchema,
+      );
+    } catch (error: unknown) {
+      logger.error(
+        { err: error, instanceId: id },
+        'Could not remove a device that is already in the house',
+      );
+    }
+  }
+
+  /**
    * Starts listening for an instance's device, detached from whoever started the instance.
    *
    * @param running - The instance, as it is running.
@@ -2229,6 +2266,15 @@ export class HubService {
         this.#startImport(running, found.binding, new Set(found.createdEntityIds));
       }
     } catch (error: unknown) {
+      const duplicate = duplicateOf(error);
+
+      if (duplicate !== undefined) {
+        // Not awaited: stopping the instance waits for this search, which ends by returning.
+        void this.#removeDuplicate(id, duplicate);
+
+        return;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
 
       await recordStatus(db, id, 'failed', message);

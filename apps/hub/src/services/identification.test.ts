@@ -7,7 +7,9 @@ import { BusClient } from '@nebulahome/bus';
 import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   busSubjects,
+  ConflictError,
   CORE_REGISTER_METHOD,
+  duplicateOf,
   CORE_SERVICE,
   registerDeviceRequestSchema,
   type RegisterDeviceRequest,
@@ -170,6 +172,9 @@ type Harness = {
  * @param options.coreIsAway - Whether `core` starts out not answering.
  * @param options.lines - Where to keep what was logged at `info` and above, when a test reads it.
  * @param options.probeFails - What the transport's own test fails with.
+ * @param options.inHouseAs - The device `core` says the hardware already is, when it does.
+ * @param options.inHouseAs.id - Its id.
+ * @param options.inHouseAs.name - Its name.
  * @returns The harness.
  */
 function harness(
@@ -179,6 +184,7 @@ function harness(
     coreIsAway?: boolean;
     lines?: string[];
     probeFails?: Error;
+    inHouseAs?: { id: string; name: string };
   } = {},
 ): Harness {
   const transport = new FakeTransport();
@@ -214,6 +220,12 @@ function harness(
       registerDeviceRequestSchema,
       (request) => {
         registered.push(request);
+
+        if (options.inHouseAs !== undefined) {
+          throw new ConflictError('Already in the house', {
+            details: { reason: 'duplicate', duplicateOf: options.inHouseAs },
+          });
+        }
 
         return {
           deviceId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
@@ -426,6 +438,18 @@ describe('IdentificationService', () => {
     const found = await identification.identify(instance, new AbortController().signal);
 
     expect(found?.externalId).toBe('relay-one');
+    expect(registered).toHaveLength(1);
+    stop();
+  });
+
+  it('gives up at once on hardware already in the house, naming the device it is', async () => {
+    const inHouseAs = { id: 'inverter-garage', name: 'Inverter garage' };
+    const { identification, instance, registered, stop } = harness([findsBoth()], { inHouseAs });
+    const failure = await identification
+      .identify(instance, new AbortController().signal)
+      .catch((error: unknown) => error);
+
+    expect(duplicateOf(failure)).toEqual({ reason: 'duplicate', duplicateOf: inHouseAs });
     expect(registered).toHaveLength(1);
     stop();
   });
