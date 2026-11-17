@@ -10,6 +10,7 @@ import { Sidebar } from '@/components/sidebar';
 import { useLiveChannel } from '@/live/use-live-channel';
 import { FloatingLayer } from '@/packages/floating/floating-layer';
 import { PackageBackgrounds } from '@/packages/package-backgrounds';
+import { CommandPalette } from '@/palette/command-palette';
 import { usePaletteShortcut } from '@/palette/use-palette-shortcut';
 import { EntityDialogHost } from '@/routes/library/entity/entity-dialog';
 
@@ -59,8 +60,8 @@ export function PagePlaceholder() {
  * or is becoming.
  *
  * An entity opens in a dialog over any page, named in the address (`?entity=`): its host is here,
- * so every page, card and package opens it the same way. Ctrl+K, which opens the command
- * palette, is listened for here too.
+ * so every page, card and package opens it the same way. So is the command palette's, which Ctrl+K
+ * opens from anywhere inside.
  *
  * @returns The shell.
  */
@@ -81,6 +82,7 @@ export function Shell() {
         </FloatingLayer>
       </div>
       <EntityDialogHost />
+      <CommandPalette />
     </div>
   );
 }
