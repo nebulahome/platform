@@ -47,6 +47,7 @@ import {
   unregisterDeviceRequestSchema,
   type CapabilityName,
   type DeviceInfoReply,
+  type DuplicateDeviceDetails,
   type DeviceInfoRequest,
   type EntityId,
   type JsonObject,
@@ -55,7 +56,7 @@ import {
   type UnregisterDeviceReply,
   type UnregisterDeviceRequest,
 } from '@nebulahome/contracts';
-import { schema, type Database } from '@nebulahome/db';
+import { deviceWithIdentity, lockDeviceIdentity, schema, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import { isLinked, linkFieldsOf, type EntityDirectory } from '../domain/entity-directory.js';
@@ -113,6 +114,75 @@ function toCapabilityMap(declared: Record<string, JsonObject>): Map<CapabilityNa
 /** An entity a device described again added or removed, by its address and its name then. */
 type NamedEntity = { readonly rowId: string; readonly entityId: EntityId; readonly name: string };
 
+/** A transaction, as `db.transaction` hands it over. */
+type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/**
+ * Refuses a device that is hardware already in the house: another device of the same vendor has
+ * its `externalId`. The vendor and the id are locked for the rest of the transaction first, so
+ * two of them identified at once cannot both pass; the API takes the same lock when it adds a
+ * device found with its id already known.
+ *
+ * @param tx - The transaction the device is written in.
+ * @param request - What `hub` heard.
+ * @returns The instance's vendor, or nothing when no instance has that id.
+ * @throws {ConflictError} With {@link DuplicateDeviceDetails}, naming the device it already is.
+ */
+async function assertNotInHouse(
+  tx: Transaction,
+  request: RegisterDeviceRequest,
+): Promise<string | undefined> {
+  const { integrations } = schema.registry;
+  const [instance] = await tx
+    .select({ kind: integrations.kind })
+    .from(integrations)
+    .where(eq(integrations.id, request.integrationId));
+  const vendor = instance?.kind.split('/')[0];
+
+  if (vendor === undefined) {
+    return undefined;
+  }
+
+  await lockDeviceIdentity(tx, vendor, request.externalId);
+
+  const taken = await deviceWithIdentity(tx, vendor, request.externalId, request.integrationId);
+
+  if (taken !== undefined) {
+    const details: DuplicateDeviceDetails = {
+      reason: 'duplicate',
+      duplicateOf: { id: taken.id, name: taken.name },
+    };
+
+    throw new ConflictError('That hardware is already in the house as another device', {
+      details,
+    });
+  }
+
+  return vendor;
+}
+
+/**
+ * The room of the device this one is part of, as SQL: the room of the device the house shows
+ * for it, when the parent is one way into a linked device.
+ *
+ * @param vendor - The vendor both belong to.
+ * @param parentExternalId - The parent's `externalId`.
+ * @param integrationId - The child itself, which is never its own parent.
+ * @returns A scalar subquery, null when the parent is not in the house or in no room.
+ */
+function parentRoomOf(vendor: string, parentExternalId: string, integrationId: string) {
+  return sql`(
+    SELECT coalesce(holder.area_id, parent.area_id)
+      FROM registry.devices parent
+      JOIN registry.integrations instance ON instance.id = parent.integration_id
+      LEFT JOIN registry.devices holder ON holder.id = parent.linked_to
+     WHERE parent.external_id = ${parentExternalId}
+       AND split_part(instance.kind, '/', 1) = ${vendor}
+       AND parent.integration_id <> ${integrationId}
+     LIMIT 1
+  )`;
+}
+
 /**
  * Completes one device and writes its entities - and, for a device described again
  * (`replacesEntities`), removes the ones it no longer has, which take their history with them.
@@ -143,10 +213,16 @@ async function write(
 }> {
   return db.transaction(async (tx) => {
     const { devices, entities } = schema.registry;
+    const vendor = await assertNotInHouse(tx, request);
     const before = await tx
       .select({ rowId: entities.id, entityId: entities.entityId, name: entities.name })
       .from(entities)
       .where(eq(entities.integrationId, request.integrationId));
+    const parentExternalId = request.parentExternalId ?? null;
+    // Only on the first registration: a part heard again after a restart, or put in no room by
+    // the owner since, keeps the room it has.
+    const takesParentRoom =
+      before.length === 0 && vendor !== undefined && parentExternalId !== null;
 
     // What the hardware reports fills in only what the owner left blank. A printer that says
     // nothing about its model must not null the `X1C` the owner picked; a relay that reports
@@ -161,6 +237,13 @@ async function write(
         hwVersion: sql`coalesce(${request.hwVersion ?? null}, ${devices.hwVersion})`,
         mac: sql`coalesce(${request.mac ?? null}, ${devices.mac})`,
         serialNumber: sql`coalesce(${request.serialNumber ?? null}, ${devices.serialNumber})`,
+        // The integration's word each time: a part it no longer names a parent for is on its own.
+        parentExternalId,
+        ...(takesParentRoom
+          ? {
+              areaId: sql`coalesce(${devices.areaId}, ${parentRoomOf(vendor, parentExternalId, request.integrationId)})`,
+            }
+          : {}),
         config: request.config,
         updatedAt: new Date(),
       })
@@ -596,10 +679,18 @@ function serveUnregister(options: RegistrationOptions): BusSubscription {
         source: request.integrationId,
         name,
         entityIds,
+        ...(request.reason === undefined ? {} : { reason: request.reason }),
+        ...(request.duplicateOf === undefined ? {} : { duplicateOf: request.duplicateOf }),
       });
 
       options.logger.info(
-        { deviceId, integrationId: request.integrationId, entities: entityIds.length, dropped },
+        {
+          deviceId,
+          integrationId: request.integrationId,
+          entities: entityIds.length,
+          dropped,
+          ...(request.reason === undefined ? {} : { reason: request.reason }),
+        },
         'Released a device',
       );
 

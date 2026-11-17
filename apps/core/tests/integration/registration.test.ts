@@ -14,7 +14,7 @@
  */
 import { Writable } from 'node:stream';
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { BusClient, connectBus, ulid, type BusConnection } from '@nebulahome/bus';
@@ -583,5 +583,172 @@ describe('releasing a device the owner is removing', () => {
 
   it('says when there is nothing to release', async () => {
     await expect(unregister()).rejects.toThrow(/no integration/iu);
+  });
+});
+
+describe('a device that is part of another', () => {
+  const vendor = `dpv${suffix}`;
+  const ids = {
+    parent: `dpp-${suffix}`,
+    child: `dpc-${suffix}`,
+    copy: `dpd-${suffix}`,
+    raceA: `dpa-${suffix}`,
+    raceB: `dpb-${suffix}`,
+  };
+  const entityOf = (id: string) => parseEntityId(`switch.${id.replaceAll('-', '_')}`);
+  let roomId = '';
+
+  /**
+   * Registers one of this block's instances.
+   *
+   * @param id - The instance.
+   * @param fields - What to add or change in the request.
+   * @returns What `core` wrote.
+   */
+  const registerAs = (id: string, fields: Record<string, unknown> = {}) =>
+    register({
+      integrationId: id,
+      entities: [{ entityId: entityOf(id), name: 'Part', capabilities: { on_off: {} } }],
+      ...fields,
+    });
+
+  /**
+   * Reads one of this block's device rows.
+   *
+   * @param id - The instance.
+   * @returns The fields these tests look at.
+   */
+  const rowOf = async (id: string) => {
+    const [row] = await database.db
+      .select({
+        externalId: schema.registry.devices.externalId,
+        parentExternalId: schema.registry.devices.parentExternalId,
+        areaId: schema.registry.devices.areaId,
+      })
+      .from(schema.registry.devices)
+      .where(eq(schema.registry.devices.integrationId, id));
+
+    return row;
+  };
+
+  beforeAll(async () => {
+    const [room] = await database.db
+      .insert(schema.registry.areas)
+      .values({ key: `dp_${suffix}`, name: 'Garage', kind: 'house' })
+      .returning({ id: schema.registry.areas.id });
+
+    roomId = room?.id ?? '';
+
+    await database.db.insert(schema.registry.integrations).values(
+      Object.values(ids).map((id) => ({
+        id,
+        kind: `${vendor}/${id === ids.child ? 'eps' : 'inverter'}`,
+        kindVersion: '1.0.0',
+        transport: 'modbus',
+        transportConfig: {},
+        options: {},
+        isEnabled: true,
+      })),
+    );
+    await database.db.insert(schema.registry.devices).values(
+      Object.values(ids).map((id) => ({
+        integrationId: id,
+        name: id === ids.parent ? 'Inverter garage' : id,
+        externalId: id === ids.parent ? 'H450' : null,
+        areaId: id === ids.parent ? roomId : null,
+      })),
+    );
+  });
+
+  afterAll(async () => {
+    const all = Object.values(ids);
+
+    await database.db
+      .delete(schema.registry.entities)
+      .where(inArray(schema.registry.entities.integrationId, all));
+    await database.db
+      .delete(schema.registry.integrations)
+      .where(inArray(schema.registry.integrations.id, all));
+    await database.db.delete(schema.registry.areas).where(eq(schema.registry.areas.id, roomId));
+  });
+
+  it("names its parent and takes the parent's room when it has none", async () => {
+    await registerAs(ids.child, { externalId: 'H450:eps', parentExternalId: 'H450' });
+
+    expect(await rowOf(ids.child)).toEqual({
+      externalId: 'H450:eps',
+      parentExternalId: 'H450',
+      areaId: roomId,
+    });
+  });
+
+  it('takes the room only the first time, and forgets a parent no longer named', async () => {
+    await database.db
+      .update(schema.registry.devices)
+      .set({ areaId: null })
+      .where(eq(schema.registry.devices.integrationId, ids.child));
+
+    await registerAs(ids.child, { externalId: 'H450:eps', parentExternalId: 'H450' });
+    expect((await rowOf(ids.child))?.areaId).toBeNull();
+
+    await registerAs(ids.child, { externalId: 'H450:eps' });
+    expect((await rowOf(ids.child))?.parentExternalId).toBeNull();
+  });
+
+  it('refuses hardware already in the house, naming the device it is', async () => {
+    await expect(registerAs(ids.copy, { externalId: 'H450' })).rejects.toMatchObject({
+      details: {
+        reason: 'duplicate',
+        duplicateOf: { id: ids.parent, name: 'Inverter garage' },
+      },
+    });
+    expect((await rowOf(ids.copy))?.externalId).toBeNull();
+  });
+
+  it('lets the same device be heard again', async () => {
+    await expect(registerAs(ids.parent, { externalId: 'H450' })).resolves.toMatchObject({
+      entityIds: [entityOf(ids.parent)],
+    });
+  });
+
+  it('lets only one of two devices identified at once as the same hardware in', async () => {
+    const results = await Promise.allSettled([
+      registerAs(ids.raceA, { externalId: 'H999' }),
+      registerAs(ids.raceB, { externalId: 'H999' }),
+    ]);
+
+    expect(results.map((result) => result.status).sort()).toEqual(['fulfilled', 'rejected']);
+  });
+
+  it('says why a device went when nobody removed it', async () => {
+    const events: DeviceEventPayload[] = [];
+    const listening = caller.subscribe(
+      busSubjects.deviceEvent('removed'),
+      deviceEventSchema,
+      (event) => {
+        events.push(event);
+      },
+    );
+
+    await caller.request(
+      busSubjects.service(CORE_SERVICE, CORE_UNREGISTER_METHOD),
+      {
+        integrationId: ids.copy,
+        reason: 'duplicate',
+        duplicateOf: { id: ids.parent, name: 'Inverter garage' },
+      },
+      unregisterDeviceReplySchema,
+    );
+
+    for (let attempt = 0; attempt < 50 && events.length === 0; attempt += 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+
+    listening.unsubscribe();
+
+    expect(events.find((event) => event.deviceId === ids.copy)).toMatchObject({
+      reason: 'duplicate',
+      duplicateOf: { id: ids.parent, name: 'Inverter garage' },
+    });
   });
 });
