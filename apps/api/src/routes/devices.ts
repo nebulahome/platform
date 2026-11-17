@@ -15,10 +15,13 @@ import {
   deviceCreateSchema,
   deviceProbeReplySchema,
   deviceProbeRequestSchema,
+  deviceRemovalPreviewRequestSchema,
+  deviceRemovalSchema,
   deviceUpdateSchema,
   deviceViewSchema,
   integrationIdSchema,
   type DeviceProbeReply,
+  type DeviceRemoval,
   type DeviceView,
 } from '@nebulahome/contracts';
 
@@ -26,6 +29,7 @@ import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { auditOrigin } from '../services/audit.js';
+import { previewRemoval } from '../services/device-removal.js';
 import {
   createDevice,
   deleteDevice,
@@ -161,6 +165,32 @@ export function registerDeviceRoutes(environment: RouteEnvironment, context: Api
     environment,
     {
       method: 'POST',
+      url: '/devices/removal-preview',
+      summary: 'Say what removing some devices would take with it and stop, before it is done',
+      tag: 'Devices',
+      permission: 'device:read',
+      body: deviceRemovalPreviewRequestSchema,
+      response: deviceRemovalSchema,
+      successStatus: 200,
+    },
+
+    /**
+     * Lists the devices that would go - their parts too - what stops working, and what blocks it.
+     *
+     * @param route - The devices and who is asking.
+     * @returns What the removal would do; nothing is removed.
+     */
+    async (route): Promise<DeviceRemoval> => {
+      requirePermission(route.identity, 'device:read');
+
+      return previewRemoval(forRequest(context, route.request.traceId), route.body.deviceIds);
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'POST',
       url: '/devices/probe',
       summary: 'Try a device configuration without saving it',
       tag: 'Devices',
@@ -258,7 +288,14 @@ export function registerDeviceRoutes(environment: RouteEnvironment, context: Api
         resourceId: route.params.deviceId,
         result: 'success',
         ...auditOrigin(route),
-        details: { name: removed.name, kind: removed.kind, entities: removed.entityIds.length },
+        details: {
+          name: removed.name,
+          kind: removed.kind,
+          entities: removed.entityIds.length,
+          ...(removed.children === undefined || removed.children.length === 0
+            ? {}
+            : { children: removed.children.map((child) => child.id) }),
+        },
       });
     },
   );

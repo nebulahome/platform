@@ -20,6 +20,7 @@ import { ulid, type BusClient, type BusSubscription } from '@nebulahome/bus';
 import {
   BUS_PATTERNS,
   discoveryEventSchema,
+  duplicateOf,
   suggestDeviceId,
   type DiscoveredDevice,
 } from '@nebulahome/contracts';
@@ -339,6 +340,17 @@ export class AutoAdoption {
           },
         });
       } catch (error: unknown) {
+        const duplicate = duplicateOf(error);
+
+        // Already in the house - found again while it was added: nothing to add, nothing wrong.
+        if (duplicate !== undefined) {
+          context.logger.info(
+            { candidateId: candidate.id, deviceId: duplicate.duplicateOf.id },
+            'A device its vendor adds on its own is already in the house',
+          );
+          continue;
+        }
+
         const reason = error instanceof Error ? error.message : String(error);
 
         if (this.#failures.get(candidate.id) !== reason) {

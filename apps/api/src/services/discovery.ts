@@ -17,6 +17,7 @@ import {
   discoverReplySchema,
   discoveryAdoptSchema,
   discoveryDismissReplySchema,
+  duplicateOf,
   HUB_DISCOVER_METHOD,
   HUB_DISCOVERED_METHOD,
   HUB_DISCOVERY_DISMISS_METHOD,
@@ -291,6 +292,23 @@ export async function adoptMany(
       taken.add(device.id);
       results.push({ id, deviceId: device.id, name: device.name, error: null });
     } catch (error: unknown) {
+      const duplicate = duplicateOf(error);
+
+      // Already in the house - found again while it was added: nothing to add, and nothing wrong.
+      if (duplicate !== undefined) {
+        context.logger.info(
+          { candidateId: id, deviceId: duplicate.duplicateOf.id },
+          'A found device is already in the house',
+        );
+        results.push({
+          id,
+          deviceId: duplicate.duplicateOf.id,
+          name: duplicate.duplicateOf.name,
+          error: null,
+        });
+        continue;
+      }
+
       results.push({
         id,
         deviceId: null,

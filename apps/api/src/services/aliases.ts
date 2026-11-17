@@ -725,17 +725,38 @@ async function inputsOf(db: Database, reads: readonly string[]): Promise<AliasIn
   });
 }
 
+/** What uses some entities, by kind, with the aliases that read them apart from those that command them. */
+export type EntityUsers = {
+  readonly automations: { readonly id: string; readonly name: string }[];
+  readonly scenes: { readonly id: string; readonly name: string }[];
+  readonly dashboards: { readonly id: string; readonly name: string }[];
+
+  /** Aliases that read one of them: what they work out to would mean nothing without it. */
+  readonly readers: { readonly id: string; readonly name: string }[];
+
+  /** Aliases whose actions command one of them, and read none. */
+  readonly commanders: { readonly id: string; readonly name: string }[];
+};
+
 /**
- * What uses an entity: the automations, scenes and dashboards that name it, and the aliases that
- * read it. What stops working if it goes.
+ * What uses some entities: the automations, scenes and dashboards that name one of them, the
+ * aliases that read one and those whose actions command one. What stops working if they go.
  *
  * @param db - The database.
- * @param entityId - The entity.
- * @returns What uses it, by kind.
+ * @param entityIds - The entities, by address.
+ * @returns What uses them, by kind, each once.
  */
-export async function usedByOf(db: Database, entityId: string): Promise<AliasUsedBy> {
+export async function entityUsersOf(
+  db: Database,
+  entityIds: readonly string[],
+): Promise<EntityUsers> {
+  if (entityIds.length === 0) {
+    return { automations: [], scenes: [], dashboards: [], readers: [], commanders: [] };
+  }
+
   const { automations, scenes, sceneEntities, entities, dashboards, aliases, aliasReads } =
     schema.registry;
+  const addresses = [...entityIds];
   const [automationRows, sceneRows, dashboardRows, readerRows, aliasRows] = await Promise.all([
     db
       .select({ id: automations.id, name: automations.name, definition: automations.definition })
@@ -745,7 +766,7 @@ export async function usedByOf(db: Database, entityId: string): Promise<AliasUse
       .from(sceneEntities)
       .innerJoin(scenes, eq(scenes.id, sceneEntities.sceneId))
       .innerJoin(entities, eq(entities.id, sceneEntities.entityId))
-      .where(eq(entities.entityId, entityId)),
+      .where(inArray(entities.entityId, addresses)),
     db
       .select({ id: dashboards.id, name: dashboards.name, layout: dashboards.layout })
       .from(dashboards),
@@ -754,31 +775,59 @@ export async function usedByOf(db: Database, entityId: string): Promise<AliasUse
       .from(aliasReads)
       .innerJoin(aliases, eq(aliases.id, aliasReads.aliasId))
       .innerJoin(entities, eq(entities.id, aliases.entityId))
-      .where(eq(aliasReads.entityId, entityId)),
+      .where(inArray(aliasReads.entityId, addresses)),
     db
       .select({ id: aliases.id, name: entities.name, parts: aliases.parts })
       .from(aliases)
       .innerJoin(entities, eq(entities.id, aliases.entityId)),
   ]);
+  /**
+   * Whether a definition or a layout names one of the entities.
+   *
+   * @param value - The JSON to look through.
+   * @returns True when it names one.
+   */
+  const names = (value: unknown): boolean =>
+    addresses.some((address) => mentions(value, address) > 0);
   const commanders = aliasRows.filter(
     (row) =>
       !readerRows.some((reader) => reader.id === row.id) &&
       Object.values(aliasPartsSchema.safeParse(row.parts).data ?? {}).some((config) =>
         (config.actions ?? []).some((action) =>
-          aliasStepTargets(action.then).entities.includes(entityId),
+          aliasStepTargets(action.then).entities.some((target) => addresses.includes(target)),
         ),
       ),
   );
 
   return {
     automations: automationRows
-      .filter((row) => mentions(row.definition, entityId) > 0)
+      .filter((row) => names(row.definition))
       .map((row) => ({ id: row.id, name: row.name })),
     scenes: sceneRows.map((row) => ({ id: row.id, name: row.name })),
     dashboards: dashboardRows
-      .filter((row) => mentions(row.layout, entityId) > 0)
+      .filter((row) => names(row.layout))
       .map((row) => ({ id: row.id, name: row.name })),
-    aliases: [...readerRows, ...commanders].map((row) => ({ id: row.id, name: row.name })),
+    readers: readerRows.map((row) => ({ id: row.id, name: row.name })),
+    commanders: commanders.map((row) => ({ id: row.id, name: row.name })),
+  };
+}
+
+/**
+ * What uses an entity: the automations, scenes and dashboards that name it, and the aliases that
+ * read it or command it. What stops working if it goes.
+ *
+ * @param db - The database.
+ * @param entityId - The entity.
+ * @returns What uses it, by kind.
+ */
+export async function usedByOf(db: Database, entityId: string): Promise<AliasUsedBy> {
+  const users = await entityUsersOf(db, [entityId]);
+
+  return {
+    automations: users.automations,
+    scenes: users.scenes,
+    dashboards: users.dashboards,
+    aliases: [...users.readers, ...users.commanders],
   };
 }
 

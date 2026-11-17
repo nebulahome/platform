@@ -18,6 +18,7 @@ import {
   integrationInstallReplySchema,
   integrationRemoveReplySchema,
   integrationSearchReplySchema,
+  NotFoundError,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
   type HubDetail,
@@ -191,9 +192,16 @@ export async function removeIntegration(
   await assertNotReadByAliases(context, vendorId, deviceIds);
 
   for (const id of holderIds) {
-    // One after another: each asks `hub` and `core`, and a failure stops the rest.
-    // eslint-disable-next-line no-await-in-loop -- see above
-    await deleteDevice(context, id);
+    try {
+      // One after another: each asks `hub` and `core`, and a failure stops the rest.
+      // eslint-disable-next-line no-await-in-loop -- see above
+      await deleteDevice(context, id);
+    } catch (error: unknown) {
+      // A part already went with its parent, removed earlier in this loop.
+      if (!(error instanceof NotFoundError)) {
+        throw error;
+      }
+    }
   }
 
   const accounts = await listAccountViews(context.db, vendorId);
