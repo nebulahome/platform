@@ -54,12 +54,15 @@ export function usePaletteHighlight(
 
   useLayoutEffect(() => {
     const box = scroller.current;
+    // Its whole height, padding in: the size measured is its content's alone once it has changed,
+    // and a box that much shorter than its rows always scrolled.
+    const height = measured.current?.offsetHeight ?? 0;
 
-    if (box !== null && size.height > 0) {
-      box.style.height = `${String(size.height)}px`;
+    if (box !== null && size.height > 0 && height > 0) {
+      box.style.height = `${String(height)}px`;
       box.toggleAttribute('data-overflow', box.scrollTop + box.clientHeight < box.scrollHeight - 1);
     }
-  }, [size.height]);
+  }, [size.height, measured]);
 
   // After every drawing: a row moves when a list arrives or a group opens, not only on a key.
   useLayoutEffect(() => {
