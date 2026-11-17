@@ -25,6 +25,9 @@ import { SAMPLE_SOURCE, sampleDashboardData } from '@/routes/dashboard/card-samp
 import { CardSampleContext } from '@/routes/dashboard/cards/card-sample';
 import { useDashboardDraft } from '@/routes/dashboard/dashboard-draft';
 import { DashboardEditorPage } from '@/routes/dashboard/dashboard-editor-page';
+import { GATHERED_EDITOR_CARDS } from '@/routes/dashboard/samples/gathered-cards';
+import { OVERVIEW_EDITOR_CARDS } from '@/routes/dashboard/samples/overview-cards';
+import { TIMELINE_EDITOR_CARDS } from '@/routes/dashboard/samples/timeline-cards';
 import { DashboardDataContext } from '@/routes/dashboard/use-dashboard-data';
 
 import './styles/globals.css';
@@ -87,12 +90,20 @@ const CARDS: DashboardCard[] = [
   },
 ];
 
+/** The sample dashboard's cards, with each family's own below them. */
+const ALL_CARDS: DashboardCard[] = [
+  ...CARDS,
+  ...GATHERED_EDITOR_CARDS,
+  ...OVERVIEW_EDITOR_CARDS,
+  ...TIMELINE_EDITOR_CARDS,
+];
+
 /** The sample dashboard. */
 const DASHBOARD: DashboardView = {
   id: '00000000-0000-4000-8000-0000000000d1',
   name: 'Home',
   icon: null,
-  layout: { cards: CARDS },
+  layout: { cards: ALL_CARDS },
   layoutVersion: 1,
   userIds: [],
   createdAt: new Date(),
