@@ -69,6 +69,21 @@ export const dashboardCardIdSchema = z
   .string()
   .regex(/^[a-z0-9]{8,32}$/, 'Must be 8 to 32 lower case letters and digits');
 
+/** What a tap on an entity card does: open the entity, switch it on or off, or nothing. */
+export const DASHBOARD_CARD_TAPS = ['sheet', 'toggle', 'none'] as const;
+
+/** What a tap on an entity card does. */
+export type DashboardCardTap = (typeof DASHBOARD_CARD_TAPS)[number];
+
+/** How an entity card draws a reading's past. */
+export const DASHBOARD_CHART_STYLES = ['line', 'bars'] as const;
+
+/** How an entity card draws a reading's past. */
+export type DashboardChartStyle = (typeof DASHBOARD_CHART_STYLES)[number];
+
+/** A part of a card that its settings may switch off, by the card's own name for it. */
+const cardPartSchema = z.string().regex(/^[a-z][a-z-]{0,31}$/);
+
 /** What a card's title may be: a person's own words, or null for the thing's own name. */
 const cardTitleSchema = z.string().trim().min(1).max(60).nullable();
 
@@ -94,6 +109,18 @@ export const dashboardEntityCardSchema = z.object({
 
   /** How far back its chart looks, when it draws one; null for the card's own default. */
   range: z.enum(DASHBOARD_HISTORY_RANGES).nullable(),
+
+  /**
+   * The parts of the card switched off in its settings, by the names each kind of card gives its
+   * parts ("presets", "brightness", "chart"). Absent, every part its size can hold is drawn.
+   */
+  hide: z.array(cardPartSchema).max(16).optional(),
+
+  /** What a tap on the card does; absent, it opens the entity. */
+  tap: z.enum(DASHBOARD_CARD_TAPS).optional(),
+
+  /** How a reading's past is drawn: a line, or one bar an hour or a day for totals and prices. */
+  chart: z.enum(DASHBOARD_CHART_STYLES).optional(),
 });
 
 /** A card showing one entity. */
