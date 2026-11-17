@@ -560,7 +560,7 @@ function Editor(props: { readonly dashboard: DashboardView }) {
             side={side}
             isCopied={copied?.card.id === selectedId}
             onChange={draft.change}
-            onEntityChosen={(cardId) => {
+            onSettled={(cardId) => {
               draft.setPending(cardId, null);
             }}
             onRemove={remove}

@@ -15,6 +15,7 @@ import {
 
 import { allowedSizes, CARD_SIZES } from '@/dashboard/card-sizes';
 import type { CardSampleSource } from '@/routes/dashboard/cards/card-sample';
+import { CARD_ENTITIES } from '@/routes/dashboard/samples/cards';
 import { CONTROL_SAMPLES, CONTROL_VARIANTS } from '@/routes/dashboard/samples/controls';
 import { LIGHT, LIGHT_VARIANTS } from '@/routes/dashboard/samples/lights';
 import { MORE_SAMPLES, MORE_VARIANTS, SAMPLE_SCENES } from '@/routes/dashboard/samples/more';
@@ -32,6 +33,7 @@ export const SAMPLE_ENTITIES: readonly EntityView[] = [
 
 /** The entities the lab draws besides the catalogue's: what each kind looks like when it can do less. */
 export const SAMPLE_VARIANTS: readonly EntityView[] = [
+  ...CARD_ENTITIES,
   ...LIGHT_VARIANTS,
   ...READING_VARIANTS,
   ...CONTROL_VARIANTS,

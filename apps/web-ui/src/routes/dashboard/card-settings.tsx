@@ -51,6 +51,15 @@ import { readingOf } from '@/library/entity-reading';
 import { cardTitle } from '@/routes/dashboard/card-view';
 import { EnergySettings } from '@/routes/dashboard/energy-settings';
 import { PackageCardSettings } from '@/routes/dashboard/package-card-settings';
+import { ActionsSettings } from '@/routes/dashboard/settings/actions-settings';
+import { ActivitySettings } from '@/routes/dashboard/settings/activity-settings';
+import { AutomationSettings } from '@/routes/dashboard/settings/automation-settings';
+import { CompareSettings } from '@/routes/dashboard/settings/compare-settings';
+import { ListSettings } from '@/routes/dashboard/settings/list-settings';
+import { RoomSettings } from '@/routes/dashboard/settings/room-settings';
+import { ShortcutSettings } from '@/routes/dashboard/settings/shortcut-settings';
+import { SummarySettings } from '@/routes/dashboard/settings/summary-settings';
+import { TogetherSettings } from '@/routes/dashboard/settings/together-settings';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 import { EntityTile } from '@/routes/library/entity-tile';
 import { NameIconField } from '@/routes/library/name-icon-field';
@@ -81,8 +90,8 @@ export type CardSettingsProps = {
   /** Takes the changed layout. */
   readonly onChange: (layout: DashboardLayout) => void;
 
-  /** The card waiting for its entity was given one. */
-  readonly onEntityChosen: (cardId: string) => void;
+  /** The card waiting for what it shows - its entity, its room - was given it. */
+  readonly onSettled: (cardId: string) => void;
 
   /** Takes the card off. */
   readonly onRemove: (cardId: string) => void;
@@ -417,7 +426,7 @@ export function CardSettings(props: CardSettingsProps) {
     side,
     isCopied,
     onChange,
-    onEntityChosen,
+    onSettled,
     onRemove,
     onCopy,
     onClose,
@@ -485,7 +494,7 @@ export function CardSettings(props: CardSettingsProps) {
     onChange(
       fits || smallest === undefined ? next : resizeCard(next, cardId, smallest, data.sizesOf),
     );
-    onEntityChosen(cardId);
+    onSettled(cardId);
   };
 
   const kind = pendingKind ?? (entity === undefined ? null : cardKindOf(entity));
@@ -513,14 +522,24 @@ export function CardSettings(props: CardSettingsProps) {
       : t('dashboard.cardSettings.newKindCard', 'New {{kind}} card', {
           kind: kindName(pendingKind).toLowerCase(),
         });
+  const typeName = Object.entries(TYPE_NAMES).find(([type]) => type === card.type)?.[1];
   const subtitle =
     pendingKind !== null
-      ? t('dashboard.cardSettings.chooseItsEntity', 'Choose its entity')
-      : entity === undefined
-        ? text(TYPE_NAMES[card.type])
-        : t('dashboard.cardSettings.kindCard', '{{kind}} card', {
+      ? card.type === 'entity'
+        ? t('dashboard.cardSettings.chooseItsEntity', 'Choose its entity')
+        : t('dashboard.cardSettings.chooseWhatItShows', 'Choose what it shows')
+      : entity !== undefined
+        ? t('dashboard.cardSettings.kindCard', '{{kind}} card', {
             kind: kindName(cardKindOf(entity)),
-          });
+          })
+        : typeName === undefined
+          ? kindName(card.type)
+          : text(typeName);
+
+  /** Says the card now has what it waited for. */
+  const settle = (): void => {
+    onSettled(cardId);
+  };
   const icon: IconView | undefined =
     'icon' in card && card.icon !== null ? data.icons.get(card.icon) : undefined;
 
@@ -594,6 +613,97 @@ export function CardSettings(props: CardSettingsProps) {
             data={data}
             onPage={onPage}
             onChoose={chooseEntity}
+          />
+        ) : null}
+
+        {card.type === 'together' ? (
+          <TogetherSettings
+            card={card}
+            layout={layout}
+            data={data}
+            isPending={pendingKind !== null}
+            onChange={change}
+            onSettled={settle}
+          />
+        ) : null}
+        {card.type === 'summary' ? (
+          <SummarySettings
+            card={card}
+            layout={layout}
+            data={data}
+            isPending={pendingKind !== null}
+            onChange={change}
+            onSettled={settle}
+          />
+        ) : null}
+        {card.type === 'room' ? (
+          <RoomSettings
+            card={card}
+            layout={layout}
+            data={data}
+            isPending={pendingKind !== null}
+            onChange={change}
+            onSettled={settle}
+          />
+        ) : null}
+        {card.type === 'list' ? (
+          <ListSettings
+            card={card}
+            layout={layout}
+            data={data}
+            isPending={pendingKind !== null}
+            onChange={change}
+            onSettled={settle}
+          />
+        ) : null}
+        {card.type === 'actions' ? (
+          <ActionsSettings
+            card={card}
+            layout={layout}
+            data={data}
+            isPending={pendingKind !== null}
+            onChange={change}
+            onSettled={settle}
+          />
+        ) : null}
+        {card.type === 'compare' ? (
+          <CompareSettings
+            card={card}
+            layout={layout}
+            data={data}
+            isPending={pendingKind !== null}
+            onChange={change}
+            onSettled={settle}
+          />
+        ) : null}
+        {card.type === 'activity' ? (
+          <ActivitySettings
+            card={card}
+            layout={layout}
+            data={data}
+            isPending={pendingKind !== null}
+            onChange={change}
+            onSettled={settle}
+          />
+        ) : null}
+        {card.type === 'automation' ? (
+          <AutomationSettings
+            card={card}
+            layout={layout}
+            data={data}
+            isPending={pendingKind !== null}
+            onChange={change}
+            onSettled={settle}
+          />
+        ) : null}
+        {card.type === 'shortcut' ? (
+          <ShortcutSettings
+            card={card}
+            layout={layout}
+            data={data}
+            isPending={pendingKind !== null}
+            onChange={change}
+            onSettled={settle}
           />
         ) : null}
 

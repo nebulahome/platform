@@ -41,7 +41,22 @@ export const ENTITY_CARD_KINDS = [
 export type EntityCardKind = (typeof ENTITY_CARD_KINDS)[number];
 
 /** Every kind of card that is not a container, with `missing` for an entity that is not there. */
-export type LeafCardKind = EntityCardKind | 'scene' | 'clock' | 'energy' | 'package' | 'missing';
+export type LeafCardKind =
+  | EntityCardKind
+  | 'scene'
+  | 'clock'
+  | 'energy'
+  | 'package'
+  | 'together'
+  | 'summary'
+  | 'room'
+  | 'list'
+  | 'actions'
+  | 'compare'
+  | 'activity'
+  | 'automation'
+  | 'shortcut'
+  | 'missing';
 
 /** The sizes a kind of card is drawn for, and the one it starts at. */
 type SizeRule = { readonly sizes: readonly CardSize[]; readonly preferred: CardSize };
@@ -90,6 +105,18 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
 
   // A package's card at the sizes its manifest may name: small, wide, medium, large.
   package: { sizes: [TILE, STRIP, SQUARE, LARGE], preferred: SQUARE },
+
+  // Many entities of a kind as one: the count, the bars, and at 2×3 every member.
+  together: { sizes: [TILE, CARD, SQUARE, LARGE], preferred: CARD },
+  // What needs a look: one count, the house at a glance, or a count and its first three.
+  summary: { sizes: [TILE, STRIP, CARD], preferred: TILE },
+  room: { sizes: [TILE, CARD, SQUARE], preferred: CARD },
+  list: { sizes: [CARD, LARGE], preferred: CARD },
+  actions: { sizes: [TILE, STRIP, CARD], preferred: STRIP },
+  compare: { sizes: [SQUARE, LARGE], preferred: SQUARE },
+  activity: { sizes: [CARD, LARGE], preferred: CARD },
+  automation: { sizes: [TILE, STRIP], preferred: TILE },
+  shortcut: { sizes: [TILE], preferred: TILE },
 
   // An entity that is not there may keep whatever size it had, and take any other.
   missing: { sizes: ALL_CARD_SIZES, preferred: TILE },

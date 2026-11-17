@@ -16,7 +16,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
-import type { DashboardCard, EntityView, SceneView } from '@nebulahome/contracts';
+import type { DashboardCard, EntityView, SceneView, TogetherDomain } from '@nebulahome/contracts';
 import { AppIcon, cn, Modal } from '@nebulahome/ui';
 
 import { kindDescription, kindName } from '@/dashboard/card-options';
@@ -31,18 +31,29 @@ import {
   type EntityCardKind,
 } from '@/dashboard/card-sizes';
 import {
+  actionsCard,
+  activityCard,
+  automationCard,
   clockCard,
+  compareCard,
   containerCard,
   entityCardFor,
+  listCard,
   packageCardFor,
   pendingCardFor,
+  roomCardFor,
   sceneCardFor,
+  shortcutCard,
+  summaryCardFor,
+  togetherCardFor,
 } from '@/dashboard/new-cards';
+import { defineMessage, text, type Message } from '@/i18n/messages';
 import { entityKindOf } from '@/library/entity-kind';
 import { readingOf } from '@/library/entity-reading';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { CardPreview } from '@/routes/dashboard/card-preview';
 import { SAMPLE_ENTITIES, sampleDashboardData } from '@/routes/dashboard/card-samples';
+import { SAMPLE_CARDS } from '@/routes/dashboard/samples/cards';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 import { EntityTile } from '@/routes/library/entity-tile';
 
@@ -195,6 +206,7 @@ function tilesOf(input: {
 
   return [
     ...entityTiles,
+    ...newTypeTiles(),
     ...packageTiles,
     ...(isInGroup
       ? []
@@ -247,6 +259,200 @@ function tilesOf(input: {
           },
         ]),
   ];
+}
+
+/** A tile of a card type that is not one entity's card. */
+type TypeTile = {
+  readonly type: TypeTileKind;
+  readonly category: Exclude<Category, 'all' | 'packages' | 'entity'>;
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+
+  /** For a Together tile, the kind it gathers: its preview is the sample of that kind. */
+  readonly domain?: TogetherDomain;
+
+  /** Makes the card, and says whether it waits for something before Done keeps it. */
+  readonly make: () => AddedCard;
+};
+
+/** The types of card a type tile adds. */
+type TypeTileKind =
+  | 'together'
+  | 'summary'
+  | 'room'
+  | 'list'
+  | 'actions'
+  | 'compare'
+  | 'activity'
+  | 'automation'
+  | 'shortcut';
+
+/** The kinds of entity gathered by a Together card, and what each tile is called. */
+const TOGETHER_TILES: readonly { readonly domain: TogetherDomain; readonly name: Message }[] = [
+  {
+    domain: 'light',
+    name: defineMessage('dashboard.addCardDialog.lightsTogether', 'Lights together'),
+  },
+  {
+    domain: 'switch',
+    name: defineMessage('dashboard.addCardDialog.switchesTogether', 'Switches together'),
+  },
+  {
+    domain: 'cover',
+    name: defineMessage('dashboard.addCardDialog.coversTogether', 'Covers together'),
+  },
+  {
+    domain: 'lock',
+    name: defineMessage('dashboard.addCardDialog.locksTogether', 'Locks together'),
+  },
+  {
+    domain: 'thermostat',
+    name: defineMessage('dashboard.addCardDialog.climateTogether', 'Climate together'),
+  },
+];
+
+/**
+ * The tiles of the card types that are not one entity's card.
+ *
+ * @returns The tiles, with their previews among the sample cards.
+ */
+function newTypeTiles(): Tile[] {
+  const tiles: TypeTile[] = [
+    ...TOGETHER_TILES.map((each): TypeTile => ({
+      type: 'together',
+      category: 'together',
+      id: `together-${each.domain}`,
+      name: text(each.name),
+      description: kindDescription(`together-${each.domain}`),
+      domain: each.domain,
+      /**
+       * Every one of the kind in the house.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: togetherCardFor(each.domain), pendingKind: null }),
+    })),
+    {
+      type: 'summary',
+      category: 'summing',
+      id: 'summary',
+      name: kindName('summary'),
+      description: kindDescription('summary'),
+      /**
+       * Doors and windows open, across the house: what it counts is changed in its settings.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: summaryCardFor('openings'), pendingKind: null }),
+    },
+    {
+      type: 'room',
+      category: 'summing',
+      id: 'room',
+      name: kindName('room'),
+      description: kindDescription('room'),
+      /**
+       * A room's card, waiting for its room.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: roomCardFor(), pendingKind: 'room' }),
+    },
+    {
+      type: 'list',
+      category: 'summing',
+      id: 'list',
+      name: kindName('list'),
+      description: kindDescription('list'),
+      /**
+       * An empty list, waiting for its entities.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: listCard(), pendingKind: 'list' }),
+    },
+    {
+      type: 'actions',
+      category: 'summing',
+      id: 'actions',
+      name: kindName('actions'),
+      description: kindDescription('actions'),
+      /**
+       * Quick actions, waiting for their buttons.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: actionsCard(), pendingKind: 'actions' }),
+    },
+    {
+      type: 'compare',
+      category: 'summing',
+      id: 'compare',
+      name: kindName('compare'),
+      description: kindDescription('compare'),
+      /**
+       * A comparison, waiting for its readings.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: compareCard(), pendingKind: 'compare' }),
+    },
+    {
+      type: 'activity',
+      category: 'summing',
+      id: 'activity',
+      name: kindName('activity'),
+      description: kindDescription('activity'),
+      /**
+       * What happened lately in the house.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: activityCard(), pendingKind: null }),
+    },
+    {
+      type: 'automation',
+      category: 'other',
+      id: 'automation',
+      name: kindName('automation'),
+      description: kindDescription('automation'),
+      /**
+       * An automation's card, waiting for its automation.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: automationCard(), pendingKind: 'automation' }),
+    },
+    {
+      type: 'shortcut',
+      category: 'other',
+      id: 'shortcut',
+      name: kindName('shortcut'),
+      description: kindDescription('shortcut'),
+      /**
+       * A shortcut, waiting for where it goes.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: shortcutCard(), pendingKind: 'shortcut' }),
+    },
+  ];
+
+  return tiles.map((tile) => ({
+    id: tile.id,
+    category: tile.category,
+    name: tile.name,
+    description: tile.description,
+    sizes: sizesLine(CARD_SIZES[tile.type].sizes),
+    preview:
+      SAMPLE_CARDS.find(
+        (card) =>
+          card.type === tile.type &&
+          (card.type !== 'together' || tile.domain === undefined || card.domain === tile.domain),
+      ) ?? null,
+    make: tile.make,
+  }));
 }
 
 /**

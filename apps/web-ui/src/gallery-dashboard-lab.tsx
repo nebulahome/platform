@@ -31,6 +31,7 @@ import {
 } from '@/routes/dashboard/card-samples';
 import { CardView } from '@/routes/dashboard/card-view';
 import { CardSampleContext } from '@/routes/dashboard/cards/card-sample';
+import { SAMPLE_CARDS } from '@/routes/dashboard/samples/cards';
 import { SAMPLE_SCENES } from '@/routes/dashboard/samples/more';
 
 import './styles/globals.css';
@@ -134,6 +135,16 @@ const SECTIONS: readonly LabSection[] = [
       card: { ...entityCard('switch.kitchen_relay_1', size), title: 'Kitchen relay' },
     })),
   },
+  // The cards that are not one entity's: every sample, at every size of its type.
+  ...[...new Set(SAMPLE_CARDS.map((card) => card.type))].map((type) => ({
+    kind: type,
+    cards: SAMPLE_CARDS.filter((card) => card.type === type).flatMap((card, index) =>
+      (type in CARD_SIZES ? CARD_SIZES[type as keyof typeof CARD_SIZES].sizes : []).map((size) => ({
+        caption: `${String(index + 1)} · ${sizeName(size)}`,
+        card: { ...card, id: `${card.id}${String(size.w)}${String(size.h)}`.slice(0, 32), ...size },
+      })),
+    ),
+  })),
 ];
 
 /** The cache the cards' queries sit in: nothing goes stale, nothing is asked again. */

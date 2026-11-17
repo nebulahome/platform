@@ -15,6 +15,17 @@ import {
   type DashboardSceneCard,
   type EntityView,
   type PackageCard,
+  type DashboardActionsCard,
+  type DashboardActivityCard,
+  type DashboardAutomationCard,
+  type DashboardCompareCard,
+  type DashboardListCard,
+  type DashboardRoomCard,
+  type DashboardShortcutCard,
+  type DashboardSummaryCard,
+  type DashboardTogetherCard,
+  type SummarySubject,
+  type TogetherDomain,
 } from '@nebulahome/contracts';
 
 import {
@@ -183,5 +194,132 @@ export function packageCardFor(packageId: string, declared: PackageCard): Dashbo
     cardId: declared.id,
     title: null,
     options,
+  };
+}
+
+/** What a card of a new type starts as: the parts every card has, at its smallest size. */
+type Start = {
+  readonly id: string;
+  readonly x: 0;
+  readonly y: 0;
+  readonly w: number;
+  readonly h: number;
+};
+
+/**
+ * Where a new card of a type starts: a fresh id, at the smallest size of its type.
+ *
+ * @param type - The type.
+ * @returns Its id and its cells.
+ */
+function startOf(type: keyof typeof CARD_SIZES): Start {
+  const [size = CARD_SIZES[type].preferred] = CARD_SIZES[type].sizes;
+
+  return { id: newCardId(), x: 0, y: 0, ...size };
+}
+
+/**
+ * A card for every entity of a kind in the house - by rule, so new ones join by themselves.
+ *
+ * @param domain - The kind it stands for.
+ * @returns The card.
+ */
+export function togetherCardFor(domain: TogetherDomain): DashboardTogetherCard {
+  return {
+    ...startOf('together'),
+    type: 'together',
+    domain,
+    members: { mode: 'rule', areaKey: null, exclude: [] },
+    title: null,
+    icon: null,
+  };
+}
+
+/**
+ * A card counting one thing that needs a look, across the house.
+ *
+ * @param what - What it counts.
+ * @returns The card.
+ */
+export function summaryCardFor(what: SummarySubject): DashboardSummaryCard {
+  return { ...startOf('summary'), type: 'summary', what, areaKey: null, title: null };
+}
+
+/**
+ * A room's card, before its room is chosen (`pending` until then).
+ *
+ * @param areaKey - The room, when it is known.
+ * @returns The card.
+ */
+export function roomCardFor(areaKey = 'pending'): DashboardRoomCard {
+  return { ...startOf('room'), type: 'room', areaKey, title: null, icon: null };
+}
+
+/**
+ * An entity list with nothing on it yet.
+ *
+ * @returns The card.
+ */
+export function listCard(): DashboardListCard {
+  return { ...startOf('list'), type: 'list', entityIds: [], title: null, icon: null };
+}
+
+/**
+ * A quick-actions card with no button yet.
+ *
+ * @returns The card.
+ */
+export function actionsCard(): DashboardActionsCard {
+  return { ...startOf('actions'), type: 'actions', items: [], title: null };
+}
+
+/**
+ * A comparison with no reading yet.
+ *
+ * @returns The card.
+ */
+export function compareCard(): DashboardCompareCard {
+  return { ...startOf('compare'), type: 'compare', entityIds: [], range: null, title: null };
+}
+
+/**
+ * What happened lately in the whole house.
+ *
+ * @returns The card.
+ */
+export function activityCard(): DashboardActivityCard {
+  return { ...startOf('activity'), type: 'activity', scope: { kind: 'house' }, title: null };
+}
+
+/** The automation a new automation card points at until one is chosen. */
+export const NO_AUTOMATION = '00000000-0000-4000-8000-000000000000';
+
+/**
+ * An automation's card, before its automation is chosen.
+ *
+ * @returns The card.
+ */
+export function automationCard(): DashboardAutomationCard {
+  return {
+    ...startOf('automation'),
+    type: 'automation',
+    automationId: NO_AUTOMATION,
+    title: null,
+    icon: null,
+  };
+}
+
+/**
+ * A shortcut, to the dashboards until somewhere else is chosen.
+ *
+ * @returns The card.
+ */
+export function shortcutCard(): DashboardShortcutCard {
+  return {
+    ...startOf('shortcut'),
+    type: 'shortcut',
+    target: { kind: 'page', path: '/dashboards' },
+    title: null,
+    icon: null,
   };
 }

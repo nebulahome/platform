@@ -306,6 +306,123 @@ const KIND_LOOKS: Readonly<
     icon: 'package',
     description: defineMessage('dashboard.cardKinds.customDescription', 'What a package reports.'),
   },
+  'together-light': {
+    name: defineMessage('dashboard.cardKinds.togetherLight', 'Lights together'),
+    icon: 'lightbulb',
+    description: defineMessage(
+      'dashboard.cardKinds.togetherLightDescription',
+      'How many are on, and all of them at once.',
+    ),
+  },
+  'together-switch': {
+    name: defineMessage('dashboard.cardKinds.togetherSwitch', 'Switches together'),
+    icon: 'power',
+    description: defineMessage(
+      'dashboard.cardKinds.togetherSwitchDescription',
+      'How many are on, and all of them at once.',
+    ),
+  },
+  'together-cover': {
+    name: defineMessage('dashboard.cardKinds.togetherCover', 'Covers together'),
+    icon: 'blinds',
+    description: defineMessage(
+      'dashboard.cardKinds.togetherCoverDescription',
+      'Where they stand, and all of them at once.',
+    ),
+  },
+  'together-lock': {
+    name: defineMessage('dashboard.cardKinds.togetherLock', 'Locks together'),
+    icon: 'lock',
+    description: defineMessage(
+      'dashboard.cardKinds.togetherLockDescription',
+      'Whether all are locked, and Lock all.',
+    ),
+  },
+  'together-thermostat': {
+    name: defineMessage('dashboard.cardKinds.togetherThermostat', 'Climate together'),
+    icon: 'thermometer',
+    description: defineMessage(
+      'dashboard.cardKinds.togetherThermostatDescription',
+      'Their temperatures, and every target at once.',
+    ),
+  },
+  summary: {
+    name: defineMessage('dashboard.cardKinds.summary', 'Summary'),
+    icon: 'list-filter',
+    description: defineMessage(
+      'dashboard.cardKinds.summaryDescription',
+      'What needs a look: open doors, batteries, updates.',
+    ),
+  },
+  room: {
+    name: defineMessage('dashboard.cardKinds.room', 'Room'),
+    icon: 'armchair',
+    description: defineMessage(
+      'dashboard.cardKinds.roomDescription',
+      'One room: its climate and what is on.',
+    ),
+  },
+  list: {
+    name: defineMessage('dashboard.cardKinds.list', 'Entity list'),
+    icon: 'list',
+    description: defineMessage(
+      'dashboard.cardKinds.listDescription',
+      'Entities of any kind, as rows.',
+    ),
+  },
+  actions: {
+    name: defineMessage('dashboard.cardKinds.actions', 'Quick actions'),
+    icon: 'zap',
+    description: defineMessage(
+      'dashboard.cardKinds.actionsDescription',
+      'Scenes, buttons and switches, one press each.',
+    ),
+  },
+  compare: {
+    name: defineMessage('dashboard.cardKinds.compare', 'Compare'),
+    icon: 'chart-line',
+    description: defineMessage(
+      'dashboard.cardKinds.compareDescription',
+      'Up to four readings on one chart.',
+    ),
+  },
+  activity: {
+    name: defineMessage('dashboard.cardKinds.activity', 'Activity'),
+    icon: 'activity',
+    description: defineMessage(
+      'dashboard.cardKinds.activityDescription',
+      'What happened lately, newest first.',
+    ),
+  },
+  automation: {
+    name: defineMessage('dashboard.cardKinds.automation', 'Automation'),
+    icon: 'workflow',
+    description: defineMessage(
+      'dashboard.cardKinds.automationDescription',
+      'On or off, Run now, last and next run.',
+    ),
+  },
+  shortcut: {
+    name: defineMessage('dashboard.cardKinds.shortcut', 'Shortcut'),
+    icon: 'external-link',
+    description: defineMessage(
+      'dashboard.cardKinds.shortcutDescription',
+      'A page, a package or a web address.',
+    ),
+  },
+  time: {
+    name: defineMessage('dashboard.cardKinds.time', 'Time · Date'),
+    icon: 'calendar-clock',
+    description: defineMessage(
+      'dashboard.cardKinds.timeDescription',
+      'A time or a date, and how far away it is.',
+    ),
+  },
+  person: {
+    name: defineMessage('dashboard.cardKinds.person', 'Person'),
+    icon: 'user-round',
+    description: defineMessage('dashboard.cardKinds.personDescription', 'Home, away, or where.'),
+  },
   fan: {
     name: defineMessage('dashboard.cardKinds.fan', 'Fan'),
     icon: 'fan',
