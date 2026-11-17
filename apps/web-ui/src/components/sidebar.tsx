@@ -425,7 +425,7 @@ function SearchRow() {
       {...rail.tip}
       className={cn(
         ROW,
-        'mb-2.5 border-border text-foreground-subtle hover:border-border-strong hover:bg-surface-raised hover:text-foreground focus-visible:border-border-strong focus-visible:bg-surface-raised focus-visible:text-foreground',
+        'mt-1.5 mb-2.5 border-border text-foreground-subtle hover:border-border-strong hover:bg-surface-raised hover:text-foreground focus-visible:border-border-strong focus-visible:bg-surface-raised focus-visible:text-foreground',
       )}
     >
       <AppIcon id="search" size={20} className="shrink-0" />
