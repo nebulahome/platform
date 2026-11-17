@@ -8,6 +8,7 @@ import { Modal } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { DASHBOARD_QUERY_KEYS } from '@/dashboard/api';
+import { copyText } from '@/lib/clipboard';
 import type * as LibraryApi from '@/library/api';
 import { applyScene, LIBRARY_QUERY_KEYS, updateAutomation } from '@/library/api';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
@@ -272,5 +273,118 @@ describe('CommandPalette', () => {
 
     expect(usePaletteStore.getState().isOpen).toBe(false);
     expect(onDialogClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('an id in the clipboard', () => {
+  const readText = vi.fn<() => Promise<string>>();
+  const query = vi.fn<() => Promise<{ state: string }>>();
+
+  /**
+   * Gives the page a clipboard and a way to ask about it.
+   *
+   * @param isSecure - Whether the page is a secure context.
+   * @param state - What the browser answers for reading the clipboard.
+   * @param text - What the system clipboard holds.
+   */
+  function withClipboard(isSecure: boolean, state: string, text: string): void {
+    readText.mockResolvedValue(text);
+    query.mockResolvedValue({ state });
+    Object.defineProperty(globalThis, 'isSecureContext', { value: isSecure, configurable: true });
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      value: { readText, writeText: vi.fn(async () => Promise.resolve()) },
+      configurable: true,
+    });
+    Object.defineProperty(globalThis.navigator, 'permissions', {
+      value: { query },
+      configurable: true,
+    });
+  }
+
+  beforeEach(() => {
+    useSession.setState({ user: SAMPLE_OWNER });
+    globalThis.localStorage.clear();
+    withClipboard(false, 'denied', '');
+  });
+
+  afterEach(() => {
+    usePaletteStore.setState({ isOpen: false });
+    vi.clearAllMocks();
+  });
+
+  it('is the first row, active, when the app copied the id of something the person may see', async () => {
+    await copyText('light.lamp_1');
+    renderPalette();
+
+    expect(screen.getByRole('group', { name: 'Clipboard' }).textContent).toContain('light.lamp_1');
+    expect(activeRow()).toContain('Lamp 1');
+  });
+
+  it('is not there for an id of nothing the person may see, nor once something is typed', async () => {
+    await copyText('light.not_here');
+    const first = renderPalette();
+
+    expect(screen.queryByRole('group', { name: 'Clipboard' })).toBeNull();
+    first.unmount();
+    await copyText('light.lamp_2');
+    renderPalette();
+    type('lamp');
+
+    expect(screen.queryByRole('group', { name: 'Clipboard' })).toBeNull();
+  });
+
+  it('is not offered again once opened, until something else is copied', async () => {
+    await copyText('light.lamp_0');
+    const first = renderPalette();
+
+    press('Enter');
+    first.unmount();
+    renderPalette();
+
+    expect(screen.queryByRole('group', { name: 'Clipboard' })).toBeNull();
+  });
+
+  it('reads the system clipboard only in a secure context, and only where it is granted', async () => {
+    await copyText('not an id');
+    withClipboard(false, 'granted', 'light.lamp_1');
+    const insecure = renderPalette();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(readText).not.toHaveBeenCalled();
+    insecure.unmount();
+
+    withClipboard(true, 'denied', 'light.lamp_1');
+    const denied = renderPalette();
+
+    await waitFor(() => {
+      expect(query).toHaveBeenCalled();
+    });
+    expect(readText).not.toHaveBeenCalled();
+    denied.unmount();
+
+    withClipboard(true, 'granted', 'light.lamp_1');
+    renderPalette();
+
+    expect(await screen.findByRole('group', { name: 'Clipboard' })).toBeDefined();
+  });
+
+  it('offers once to read it where the browser would ask, and never again after an answer', async () => {
+    await copyText('not an id');
+    withClipboard(true, 'prompt', 'light.lamp_1');
+    const first = renderPalette();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+
+    expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull();
+    expect(readText).not.toHaveBeenCalled();
+    first.unmount();
+    renderPalette();
+
+    await waitFor(() => {
+      expect(query).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull();
   });
 });

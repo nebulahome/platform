@@ -10,6 +10,21 @@
  */
 
 /**
+ * The last text this tab copied, in memory only: the command palette offers it as its first row
+ * when it is an id (docs: command palette, 6.5), with no permission to ask and on plain http too.
+ */
+let lastCopied: string | null = null;
+
+/**
+ * What this tab copied last.
+ *
+ * @returns The text, or null before anything was copied.
+ */
+export function lastCopiedText(): string | null {
+  return lastCopied;
+}
+
+/**
  * Copies text from a hidden field, as pages did before the clipboard API. The field goes inside
  * the open dialog, when there is one: under a modal dialog the rest of the page is inert, and
  * nothing in it can be selected.
@@ -51,11 +66,18 @@ function copyTheOldWay(value: string): boolean {
  * @returns True when the clipboard took it.
  */
 export async function copyText(value: string): Promise<boolean> {
+  let isCopied: boolean;
+
   try {
     await globalThis.navigator.clipboard.writeText(value);
-
-    return true;
+    isCopied = true;
   } catch {
-    return copyTheOldWay(value);
+    isCopied = copyTheOldWay(value);
   }
+
+  if (isCopied) {
+    lastCopied = value;
+  }
+
+  return isCopied;
 }

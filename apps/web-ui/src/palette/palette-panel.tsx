@@ -15,6 +15,7 @@ import { AppIcon, Modal } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { queryWords } from '@/lib/search-text';
+import { PaletteClipboardAsk } from '@/palette/palette-clipboard-ask';
 import { PaletteKeys } from '@/palette/palette-keys';
 import { layoutPalette } from '@/palette/palette-layout';
 import { PaletteList } from '@/palette/palette-list';
@@ -22,6 +23,7 @@ import { readRecents } from '@/palette/palette-recents';
 import { usePaletteStore } from '@/palette/palette-store';
 import type { PaletteGroupId } from '@/palette/palette-types';
 import { useAfter } from '@/palette/use-after';
+import { useClipboardRow } from '@/palette/use-clipboard-row';
 import { usePaletteItems } from '@/palette/use-palette-items';
 import { usePaletteKeys } from '@/palette/use-palette-keys';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
@@ -53,6 +55,7 @@ export function PalettePanel() {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const words = useMemo(() => queryWords(deferred), [deferred]);
+  const clipboard = useClipboardRow(items);
   const layout = useMemo(
     () =>
       layoutPalette({
@@ -60,10 +63,10 @@ export function PalettePanel() {
         words,
         recents,
         expanded,
-        clipboard: null,
+        clipboard: clipboard.item,
         canSearchHub: can('integration:install'),
       }),
-    [items, words, recents, expanded, can],
+    [items, words, recents, expanded, clipboard.item, can],
   );
   const iconIds = useMemo(
     () => items.flatMap((item) => (item.icon.kind === 'catalogue' ? [item.icon.iconId] : [])),
@@ -86,6 +89,7 @@ export function PalettePanel() {
     setActive,
     setExpanded,
     setAppliedKey,
+    onClipboardUsed: clipboard.consume,
   });
 
   const count = layout.options.length;
@@ -144,7 +148,7 @@ export function PalettePanel() {
           isOpening={isOpening}
           sources={sources}
           snapRef={snapRef}
-          clipboardText={null}
+          clipboardText={clipboard.id}
           buttonRef={buttonRef}
           onPoint={(index) => {
             snapRef.current = true;
@@ -152,7 +156,11 @@ export function PalettePanel() {
           }}
           onChoose={keys.choose}
           onSecondary={keys.second}
-        />
+        >
+          {words.length === 0 && clipboard.isAsking ? (
+            <PaletteClipboardAsk onAllow={clipboard.allow} onDismiss={clipboard.dismiss} />
+          ) : null}
+        </PaletteList>
 
         <PaletteKeys option={option} />
 

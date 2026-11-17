@@ -44,6 +44,9 @@ export type PaletteKeysInput = {
   readonly setActive: (index: number) => void;
   readonly setExpanded: (group: PaletteGroupId) => void;
   readonly setAppliedKey: (key: string) => void;
+
+  /** Called when the clipboard's row was opened: it is not offered again. */
+  readonly onClipboardUsed: () => void;
 };
 
 /** What the palette hands its field and its rows. */
@@ -111,6 +114,10 @@ export function usePaletteKeys(input: PaletteKeysInput): PaletteKeys {
    * @param command - What it does.
    */
   const remember = (picked: PaletteOption, command: PaletteCommand): void => {
+    if (picked.kind === 'item' && picked.section === 'clipboard') {
+      input.onClipboardUsed();
+    }
+
     if (
       picked.kind === 'item' &&
       picked.item.group !== 'actions' &&
