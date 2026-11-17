@@ -1335,6 +1335,11 @@ type DeviceDescriptor = {
    * interface answer "why did six things go offline at once" with the one that actually did.
    */
   readonly viaExternalId?: string;
+  /**
+   * The device this one is part of, by its `externalId`: the inverter an EPS output belongs to.
+   * Same vendor, one level. The house groups the two and removes the child with its parent.
+   */
+  readonly parentExternalId?: string;
   readonly entities: readonly EntityDescriptor[];
 };
 /** What a mapper may look at besides its own arguments. */

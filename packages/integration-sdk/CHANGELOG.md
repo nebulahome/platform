@@ -3,6 +3,15 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.12.0
+
+- **A device part of another:** a profile's `identity` takes `parent`, the path to the `externalId`
+  of the device this one is part of (the inverter an EPS output belongs to), and a code driver's
+  `DeviceDescriptor` takes `parentExternalId`. Same vendor, one level. The house shows the part
+  under its parent on the vendor's page and on both devices' pages, gives it the parent's room when
+  it has none, and removes it with the parent. A profile that says `parent` does not load on a
+  platform older than 1.12.0.
+
 ## 1.11.1
 
 - **Entities disabled at first:** a profile's entity, and a code driver's `EntityDescriptor`,

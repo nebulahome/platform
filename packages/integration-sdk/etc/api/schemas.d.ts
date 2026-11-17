@@ -21,8 +21,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }>>>;
     internetRequired: z.ZodDefault<z.ZodBoolean>;
     twins: z.ZodOptional<z.ZodArray<z.ZodEnum<{
-      mac: "mac";
       serial: "serial";
+      mac: "mac";
     }>>>;
     twinsPrefer: z.ZodOptional<z.ZodArray<z.ZodString>>;
     setup: z.ZodOptional<z.ZodString>;
@@ -30,16 +30,16 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
       module: z.ZodString;
       wires: z.ZodArray<z.ZodEnum<{
+        udp: "udp";
         matter: "matter";
-        ir: "ir";
         mqtt: "mqtt";
         modbus: "modbus";
         serial: "serial";
-        udp: "udp";
         http: "http";
         ble: "ble";
         zigbee: "zigbee";
         thread: "thread";
+        ir: "ir";
       }>>;
     }, z.core.$strict>]>>>;
     streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -117,12 +117,12 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     modelCodes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
     modelSeries: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
     kind: z.ZodEnum<{
-      matter: "matter";
-      infrared: "infrared";
-      code: "code";
       declarative: "declarative";
+      code: "code";
+      matter: "matter";
       mqtt: "mqtt";
       modbus: "modbus";
+      infrared: "infrared";
       serial: "serial";
       bluetooth: "bluetooth";
     }>;
@@ -490,6 +490,7 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         hwVersion: z.ZodOptional<z.ZodString>;
         mac: z.ZodOptional<z.ZodString>;
         serialNumber: z.ZodOptional<z.ZodString>;
+        parent: z.ZodOptional<z.ZodString>;
       }, z.core.$strict>;
     }, z.core.$strict>;
     subscriptions: z.ZodDefault<z.ZodArray<z.ZodObject<{
@@ -503,26 +504,26 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     entities: z.ZodArray<z.ZodObject<{
       domain: z.ZodEnum<{
         number: "number";
-        light: "light";
-        switch: "switch";
-        sensor: "sensor";
-        binary_sensor: "binary_sensor";
+        image: "image";
         cover: "cover";
         lock: "lock";
-        climate: "climate";
         media_player: "media_player";
         camera: "camera";
         button: "button";
         update: "update";
         lawn_mower: "lawn_mower";
         select: "select";
-        time: "time";
         vacuum: "vacuum";
         fan: "fan";
+        custom: "custom";
+        light: "light";
+        switch: "switch";
+        sensor: "sensor";
+        binary_sensor: "binary_sensor";
+        climate: "climate";
+        time: "time";
         device_tracker: "device_tracker";
         geo_location: "geo_location";
-        image: "image";
-        custom: "custom";
         alias: "alias";
       }>;
       objectId: z.ZodOptional<z.ZodString>;
@@ -690,8 +691,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
           "image/jpeg": "image/jpeg";
         }>;
         encoding: z.ZodDefault<z.ZodEnum<{
-          utf8: "utf8";
           base64: "base64";
+          utf8: "utf8";
         }>>;
         minIntervalMs: z.ZodDefault<z.ZodInt>;
       }, z.core.$strict>>;

@@ -366,6 +366,15 @@ reading the same key on both. The identity's `mac` and `serialNumber` are what t
 by: `"identity": { "externalId": "id", "mac": "mac" }`, written any way the device writes it; a code
 driver says them in its `describe`.
 
+A device may be **part of another** of the vendor's devices: the EPS output and the dry contact of an
+inverter, each its own device at the inverter's address. The identity's `parent` reads the parent's
+`externalId` - `"identity": { "externalId": "partId", "parent": "parent" }` - and a code driver sets
+`parentExternalId` in its `describe`. The house then shows the part under its parent on the vendor's
+page and on both devices' pages, puts it in the parent's room when it has none, and removes it with
+the parent. One level only and the same vendor: a parent that is itself a part is not followed, and a
+`parent` naming the device itself is ignored. The parent may arrive before or after its parts; until
+it is added, a part is a device like any other.
+
 An entity may report **attributes** beside its state: `"attributes": { "endsAt":
 "pairing.endsAt" }`, each a camelCase key read the way a state field is, into a scalar. They are
 for what a page needs of the entity and the entity itself is not - the Zigbee2MQTT bridge's
@@ -467,7 +476,9 @@ because a device announced it there.
   in different words: a Shelly Gen1 says `type`, `mac` and `fw` where later ones say `model`,
   `id` and `ver`. `mac` and `serialNumber` are what the Found tab shows and a twin is told by
   (`twins`), and `auth` is where the device says it is behind a password - `["auth_en", "auth"]`
-  on a Shelly - which its row shows before anyone tries to add it.
+  on a Shelly - which its row shows before anyone tries to add it. A part's parent is not said
+  here: the Found tab lists every device flat, and the parent comes from the profile's `identity`
+  once the part is added.
 - `adopt` - who adds a device found: `owner` (the default) proposes it on the vendor's
   page to adopt; `automatic` has `api` add it as soon as the hub proposes it, named as it named
   itself, with the id the add form would have offered - for devices the owner already chose
