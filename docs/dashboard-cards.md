@@ -1,7 +1,7 @@
 # Dashboard cards, Add card, card settings, smaller screens
 
 Build brief for the dashboard work designed on the redesign canvas, page **Dashboard · card e modifica**
-(`https://claude.ai/artifact/4pCaH1weFogKWZ5JCZ2UNu`, version 314, 2026-11-17). It says what to build and
+(`https://claude.ai/artifact/4pCaH1weFogKWZ5JCZ2UNu`, version 315, 2026-11-17). It says what to build and
 why each choice was made, so that whoever builds it does not have to guess from the pictures.
 
 Read it with the boards open. Board names are in `code`. The generator of the boards is outside this
@@ -127,8 +127,9 @@ layouts valid, so `DASHBOARD_LAYOUT_VERSION` does not change. The field names be
 | Note        | 1×1, 1×2      | new `note` `{ title, text, icon }`  | Text only, no entity. Editable by whoever may edit the dashboard                                                                                                                                              |
 | Shortcut    | 1×1           | new `shortcut` `{ target }`         | A page, a package or a web address. An address outside the hub opens in a new tab and shows the outward arrow                                                                                                 |
 
-Not here on purpose: Weather, Energy and Cameras bring their own cards with their package (Energy also
-has its built-in `energy` type). A Heading card was dropped because it would not fit the 100 px rows;
+Not here on purpose: Weather, Energy and Cameras bring their own cards with their package. The
+built-in `energy` card type has moved to the Energy package: it is on no board any more, and the
+dashboard work here neither draws nor extends it. A Heading card was dropped because it would not fit the 100 px rows;
 a Group already gives a title.
 
 ---
@@ -441,7 +442,7 @@ So no column is narrower than about 210 px. This is `NARROW_WIDTH_PX` becoming t
 
 Rule for one column, stated once: a card keeps its height; a two-column size takes the one-column size
 of the same height when its kind has one (2×1 to 1×1, 2×2 to 1×2); a kind with no one-column
-size (media player, camera, energy, package cards) keeps its size and is drawn in the single column,
+size (media player, camera, package cards) keeps its size and is drawn in the single column,
 so those cards must hold at 320 px. The phone board shows the media 2×2 laid out for that width.
 Groups take the full width and reflow their own cards the same way.
 
