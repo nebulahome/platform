@@ -221,6 +221,9 @@
   --radius-card: 16px;
   --radius-panel: 18px;
   --radius-dialog: 22px;
+
+  /** The command palette: a pane of glass a little rounder than a dialog. */
+  --radius-palette: 26px;
   --radius-pill: 9999px;
 
   /* --- type ------------------------------------------------------------------------------ */
@@ -365,6 +368,9 @@
   --shadow-focus: 0 0 0 3px rgb(124 134 255 / 0.25);
   --shadow-float: 0 24px 48px -12px rgb(0 0 0 / 0.7);
   --shadow-dialog: 0 30px 80px -20px rgb(0 0 0 / 0.9);
+
+  /** The command palette, over a page it has put out of focus. */
+  --shadow-palette: 0 30px 80px -24px rgb(0 0 0 / 0.85);
   --shadow-popover: 0 28px 60px -20px rgb(0 0 0 / 0.95);
 
   /**
@@ -408,6 +414,18 @@
    */
   --animate-dialog-in: dialog-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
   --animate-backdrop-in: backdrop-in 220ms ease-out;
+
+  /**
+   * The command palette (docs: command palette, 12.5): quicker than a dialog, in and out. Its rows
+   * rise one after another as it opens; a chip whose entity has just changed swells once; a check
+   * replaces the Enter mark on a scene just applied; a row whose command failed shakes once.
+   */
+  --animate-palette-in: palette-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-palette-scrim-in: backdrop-in 160ms ease-out;
+  --animate-palette-row: palette-row 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-palette-pop: palette-pop 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-palette-check: palette-check 140ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-palette-shake: palette-shake 240ms ease-out;
 
   /**
    * Power moving along a wire of the energy card: its dashes travel one period of their pattern
@@ -582,6 +600,47 @@
 @keyframes backdrop-in {
   from {
     opacity: 0;
+  }
+}
+
+/* The command palette's own: `scale` and `translate`, not `transform`, as the dialog's. */
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+    translate: 0 -8px;
+  }
+}
+
+@keyframes palette-row {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@keyframes palette-pop {
+  40% {
+    scale: 1.12;
+  }
+}
+
+@keyframes palette-check {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+@keyframes palette-shake {
+  20% {
+    translate: -4px 0;
+  }
+  50% {
+    translate: 4px 0;
+  }
+  80% {
+    translate: -2px 0;
   }
 }
 

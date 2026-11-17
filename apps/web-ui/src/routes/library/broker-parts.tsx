@@ -239,7 +239,11 @@ export function CopyButton(props: {
   if (props.isCompact === true) {
     return (
       <IconButton
-        label={isCopied ? t('brokers.parts.copied', 'Copied') : t('brokers.parts.copy', 'Copy')}
+        label={
+          isCopied
+            ? t('brokers.parts.copied', 'Copied')
+            : (props.label ?? t('brokers.parts.copy', 'Copy'))
+        }
         onClick={copy}
         {...(props.className === undefined ? {} : { className: props.className })}
       >

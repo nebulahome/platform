@@ -17,6 +17,7 @@ import { cn } from '@nebulahome/ui';
 import { dateTimeFormat } from '@/i18n/formatters';
 import { hsColor, kelvinColor, miredsToKelvin } from '@/library/entity-control';
 import type { Reading } from '@/library/entity-reading';
+import { isActiveState } from '@/library/history-series';
 
 /** What the summary needs. */
 export type EntityStateSummaryProps = {
@@ -28,6 +29,12 @@ export type EntityStateSummaryProps = {
 
   /** Anything extra for the outer element. */
   readonly className?: string;
+
+  /**
+   * The words alone, small and in mono, quiet when off or at rest: a line of the command palette,
+   * where a bar and a dot would crowd the row.
+   */
+  readonly isCompact?: boolean;
 };
 
 /**
@@ -66,7 +73,15 @@ function lampColour(state: CapabilityState): string | null {
 export function EntityStateSummary(props: EntityStateSummaryProps) {
   const { t } = useTranslation();
 
-  const { reading, state, className } = props;
+  const { reading, state, className, isCompact = false } = props;
+  const quiet = isCompact
+    ? 'font-mono text-mono-caption text-foreground/45 tabular'
+    : 'text-caption text-foreground-subtle';
+  const words = cn(
+    'font-mono tabular',
+    isCompact ? 'text-mono-caption' : 'text-ui',
+    isCompact && isActiveState(state) === false ? 'text-foreground/45' : 'text-foreground',
+  );
   const title =
     reading.at === null
       ? t('library.entityStateSummary.neverReported', 'Never reported')
@@ -76,10 +91,7 @@ export function EntityStateSummary(props: EntityStateSummaryProps) {
 
   if (reading.isUpdating) {
     return (
-      <span
-        className={cn('text-caption whitespace-nowrap text-foreground-subtle', className)}
-        title={title}
-      >
+      <span className={cn('whitespace-nowrap', quiet, className)} title={title}>
         {t('library.entityStateSummary.updating', 'Updating…')}
       </span>
     );
@@ -87,10 +99,7 @@ export function EntityStateSummary(props: EntityStateSummaryProps) {
 
   if (!reading.isAvailable) {
     return (
-      <span
-        className={cn('text-caption whitespace-nowrap text-foreground-subtle', className)}
-        title={title}
-      >
+      <span className={cn('whitespace-nowrap', quiet, className)} title={title}>
         {t('library.entityStateSummary.unavailable', 'Unavailable')}
       </span>
     );
@@ -105,16 +114,18 @@ export function EntityStateSummary(props: EntityStateSummaryProps) {
         title={title}
         data-live={reading.isLive ? 'true' : undefined}
       >
-        <span className="font-mono text-ui text-foreground tabular">{figure.figure}</span>
+        <span className={words}>{figure.figure}</span>
         {figure.unit !== null && figure.unit !== '' ? (
-          <span className="text-caption text-foreground-subtle">{figure.unit}</span>
+          <span className={isCompact ? quiet : 'text-caption text-foreground-subtle'}>
+            {figure.unit}
+          </span>
         ) : null}
       </span>
     );
   }
 
-  const colour = lampColour(state);
-  const level = state.on_off?.isOn === false ? undefined : state.level?.level;
+  const colour = isCompact ? null : lampColour(state);
+  const level = isCompact || state.on_off?.isOn === false ? undefined : state.level?.level;
 
   return (
     <span
@@ -144,7 +155,7 @@ export function EntityStateSummary(props: EntityStateSummaryProps) {
           style={{ backgroundColor: colour }}
         />
       )}
-      <span className="font-mono text-ui text-foreground tabular">{reading.text}</span>
+      <span className={words}>{reading.text}</span>
     </span>
   );
 }

@@ -98,6 +98,9 @@ export type InstallIntegrationsDialogProps = {
 
   /** Called to open an installed integration's page. */
   readonly onOpen: (vendorId: string) => void;
+
+  /** What the search starts with: the words a search of the Hub was asked for with. */
+  readonly initialSearch?: string;
 };
 
 /**
@@ -109,8 +112,8 @@ export type InstallIntegrationsDialogProps = {
 export function InstallIntegrationsDialog(props: InstallIntegrationsDialogProps) {
   const { t } = useTranslation();
 
-  const { isOpen, onClose, onInstalled, onOpen } = props;
-  const [search, setSearch] = useState('');
+  const { isOpen, onClose, onInstalled, onOpen, initialSearch = '' } = props;
+  const [search, setSearch] = useState(initialSearch);
   const [picked, setPicked] = useState<IntegrationListing | null>(null);
   const [isTrusted, setTrusted] = useState(false);
   const results = useCatalogueSearch({

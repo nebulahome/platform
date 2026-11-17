@@ -80,6 +80,7 @@ import { DurationField } from '@/routes/library/automation/duration-field';
 import { EditorHouseProvider, useEditorHouse } from '@/routes/library/automation/editor-house';
 import { LastRuns } from '@/routes/library/automation/last-runs';
 import { TriggerLane } from '@/routes/library/automation/trigger-blocks';
+import { CopyButton } from '@/routes/library/broker-parts';
 import { BackLink } from '@/routes/library/detail-page';
 import { LibraryImportFlow } from '@/routes/library/library-import-flow';
 import { ResolveEntitiesModal } from '@/routes/library/resolve-entities-modal';
@@ -428,6 +429,10 @@ function Editor() {
         onClick={onPageClick}
         action={
           <span className="flex items-center gap-2">
+            {/* Copied, the id makes the automation the command palette's first row. */}
+            {automationId === undefined ? null : (
+              <CopyButton value={automationId} label={t('library.copyId', 'Copy id')} isCompact />
+            )}
             {canRun ? (
               <Button
                 variant="ghost"

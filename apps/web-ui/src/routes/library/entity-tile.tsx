@@ -16,8 +16,11 @@ import { AppIcon, CatalogueIcon, cn } from '@nebulahome/ui';
 
 import type { EntityKind, EntityTone } from '@/library/entity-kind';
 
-/** The lit classes of each family, spelled out so Tailwind can see every one. */
-const LIT: Readonly<Record<EntityTone, string>> = {
+/**
+ * The lit classes of each family, spelled out so Tailwind can see every one: a tile, and a row of
+ * the command palette.
+ */
+export const TONE_CLASSES: Readonly<Record<EntityTone, string>> = {
   light: 'bg-lamp/14 text-lamp',
   power: 'bg-primary/14 text-primary',
   sensor: 'bg-cyan/14 text-cyan',
@@ -85,11 +88,11 @@ export function EntityTile(props: EntityTileProps) {
   const { box, glyph } = SIZES[size];
   const isLit = isAvailable && isActive !== false;
   const lit = isPlain
-    ? `bg-surface-raised ${LIT[kind.tone]
+    ? `bg-surface-raised ${TONE_CLASSES[kind.tone]
         .split(' ')
         .filter((name) => name.startsWith('text-'))
         .join(' ')}`
-    : LIT[kind.tone];
+    : TONE_CLASSES[kind.tone];
 
   return (
     <span

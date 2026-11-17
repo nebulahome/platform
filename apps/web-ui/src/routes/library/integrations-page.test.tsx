@@ -142,8 +142,12 @@ function vendor(overrides: Partial<IntegrationVendorView>): IntegrationVendorVie
  * Renders the page with an owner signed in.
  *
  * @param permissions - What the owner may do; configuring integrations when not said.
+ * @param address - Where the page is opened.
  */
-function renderPage(permissions: readonly string[] = ['integration:configure']): void {
+function renderPage(
+  permissions: readonly string[] = ['integration:configure'],
+  address = '/integrations',
+): void {
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -163,7 +167,7 @@ function renderPage(permissions: readonly string[] = ['integration:configure']):
 
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/integrations']}>
+      <MemoryRouter initialEntries={[address]}>
         <IntegrationsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -269,6 +273,20 @@ describe('the integrations grid', () => {
 
     expect(await screen.findByRole('heading', { name: 'Install an integration' })).toBeTruthy();
     expect(searchIntegrationCatalogue).toHaveBeenCalledWith('', undefined, expect.anything());
+  });
+
+  it('opens the Hub’s search on what the command palette asked for, ?hub=', async () => {
+    vi.mocked(fetchVendors).mockResolvedValue([vendor({})]);
+    renderPage(['integration:install'], '/integrations?hub=zigbee');
+
+    expect(await screen.findByRole('heading', { name: 'Install an integration' })).toBeTruthy();
+    await waitFor(() => {
+      expect(searchIntegrationCatalogue).toHaveBeenCalledWith(
+        'zigbee',
+        undefined,
+        expect.anything(),
+      );
+    });
   });
 
   it('does not offer Install to somebody who may only configure integrations', async () => {

@@ -177,6 +177,7 @@
     --shadow-focus: 0 0 0 3px rgb(79 85 223 / 0.25);
     --shadow-float: 0 20px 40px -12px rgb(20 26 42 / 0.25);
     --shadow-dialog: 0 24px 56px -20px rgb(20 26 42 / 0.22);
+    --shadow-palette: 0 30px 80px -24px rgb(20 26 42 / 0.3);
     --shadow-popover: 0 24px 48px -16px rgb(20 26 42 / 0.28);
     --shadow-rail: 0 12px 32px -14px rgb(20 26 42 / 0.14), 0 1px 2px rgb(20 26 42 / 0.05);
   }
@@ -272,6 +273,7 @@
       --shadow-focus: 0 0 0 3px rgb(79 85 223 / 0.25);
       --shadow-float: 0 20px 40px -12px rgb(20 26 42 / 0.25);
       --shadow-dialog: 0 24px 56px -20px rgb(20 26 42 / 0.22);
+      --shadow-palette: 0 30px 80px -24px rgb(20 26 42 / 0.3);
       --shadow-popover: 0 24px 48px -16px rgb(20 26 42 / 0.28);
       --shadow-rail: 0 12px 32px -14px rgb(20 26 42 / 0.14), 0 1px 2px rgb(20 26 42 / 0.05);
     }
@@ -1732,5 +1734,170 @@
   :root:not([data-motion='full']) :is(dialog, .modal-ghost),
   :root:not([data-motion='full']) :is(dialog, .modal-ghost)::backdrop {
     animation: none;
+  }
+}
+
+/*
+ * The command palette (docs: command palette, 12.3 and 12.5; boards N-Command-Palette-*): the
+ * theme's surface as dark glass, one still line of light on its top edge, the page behind a little
+ * out of focus. A gradient, a mask and an inset shadow are not utilities, so the look is here.
+ */
+.palette-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-canvas) 52%, transparent);
+  backdrop-filter: blur(3px);
+  animation: var(--animate-palette-scrim-in);
+}
+
+.palette-panel {
+  max-height: min(78vh, 700px);
+  border: 1px solid color-mix(in srgb, var(--color-foreground) 8%, transparent);
+  border-radius: var(--radius-palette);
+  background: color-mix(in srgb, var(--color-surface) 84%, transparent);
+  backdrop-filter: blur(28px) saturate(1.4);
+  box-shadow:
+    var(--shadow-palette),
+    inset 0 1px 0 color-mix(in srgb, var(--color-foreground) 5%, transparent);
+  animation: var(--animate-palette-in);
+}
+
+/* The light, the only decoration: a line on the top edge and a glow under it. It never moves. */
+.palette-light {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 190px;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 64% 100% at 50% 0,
+    color-mix(in srgb, var(--color-primary) 15%, transparent),
+    transparent 78%
+  );
+}
+
+.palette-light::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-foreground) 45%, transparent) 50%,
+    transparent
+  );
+}
+
+.palette-field {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+
+/* The active row's ground: one element under the rows, which slides from one to the next. */
+.palette-active {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: var(--palette-h, 0);
+  translate: 0 var(--palette-y, 0);
+  border-radius: var(--radius-inner);
+  background: var(--color-surface-raised);
+  pointer-events: none;
+  transition:
+    translate 110ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 110ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.palette-active[data-snap] {
+  transition: none;
+}
+
+/* The list grows and shrinks with its rows; past the tallest it scrolls, fading at the foot. */
+.palette-list {
+  transition: height 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.palette-list[data-overflow] {
+  mask-image: linear-gradient(#000 calc(100% - 28px), transparent);
+}
+
+/* The rows arriving as the palette opens, one after another. */
+.palette-row {
+  animation: var(--animate-palette-row);
+  animation-delay: calc(40ms + var(--palette-i, 0) * 18ms);
+}
+
+/* The active row's button comes in once the highlight is there. */
+.palette-action {
+  animation: fade-in 100ms ease-out 60ms both;
+}
+
+/* A state that has just changed comes up from a little below. */
+.palette-tick {
+  animation: palette-row 160ms cubic-bezier(0.16, 1, 0.3, 1) 60ms both;
+}
+
+.palette-pop {
+  animation: var(--animate-palette-pop);
+}
+
+.palette-check {
+  animation: var(--animate-palette-check);
+}
+
+.palette-shake {
+  animation: var(--animate-palette-shake);
+}
+
+/* Closing, quicker than a dialog: the copy `modal.tsx` fades out, with the palette's own times. */
+.palette-dialog.modal-ghost {
+  animation: palette-out 110ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+.palette-dialog.modal-ghost::backdrop {
+  animation: backdrop-out 110ms ease-in both;
+}
+
+@keyframes palette-out {
+  to {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+
+/* With less motion nothing moves; colours still change, and the state stays live. */
+[data-motion='reduced']
+  :is(
+    .palette-panel,
+    .palette-row,
+    .palette-action,
+    .palette-tick,
+    .palette-pop,
+    .palette-check,
+    .palette-shake
+  ),
+[data-motion='reduced'] .palette-dialog::backdrop {
+  animation: none;
+}
+
+[data-motion='reduced'] :is(.palette-active, .palette-list) {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full'])
+    :is(
+      .palette-panel,
+      .palette-row,
+      .palette-action,
+      .palette-tick,
+      .palette-pop,
+      .palette-check,
+      .palette-shake
+    ),
+  :root:not([data-motion='full']) .palette-dialog::backdrop {
+    animation: none;
+  }
+
+  :root:not([data-motion='full']) :is(.palette-active, .palette-list) {
+    transition: none;
   }
 }

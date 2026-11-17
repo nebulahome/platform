@@ -58,6 +58,7 @@ import {
   resolveTargetState,
   seedTargetState,
 } from '@/library/scene-target-state';
+import { CopyButton } from '@/routes/library/broker-parts';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
 import { BackLink } from '@/routes/library/detail-page';
 import { EntityField } from '@/routes/library/entity-field';
@@ -700,6 +701,14 @@ export function SceneDialog(props: SceneDialogProps) {
             actions={
               confirm ?? (
                 <>
+                  {/* Copied, the id makes the scene the command palette's first row. */}
+                  {existing === undefined ? null : (
+                    <CopyButton
+                      value={existing.id}
+                      label={t('library.copyId', 'Copy id')}
+                      isCompact
+                    />
+                  )}
                   {existing === undefined || onApply === undefined ? null : (
                     <Button
                       variant="ghost"
