@@ -244,13 +244,14 @@ const ROW =
   'px-2.75 text-ui whitespace-nowrap transition-colors focus-visible:-outline-offset-2';
 
 /**
- * A package's page under Packages: a shorter row with a 16px icon in the same column as the
- * others, and its name where theirs starts. Smaller rather than indented, because an indent would
- * move the icon when the card opens.
+ * A package's page under Packages: a shorter row with a 16px icon. Open, it stands indented past
+ * the line that hangs from the Packages icon; shut, its icon is in the column of the others. The
+ * only icons that move when the card opens, so they slide: no `press` here, whose own transition
+ * would stop the padding from moving.
  */
 const SUB_ROW =
-  'press group flex h-9 w-full shrink-0 items-center gap-3.75 overflow-hidden rounded-field border ' +
-  'px-3.25 text-ui-sm whitespace-nowrap transition-colors focus-visible:-outline-offset-2';
+  'group flex h-9 w-full shrink-0 items-center gap-2.5 overflow-hidden rounded-field border ' +
+  'text-ui-sm whitespace-nowrap focus-visible:-outline-offset-2';
 
 /** A row that is the current page: outlined, raised, its glyph in the accent. */
 const ROW_ACTIVE =
@@ -405,26 +406,54 @@ type RowProps = {
 
   /** What wants a look, in words, when something does. */
   readonly alert?: string | undefined;
+
+  /** The fold of what hangs under the row - the packages' pages under Packages - when it has any. */
+  readonly fold?: FoldControl | undefined;
+};
+
+/** A fold a row carries for the rows hanging under it. */
+type FoldControl = {
+  /** Whether they are folded. */
+  readonly isFolded: boolean;
+
+  /** What the button is called. */
+  readonly label: string;
+
+  /** The id of what it folds. */
+  readonly controls: string;
+
+  /** Called when it is pressed. */
+  readonly onToggle: () => void;
 };
 
 /**
  * One row: the icon, and - while the card is open - the name and how many, or what wants a look
  * in place of the count. Shut, the name is what the row is called and what shows beside the card.
  *
+ * A row with rows hanging under it carries, on the open card, the button that folds them: a
+ * chevron in the column of the sections' own, beside the link rather than inside it, since a
+ * button in a link is a control nobody can reach.
+ *
  * @param props - See {@link RowProps}.
  * @returns The row.
  */
 function Row(props: RowProps) {
-  const { entry, count, alert } = props;
+  const { entry, count, alert, fold } = props;
   const rail = useContext(RailContext);
   const label = text(entry.label);
   const detail = alert ?? (count === undefined ? undefined : String(count));
 
-  return (
+  const link = (
     <NavLink
       to={entry.to}
       aria-label={rail.isCollapsed ? [label, alert].filter(Boolean).join(', ') : undefined}
-      className={({ isActive }) => cn(ROW, isActive ? ROW_ACTIVE : ROW_IDLE)}
+      className={({ isActive }) =>
+        cn(
+          ROW,
+          isActive ? ROW_ACTIVE : ROW_IDLE,
+          fold === undefined || rail.isCollapsed ? undefined : 'pr-9',
+        )
+      }
       data-tip={
         rail.isCollapsed
           ? [label, detail].filter((part) => part !== undefined).join(' · ')
@@ -446,6 +475,39 @@ function Row(props: RowProps) {
         </Fading>
       )}
     </NavLink>
+  );
+
+  if (fold === undefined) {
+    return link;
+  }
+
+  return (
+    <div className="relative flex shrink-0">
+      {link}
+      <span
+        inert={rail.isCollapsed}
+        aria-hidden={rail.isCollapsed}
+        className={cn('absolute top-1/2 right-1.25 flex -translate-y-1/2', fading(rail))}
+      >
+        <button
+          type="button"
+          aria-label={fold.label}
+          aria-expanded={!fold.isFolded}
+          aria-controls={fold.controls}
+          onClick={fold.onToggle}
+          className="press flex size-7 items-center justify-center rounded-chip text-foreground-subtle hover:bg-surface-high hover:text-foreground focus-visible:-outline-offset-2"
+        >
+          <AppIcon
+            id="chevron-down"
+            size={14}
+            className={cn(
+              rail.isReduced ? undefined : `transition-[rotate] ${MOTION}`,
+              fold.isFolded ? '-rotate-90' : undefined,
+            )}
+          />
+        </button>
+      </span>
+    </div>
   );
 }
 
@@ -474,8 +536,9 @@ type SectionProps = {
  * chevron at the right edge, in the column of the counts, that turns from down to right as it
  * folds. Folded with something waiting inside, a dot beside the name says so.
  *
- * The heading keeps its 22px at both widths: shut, it is a line parting the section from the one
- * above, and the two cross-fade. The button is inert then, since a shut card folds nothing. The
+ * The heading keeps its 32px at both widths - room enough between folded sections, and a
+ * heading's worth of target - and shut it is a line parting the section from the one above, the
+ * two cross-fading. The button is inert then, since a shut card folds nothing. The
  * name stays the group's label for a screen reader at both.
  *
  * @param props - See {@link SectionProps}.
@@ -489,7 +552,7 @@ function Section(props: SectionProps) {
 
   return (
     <div role="group" aria-labelledby={id} className="flex flex-col">
-      <div className="relative flex h-5.5 shrink-0">
+      <div className="relative flex h-8 shrink-0">
         <div className="flex w-full" inert={rail.isCollapsed} aria-hidden={rail.isCollapsed}>
           <button
             type="button"
@@ -786,52 +849,107 @@ function UserChip() {
   );
 }
 
+/** A running package with a page that asks for an entry in the sidebar. */
+type PackagePage = ApiPackage & { ui: NonNullable<ApiPackage['ui']> };
+
 /**
- * The entries of the packages' own pages, under Packages: each running package with a page that
- * asks for one, by the label and icon it asks for - its name and logo when it says neither.
+ * Reads the packages whose pages hang under Packages: each running package with a page that asks
+ * for an entry (`ui.sidebar`).
  *
- * @returns The entries; nothing when no package asks.
+ * @returns The packages, in the order they are listed.
  */
-function PackagePages() {
-  const rail = useContext(RailContext);
+function usePackagePages(): readonly PackagePage[] {
   const { packages } = useInstalledPackages();
-  const pages = packages.filter(
-    (found): found is ApiPackage & { ui: NonNullable<ApiPackage['ui']> } =>
+
+  return packages.filter(
+    (found): found is PackagePage =>
       found.state === 'running' && found.ui?.page === true && found.ui.sidebar !== undefined,
   );
+}
+
+/** What the packages' pages need. */
+type PackagePagesProps = {
+  /** The packages, from {@link usePackagePages}. */
+  readonly pages: readonly PackagePage[];
+
+  /** Whether they are folded on the open card. */
+  readonly isFolded: boolean;
+
+  /** The page you are on: its own entry stays when the rest are folded. */
+  readonly pathname: string;
+
+  /** The id the fold button points at. */
+  readonly id: string;
+};
+
+/**
+ * The entries of the packages' own pages, under Packages, by the label and icon each asks for -
+ * its name and logo when it says neither.
+ *
+ * Open, they hang from a line dropped from the middle of the Packages icon, indented past it, so
+ * they read as Packages' own; shut, the line goes and their icons slide back into the column of
+ * the others. Folded, only the one you are on stays.
+ *
+ * @param props - See {@link PackagePagesProps}.
+ * @returns The entries; nothing when no package asks.
+ */
+function PackagePages(props: PackagePagesProps) {
+  const { pages, isFolded, pathname, id } = props;
+  const rail = useContext(RailContext);
   const icons = useCatalogueIcons(pages.map((found) => found.ui.sidebar?.icon ?? null));
+  const motion = rail.isReduced ? undefined : MOTION;
 
   if (pages.length === 0) {
     return null;
   }
 
   return (
-    <div className="flex flex-col gap-0.5">
+    // Up by the gap above it, so the line starts where the Packages row ends.
+    <div
+      id={id}
+      className={cn(
+        '-mt-0.5 flex flex-col border-l',
+        motion === undefined ? undefined : `transition-[margin,padding,border-color] ${motion}`,
+        rail.isCollapsed ? 'ml-0 border-transparent pl-0' : 'ml-5.5 border-border pl-2',
+      )}
+    >
       {pages.map((found) => {
         const iconId = found.ui.sidebar?.icon;
         const icon = iconId === undefined ? undefined : icons.get(iconId);
         const label = found.ui.sidebar?.label ?? found.name;
+        const to = packageAppPath(found.id);
 
         return (
-          <NavLink
-            key={found.id}
-            to={packageAppPath(found.id)}
-            aria-label={rail.isCollapsed ? label : undefined}
-            className={({ isActive }) => cn(SUB_ROW, isActive ? ROW_ACTIVE : ROW_IDLE)}
-            data-tip={rail.isCollapsed ? label : undefined}
-            {...rail.tip}
-          >
-            {iconId === undefined ? (
-              <PackageLogo found={found} size={16} />
-            ) : (
-              <CatalogueIcon
-                node={icon?.node ?? []}
-                frame={icon?.frame ?? { x: 0, y: 0, size: 24 }}
-                size={16}
-              />
-            )}
-            <Fading className="truncate">{label}</Fading>
-          </NavLink>
+          <Fold key={found.id} isShown={rail.isCollapsed || !isFolded || isUnder(pathname, to)}>
+            <NavLink
+              to={to}
+              aria-label={rail.isCollapsed ? label : undefined}
+              className={({ isActive }) =>
+                cn(
+                  SUB_ROW,
+                  motion === undefined
+                    ? 'transition-colors'
+                    : `transition-[padding,background-color,border-color,color] ${motion}`,
+                  // Shut, its 16px icon sits where the rows' 20px ones do.
+                  rail.isCollapsed ? 'px-3' : 'px-2.5',
+                  isActive ? ROW_ACTIVE : ROW_IDLE,
+                )
+              }
+              data-tip={rail.isCollapsed ? label : undefined}
+              {...rail.tip}
+            >
+              {iconId === undefined ? (
+                <PackageLogo found={found} size={16} />
+              ) : (
+                <CatalogueIcon
+                  node={icon?.node ?? []}
+                  frame={icon?.frame ?? { x: 0, y: 0, size: 24 }}
+                  size={16}
+                />
+              )}
+              <Fading className="truncate">{label}</Fading>
+            </NavLink>
+          </Fold>
         );
       })}
     </div>
@@ -895,6 +1013,8 @@ export function Sidebar() {
   const setPreferences = usePreferences((state) => state.set);
   const foldedSections = usePreferences((state) => state.foldedSections);
   const { pathname } = useLocation();
+  const packagePages = usePackagePages();
+  const packagePagesId = useId();
   const counts = useRailCounts();
   const alerts = useRailAlerts();
   const isReduced = useReducedMotion();
@@ -1058,6 +1178,22 @@ export function Sidebar() {
         });
   };
 
+  /**
+   * Folds what can be folded, or unfolds it: the choice is kept with the others.
+   *
+   * @param section - What was pressed.
+   */
+  const toggleFold = (section: SidebarSection): void => {
+    // Read now rather than from this render: two folds in one go must both hold.
+    const folded = usePreferences.getState().foldedSections;
+
+    setPreferences({
+      foldedSections: folded.includes(section)
+        ? folded.filter((other) => other !== section)
+        : [...folded, section],
+    });
+  };
+
   /** Opens or shuts the card: the saved choice on a wide window, this visit's on a narrow one. */
   const toggle = (): void => {
     rail.hideTip();
@@ -1129,11 +1265,7 @@ export function Sidebar() {
                     isFolded={isFolded}
                     alert={hidden.length === 0 ? undefined : hidden.join(', ')}
                     onToggle={() => {
-                      setPreferences({
-                        foldedSections: isFolded
-                          ? foldedSections.filter((section) => section !== group.id)
-                          : [...foldedSections, group.id],
-                      });
+                      toggleFold(group.id);
                     }}
                   >
                     {group.entries.map((entry) => (
@@ -1142,8 +1274,29 @@ export function Sidebar() {
                           entry={entry}
                           count={entry.count === undefined ? undefined : counts[entry.count]}
                           alert={alertOf(entry)}
+                          fold={
+                            entry.to === '/packages' && packagePages.length > 0
+                              ? {
+                                  isFolded: foldedSections.includes('packages'),
+                                  label: t('nav.packagePages', 'Package pages'),
+                                  controls: packagePagesId,
+
+                                  /** Folds the packages' pages, or unfolds them. */
+                                  onToggle: () => {
+                                    toggleFold('packages');
+                                  },
+                                }
+                              : undefined
+                          }
                         />
-                        {entry.to === '/packages' ? <PackagePages /> : null}
+                        {entry.to === '/packages' ? (
+                          <PackagePages
+                            pages={packagePages}
+                            isFolded={foldedSections.includes('packages')}
+                            pathname={pathname}
+                            id={packagePagesId}
+                          />
+                        ) : null}
                       </Fold>
                     ))}
                   </Section>

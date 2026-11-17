@@ -46,8 +46,11 @@ export const SIDEBAR_CHOICES = ['expanded', 'collapsed'] as const;
 /** One of {@link SIDEBAR_CHOICES}. */
 export type SidebarChoice = (typeof SIDEBAR_CHOICES)[number];
 
-/** The sections of the sidebar, each of which can be folded on the open card. */
-export const SIDEBAR_SECTIONS = ['automate', 'house', 'system'] as const;
+/**
+ * What can be folded on the open sidebar: its three sections, and the packages' pages under
+ * Packages.
+ */
+export const SIDEBAR_SECTIONS = ['automate', 'house', 'system', 'packages'] as const;
 
 /** One of {@link SIDEBAR_SECTIONS}. */
 export type SidebarSection = (typeof SIDEBAR_SECTIONS)[number];

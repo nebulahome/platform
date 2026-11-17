@@ -188,6 +188,38 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('link', { name: 'MQTT' })).toBeNull();
   });
 
+  it('folds the packages’ pages from Packages, keeping the one you are on, and remembers it', async () => {
+    vi.mocked(fetchPackages).mockResolvedValueOnce([
+      aPackage({ id: 'recorder', name: 'Recorder', ui: withEntry({}) }),
+      aPackage({ id: 'music', name: 'Music', ui: withEntry({}) }),
+    ]);
+    renderAt('/packages/recorder/app', ['package:read']);
+    await screen.findByRole('link', { name: 'Music' });
+
+    const fold = screen.getByRole('button', { name: 'Package pages' });
+    expect(fold.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.click(fold);
+
+    expect(fold.getAttribute('aria-expanded')).toBe('false');
+    expect(usePreferences.getState().foldedSections).toEqual(['packages']);
+    expect(screen.queryByRole('link', { name: 'Music' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Recorder' })).toBeTruthy();
+
+    // Shut, every icon shows and there is nothing to fold.
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+
+    expect(screen.getByRole('link', { name: 'Music' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Package pages' })).toBeNull();
+  });
+
+  it('has nothing to fold under Packages when no package asks for a page', () => {
+    renderAt('/packages', ['package:read']);
+
+    expect(screen.getByRole('link', { name: /Packages/u })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Package pages' })).toBeNull();
+  });
+
   it('shows Dashboards and the three sections, Automate, House and System', () => {
     renderAt('/dashboards', EVERYTHING);
 
