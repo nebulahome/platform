@@ -538,9 +538,9 @@ type SectionProps = {
  * chevron at the right edge, in the column of the counts, that turns from down to right as it
  * folds. Folded with something waiting inside, a dot beside the name says so.
  *
- * The heading keeps its 32px at both widths - room enough between folded sections, and a
- * heading's worth of target - and shut it is a line parting the section from the one above, the
- * two cross-fading. The button is inert then, since a shut card folds nothing. The
+ * The heading is 32px open - room enough between folded sections, and a heading's worth of
+ * target - and shut it is a 16px line parting the section from the one above, the two
+ * cross-fading. The button is inert then, since a shut card folds nothing. The
  * name stays the group's label for a screen reader at both.
  *
  * @param props - See {@link SectionProps}.
@@ -554,7 +554,13 @@ function Section(props: SectionProps) {
 
   return (
     <div role="group" aria-labelledby={id} className="flex flex-col">
-      <div className="relative flex h-8 shrink-0">
+      <div
+        className={cn(
+          'relative flex shrink-0',
+          rail.isReduced ? undefined : `transition-[height] ${MOTION}`,
+          rail.isCollapsed ? 'h-4' : 'h-8',
+        )}
+      >
         <div className="flex w-full" inert={rail.isCollapsed} aria-hidden={rail.isCollapsed}>
           <button
             type="button"
