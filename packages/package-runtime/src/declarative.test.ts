@@ -158,6 +158,27 @@ describe('describe', () => {
     expect(integration().describe(bare, {}).name).toBe('relay-aabbcc');
   });
 
+  it('names the parent the identity points at, and never the device itself', () => {
+    const parented = createDeclarativeIntegration(
+      manifest(),
+      integrationProfileSchema.parse({
+        ...PROFILE_JSON,
+        discovery: {
+          ...PROFILE_JSON.discovery,
+          identity: { ...PROFILE_JSON.discovery.identity, parent: 'device.parent' },
+        },
+      }),
+    );
+    const part = (parent: string): Claim => ({
+      ...claim(),
+      descriptor: { ...DESCRIPTOR, device: { ...DESCRIPTOR.device, parent } },
+    });
+
+    expect(parented.describe(part('H4502A1234'), {}).parentExternalId).toBe('H4502A1234');
+    expect('parentExternalId' in parented.describe(part('relay-aabbcc'), {})).toBe(false);
+    expect('parentExternalId' in integration().describe(claim(), {})).toBe(false);
+  });
+
   it('exposes the entities the profile declares', () => {
     const [entity] = integration().describe(claim(), {}).entities;
 
