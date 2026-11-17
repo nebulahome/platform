@@ -10,9 +10,11 @@
  * packages, containers); then the settings and you. Each entry carries how many there are, read
  * from the lists the pages read, and an update waiting puts a dot on its icon.
  *
- * On the open card a section's heading folds and unfolds it, and the folds are kept on this device
- * with the width. A folded section still shows the row of the page you are on, so where you are
- * is never folded away, and a dot beside its heading says when something inside wants a look. The
+ * On the open card one section stands open at a time: a heading opens its section and folds the
+ * one that was open, and going to a page opens the page's section the same way. The open one is
+ * kept on this device with the width. A folded section still shows the row of the page you are
+ * on, so where you are is never folded away, and a dot beside its heading says when something
+ * inside wants a look. The
  * shut card shows every icon whatever is folded: an icon has no heading to be found under.
  *
  * The card is 64px wide with one icon per page, or 280px with their names and counts. The button
@@ -532,7 +534,7 @@ type SectionProps = {
 /**
  * A heading and the rows under it.
  *
- * On the open card the heading is the button that folds and unfolds the section: its name, and a
+ * On the open card the heading is the button that opens the section, folding the others: its name, and a
  * chevron at the right edge, in the column of the counts, that turns from down to right as it
  * folds. Folded with something waiting inside, a dot beside the name says so.
  *
@@ -647,6 +649,25 @@ function Fold(props: { readonly isShown: boolean; readonly children: ReactNode }
  */
 function isUnder(pathname: string, to: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+/**
+ * Opens one section and folds the other two: one section stands open at a time. The fold of the
+ * packages' pages is left as it is. Kept with the other preferences, so it holds on reload.
+ *
+ * @param section - The section to open.
+ */
+function openSection(section: SidebarSection): void {
+  const { foldedSections, set } = usePreferences.getState();
+  const groups = GROUPS.map((group) => group.id);
+  const next = [
+    ...foldedSections.filter((other) => !groups.includes(other)),
+    ...groups.filter((other) => other !== section),
+  ];
+
+  if (next.length !== foldedSections.length || next.some((s) => !foldedSections.includes(s))) {
+    set({ foldedSections: next });
+  }
 }
 
 /**
@@ -1160,6 +1181,19 @@ export function Sidebar() {
     }))
     .filter((group) => group.entries.length > 0);
 
+  // One section open: the first not folded among those drawn, and the page's own whenever the
+  // page changes, so moving to a page in another section swaps them.
+  const openId = (groups.find((group) => !foldedSections.includes(group.id)) ?? groups[0])?.id;
+  const pageGroup = groups.find((group) =>
+    group.entries.some((entry) => isUnder(pathname, entry.to)),
+  )?.id;
+
+  useEffect(() => {
+    if (pageGroup !== undefined) {
+      openSection(pageGroup);
+    }
+  }, [pathname, pageGroup]);
+
   /**
    * The words of what an entry has waiting.
    *
@@ -1242,7 +1276,7 @@ export function Sidebar() {
               <Row entry={DASHBOARDS} />
 
               {groups.map((group) => {
-                const isFolded = foldedSections.includes(group.id);
+                const isFolded = group.id !== openId;
 
                 /**
                  * Whether an entry shows: always on the shut card, and on the open one unless its
@@ -1265,7 +1299,7 @@ export function Sidebar() {
                     isFolded={isFolded}
                     alert={hidden.length === 0 ? undefined : hidden.join(', ')}
                     onToggle={() => {
-                      toggleFold(group.id);
+                      openSection(group.id);
                     }}
                   >
                     {group.entries.map((entry) => (

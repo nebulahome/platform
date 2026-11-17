@@ -2,7 +2,7 @@
  * The sidebar, and the pure functions around it.
  *
  * The render cases check the things that are easy to get wrong and invisible when they are: that
- * every section stays open wherever you are, that each entry sits in the section it belongs to,
+ * one section stands open and follows the page, that each entry sits in the section it belongs to,
  * that a shut card still names every icon, that a narrow window shuts it without forgetting the
  * choice, and that the current row is marked in a way something other than a colour can perceive.
  */
@@ -202,7 +202,7 @@ describe('Sidebar', () => {
     fireEvent.click(fold);
 
     expect(fold.getAttribute('aria-expanded')).toBe('false');
-    expect(usePreferences.getState().foldedSections).toEqual(['packages']);
+    expect(usePreferences.getState().foldedSections).toContain('packages');
     expect(screen.queryByRole('link', { name: 'Music' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Recorder' })).toBeTruthy();
 
@@ -230,47 +230,52 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Settings' })).toBeTruthy();
   });
 
-  it('opens every section until one is folded, wherever you are', () => {
+  it('opens only the first section on a page outside them', () => {
     renderAt('/dashboards', EVERYTHING);
 
-    for (const name of [
-      /Automations/u,
-      /Scenes/u,
-      /Devices/u,
-      /Tags/u,
-      /Brokers/u,
-      /Containers/u,
-    ]) {
-      expect(screen.getByRole('link', { name })).toBeTruthy();
-    }
-    for (const name of ['Automate', 'House', 'System']) {
-      expect(screen.getByRole('button', { name }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('link', { name: /Automations/u })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /Devices/u })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Brokers/u })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Automate' }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+    for (const name of ['House', 'System']) {
+      expect(screen.getByRole('button', { name }).getAttribute('aria-expanded')).toBe('false');
     }
   });
 
-  it('folds a section by its heading and unfolds it again, and remembers it', () => {
+  it('opens the section of the page you are on', () => {
+    renderAt('/containers', EVERYTHING);
+
+    expect(screen.getByRole('button', { name: 'System' }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+    expect(screen.queryByRole('link', { name: /Automations/u })).toBeNull();
+  });
+
+  it('swaps the open section for the one whose heading is pressed, and remembers it', () => {
     renderAt('/dashboards', EVERYTHING);
 
+    const automate = screen.getByRole('button', { name: 'Automate' });
     const system = screen.getByRole('button', { name: 'System' });
     fireEvent.click(system);
 
-    expect(system.getAttribute('aria-expanded')).toBe('false');
-    expect(usePreferences.getState().foldedSections).toEqual(['system']);
-    expect(screen.queryByRole('link', { name: /Brokers/u })).toBeNull();
-    expect(screen.queryByRole('link', { name: /Containers/u })).toBeNull();
-    expect(screen.getByRole('link', { name: /Devices/u })).toBeTruthy();
+    expect(system.getAttribute('aria-expanded')).toBe('true');
+    expect(automate.getAttribute('aria-expanded')).toBe('false');
+    expect(usePreferences.getState().foldedSections).toEqual(['automate', 'house']);
+    expect(screen.getByRole('link', { name: /Brokers/u })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /Automations/u })).toBeNull();
 
+    // Pressing the open one keeps it open: one section always stands open.
     fireEvent.click(system);
 
     expect(system.getAttribute('aria-expanded')).toBe('true');
-    expect(usePreferences.getState().foldedSections).toEqual([]);
-    expect(screen.getByRole('link', { name: /Brokers/u })).toBeTruthy();
   });
 
   it('keeps the page you are on in sight in a folded section', () => {
     renderAt('/devices/shelly-kitchen?entity=light.kitchen', EVERYTHING);
 
-    fireEvent.click(screen.getByRole('button', { name: 'House' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Automate' }));
 
     expect(screen.getByRole('link', { name: /Devices/u }).getAttribute('aria-current')).toBe(
       'page',
@@ -286,9 +291,10 @@ describe('Sidebar', () => {
       error: null,
     });
     renderAt('/dashboards', EVERYTHING);
+    fireEvent.click(screen.getByRole('button', { name: 'System' }));
     await within(screen.getByRole('link', { name: /Packages/u })).findByText('1 update');
 
-    fireEvent.click(screen.getByRole('button', { name: 'System' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Automate' }));
 
     expect(screen.getByRole('button', { name: 'System, 1 update' })).toBeTruthy();
   });
@@ -296,7 +302,6 @@ describe('Sidebar', () => {
   it('shows every icon on the shut card, folded sections too, and folds nothing there', () => {
     renderAt('/dashboards', EVERYTHING);
 
-    fireEvent.click(screen.getByRole('button', { name: 'System' }));
     fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
 
     expect(screen.getByRole('link', { name: 'Brokers' })).toBeTruthy();
@@ -371,7 +376,7 @@ describe('Sidebar', () => {
       checkedAt: null,
       error: null,
     });
-    renderAt('/dashboards', EVERYTHING);
+    renderAt('/brokers', EVERYTHING);
 
     const integrations = screen.getByRole('link', { name: /Integrations/u });
     expect(await within(integrations).findByText('2 updates')).toBeTruthy();
@@ -416,11 +421,11 @@ describe('Sidebar', () => {
     // Open, the names are on the rows, and nothing shows beside the card.
     fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
     expect(usePreferences.getState().sidebar).toBe('expanded');
-    fireEvent.mouseEnter(screen.getByRole('link', { name: /Tags/u }));
+    fireEvent.mouseEnter(screen.getByRole('link', { name: /Aliases/u }));
     await new Promise((done) => {
       globalThis.setTimeout(done, 200);
     });
-    expect(screen.queryByText('Tags · 0')).toBeNull();
+    expect(screen.queryByText('Aliases · 0')).toBeNull();
   });
 
   it('keeps the width chosen on every page, the dashboard editor too', () => {
