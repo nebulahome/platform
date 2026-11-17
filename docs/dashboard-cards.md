@@ -1,7 +1,7 @@
 # Dashboard cards, Add card, card settings, smaller screens
 
 Build brief for the dashboard work designed on the redesign canvas, page **Dashboard · card e modifica**
-(`https://claude.ai/artifact/4pCaH1weFogKWZ5JCZ2UNu`, version 309, 2026-11-17). It says what to build and
+(`https://claude.ai/artifact/4pCaH1weFogKWZ5JCZ2UNu`, version 313, 2026-11-17). It says what to build and
 why each choice was made, so that whoever builds it does not have to guess from the pictures.
 
 Read it with the boards open. Board names are in `code`. The generator of the boards is outside this
@@ -30,9 +30,9 @@ As read in the code on 2026-11-17. Check a path before relying on it.
 | Narrow layout  | `dashboard-grid.tsx`, `narrowLayout` in `dashboard/dashboard-layout.ts`                         | Under 720 px of grid width: 2 columns, drawn only, never stored; editing is switched off                                |
 | Package cards  | `packages/package-sdk` (`defineCard`, `CardProps`), `apps/web-ui/src/packages/package-slot.tsx` | Same React tree, error boundary, lazy chunk per card; manifest sizes `small`, `wide`, `medium`, `large`                 |
 
-What does not exist: a preview of a card anywhere, a size choice when adding, a draggable panel that is
-not tied to a package, a one-column layout, a way to see narrower widths while editing, size names in
-the interface (it shows "2×1").
+What does not exist: a preview of a card anywhere, a floating panel that is not tied to a package, a
+one-column layout, a way to see narrower widths while editing, size names in the interface (it shows
+"2×1").
 
 ---
 
@@ -197,63 +197,82 @@ on.
 
 ---
 
-## 7. Add a card — boards `N-Dashboard-Add*`
+## 7. Add a card — boards `N-Dashboard-Add*`, `N-Dashboard-Card-Settings-New`
 
-One dialog, two steps. It replaces `add-card-dialog.tsx` and the second modal of the entity picker.
+One dialog, **one step**. It replaces `add-card-dialog.tsx` and the second modal of the entity picker.
 
-### 7.1 Step 1: what to add
+Asked: the previews when choosing stay; there is no screen for the size. The card is added at a fixed
+size, the smallest, and everything else is done from the settings panel (section 8) with the real card
+on the page.
+
+### 7.1 The dialog: what to add
 
 `N-Dashboard-Add`, `N-Dashboard-Add-Packages`, `N-Dashboard-Add-Search`
 
 - Left: categories with counts (All cards, For one entity, Together, Summing up, From packages, Other).
   "From packages" shows only when an installed package offers cards, as today.
 - Right: one tile per card kind. Each tile holds a **live preview**, the name, one line of what it is
-  and the sizes it comes in.
+  and the sizes it comes in. The whole tile is the button; under the pointer it gets the accent ring
+  and "+ Add".
 - The search field looks in three places at once: entities (name, area, address), areas, card kinds.
   An entity row carries one button, the card that entity gets (`cardKindOf`). An area row carries
-  three: Room, Lights together, Summary. Pressing a button goes to step 2 with that choice filled in.
+  three: Room, Lights together, Summary. Each button adds that card with the entity or the area
+  already set.
 - A package tile carries the package's name. Under the last package tile, a dashed row links to the
   Packages page.
 
-### 7.2 Step 2: entity and size, with the card at every size
+### 7.2 What a click does
 
-`N-Dashboard-Add-Entity`, `N-Dashboard-Add-Limited`, `N-Dashboard-Add-Together`, `N-Dashboard-Add-Package`
+One click on a tile or on a row button:
 
-- Left pane, fixed: the entity (or the members, or the package's own fields), "It can" (the
-  capabilities found, so the person sees why a size or a control is missing), Size as a list of radio
-  rows, "Goes in" (the page or a group: today's "Place in").
-- Right pane, on the dotted floor: the card **at its real size, once for each size on offer**, side by
-  side and wrapping. Pressing a preview chooses that size, the same as pressing its row on the left.
-  The chosen one has the accent ring and says "chosen".
-- A size the kind has and this entity cannot fill stays as a dashed frame of that size with the reason
-  ("Square needs brightness"). It cannot be chosen.
-- The pane scrolls when the sizes do not fit (Large, Tall). Never scale the step-2 previews: the point
-  is to see the real size.
-- Foot: where it will land, Cancel, **"Add and choose another"**, "Add card".
-  - "Add card" adds at the first free spot (`firstFit`, as today) and closes.
-  - **(proposed)** "Add and choose another" adds, shows the house toast, and goes back to step 1. It
-    replaces the multiple choice the entity picker gives today.
+1. adds the card to the draft at the first free spot (`firstFit`, as today), at **the smallest size on
+   offer**: `allowedSizes(entity)[0]`, or the first size of the kind when there is no entity yet;
+2. closes the dialog and scrolls the card into view;
+3. selects the card and opens the settings panel on it.
+
+What the panel opens with depends on what the card still needs:
+
+| Added from                           | The card                         | The panel opens with                          |
+| ------------------------------------ | -------------------------------- | --------------------------------------------- |
+| A search row of an entity            | complete, live                   | its fields; Size is the next thing to look at |
+| A kind tile of an entity card        | dashed, "No entity yet"          | the Entity field open: search and the list    |
+| Together, Summary                    | complete: rule "the whole house" | Members / Where                               |
+| Room                                 | dashed, "No room yet"            | Where open                                    |
+| Clock, Note, Shortcut, Quick actions | complete or empty by nature      | its fields                                    |
+| A package card                       | drawn with the manifest defaults | the framed block "Asked by the package"       |
+
+- The Entity list shows only the entities that kind of card takes. Entities already on this page are
+  dimmed and say "on this page"; they can still be chosen.
+- While the card has no entity the panel's line reads "Choose the entity to keep this card" with the
+  warning dot.
+- **(proposed)** A card still without its entity (or its room) stays dashed while editing and is left
+  out when Done saves; the toast says how many were left out. Nothing half-made reaches the stored
+  layout.
+- **(proposed)** **Add several**, a switch in the foot of the dialog. Off (default): as above. On:
+  the dialog stays open, each click adds a card, the tile or the row says "Added", the foot counts
+  ("2 added") and shows Done; Done closes and opens the panel on the last card added. It replaces the
+  multiple choice the entity picker gives today.
 
 ### 7.3 How a preview is drawn (asked: not pictures)
 
 A preview is the real card component, not an image, so it can never drift from the card and package
 cards work the same way.
 
-Build one component, `CardPreview`, used by both steps:
+Build one component, `CardPreview`:
 
 ```tsx
-<CardPreview card={draftCard} size={TILE} mode="sample" | "live" scaleToFit={{ w: 236, h: 104 }} />
+<CardPreview card={sampleCard} size={TILE} scaleToFit={{ w: 236, h: 104 }} />
 ```
 
 - It renders the same component `card-view.tsx` renders, inside a box of fixed pixels:
   `w × 267 + (w − 1) × 16` wide and `h × 100 + (h − 1) × 16` high (267 px is the column the cards are
   designed at; keep it as one constant).
 - The box is `inert` and has `pointer-events: none`: a preview never sends a command.
-- `mode="sample"` (step 1): the card gets a fixed sample entity for its kind from a fixtures file, with
-  no request to the server. One fixture per kind, the ones drawn on `K-All`.
-- `mode="live"` (step 2, once an entity is chosen): the card reads the real entity from the store, so
-  the person sees their own light at 72%. The header of the pane says "Preview · live".
-- `scaleToFit` (step 1 only) shrinks with a CSS transform to fit the tile. Never enlarge.
+- The card gets a fixed sample entity for its kind from a fixtures file, with no request to the
+  server. One fixture per kind, the ones drawn on `K-All`.
+- `scaleToFit` shrinks with a CSS transform to fit the tile. Never enlarge.
+
+There is no live preview in the dialog any more: once added, the card on the page is the preview.
 
 **Package cards.** The preview goes through the existing `PackageSlot` (same loader, same error
 boundary), with one addition to the public SDK:
@@ -262,7 +281,6 @@ boundary), with one addition to the public SDK:
   not open streams or subscriptions, and must not send commands. Document it in `PACKAGES_DOCS.md` §6
   and bump `@nebulahome/package-sdk` by a minor.
 - The manifest card gains an optional `preview: { options }`: the option values to use for the sample.
-- The pane says "Preview · drawn by the package" and "sample values" instead of "live".
 - A package whose SDK is older than this, whose chunk fails to load, or that is not running gets the
   neutral tile: the package icon, "No preview from this package", name and sizes. Adding still works.
 - Load package previews lazily, when their tile scrolls into view: each one is a dynamic import.
@@ -271,38 +289,47 @@ boundary), with one addition to the public SDK:
 
 Same shell as the install sheets (`N-Integrations-Install`): 1120 px wide, 860 px high at most, the
 glow at the top, the 42 px search, the 64 px foot. Reuse the component the install sheet uses; do not
-add a new modal size if that one already exists. Step 2's left pane is 372 px.
+add a new modal size if that one already exists. The foot holds the hint, the Add several switch and
+the count.
 
 ---
 
-## 8. Card settings: a floating panel — boards `N-Dashboard-Card-Settings*`
+## 8. Card settings: a floating panel in a fixed place — boards `N-Dashboard-Card-Settings*`
 
-Asked: floating, so the card can be watched while it is edited. It replaces the fixed `aside` of
-`card-inspector.tsx`; the fields and their logic stay.
+Asked: floating, so the card can be watched while it is edited, but **in one fixed place, the top
+right**, not beside the card. It replaces the fixed `aside` of `card-inspector.tsx`; the fields and
+their logic stay.
 
-- **Opening**: in the editor, a click on a card (not a drag) selects it and opens the panel. The
-  selected card is at full strength with the accent ring; the others stay dimmed as today.
-- **Where**: beside the card, 12 px away, on the right when there is room and on the left otherwise,
-  kept inside the window. It never covers the selected card.
-- **Moving**: drag it by its header (the grip). It stays where it was put until the editor is left;
-  after a drag, selecting another card does not move it again.
+- **Opening**: in the editor, a click on a card (not a drag) selects it and opens the panel. A card
+  just added opens it by itself (7.2). The selected card is at full strength with the accent ring; the
+  others stay dimmed as today.
+- **Where**: top right of the page, 12 px under the editing bar, its right edge on the bar's right
+  edge. `position: fixed`: it does not move when the page scrolls and it does not follow the card.
+  It is not dragged: no grip, no drag code.
+- **(proposed)** **When the selected card is under it** (their rectangles overlap), the panel takes
+  the mirrored place, top left, so the card stays in sight. It goes back to the right with the next
+  card that is not under it. Board `N-Dashboard-Card-Settings-Left`.
+- **Floating**: it lies over the grid with its shadow and takes no room from it, so the cards keep
+  their real width while they are edited. Its height follows its fields, up to the window minus 24 px;
+  beyond that the fields scroll between the header and the foot.
 - **No scrim, not modal**: the dashboard under it stays live and can be scrolled; clicking another card
   switches the panel to that card; Escape or the close button closes it and gives focus back to the card.
 - **Live**: every field writes to the draft (`draft.change`), so the card redraws at once. Nothing is
   saved until Done; Cancel discards. The thin line under the header says so: "The card changes as you
   type · kept with Done".
-- **Width** 340 px. Under 640 px of window width it becomes a bottom sheet of half the height, with
+- **Width** 320 px. Under 640 px of window width it becomes a bottom sheet of half the height, with
   the selected card scrolled into view above it (not drawn on a board).
-- Do not reuse the package `Floating` window: it is tied to a package and has throw physics. A pointer
-  drag with clamping is enough.
+- Do not reuse the package `Floating` window: it is tied to a package and has throw physics.
 
-Fields, top to bottom:
+Fields, top to bottom. Size comes right after what the card is about, because the panel is now the
+only place where the size is chosen:
 
 | Card                                      | Fields                                                                                                           |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Entity card (`N-Dashboard-Card-Settings`) | Entity · Name and icon (the platform's icon button and popover) · Size · Show · When tapped · Place in           |
-| Together (`…-Together`)                   | Members (By rule / By hand) · Where · Leave out · "6 lights match now" · Name and icon · Size · Place in         |
-| Package card (`…-Package`)                | A framed block "Asked by the package" with the manifest `options` drawn by `SetupForm` · Title · Size · Place in |
+| Entity card (`N-Dashboard-Card-Settings`) | Entity · Size · Name and icon (the platform's icon button and popover) · Show · When tapped · Place in           |
+| New entity card (`…-New`)                 | Entity, open · Size · Place in. The other fields come once the entity is chosen                                  |
+| Together (`…-Together`)                   | Members (By rule / By hand) · Where · Leave out · "6 lights match now" · Size · Name and icon · Place in         |
+| Package card (`…-Package`)                | A framed block "Asked by the package" with the manifest `options` drawn by `SetupForm` · Size · Title · Place in |
 | Others                                    | What the inspector has today, plus Size and Place in                                                             |
 
 Foot: Remove (danger) on the left, Duplicate on the right.
@@ -316,7 +343,10 @@ Foot: Remove (danger) on the left, Duplicate on the right.
   choices the entity supports. Store `tap?: 'sheet' | 'toggle' | 'none'`.
 
 Size is a segmented control with the sizes on offer only; the cells of the current one are shown at
-the right of the label.
+the right of the label. When the kind has a size this entity cannot fill, one quiet line under the
+control says so ("No Square: this light has no brightness"), from the `kind → size → reason` map of
+section 3. Changing the size resizes the card in place; when the new size does not fit where the card
+is, the grid makes room as it does for a resize by the corner.
 
 ---
 
@@ -370,10 +400,12 @@ Confirm with the owner before, or build so they are one constant away:
 3. Locks together offer only "Lock all" (6.1).
 4. Thermostats together move every target by the same step (6.1).
 5. "No answer" after 10 s, message gone after a minute (4).
-6. "Add and choose another" in place of adding several entities at once (7.2).
+6. "Add several" in place of adding several entities at once (7.2).
 7. The new card options Show and When tapped (8).
 8. Columns: 4 from 900 px, 2 from 480 px, 1 below (9).
 9. The field names of the new card types (5, 6).
+10. A card with no entity yet is left out when Done saves (7.2).
+11. The settings panel goes to the top left when the selected card is under it (8).
 
 Not designed: the light theme, the settings bottom sheet on a phone, Add group (unchanged), the list a
 Summary opens, the full-screen map of a Person.
@@ -386,9 +418,10 @@ Each step can ship alone.
 
 1. Size names (2) and `allowedSizes` with the capability rule on the existing cards (3).
 2. The six shared states in the card frame (4).
-3. The floating settings panel, with today's fields (8), then Show and When tapped.
-4. `CardPreview` and the new Add card dialog for the existing kinds (7), then `isPreview` in the SDK
-   for package cards.
+3. The settings panel, floating and fixed at the top right, with today's fields (8), then Show and
+   When tapped.
+4. `CardPreview` and the one-step Add card dialog for the existing kinds (7); it needs step 3,
+   because the size is chosen in the panel. Then `isPreview` in the SDK for package cards.
 5. The width switch and the column rule (9).
 6. The new entity kinds: Fan, Time · Date, Person, Bars (5).
 7. Together, then Summary and Room, which reuse it (6).
