@@ -30,6 +30,7 @@ import { AppIcon, Button, DetailHero, HeroFact, Pill, TabPanel, Tabs } from '@ne
 import { useSession } from '@/auth/session-store';
 import { translate } from '@/i18n/messages';
 import { signalled } from '@/lib/signalled';
+import { useAddressOnce } from '@/lib/use-address-once';
 import { useTab } from '@/lib/use-tab';
 import { fetchDevices, fetchDiscovered, fetchVendor, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { LINK_QUERY_KEYS } from '@/library/links-api';
@@ -186,6 +187,25 @@ export function VendorPage() {
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.vendors });
     void queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.devices });
   };
+
+  // The command palette's Add device (`?add=1`): the dialog the button opens, when it would open.
+  useAddressOnce('add', found !== undefined && all.data !== undefined, (value) => {
+    if (
+      value === '1' &&
+      found !== undefined &&
+      canWrite &&
+      !isAutomatic &&
+      !found.needsSetup &&
+      !found.needsAccount &&
+      !found.needsPackage
+    ) {
+      setOpen({
+        mode: 'create',
+        vendor: found,
+        existingIds: (all.data ?? []).map((each) => each.id),
+      });
+    }
+  });
 
   const addButton =
     found !== undefined && canWrite && !isAutomatic ? (

@@ -26,6 +26,7 @@ import { AppIcon, BrowseTile, Button, EmptyState, FilterChips, TILE_GRID } from 
 import { useSession } from '@/auth/session-store';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { signalled } from '@/lib/signalled';
+import { useAddressOnce } from '@/lib/use-address-once';
 import { useListState } from '@/lib/use-list-state';
 import { fetchDiscovered, fetchVendors, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
@@ -59,7 +60,16 @@ export function IntegrationsPage() {
   const canSeeDevices = can('device:read');
   const navigate = useNavigate();
   const [isInstalling, setInstalling] = useState(false);
+  const [hubSearch, setHubSearch] = useState('');
   const [filter, setFilter] = useListState(VENDOR_FILTER_CODEC);
+
+  // The command palette's "Search the Hub" (`?hub=<words>`): the install dialog, searching them.
+  useAddressOnce('hub', true, (value) => {
+    if (canInstall) {
+      setHubSearch(value);
+      setInstalling(true);
+    }
+  });
 
   const vendors = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.vendors,
@@ -277,7 +287,9 @@ export function IntegrationsPage() {
       </LibraryPage>
 
       <InstallIntegrationsDialog
+        key={hubSearch}
         isOpen={isInstalling}
+        initialSearch={hubSearch}
         onClose={() => {
           setInstalling(false);
         }}

@@ -7,7 +7,7 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -244,13 +244,23 @@ beforeAll(() => {
 });
 
 /**
+ * The address's query string, to read what the page left in it.
+ *
+ * @returns It, in a line.
+ */
+function Address() {
+  return <span data-testid="address">{useLocation().search}</span>;
+}
+
+/**
  * Renders the page for one vendor with an owner signed in.
  *
  * @param vendorId - Which vendor the address names.
  * @param extra - Permissions held beside configuring and adding devices.
  * @param tab - The tab the address opens; the overview when blank.
+ * @param search - Anything else in the address, as `name=value`.
  */
-function renderPage(vendorId: string, extra: readonly string[] = [], tab = ''): void {
+function renderPage(vendorId: string, extra: readonly string[] = [], tab = '', search = ''): void {
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -275,11 +285,14 @@ function renderPage(vendorId: string, extra: readonly string[] = [], tab = ''): 
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter
-        initialEntries={[`/integrations/${vendorId}${tab === '' ? '' : `?tab=${tab}`}`]}
+        initialEntries={[
+          `/integrations/${vendorId}${tab === '' ? '' : `?tab=${tab}`}${search === '' ? '' : `${tab === '' ? '?' : '&'}${search}`}`,
+        ]}
       >
         <Routes>
           <Route path="/integrations/:vendorId" element={<VendorPage />} />
         </Routes>
+        <Address />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -491,6 +504,33 @@ describe('a vendor page', () => {
     await waitFor(() => {
       expect(removeIntegration).toHaveBeenCalledWith('bambu-lab');
     });
+  });
+});
+
+describe('the command palette’s Add device, ?add=1', () => {
+  it('opens the add-device dialog where the button would, and takes the instruction out', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(BAMBU);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('bambu-lab', [], '', 'add=1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog').textContent).toContain('Add a device');
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('address').textContent).toBe('');
+    });
+    expect(screen.getByRole('dialog').textContent).toContain('Add a device');
+  });
+
+  it('is ignored, and taken out, for a vendor that has to be set up first', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue(ACME);
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('acme', [], '', 'add=1');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('address').textContent).toBe('');
+    });
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
 
