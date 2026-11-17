@@ -66,6 +66,8 @@ import {
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { packageAppPath } from '@/packages/package-paths';
 import { useInstalledPackages } from '@/packages/use-packages';
+import { usePaletteStore } from '@/palette/palette-store';
+import { paletteShortcutLabel } from '@/palette/use-palette-shortcut';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { PackageLogo } from '@/routes/packages/package-tile';
 import { THEME_LABELS, usePreferences, type SidebarSection } from '@/settings/preferences';
@@ -396,6 +398,44 @@ function AlertDot() {
       aria-hidden="true"
       className="absolute -top-0.75 -right-1.5 size-3 animate-fade-in rounded-full border-2 border-surface bg-warning group-aria-[current=page]:border-surface-raised"
     />
+  );
+}
+
+/**
+ * The Search row, between the logo and the pages: what opens the command palette for a pointer or
+ * a finger, and says which keys open it from anywhere. It reads as a field, not as a page - an
+ * outline at rest, raised under the pointer - and is never the current one.
+ *
+ * @returns The row.
+ */
+function SearchRow() {
+  const { t } = useTranslation();
+  const rail = useContext(RailContext);
+  const open = usePaletteStore((state) => state.open);
+  const label = t('palette.search', 'Search');
+  const keys = paletteShortcutLabel();
+
+  return (
+    <button
+      type="button"
+      onClick={open}
+      aria-label={rail.isCollapsed ? label : undefined}
+      aria-keyshortcuts={keys === '⌘K' ? 'Meta+K' : 'Control+K'}
+      data-tip={rail.isCollapsed ? `${label} · ${keys}` : undefined}
+      {...rail.tip}
+      className={cn(
+        ROW,
+        'mb-2.5 border-border text-foreground-subtle hover:border-border-strong hover:bg-surface-raised hover:text-foreground focus-visible:border-border-strong focus-visible:bg-surface-raised focus-visible:text-foreground',
+      )}
+    >
+      <AppIcon id="search" size={20} className="shrink-0" />
+      <Fading className="grow truncate text-left">{label}</Fading>
+      <Fading className="flex shrink-0">
+        <kbd className="rounded-check border border-border-strong px-1.5 font-mono text-label text-foreground-subtle">
+          {keys}
+        </kbd>
+      </Fading>
+    </button>
   );
 }
 
@@ -1257,6 +1297,8 @@ export function Sidebar() {
               <span translate="no">Nebula Home</span>
             </Fading>
           </div>
+
+          <SearchRow />
 
           {/* On a short window the entries scroll, and draw no scrollbar: its width would come
               out of the rows and push every icon off the card's middle. The edge the list runs on

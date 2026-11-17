@@ -6984,5 +6984,8 @@
       "releaseNotes": "Note di rilascio",
       "title": "Aggiornamento di Nebula Home"
     }
+  },
+  "palette": {
+    "search": "Cerca"
   }
 }
