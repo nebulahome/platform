@@ -21,19 +21,12 @@ import {
   SIDEBAR_CHOICES,
   START_PAGES,
   THEME_CHOICES,
+  THEME_LABELS,
   usePreferences,
   type MotionChoice,
   type SidebarChoice,
   type StartPage,
-  type ThemeChoice,
 } from '@/settings/preferences';
-
-/** What each theme is called on screen. */
-const THEME_LABELS: Readonly<Record<ThemeChoice, Message>> = {
-  system: defineMessage('settings.interface.themes.system', 'System'),
-  light: defineMessage('settings.interface.themes.light', 'Light'),
-  dark: defineMessage('settings.interface.themes.dark', 'Dark'),
-};
 
 /** What each motion setting is called on screen. */
 const MOTION_LABELS: Readonly<Record<MotionChoice, Message>> = {
@@ -124,7 +117,7 @@ export function InterfaceSettings() {
           title={t('settings.interface.sidebar', 'Sidebar')}
           note={t(
             'settings.interface.sidebarNote',
-            'Collapsed keeps only the glyphs, for more room. The dashboard editor collapses it anyway.',
+            'Collapsed keeps one icon per page, for more room. A window narrower than 1100 px starts it collapsed.',
           )}
           control={
             <Segmented

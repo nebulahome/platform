@@ -16,6 +16,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import {
   composeEntityId,
   TAG_COLORS,
+  type ApiPackage,
   type IntegrationKind,
   type IntegrationVendorView,
   type TagColor,
@@ -75,6 +76,7 @@ import { CONTAINER_QUERY_KEYS } from '@/containers/api';
 import { BrokerGallery } from '@/gallery-brokers';
 import { FloatingSample } from '@/gallery-floating';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
+import { PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { AuthLayout } from '@/routes/auth-layout';
 import { EnergyCard } from '@/routes/dashboard/cards/energy/energy-card';
 import {
@@ -111,6 +113,7 @@ import {
   MATTER_SAMPLE_NODES,
 } from '@/testing/matter-samples';
 import { MODBUS_SAMPLE_RELAY_ID, modbusSampleCache } from '@/testing/modbus-samples';
+import { aPackage } from '@/testing/package-fixtures';
 import { softwareSampleCache } from '@/testing/software-samples';
 
 import { AliasListSamples, AliasPageSamples } from './gallery-aliases';
@@ -421,6 +424,19 @@ function listOf<TItem>(length: number, item: TItem): readonly TItem[] {
 }
 
 /** The cache the rail's counts are read from: the house of the boards. */
+/**
+ * The fixture package's interface, with an entry in the sidebar.
+ *
+ * @param sidebar - What the entry says.
+ * @param sidebar.label - Its label, when not the package's name.
+ * @returns The interface.
+ */
+function withSidebarEntry(sidebar: { readonly label?: string }): ApiPackage['ui'] {
+  const { ui } = aPackage();
+
+  return ui === null ? null : { ...ui, sidebar };
+}
+
 const RAIL_CACHE = (() => {
   const cache = new QueryClient();
 
@@ -432,6 +448,12 @@ const RAIL_CACHE = (() => {
   cache.setQueryData(LIBRARY_QUERY_KEYS.tags, listOf(5, {}));
   cache.setQueryData(LIBRARY_QUERY_KEYS.vendors, listOf(9, {}));
   cache.setQueryData(CONTAINER_QUERY_KEYS.list, { items: listOf(6, {}) });
+  // Two packages whose pages hang under Packages, on the line that says they are its own.
+  cache.setQueryData(PACKAGE_QUERY_KEYS.list, [
+    aPackage({ id: 'home3d', name: '3D Home', ui: withSidebarEntry({}) }),
+    aPackage({ id: 'music', name: 'Music', ui: withSidebarEntry({}) }),
+    aPackage(),
+  ]);
 
   return cache;
 })();
@@ -1210,14 +1232,14 @@ function Gallery() {
         </Section>
 
         <Section
-          title="Rail"
-          note="The sidebar: Automate, House and System, counts beside the entries, and the 72px rail it collapses to."
+          title="Sidebar"
+          note="A card floating 16px off the edges: Automate, House and System always open, counts beside the entries, and the 64px card of icons it collapses to, each named beside it on hover."
         >
           <QueryClientProvider client={RAIL_CACHE}>
             <MemoryRouter initialEntries={['/devices']}>
-              <div className="flex h-180 overflow-hidden rounded-panel border border-border">
+              <div className="flex h-180 w-full overflow-hidden rounded-panel border border-border bg-canvas">
                 <Sidebar />
-                <div className="grow bg-canvas" />
+                <div className="grow" />
               </div>
             </MemoryRouter>
           </QueryClientProvider>

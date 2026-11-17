@@ -12,8 +12,9 @@
  * Dark is the home theme. The neutrals lean indigo (hue ~268), the way the logo does, and the
  * accent is the logo's own hue. Surfaces are flat fills separated by 1px lines: depth comes from
  * the step between grounds - canvas, rail, surface, surface-raised, surface-high - never from a
- * gradient or a shadow. The only resting shadow belongs to a dialog. Light is a counterpart of
- * each token, set in `styles.css`, never an inversion.
+ * gradient or a shadow. The only resting shadows belong to a dialog and to the sidebar, the one
+ * card that floats over the page. Light is a counterpart of each token, set in `styles.css`, never
+ * an inversion.
  *
  * Every colour in the application resolves through one of these. A hard-coded colour in a
  * component is a review failure (RULES.md 15.3), and so is a pixel value: the sizes, the radii
@@ -30,7 +31,7 @@
   /** The page. Near-black with an indigo lean; the sky of sign-in is painted straight onto it. */
   --color-canvas: #05060c;
 
-  /** The sidebar, one step darker than the page, and a disabled field. */
+  /** One step darker than the page: a disabled field, a well of code or log lines. */
   --color-rail: #07080f;
 
   /** Cards, panels, dialogs: anything that holds content. Flat, with a 1px `border`. */
@@ -357,7 +358,7 @@
   /*
    * Flat. A panel has no resting shadow; an entity card has the faint lit top edge of `edge`. A
    * dialog and the sign-in card take `dialog`, a menu and a dragged card `float`, a popover
-   * (search results, the icon picker) `popover`, a focused field `focus`.
+   * (search results, the icon picker) `popover`, a focused field `focus`, the sidebar `rail`.
    */
 
   --shadow-edge: inset 0 1px 0 rgb(255 255 255 / 0.04);
@@ -365,6 +366,12 @@
   --shadow-float: 0 24px 48px -12px rgb(0 0 0 / 0.7);
   --shadow-dialog: 0 30px 80px -20px rgb(0 0 0 / 0.9);
   --shadow-popover: 0 28px 60px -20px rgb(0 0 0 / 0.95);
+
+  /**
+   * The sidebar: a card that floats 16px off the window's edges, over the page, for as long as
+   * the page is open. A long soft fall and a short close one, so it lifts without a halo.
+   */
+  --shadow-rail: 0 24px 64px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4);
 
   /* --- motion ---------------------------------------------------------------------------- */
 
@@ -391,6 +398,9 @@
    */
   --animate-rise: rise 160ms cubic-bezier(0.16, 1, 0.3, 1);
   --animate-fade-in: fade-in 120ms ease-out;
+
+  /** A thing that arrives beside what it hangs off: the sidebar's names and its account menu. */
+  --animate-nudge: nudge 160ms cubic-bezier(0.16, 1, 0.3, 1);
 
   /**
    * A dialog arriving: in from a shade smaller as its backdrop darkens. No fill, so no transform
@@ -551,6 +561,14 @@
 @keyframes fade-in {
   from {
     opacity: 0;
+  }
+}
+
+/* Out from the edge it hangs off: it starts almost where it ends. */
+@keyframes nudge {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
   }
 }
 

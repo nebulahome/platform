@@ -108,12 +108,14 @@ function FloatingPage() {
         data-floating-demo=""
         className="flex h-120 w-full overflow-hidden rounded-panel border border-border bg-canvas"
       >
-        <div
-          className={cn(
-            'shrink-0 border-r border-border bg-rail transition-[width] duration-300',
-            isRailWide ? 'w-60' : 'w-18',
-          )}
-        />
+        <div className="flex shrink-0 py-4 pl-4">
+          <div
+            className={cn(
+              'rounded-dialog border border-border-strong bg-surface shadow-rail transition-[width] duration-220',
+              isRailWide ? 'w-70' : 'w-16',
+            )}
+          />
+        </div>
         <div className="relative flex min-w-0 grow">
           <FloatingLayer>
             <div className="flex grow flex-col gap-4 p-6">

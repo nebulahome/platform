@@ -16,11 +16,20 @@
  */
 import { create } from 'zustand';
 
+import { defineMessage, type Message } from '@/i18n/messages';
+
 /** How the interface picks its palette. */
 export const THEME_CHOICES = ['system', 'light', 'dark'] as const;
 
 /** How the interface picks its palette. */
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
+
+/** What each theme is called on screen: on the Interface page, and beside Theme in the account menu. */
+export const THEME_LABELS: Readonly<Record<ThemeChoice, Message>> = {
+  system: defineMessage('settings.interface.themes.system', 'System'),
+  light: defineMessage('settings.interface.themes.light', 'Light'),
+  dark: defineMessage('settings.interface.themes.dark', 'Dark'),
+};
 
 /** How much the interface moves. */
 export const MOTION_CHOICES = ['system', 'full', 'reduced'] as const;
@@ -29,13 +38,22 @@ export const MOTION_CHOICES = ['system', 'full', 'reduced'] as const;
 export type MotionChoice = (typeof MOTION_CHOICES)[number];
 
 /**
- * How wide the rail is: 240px with its labels, or 72px of glyphs. Collapsed gives a page the
- * room; the dashboard editor collapses it whatever is chosen here.
+ * How wide the sidebar is: 280px with its names, or 64px of icons. Collapsed gives a page the
+ * room; a window narrower than 1100px starts it collapsed whatever is chosen here.
  */
 export const SIDEBAR_CHOICES = ['expanded', 'collapsed'] as const;
 
 /** One of {@link SIDEBAR_CHOICES}. */
 export type SidebarChoice = (typeof SIDEBAR_CHOICES)[number];
+
+/**
+ * What can be folded on the open sidebar: its three sections, and the packages' pages under
+ * Packages.
+ */
+export const SIDEBAR_SECTIONS = ['automate', 'house', 'system', 'packages'] as const;
+
+/** One of {@link SIDEBAR_SECTIONS}. */
+export type SidebarSection = (typeof SIDEBAR_SECTIONS)[number];
 
 /** Where signing in leaves you. */
 export const START_PAGES = [
@@ -62,8 +80,11 @@ export type Preferences = {
   /** Which page opens when you sign in. */
   readonly startPage: StartPage;
 
-  /** How wide the rail is. */
+  /** How wide the sidebar is. */
   readonly sidebar: SidebarChoice;
+
+  /** The sections of the sidebar folded on the open card. */
+  readonly foldedSections: readonly SidebarSection[];
 };
 
 /** What a browser that has never been told anything uses. */
@@ -72,6 +93,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   motion: 'system',
   startPage: '/dashboards',
   sidebar: 'expanded',
+  foldedSections: [],
 };
 
 /** The key the whole set is filed under. One key, so a read is one parse and one guard. */
@@ -125,6 +147,10 @@ export function readPreferences(): Preferences {
     motion: oneOf(MOTION_CHOICES, record['motion'], DEFAULT_PREFERENCES.motion),
     startPage: oneOf(START_PAGES, record['startPage'], DEFAULT_PREFERENCES.startPage),
     sidebar: oneOf(SIDEBAR_CHOICES, record['sidebar'], DEFAULT_PREFERENCES.sidebar),
+    foldedSections: SIDEBAR_SECTIONS.filter(
+      (section) =>
+        Array.isArray(record['foldedSections']) && record['foldedSections'].includes(section),
+    ),
   };
 }
 
@@ -196,8 +222,8 @@ export const usePreferences = create<PreferencesState>((set, get) => ({
    * @param changes - What to change.
    */
   set: (changes: Partial<Preferences>): void => {
-    const { theme, motion, startPage, sidebar } = { ...get(), ...changes };
-    const next: Preferences = { theme, motion, startPage, sidebar };
+    const { theme, motion, startPage, sidebar, foldedSections } = { ...get(), ...changes };
+    const next: Preferences = { theme, motion, startPage, sidebar, foldedSections };
 
     set(next);
     writePreferences(next);

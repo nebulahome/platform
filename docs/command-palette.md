@@ -99,7 +99,7 @@ Notes:
 - **Pages** (the "Go to" group): Dashboards, Automations, Scenes, Devices, Aliases, Tags, Areas,
   Integrations, the brokers (`/brokers/*`), Packages, Containers, plus each dashboard by name
   (`/dashboards/:dashboardId`) - dashboards are my addition, cheap and obviously useful. Each page
-  is gated by the same key as its route or sidebar row (`session-routes.tsx`, `sidebar.tsx:80-165`:
+  is gated by the same key as its route or sidebar row (`session-routes.tsx`, `GROUPS` in `sidebar.tsx`:
   e.g. `tag:read`, `area:read`, `integration:read`, `device:read` for brokers, `package:read`,
   `container:read`). Settings pages come from `reachableTree(can)` (`W/routes/settings/settings-tree.ts`).
 - **Areas** are not in the owner's list. They are a natural "find a room" target and cost one source
@@ -312,14 +312,14 @@ automation page need a "Copy id" item that goes through `copyText`. Small, and i
 Only these (a long list becomes noise; add more only when the owner asks). An action whose
 permission is missing is not shown.
 
-| Label                          | Does                                                                                                              | Permission            |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------- |
-| New automation                 | `navigate('/automations/new')`                                                                                    | `automation:write`    |
-| New scene                      | `navigate('/scenes/new')`                                                                                         | `scene:write`         |
-| Add device                     | `navigate('/integrations')` (what the Devices page button does today)                                             | `device:write`        |
-| Add integration (Hub)          | `navigate('/integrations?hub=')`: the page opens its install dialog (see 6.2)                                     | `integration:install` |
-| Sign out                       | `useSession((s) => s.signOut)`, as `UserChip` does (`sidebar.tsx:385`); icon `user-round`, the menu item has none | none                  |
-| Per-integration "Add device X" | section 9                                                                                                         | `device:write`        |
+| Label                          | Does                                                                                                          | Permission            |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------- | --------------------- |
+| New automation                 | `navigate('/automations/new')`                                                                                | `automation:write`    |
+| New scene                      | `navigate('/scenes/new')`                                                                                     | `scene:write`         |
+| Add device                     | `navigate('/integrations')` (what the Devices page button does today)                                         | `device:write`        |
+| Add integration (Hub)          | `navigate('/integrations?hub=')`: the page opens its install dialog (see 6.2)                                 | `integration:install` |
+| Sign out                       | `useSession((s) => s.signOut)`, as `UserChip` does (`sidebar.tsx`); icon `user-round`, the menu item has none | none                  |
+| Per-integration "Add device X" | section 9                                                                                                     | `device:write`        |
 
 Do **not** add separate actions for "Software & updates", "Users & permissions", "Theme",
 "Language": they are already found as pages and settings rows.
@@ -468,18 +468,19 @@ two-line local helper; do not refactor the routing for this.
 
 ### 11.3 Sidebar trigger
 
-In `W/components/sidebar.tsx`, a row between the logo row (~line 619) and the Dashboards row (631),
-using the shared `ROW` / `ROW_IDLE` classes (`h-10 rounded-field`), `AppIcon id="search"`, a `Fading`
-label ("Search") and a `kbd` with the shortcut. Show `Ctrl K` or `⌘K` according to the platform
-(`navigator.userAgentData?.platform` with a `navigator.platform` fallback; default `Ctrl K`).
-Collapsed sidebar (72 px, `w-18`): icon only, with `title` and `aria-label` as `Row` does
-(~line 284). Style the `kbd` like the one in `settings-search.tsx`
+In `W/components/sidebar.tsx`, a row between the logo row and the Dashboards row, outside the part
+that scrolls, using the shared `ROW` / `ROW_IDLE` classes (`h-11 rounded-tile`, 20 px icon),
+`AppIcon id="search"`, a `Fading` label ("Search") and a `kbd` with the shortcut. Show `Ctrl K` or
+`⌘K` according to the platform (`navigator.userAgentData?.platform` with a `navigator.platform`
+fallback; default `Ctrl K`). Collapsed sidebar (the 64 px card, `w-16`): icon only, with an
+`aria-label` and its name beside the card as `Row` does (`data-tip` plus `{...rail.tip}`, never a
+`title`). Style the `kbd` like the one in `settings-search.tsx`
 (`rounded-check border border-border-strong px-1.5 font-mono text-label text-foreground-subtle`).
 As drawn on `N-Command-Palette-Sidebar-Trigger`: at rest the row has `border-border` and
 `text-foreground-subtle`, so it reads as a field and not as a page; over and focused it takes
 `border-border-strong bg-surface-raised text-foreground`; 10 px of space below it. The web UI has no
-navigation for narrow screens (no drawer, no bottom bar): the sidebar, 72 px when collapsed, is the only way
-in at every width, so this row is also what a touch screen uses.
+navigation for narrow screens (no drawer, no bottom bar): the sidebar, 64 px when collapsed, is the only way
+in at every width (it starts collapsed under 1100 px), so this row is also what a touch screen uses.
 
 ### 11.4 Accessibility
 
