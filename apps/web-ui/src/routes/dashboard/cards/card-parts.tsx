@@ -45,6 +45,7 @@ export type CardFrameProps = {
 /** What a tap on a card's face does. */
 export type CardTap =
   | { readonly kind: 'open'; readonly to: string; readonly label: string }
+  | { readonly kind: 'away'; readonly href: string; readonly label: string }
   | { readonly kind: 'press'; readonly onPress: () => void; readonly label: string };
 
 /**
@@ -94,6 +95,14 @@ export function CardFrame(props: CardFrameProps) {
     >
       {tap === undefined ? null : tap.kind === 'open' ? (
         <Link to={tap.to} aria-label={tap.label} className={face} />
+      ) : tap.kind === 'away' ? (
+        <a
+          href={tap.href}
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label={tap.label}
+          className={face}
+        />
       ) : (
         <button type="button" aria-label={tap.label} className={face} onClick={tap.onPress} />
       )}

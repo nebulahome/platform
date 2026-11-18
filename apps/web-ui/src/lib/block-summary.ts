@@ -197,7 +197,7 @@ function monthName(index: number, isShort: boolean): string {
 }
 
 /** The moments of the sun, as a card reads them. */
-const SUN_EVENTS: Readonly<Record<string, Message>> = {
+export const SUN_EVENTS: Readonly<Record<string, Message>> = {
   sunrise: defineMessage('sun.events.sunrise', 'Sunrise'),
   sunset: defineMessage('sun.events.sunset', 'Sunset'),
   dawn: defineMessage('sun.events.dawn', 'Dawn'),

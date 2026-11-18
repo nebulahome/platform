@@ -8,7 +8,12 @@
  */
 import { createContext, useContext } from 'react';
 
-import type { StateHistoryPoint, TelemetryPoint } from '@nebulahome/contracts';
+import type {
+  ActivityEntry,
+  AutomationView,
+  StateHistoryPoint,
+  TelemetryPoint,
+} from '@nebulahome/contracts';
 
 import type { CardHistory } from '@/routes/dashboard/cards/use-card-history';
 
@@ -22,6 +27,12 @@ export type CardSampleSource = {
 
   /** A camera's still, as an address an `<img>` can show. */
   readonly still: (entityId: string) => string | null;
+
+  /** The automations an automation card reads. */
+  readonly automations?: readonly AutomationView[];
+
+  /** The latest changes an activity card lists, newest first. */
+  readonly activity?: readonly ActivityEntry[];
 };
 
 /** The sample source of the cards under it; null on a real dashboard. */

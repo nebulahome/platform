@@ -222,6 +222,13 @@ const SETTINGS: Entry = {
   icon: 'settings',
 };
 
+/** Every page the sidebar leads to, with its name and icon: where a dashboard shortcut may go. */
+export const NAV_PAGES: readonly Pick<Entry, 'to' | 'label' | 'icon'>[] = [
+  DASHBOARDS,
+  ...GROUPS.flatMap((group) => group.entries),
+  SETTINGS,
+];
+
 /** Narrower than this, the card starts shut. In jsdom no query matches: a wide window. */
 const NARROW_QUERY = '(max-width: 1099.98px)';
 

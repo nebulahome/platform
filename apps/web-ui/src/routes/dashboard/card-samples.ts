@@ -14,6 +14,7 @@ import {
 } from '@nebulahome/contracts';
 
 import { allowedSizes, CARD_SIZES } from '@/dashboard/card-sizes';
+import { capabilityStateOf } from '@/library/entity-control';
 import type { CardSampleSource } from '@/routes/dashboard/cards/card-sample';
 import { CARD_ENTITIES } from '@/routes/dashboard/samples/cards';
 import { CONTROL_SAMPLES, CONTROL_VARIANTS } from '@/routes/dashboard/samples/controls';
@@ -21,6 +22,7 @@ import { LIGHT, LIGHT_VARIANTS } from '@/routes/dashboard/samples/lights';
 import { MORE_SAMPLES, MORE_VARIANTS, SAMPLE_SCENES } from '@/routes/dashboard/samples/more';
 import { READING_SAMPLES, READING_VARIANTS } from '@/routes/dashboard/samples/readings';
 import { VIEW_ONLY_SOURCE } from '@/routes/dashboard/samples/sample-entity';
+import { TIMELINE_SOURCE } from '@/routes/dashboard/samples/timeline-cards';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 
 /** Every sample entity the catalogue draws: one per kind of card. */
@@ -119,16 +121,29 @@ const GARDEN_STILL = `data:image/svg+xml;utf8,${encodeURIComponent(
 /** Where every sample card reads its past and its pictures. */
 export const SAMPLE_SOURCE: CardSampleSource = {
   /**
-   * A day of the living room's temperature, for every sensor sample.
+   * A day of readings for a sensor sample: the living room's day, ending on its own reading.
    *
+   * @param entityId - The sensor.
    * @returns The day.
    */
-  telemetry: () => {
+  telemetry: (entityId) => {
     const now = Date.now();
+    // The living room's day, moved to end on what this sensor reads now, and flatter the further
+    // it is from it: a cellar or the garden do not follow the room's heating.
+    const entity = BY_ID.get(entityId);
+    const last = TEMPERATURE_DAY.at(-1) ?? 0;
+    const target =
+      entity === undefined
+        ? last
+        : (capabilityStateOf(entity, undefined).sensor_numeric?.value ?? last);
+    const damping = 1 / (1 + Math.abs(target - last) / 6);
 
     return {
       window: { from: now - 24 * 3_600_000, to: now },
-      points: hourly(TEMPERATURE_DAY, now),
+      points: hourly(
+        TEMPERATURE_DAY.map((reading) => target + (reading - last) * damping),
+        now,
+      ),
     };
   },
 
@@ -154,6 +169,8 @@ export const SAMPLE_SOURCE: CardSampleSource = {
    * @returns The picture.
    */
   still: () => GARDEN_STILL,
+  automations: TIMELINE_SOURCE.automations,
+  activity: TIMELINE_SOURCE.activity,
 };
 
 /**
