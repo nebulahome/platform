@@ -3,6 +3,14 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.14.0
+
+- **Cards drawn in the Add card catalogue:** `defineCard({ preview: { options } })` asks the
+  platform to draw the card itself on its tile in the catalogue, with those option values, and
+  `CardProps.isPreview` tells the card it is that sample: it draws sample values and opens no
+  stream, no subscription, sends no command. A card without `preview` is shown by its name and
+  sizes only.
+
 ## 1.13.0
 
 - **A time the device keeps:** the `time` domain and its three capabilities, `time_of_day`

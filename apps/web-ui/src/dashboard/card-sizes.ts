@@ -9,7 +9,8 @@
 import type { CapabilityName, EntityView, PackageCardSize } from '@nebulahome/contracts';
 
 import type { GridSize } from '@/dashboard/grid-engine';
-import { hasCapability } from '@/library/entity-control';
+import { translate } from '@/i18n/messages';
+import { hasCapability, paramsOf } from '@/library/entity-control';
 
 /** A size a card is drawn for. */
 export type CardSize = GridSize;
@@ -25,7 +26,17 @@ export const ENTITY_CARD_KINDS = [
   'switch',
   'sensor',
   'binary',
-  'control',
+  'vacuum',
+  'mower',
+  'select',
+  'number',
+  'button',
+  'update',
+  'picture',
+  'custom',
+  'fan',
+  'time',
+  'person',
   'text',
 ] as const;
 
@@ -33,7 +44,22 @@ export const ENTITY_CARD_KINDS = [
 export type EntityCardKind = (typeof ENTITY_CARD_KINDS)[number];
 
 /** Every kind of card that is not a container, with `missing` for an entity that is not there. */
-export type LeafCardKind = EntityCardKind | 'scene' | 'clock' | 'energy' | 'package' | 'missing';
+export type LeafCardKind =
+  | EntityCardKind
+  | 'scene'
+  | 'clock'
+  | 'energy'
+  | 'package'
+  | 'together'
+  | 'summary'
+  | 'room'
+  | 'list'
+  | 'actions'
+  | 'compare'
+  | 'activity'
+  | 'automation'
+  | 'shortcut'
+  | 'missing';
 
 /** The sizes a kind of card is drawn for, and the one it starts at. */
 type SizeRule = { readonly sizes: readonly CardSize[]; readonly preferred: CardSize };
@@ -56,9 +82,18 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
   binary: { sizes: [TILE, CARD], preferred: TILE },
   text: { sizes: [TILE, STRIP], preferred: TILE },
 
-  // A robot, a choice, a number, a button, a firmware update, a picture: the platform's own
-  // control for it, on a card tall or square enough to hold it.
-  control: { sizes: [CARD, SQUARE, LARGE], preferred: SQUARE },
+  // What is told rather than switched: a robot's status and its buttons, the rooms on the square;
+  // a choice, a number, a button and a firmware update in a tile or a strip; a picture full bleed.
+  vacuum: { sizes: [TILE, CARD, SQUARE], preferred: CARD },
+  mower: { sizes: [TILE, CARD], preferred: CARD },
+  select: { sizes: [TILE, STRIP], preferred: TILE },
+  number: { sizes: [TILE, STRIP], preferred: TILE },
+  button: { sizes: [TILE], preferred: TILE },
+  update: { sizes: [TILE, STRIP], preferred: TILE },
+  picture: { sizes: [SQUARE, LARGE], preferred: SQUARE },
+
+  // An entity of a kind a package defines: its fields as a grid of figures.
+  custom: { sizes: [STRIP, SQUARE], preferred: STRIP },
   thermostat: { sizes: [CARD, SQUARE], preferred: CARD },
   cover: { sizes: [TILE, CARD], preferred: CARD },
   lock: { sizes: [TILE, CARD], preferred: CARD },
@@ -73,6 +108,25 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
 
   // A package's card at the sizes its manifest may name: small, wide, medium, large.
   package: { sizes: [TILE, STRIP, SQUARE, LARGE], preferred: SQUARE },
+
+  // Many entities of a kind as one: the count, the bars, and at 2×3 every member.
+  together: { sizes: [TILE, CARD, SQUARE, LARGE], preferred: CARD },
+  // What needs a look: one count, the house at a glance, or a count and its first three.
+  summary: { sizes: [TILE, STRIP, CARD], preferred: TILE },
+  room: { sizes: [TILE, CARD, SQUARE], preferred: CARD },
+  list: { sizes: [CARD, LARGE], preferred: CARD },
+  actions: { sizes: [TILE, STRIP, CARD], preferred: STRIP },
+  compare: { sizes: [SQUARE, LARGE], preferred: SQUARE },
+  activity: { sizes: [CARD, LARGE], preferred: CARD },
+  automation: { sizes: [TILE, STRIP], preferred: TILE },
+  shortcut: { sizes: [TILE], preferred: TILE },
+
+  // A fan as a light is drawn: switch and speed on the tile, presets and speed on the tall card,
+  // swing and direction beside them on the square. A time reads on the tile, is set on the strip;
+  // a person is home, away or where on the tile, and on the square beside a map.
+  fan: { sizes: [TILE, CARD, SQUARE], preferred: CARD },
+  time: { sizes: [TILE, STRIP], preferred: TILE },
+  person: { sizes: [TILE, CARD, SQUARE], preferred: TILE },
 
   // An entity that is not there may keep whatever size it had, and take any other.
   missing: { sizes: ALL_CARD_SIZES, preferred: TILE },
@@ -182,21 +236,27 @@ const RICHEST_FIRST: readonly (readonly [CapabilityName, EntityCardKind])[] = [
   ['thermostat', 'thermostat'],
   ['media_player', 'media'],
   ['camera', 'camera'],
-  ['vacuum', 'control'],
-  ['lawn_mower', 'control'],
-  ['image', 'control'],
+  ['vacuum', 'vacuum'],
+  ['lawn_mower', 'mower'],
+  ['image', 'picture'],
   ['cover', 'cover'],
   ['lock', 'lock'],
+  ['fan', 'fan'],
   ['level', 'light'],
   ['color_hs', 'light'],
   ['color_temp', 'light'],
   ['on_off', 'switch'],
+  ['location', 'person'],
+  ['time_of_day', 'time'],
+  ['date', 'time'],
+  ['datetime', 'time'],
   ['sensor_numeric', 'sensor'],
   ['sensor_binary', 'binary'],
-  ['select', 'control'],
-  ['number', 'control'],
-  ['button', 'control'],
-  ['update', 'control'],
+  ['select', 'select'],
+  ['number', 'number'],
+  ['button', 'button'],
+  ['update', 'update'],
+  ['custom', 'custom'],
 ];
 
 /**
@@ -214,4 +274,79 @@ export function cardKindOf(entity: Pick<EntityView, 'domain' | 'capabilities'>):
   const kind = found?.[1] ?? 'text';
 
   return entity.domain === 'light' && (kind === 'switch' || kind === 'text') ? 'light' : kind;
+}
+
+/** A size of an entity's kind that this entity cannot fill, and why, in a few words. */
+export type MissingSize = { readonly size: CardSize; readonly reason: string };
+
+/**
+ * The sizes of its kind an entity cannot fill: a size with nothing left to show once the controls
+ * it lacks are left out is not offered. The settings panel names them under its size choice.
+ *
+ * @param entity - Its domain and capabilities.
+ * @returns Each size it cannot take, with why.
+ */
+export function missingSizes(
+  entity: Pick<EntityView, 'domain' | 'capabilities'>,
+): readonly MissingSize[] {
+  const kind = cardKindOf(entity);
+
+  // A light that only switches is drawn as a switch: its square would be a switch with a hole.
+  if (kind === 'light' && !hasCapability(entity, 'level')) {
+    return [
+      {
+        size: SQUARE,
+        reason: translate(
+          'dashboard.cardSizes.lightWithoutBrightness',
+          'this light has no brightness',
+        ),
+      },
+    ];
+  }
+
+  if (kind === 'fan' && fanOnlySwitches(entity)) {
+    return [
+      {
+        size: SQUARE,
+        reason: translate(
+          'dashboard.cardSizes.fanOnlySwitches',
+          'this fan only switches on and off',
+        ),
+      },
+    ];
+  }
+
+  return [];
+}
+
+/**
+ * Whether a fan only switches: no speeds, no presets, no swing and no direction. Its card is a
+ * switch's, with no square to fill.
+ *
+ * @param entity - Its capabilities.
+ * @returns True when on and off is all it does.
+ */
+export function fanOnlySwitches(entity: Pick<EntityView, 'capabilities'>): boolean {
+  const fan = paramsOf(entity, 'fan');
+
+  return (
+    fan === null ||
+    (fan.speedCount === 0 && fan.presets.length === 0 && !fan.canOscillate && !fan.canReverse)
+  );
+}
+
+/**
+ * The sizes an entity's card may take: those of its kind, less the ones it cannot fill.
+ *
+ * @param entity - Its domain and capabilities.
+ * @returns The sizes, smallest first as its kind lists them.
+ */
+export function allowedSizes(
+  entity: Pick<EntityView, 'domain' | 'capabilities'>,
+): readonly CardSize[] {
+  const missing = missingSizes(entity);
+
+  return CARD_SIZES[cardKindOf(entity)].sizes.filter(
+    (size) => !missing.some((each) => sameSize(each.size, size)),
+  );
 }

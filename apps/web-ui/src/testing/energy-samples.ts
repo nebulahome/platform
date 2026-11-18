@@ -173,6 +173,13 @@ export function energySample(
        * @returns True.
        */
       canReadHistory: () => true,
+
+      /**
+       * Nothing on a sample is changed.
+       *
+       * @returns False.
+       */
+      canWriteEntity: () => false,
       canApplyScenes: false,
 
       /**

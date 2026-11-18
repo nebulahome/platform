@@ -23,8 +23,14 @@ export type DashboardDraftState = {
   /** The layout as it was when editing began, to tell whether anything changed. */
   readonly original: DashboardLayout | null;
 
-  /** The card open in the inspector. */
+  /** The card whose settings are open. */
   readonly selectedId: string | null;
+
+  /**
+   * The cards added from the catalogue that still wait for their entity, by id, with the kind of
+   * card each will be. They are drawn dashed while editing and left out when the layout is saved.
+   */
+  readonly pending: Readonly<Record<string, string>>;
 
   /** Starts editing a dashboard. */
   readonly begin: (dashboardId: string, layout: DashboardLayout) => void;
@@ -32,8 +38,11 @@ export type DashboardDraftState = {
   /** Replaces the layout in the editor. */
   readonly change: (layout: DashboardLayout) => void;
 
-  /** Opens a card in the inspector, or closes it. */
+  /** Opens a card's settings, or closes them. */
   readonly select: (cardId: string | null) => void;
+
+  /** Marks a card as waiting for its entity, or - with null - as having one. */
+  readonly setPending: (cardId: string, kind: string | null) => void;
 
   /** Stops editing, keeping nothing. */
   readonly end: () => void;
@@ -45,6 +54,7 @@ export const useDashboardDraft = create<DashboardDraftState>((set) => ({
   layout: null,
   original: null,
   selectedId: null,
+  pending: {},
 
   /**
    * Starts editing.
@@ -53,7 +63,7 @@ export const useDashboardDraft = create<DashboardDraftState>((set) => ({
    * @param layout - Its layout as saved.
    */
   begin: (dashboardId, layout) => {
-    set({ dashboardId, layout, original: layout, selectedId: null });
+    set({ dashboardId, layout, original: layout, selectedId: null, pending: {} });
   },
 
   /**
@@ -74,9 +84,25 @@ export const useDashboardDraft = create<DashboardDraftState>((set) => ({
     set({ selectedId: cardId });
   },
 
+  /**
+   * Marks a card as waiting for its entity, or as having one.
+   *
+   * @param cardId - The card.
+   * @param kind - The kind of card it will be, or null once it has its entity.
+   */
+  setPending: (cardId, kind) => {
+    set((state) => {
+      const rest = Object.fromEntries(
+        Object.entries(state.pending).filter(([id]) => id !== cardId),
+      );
+
+      return { pending: kind === null ? rest : { ...rest, [cardId]: kind } };
+    });
+  },
+
   /** Stops editing. */
   end: () => {
-    set({ dashboardId: null, layout: null, original: null, selectedId: null });
+    set({ dashboardId: null, layout: null, original: null, selectedId: null, pending: {} });
   },
 }));
 

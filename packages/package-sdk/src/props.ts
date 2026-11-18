@@ -46,6 +46,12 @@ export type CardProps<TCard extends CardDefinition = CardDefinition> = {
 
   /** Whether the dashboard is being edited: no interaction is expected. */
   readonly isEditing: boolean;
+
+  /**
+   * Whether it is drawn as a sample in the Add card catalogue, for a card that declares `preview`:
+   * draw sample values, open no stream or subscription, send no command. Since 1.14.
+   */
+  readonly isPreview: boolean;
 };
 
 /** What an entity view is given. */

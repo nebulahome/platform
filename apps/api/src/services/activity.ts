@@ -21,13 +21,13 @@ import {
   type CapabilityName,
   type Identity,
 } from '@nebulahome/contracts';
-import type { Database } from '@nebulahome/db';
+import { schema, type Database } from '@nebulahome/db';
 
 import { isPermitted } from '../auth/permissions.js';
 import { decodeCursor, toPage, type PageResult } from '../http/pagination.js';
 
 import { DESCRIBED_ACTION } from './described-devices.js';
-import type { EntityDetail } from './entities.js';
+import { findEntities, type EntityDetail } from './entities.js';
 
 /**
  * Capabilities that never make an entity part of the activity on their own: a numeric reading
@@ -277,4 +277,36 @@ export async function readActivity(
   );
 
   return toPage(entries, page.limit, (entry) => cursorOf.get(entry) ?? { key: '' });
+}
+
+/**
+ * The entities a dashboard's activity card follows: the ones picked by address, or every one of
+ * an area, or of the whole house. Who may read them is decided after, by
+ * {@link readableActivityEntities}.
+ *
+ * @param db - The database.
+ * @param scope - What it follows.
+ * @param scope.areaKey - One area, by its key.
+ * @param scope.entityIds - A few entities, by address.
+ * @returns The entities.
+ */
+export async function scopedActivityEntities(
+  db: Database,
+  scope: { readonly areaKey?: string; readonly entityIds?: readonly string[] },
+): Promise<EntityDetail[]> {
+  if (scope.entityIds !== undefined) {
+    return findEntities(db, scope.entityIds);
+  }
+
+  const rows = await db
+    .select({ entityId: schema.registry.entities.entityId })
+    .from(schema.registry.entities);
+  const all = await findEntities(
+    db,
+    rows.map((row) => row.entityId),
+  );
+
+  return scope.areaKey === undefined
+    ? all
+    : all.filter((entity) => entity.view.areaKey === scope.areaKey);
 }

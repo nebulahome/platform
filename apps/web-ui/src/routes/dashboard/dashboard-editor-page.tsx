@@ -1,17 +1,18 @@
 /**
- * Laying a dashboard out: the grid unlocked, cards dragged, resized, added and removed, and the
- * inspector beside the grid for the card chosen.
+ * Laying a dashboard out (`N-Dashboard-Edit`): the grid unlocked, cards moved, resized, added in
+ * the empty spaces and removed, and the settings of the card chosen floating at the top right.
  *
  * Reached from Configuration › Dashboards by whoever manages the dashboards, never from the
  * Dashboards page itself, which only shows. Editing works on a copy of the layout (see
  * `dashboard-draft.ts`): Done saves the whole layout in one request - and every person the
  * dashboard is assigned to sees it the next time their page reads - and Cancel throws the copy
  * away; both go back to the list. The copy survives leaving the page, and closing the tab asks
- * first. A window too narrow for four columns cannot edit, and says so.
+ * first. A card added from the catalogue that never got its entity is left out by Done.
  *
- * As the board draws it: the rail collapses to give the grid room; a banner says what is being
- * edited and who sees the change - everyone the dashboard is shown to - with Add card, Add group,
- * Cancel and Done beside it; each card shows its size and the way to remove it.
+ * The header is a plain row - what is edited, who sees it, the width switch, Cancel and Done.
+ * Desktop edits; Tablet and Phone show the same grid in a frame of that width, only to be looked
+ * at. A window too narrow for four columns cannot move cards, and says so; settings still open.
+ * Ctrl or Cmd with C, X and V copy, cut and paste the card chosen.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -24,7 +25,7 @@ import {
   type DashboardLayout,
   type DashboardView,
 } from '@nebulahome/contracts';
-import { AppIcon, Button, Note, toast } from '@nebulahome/ui';
+import { toast } from '@nebulahome/ui';
 
 import {
   DASHBOARD_QUERY_KEYS,
@@ -32,94 +33,27 @@ import {
   fetchManagedDashboards,
   updateDashboard,
 } from '@/dashboard/api';
-import { addCard, findCard, removeCard } from '@/dashboard/dashboard-layout';
-import { containerCard } from '@/dashboard/new-cards';
+import {
+  addCard,
+  addCardAt,
+  findCard,
+  removeCard,
+  type CardPlace,
+} from '@/dashboard/dashboard-layout';
 import { listFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
 import { AddCardDialog } from '@/routes/dashboard/add-card-dialog';
-import { CardInspector } from '@/routes/dashboard/card-inspector';
+import { CardSettings } from '@/routes/dashboard/card-settings';
+import { cardTitle } from '@/routes/dashboard/card-view';
+import { cardCopy, useDashboardClipboard } from '@/routes/dashboard/dashboard-clipboard';
 import { isDraftDirty, useDashboardDraft } from '@/routes/dashboard/dashboard-draft';
 import { DashboardGrid } from '@/routes/dashboard/dashboard-grid';
 import { DASHBOARDS_CONFIGURATION_PATH, PageMessage } from '@/routes/dashboard/dashboard-page';
+import { EditingHeader, type PreviewScreen } from '@/routes/dashboard/editing-header';
 import { useDashboardData } from '@/routes/dashboard/use-dashboard-data';
+import { PREVIEW_WIDTHS, WidthPreview } from '@/routes/dashboard/width-preview';
 import { DetailHeader } from '@/routes/library/detail-page';
-
-/**
- * The group new cards go into: the one chosen, or the one holding the card chosen.
- *
- * @param layout - The layout.
- * @param selectedId - The card chosen, if any.
- * @returns The group's id, or null for the page.
- */
-function groupInUse(layout: DashboardLayout, selectedId: string | null): string | null {
-  if (selectedId === null) {
-    return null;
-  }
-
-  const found = findCard(layout, selectedId);
-
-  if (found === null) {
-    return null;
-  }
-
-  return found.card.type === 'container' ? found.card.id : found.parentId;
-}
-
-/** What the empty page needs. */
-type EmptyPageProps = {
-  /** The dashboard's name. */
-  readonly name: string;
-
-  /** Opens the card picker. */
-  readonly onAddCard: () => void;
-
-  /** Adds a group. */
-  readonly onAddGroup: () => void;
-};
-
-/**
- * What a dashboard with nothing on it shows while it is edited: the two rows the grid keeps,
- * drawn as the place cards will go, with the two ways to start. It sits where the first card will
- * land rather than under an empty gap, which is where the button used to float.
- *
- * @param props - See {@link EmptyPageProps}.
- * @returns The empty page.
- */
-function EmptyPage(props: EmptyPageProps) {
-  const { t } = useTranslation();
-
-  const { name, onAddCard, onAddGroup } = props;
-
-  return (
-    <div className="flex grow flex-col items-center justify-center gap-4 rounded-panel border border-dashed border-border-strong bg-surface/40 px-6 text-center">
-      <span className="flex size-11 items-center justify-center rounded-tile bg-primary/10 text-primary">
-        <AppIcon id="layout-grid" size={20} />
-      </span>
-      <span className="flex flex-col gap-1">
-        <span className="text-title font-medium text-foreground">
-          {t('dashboard.dashboardEditor.nothingOnNameYet', 'Nothing on {{name}} yet', { name })}
-        </span>
-        <span className="text-ui-sm text-foreground-muted">
-          {t(
-            'dashboard.dashboardEditor.addCardsForWhat',
-            'Add cards for what you want at hand, or a group to gather them.',
-          )}
-        </span>
-      </span>
-      <span className="flex flex-wrap items-center justify-center gap-2.5">
-        <Button onClick={onAddCard}>
-          <AppIcon id="plus" size={15} />
-          {t('dashboard.dashboardEditor.addCard', 'Add card')}
-        </Button>
-        <Button variant="ghost" onClick={onAddGroup}>
-          <AppIcon id="layout-grid" size={15} />
-          {t('dashboard.dashboardEditor.addGroup', 'Add group')}
-        </Button>
-      </span>
-    </div>
-  );
-}
 
 /**
  * Renders the editor for the dashboard in the address.
@@ -183,12 +117,19 @@ function Editor(props: { readonly dashboard: DashboardView }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const draft = useDashboardDraft();
+  const copied = useDashboardClipboard((state) => state.copied);
+  const copy = useDashboardClipboard((state) => state.copy);
   const isEditing = draft.dashboardId === dashboard.id && draft.layout !== null;
   const layout: DashboardLayout = isEditing ? draft.layout : dashboard.layout;
   const data = useDashboardData(layout);
-  const [isAdding, setAdding] = useState(false);
+  const [addAt, setAddAt] = useState<CardPlace | null>(null);
   const [isNarrow, setNarrow] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [screen, setScreen] = useState<PreviewScreen>('desktop');
+  const [previewWidth, setPreviewWidth] = useState<number>(PREVIEW_WIDTHS.tablet);
+  const [side, setSide] = useState<'left' | 'right'>('right');
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const isDirty = isEditing && isDraftDirty(draft);
   const assignees = useQuery({
     queryKey: DASHBOARD_QUERY_KEYS.assignees,
@@ -201,8 +142,9 @@ function Editor(props: { readonly dashboard: DashboardView }) {
     return person === undefined ? [] : [person.displayName];
   });
   const scenes = [...data.sceneById.values()];
-  const { begin } = draft;
+  const { begin, selectedId } = draft;
   const hasBegun = useRef(false);
+  const canMove = isEditing && screen === 'desktop' && !isNarrow;
 
   // A copy left from an earlier visit to this dashboard is picked up where it was left; any other
   // dashboard's is replaced. Once per visit: Done and Cancel end the copy on their way out, and
@@ -236,6 +178,54 @@ function Editor(props: { readonly dashboard: DashboardView }) {
       window.removeEventListener('beforeunload', onLeave);
     };
   }, [isDirty]);
+
+  // The settings float at the top right; when the card chosen lies under them they take the
+  // mirrored place, top left, and go back with the next card that is not under them.
+  useEffect(() => {
+    if (selectedId === null) {
+      return undefined;
+    }
+
+    let frame = 0;
+
+    /** Works out the side from where the card and the panel are now. */
+    const measure = (): void => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const overlay = overlayRef.current?.getBoundingClientRect();
+        const panel = overlayRef.current?.querySelector('aside')?.getBoundingClientRect();
+        const card = document
+          .querySelector(`[data-card-id="${selectedId}"]`)
+          ?.getBoundingClientRect();
+
+        if (overlay === undefined || panel === undefined || card === undefined) {
+          return;
+        }
+
+        const right = { left: overlay.right - panel.width, top: overlay.top };
+        const isUnder =
+          card.right > right.left &&
+          card.left < overlay.right &&
+          card.bottom > right.top &&
+          card.top < right.top + panel.height;
+
+        setSide(isUnder ? 'left' : 'right');
+      });
+    };
+
+    measure();
+
+    const scroller = scrollerRef.current;
+
+    scroller?.addEventListener('scroll', measure, { passive: true });
+    globalThis.addEventListener('resize', measure);
+
+    return (): void => {
+      cancelAnimationFrame(frame);
+      scroller?.removeEventListener('scroll', measure);
+      globalThis.removeEventListener('resize', measure);
+    };
+  }, [selectedId, layout, screen]);
 
   /** Goes back to the list of dashboards. */
   const leave = (): void => {
@@ -281,16 +271,32 @@ function Editor(props: { readonly dashboard: DashboardView }) {
     },
   });
 
-  /** Saves the layout, after checking it the way the server will. */
+  /** Saves the layout, after leaving out the cards still without an entity and checking it. */
   const done = (): void => {
-    if (!isDirty) {
+    const waiting = Object.keys(draft.pending);
+    const complete =
+      draft.layout === null
+        ? null
+        : waiting.reduce((next, cardId) => removeCard(next, cardId), draft.layout);
+
+    if (complete === null || (!isDirty && waiting.length === 0)) {
       draft.end();
       leave();
 
       return;
     }
 
-    const checked = dashboardLayoutSchema.safeParse(draft.layout);
+    if (waiting.length > 0) {
+      toast.info({
+        title: t('dashboard.dashboardEditor.leftOut', {
+          count: waiting.length,
+          defaultValue_one: 'One card had no entity yet and was left out',
+          defaultValue_other: '{{count}} cards had no entity yet and were left out',
+        }),
+      });
+    }
+
+    const checked = dashboardLayoutSchema.safeParse(complete);
 
     if (!checked.success) {
       const first = checked.error.issues[0];
@@ -312,36 +318,64 @@ function Editor(props: { readonly dashboard: DashboardView }) {
       return;
     }
 
-    save.mutate(draft.layout);
+    save.mutate(complete);
+  };
+
+  /** Throws the changes away and goes back to the list. */
+  const cancel = (): void => {
+    setProblem(null);
+    draft.end();
+    leave();
   };
 
   /**
-   * Adds cards where the person is working: the group chosen, the one holding the card chosen,
-   * or the page.
+   * Puts a new card on the draft at a place, or in the first free one, and opens its settings.
    *
-   * @param cards - The new cards.
+   * @param card - The card.
+   * @param place - The space chosen, or null for the first free place on the page.
+   * @returns Whether it went on.
    */
-  const add = (cards: readonly DashboardCard[]): void => {
+  const putOn = (card: DashboardCard, place: CardPlace | null): boolean => {
     if (draft.layout === null) {
-      return;
+      return false;
     }
 
-    const groupId = groupInUse(draft.layout, draft.selectedId);
-    let next = draft.layout;
+    const into =
+      place === null
+        ? addCard(draft.layout, card, null, data.sizesOf)
+        : addCardAt(draft.layout, card, place, data.sizesOf);
+    // A card that does not fit into a group - a camera into a narrow one - goes onto the page.
+    const next = into === draft.layout ? addCard(draft.layout, card, null, data.sizesOf) : into;
 
-    for (const card of cards) {
-      const into = addCard(next, card, groupId, data.sizesOf);
-
-      next = into === next ? addCard(next, card, null, data.sizesOf) : into;
+    if (next === draft.layout) {
+      return false;
     }
 
     draft.change(next);
+    draft.select(card.id);
 
-    const last = cards.at(-1);
+    return true;
+  };
 
-    if (last !== undefined && (cards.length === 1 || last.type === 'container')) {
-      draft.select(last.id);
+  /**
+   * Pastes the copied card: into a space, or in the first free place on the page.
+   *
+   * @param place - The space, or null.
+   */
+  const paste = (place: CardPlace | null): void => {
+    if (copied === null) {
+      return;
     }
+
+    if (copied.card.type === 'container' && place !== null && place.parentId !== null) {
+      toast.info({
+        title: t('dashboard.dashboardEditor.groupIntoGroup', 'A group cannot go into a group'),
+      });
+
+      return;
+    }
+
+    putOn(cardCopy(copied.card), place);
   };
 
   /**
@@ -354,192 +388,209 @@ function Editor(props: { readonly dashboard: DashboardView }) {
       draft.change(removeCard(draft.layout, cardId));
     }
 
+    draft.setPending(cardId, null);
+
     if (draft.selectedId === cardId) {
       draft.select(null);
     }
   };
 
-  const groupId = isEditing ? groupInUse(layout, draft.selectedId) : null;
-  const group = groupId === null ? undefined : findCard(layout, groupId)?.card;
-  const groupName = group?.type === 'container' ? group.title : null;
-  const canEdit = isEditing && !isNarrow;
+  /**
+   * Keeps a card in the editor's clipboard.
+   *
+   * @param card - The card.
+   */
+  const copyCard = (card: DashboardCard): void => {
+    copy(card, cardTitle(card, data));
+  };
+
+  // On the card chosen: Ctrl or Cmd and C copies it, X copies and removes it, V pastes the copy in
+  // the first free place. A space with the focus takes its own V.
+  useEffect(() => {
+    if (!canMove) {
+      return undefined;
+    }
+
+    /**
+     * Copies, cuts or pastes.
+     *
+     * @param event - The key.
+     */
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target;
+
+      if (
+        event.defaultPrevented ||
+        !(event.ctrlKey || event.metaKey) ||
+        (target instanceof HTMLElement &&
+          (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)))
+      ) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const chosen =
+        selectedId === null || draft.layout === null ? null : findCard(draft.layout, selectedId);
+
+      if (
+        (key === 'c' || key === 'x') &&
+        chosen !== null &&
+        draft.pending[chosen.card.id] === undefined
+      ) {
+        event.preventDefault();
+        copyCard(chosen.card);
+
+        if (key === 'x') {
+          remove(chosen.card.id);
+        }
+      } else if (key === 'v' && copied !== null) {
+        event.preventDefault();
+        paste(null);
+      }
+    };
+
+    globalThis.addEventListener('keydown', onKey);
+
+    return (): void => {
+      globalThis.removeEventListener('keydown', onKey);
+    };
+  });
+
+  const hint =
+    viewers.length === 0
+      ? t(
+          'dashboard.dashboardEditor.nobodySeesItYet',
+          'Nobody sees it yet: assign it under Dashboard setup',
+        )
+      : viewers.length <= 3
+        ? t('dashboard.dashboardEditor.viewersSeeTheChange', {
+            count: viewers.length,
+            names: listFormat({ type: 'conjunction' }).format(viewers),
+            defaultValue_one: '{{names}} sees the change',
+            defaultValue_other: '{{names}} see the change',
+          })
+        : t('dashboard.editingHeader.everyoneSees', 'Everyone who uses it sees the change');
+
+  const addGroup = addAt?.parentId == null ? undefined : findCard(layout, addAt.parentId)?.card;
+
+  const grid = (
+    <DashboardGrid
+      layout={layout}
+      data={data}
+      onNarrowChange={setNarrow}
+      editor={
+        isEditing
+          ? {
+              selectedId,
+              onSelect: draft.select,
+              onChange: draft.change,
+              onRemove: remove,
+              canMove,
+              clipboardName: copied?.name ?? null,
+              pending: draft.pending,
+              onAddAt: setAddAt,
+              onPasteAt: paste,
+            }
+          : null
+      }
+    />
+  );
 
   return (
-    <div className="flex min-h-0 min-w-0 grow flex-col">
+    <div className="relative flex min-h-0 min-w-0 grow flex-col">
       <div className="shrink-0 px-8 pt-6">
-        <h1 className="sr-only">
-          {t('dashboard.dashboardEditor.editingName', 'Editing {{name}}', { name: dashboard.name })}
-        </h1>
-        <Note
-          tone="accent"
-          action={
-            <span className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="ghost"
-                size="compact"
-                disabled={!canEdit}
-                onClick={() => {
-                  setAdding(true);
-                }}
-              >
-                <AppIcon id="plus" size={14} />
-                {t('dashboard.dashboardEditor.addCard', 'Add card')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="compact"
-                disabled={!canEdit}
-                onClick={() => {
-                  add([containerCard(t('dashboard.dashboardEditor.newGroup', 'New group'))]);
-                }}
-              >
-                <AppIcon id="layout-grid" size={14} />
-                {t('dashboard.dashboardEditor.addGroup', 'Add group')}
-              </Button>
-              <Button
-                variant="bare"
-                size="compact"
-                disabled={save.isPending}
-                onClick={() => {
-                  setProblem(null);
-                  draft.end();
-                  leave();
-                }}
-              >
-                {t('common.cancel', 'Cancel')}
-              </Button>
-              <Button size="compact" isBusy={save.isPending} disabled={!isEditing} onClick={done}>
-                <AppIcon id="check" size={14} />
-                {t('common.done', 'Done')}
-              </Button>
-            </span>
-          }
-        >
-          <span className="font-medium">
-            {t('dashboard.dashboardEditor.editingName2', 'Editing “{{name}}”', {
-              name: dashboard.name,
-            })}
-          </span>
-          <span className="text-foreground-muted">
-            {' · '}
-            {viewers.length === 0
-              ? t(
-                  'dashboard.dashboardEditor.nobodySeesItYet',
-                  'Nobody sees it yet: assign it under Dashboard setup',
+        <EditingHeader
+          name={dashboard.name}
+          hint={
+            screen === 'desktop'
+              ? hint
+              : t(
+                  'dashboard.editingHeader.previewOnly',
+                  'Preview only · cards cannot be moved here, their settings still open',
                 )
-              : viewers.length <= 3
-                ? t('dashboard.dashboardEditor.viewersSeeTheChange', {
-                    count: viewers.length,
-                    names: listFormat({ type: 'conjunction' }).format(viewers),
-                    defaultValue_one: '{{names}} sees the change',
-                    defaultValue_other: '{{names}} see the change',
-                  })
-                : t(
-                    'dashboard.dashboardEditor.everyoneWhoUsesName',
-                    'Everyone who uses {{name}} sees the change',
-                    { name: dashboard.name },
-                  )}
-          </span>
-          <span className="text-foreground-subtle">
-            {t(
-              'dashboard.dashboardEditor.dragToMoveDrag',
-              '· drag to move, drag a corner to resize',
-            )}
-          </span>
-        </Note>
+          }
+          screen={screen}
+          onScreen={(next) => {
+            setScreen(next);
+
+            if (next !== 'desktop') {
+              setPreviewWidth(PREVIEW_WIDTHS[next]);
+            }
+          }}
+          onCancel={cancel}
+          onDone={done}
+          isSaving={save.isPending}
+        />
         {problem === null ? null : (
-          <p role="alert" className="mt-2 text-ui-sm text-danger">
+          <p role="alert" className="mt-2 animate-rise text-ui-sm text-danger">
             {problem}
           </p>
         )}
       </div>
 
-      <div className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
-        <div className="flex items-start gap-6">
-          <div className="flex min-w-0 grow flex-col gap-4">
-            {isNarrow ? (
-              <PageMessage>
-                {t(
-                  'dashboard.dashboardEditor.widenTheWindowTo',
-                  'Widen the window to lay out the dashboard: it takes four columns.',
-                )}
-              </PageMessage>
-            ) : null}
-
-            <DashboardGrid
-              layout={layout}
-              data={data}
-              onNarrowChange={setNarrow}
-              emptyState={
-                <EmptyPage
-                  name={dashboard.name}
-                  onAddCard={() => {
-                    setAdding(true);
-                  }}
-                  onAddGroup={() => {
-                    add([containerCard(t('dashboard.dashboardEditor.newGroup', 'New group'))]);
-                  }}
-                />
-              }
-              editor={
-                canEdit
-                  ? {
-                      selectedId: draft.selectedId,
-                      onSelect: draft.select,
-                      onChange: draft.change,
-                      onRemove: remove,
-                    }
-                  : null
-              }
-            />
-
-            {canEdit && layout.cards.length > 0 ? (
-              <button
-                type="button"
-                className="press flex h-16 items-center justify-center gap-3 rounded-panel border border-dashed border-border-strong bg-surface/40 text-ui font-medium text-foreground-muted hover:text-foreground"
-                onClick={() => {
-                  setAdding(true);
-                }}
-              >
-                <span className="flex size-7 items-center justify-center rounded-chip bg-primary/10 text-primary">
-                  <AppIcon id="plus" size={15} />
-                </span>
-                {t('dashboard.dashboardEditor.addACard', 'Add a card')}
-                <span className="text-caption font-normal text-foreground-subtle">
-                  {groupName === null
-                    ? t('dashboard.dashboardEditor.onThePage', 'on the page')
-                    : t('dashboard.dashboardEditor.intoGroupname', 'into {{groupName}}', {
-                        groupName,
-                      })}
-                </span>
-              </button>
-            ) : null}
-          </div>
-
-          {canEdit && draft.selectedId !== null ? (
-            <CardInspector
-              layout={layout}
-              cardId={draft.selectedId}
-              data={data}
-              scenes={scenes}
-              onChange={draft.change}
-              onRemove={remove}
-              onClose={() => {
-                draft.select(null);
-              }}
-            />
-          ) : null}
-        </div>
+      <div ref={scrollerRef} className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
+        {isNarrow && screen === 'desktop' ? (
+          <p className="mb-4 rounded-tile border border-border bg-surface px-4 py-3 text-ui-sm text-foreground-muted">
+            {t(
+              'dashboard.dashboardEditor.widenToMove',
+              'Widen the window to move and resize cards: the layout takes four columns. Their settings still open.',
+            )}
+          </p>
+        ) : null}
+        {screen === 'desktop' ? (
+          grid
+        ) : (
+          <WidthPreview device={screen} width={previewWidth} onWidth={setPreviewWidth}>
+            {grid}
+          </WidthPreview>
+        )}
       </div>
 
+      {isEditing && selectedId !== null ? (
+        <div
+          ref={overlayRef}
+          className="pointer-events-none absolute inset-x-8 top-[72px] bottom-6 z-30"
+        >
+          <CardSettings
+            layout={layout}
+            cardId={selectedId}
+            pendingKind={draft.pending[selectedId] ?? null}
+            data={data}
+            scenes={scenes}
+            side={side}
+            isCopied={copied?.card.id === selectedId}
+            onChange={draft.change}
+            onSettled={(cardId) => {
+              draft.setPending(cardId, null);
+            }}
+            onRemove={remove}
+            onCopy={copyCard}
+            onClose={() => {
+              draft.select(null);
+            }}
+          />
+        </div>
+      ) : null}
+
       <AddCardDialog
-        isOpen={isAdding && canEdit}
+        isOpen={addAt !== null && isEditing}
         onClose={() => {
-          setAdding(false);
+          setAddAt(null);
         }}
-        groupName={groupName}
+        targetName={addGroup?.type === 'container' ? addGroup.title : dashboard.name}
+        isInGroup={addGroup !== undefined}
+        data={data}
         scenes={scenes}
-        onAdd={add}
+        onAdd={({ card, pendingKind }) => {
+          // A group takes the full width, from the row of the space chosen.
+          const place = card.type === 'container' && addAt !== null ? { ...addAt, x: 0 } : addAt;
+
+          if (putOn(card, place) && pendingKind !== null) {
+            draft.setPending(card.id, pendingKind);
+          }
+
+          setAddAt(null);
+        }}
       />
     </div>
   );

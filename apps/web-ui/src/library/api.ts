@@ -738,6 +738,39 @@ export async function fetchDeviceActivity(
 }
 
 /**
+ * Reads the latest changes of the house, an area or a few entities, newest first: what a
+ * dashboard's activity card lists.
+ *
+ * @param scope - What to follow: an area by its key, entities by address, or neither for all.
+ * @param scope.areaKey - The area.
+ * @param scope.entityIds - The entities.
+ * @param limit - How many changes.
+ * @param signal - Cancels the request.
+ * @returns The changes.
+ */
+export async function fetchActivity(
+  scope: { readonly areaKey?: string; readonly entityIds?: readonly string[] },
+  limit: number,
+  signal?: AbortSignal,
+): Promise<ActivityPage['items']> {
+  const query = new URLSearchParams({ limit: String(limit) });
+
+  if (scope.areaKey !== undefined) {
+    query.set('areaKey', scope.areaKey);
+  }
+
+  if (scope.entityIds !== undefined) {
+    query.set('entityIds', scope.entityIds.join(','));
+  }
+
+  const page = await apiRequest(`/activity?${query.toString()}`, pageSchema(activityEntrySchema), {
+    signal,
+  });
+
+  return page.items;
+}
+
+/**
  * Reads an entity's numeric readings over a window, at a resolution.
  *
  * @param window - Which entity, and when.

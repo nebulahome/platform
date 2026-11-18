@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import type { CapabilityName, EntityDomain } from '@nebulahome/contracts';
 
-import { CARD_SIZES, cardKindOf, sizeName, snapSize, stepSize } from '@/dashboard/card-sizes';
+import {
+  allowedSizes,
+  CARD_SIZES,
+  cardKindOf,
+  missingSizes,
+  sizeName,
+  snapSize,
+  stepSize,
+} from '@/dashboard/card-sizes';
 
 /**
  * An entity reduced to what decides its card.
@@ -38,11 +46,18 @@ describe('snapSize', () => {
 });
 
 describe('cardKindOf', () => {
-  it('gives what is told rather than switched the entity page control on a card', () => {
-    expect(cardKindOf(entity('vacuum', 'vacuum', 'on_off'))).toBe('control');
-    expect(cardKindOf(entity('select', 'select'))).toBe('control');
-    expect(cardKindOf(entity('update', 'update'))).toBe('control');
-    expect(CARD_SIZES.control.preferred).toEqual({ w: 2, h: 2 });
+  it('gives what is told rather than switched a card of its own, at the sizes its board draws', () => {
+    expect(cardKindOf(entity('vacuum', 'vacuum', 'on_off'))).toBe('vacuum');
+    expect(cardKindOf(entity('lawn_mower', 'lawn_mower'))).toBe('mower');
+    expect(cardKindOf(entity('select', 'select'))).toBe('select');
+    expect(cardKindOf(entity('number', 'number'))).toBe('number');
+    expect(cardKindOf(entity('button', 'button'))).toBe('button');
+    expect(cardKindOf(entity('update', 'update'))).toBe('update');
+    expect(cardKindOf(entity('image', 'image'))).toBe('picture');
+    expect(cardKindOf(entity('custom', 'custom'))).toBe('custom');
+    expect(CARD_SIZES.vacuum.sizes.map(sizeName)).toEqual(['1×1', '1×2', '2×2']);
+    expect(CARD_SIZES.button.sizes.map(sizeName)).toEqual(['1×1']);
+    expect(CARD_SIZES.picture.sizes.map(sizeName)).toEqual(['2×2', '2×3']);
   });
 
   it('draws the richest thing an entity can do', () => {
@@ -56,6 +71,32 @@ describe('cardKindOf', () => {
 
   it('draws a light that only switches as a light', () => {
     expect(cardKindOf(entity('light', 'on_off'))).toBe('light');
+  });
+
+  it('gives a fan, a time and a person their own cards', () => {
+    expect(cardKindOf(entity('fan', 'on_off', 'fan'))).toBe('fan');
+    expect(cardKindOf(entity('time', 'time_of_day'))).toBe('time');
+    expect(cardKindOf(entity('time', 'date'))).toBe('time');
+    expect(cardKindOf(entity('time', 'datetime'))).toBe('time');
+    expect(cardKindOf(entity('device_tracker', 'location'))).toBe('person');
+    expect(CARD_SIZES.fan.sizes.map(sizeName)).toEqual(['1×1', '1×2', '2×2']);
+    expect(CARD_SIZES.time.sizes.map(sizeName)).toEqual(['1×1', '2×1']);
+    expect(CARD_SIZES.person.sizes.map(sizeName)).toEqual(['1×1', '1×2', '2×2']);
+  });
+
+  it('offers no square to a fan that only switches', () => {
+    const onOff = entity('fan', 'on_off', 'fan');
+    const withSpeeds = {
+      domain: 'fan' as const,
+      capabilities: [
+        { capability: 'on_off' as const, params: {} },
+        { capability: 'fan' as const, params: { speedCount: 3 } },
+      ],
+    };
+
+    expect(allowedSizes(onOff).map(sizeName)).toEqual(['1×1', '1×2']);
+    expect(missingSizes(onOff).map((each) => sizeName(each.size))).toEqual(['2×2']);
+    expect(allowedSizes(withSpeeds).map(sizeName)).toEqual(['1×1', '1×2', '2×2']);
   });
 
   it('falls back on the reading', () => {

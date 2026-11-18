@@ -47,6 +47,7 @@ import {
 } from '@/dashboard/dashboard-layout';
 import {
   boxOf,
+  columnsFor,
   columnWidth,
   CONTAINER_HEADING_PX,
   dropPlace,
@@ -59,15 +60,23 @@ import {
 } from '@/dashboard/geometry';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { CardView, cardTitle } from '@/routes/dashboard/card-view';
+import {
+  CardHandles,
+  CardOutline,
+  EmptySpace,
+  freeCells,
+  PendingCard,
+  SizeTag,
+} from '@/routes/dashboard/edit-chrome';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 import { DeviceIcon } from '@/routes/library/device-icon';
 
 /** What the grid is told while the layout is being edited. */
 export type GridEditor = {
-  /** The card open in the inspector. */
+  /** The card whose settings are open. */
   readonly selectedId: string | null;
 
-  /** Opens a card in the inspector. */
+  /** Opens a card's settings. */
   readonly onSelect: (cardId: string) => void;
 
   /** Takes a moved or resized layout. */
@@ -75,6 +84,24 @@ export type GridEditor = {
 
   /** Takes a card off. */
   readonly onRemove: (cardId: string) => void;
+
+  /**
+   * Whether cards may be moved and resized and the empty spaces offered: not in the tablet and
+   * phone preview, where the grid is only looked at.
+   */
+  readonly canMove: boolean;
+
+  /** The copied card's name, when there is one to paste; null otherwise. */
+  readonly clipboardName: string | null;
+
+  /** The cards that still wait for their entity, with the kind each will be. */
+  readonly pending: Readonly<Record<string, string>>;
+
+  /** Add card is chosen on an empty space. */
+  readonly onAddAt: (place: CardPlace) => void;
+
+  /** Paste is chosen on an empty space. */
+  readonly onPasteAt: (place: CardPlace) => void;
 };
 
 /** What the grid needs. */
@@ -120,6 +147,9 @@ type Gesture =
       readonly id: string;
       readonly start: DashboardLayout;
       readonly preview: DashboardLayout;
+
+      /** Where the pointer is, in the window, for the size written beside it. */
+      readonly pointer: { readonly x: number; readonly y: number };
     }
   | {
       readonly kind: 'keyboard';
@@ -242,7 +272,8 @@ export function DashboardGrid(props: DashboardGridProps) {
     }
   }, [isNarrow, onNarrowChange, width]);
 
-  const columns = isNarrow && editor === null ? 2 : DASHBOARD_COLUMNS;
+  // The stored layout is four columns wide; a narrower grid is drawn on fewer, never edited there.
+  const columns = editor?.canMove === true ? DASHBOARD_COLUMNS : columnsFor(width || 1200);
   const base = gesture?.preview ?? layout;
   const shown = columns < DASHBOARD_COLUMNS ? narrowLayout(base, columns, data.sizesOf) : base;
   const column = columnWidth(width, columns);
@@ -406,6 +437,7 @@ export function DashboardGrid(props: DashboardGridProps) {
 
     event.preventDefault();
     event.stopPropagation();
+    editor.onSelect(card.id);
 
     const rect = element.getBoundingClientRect();
     const gridColumns = Number(grid.dataset['columns'] ?? DASHBOARD_COLUMNS);
@@ -416,6 +448,7 @@ export function DashboardGrid(props: DashboardGridProps) {
       id: card.id,
       start: layout,
       preview: layout,
+      pointer: origin,
     };
 
     /**
@@ -435,10 +468,8 @@ export function DashboardGrid(props: DashboardGridProps) {
           : snapSize(data.sizesOf(card), span.w, span.h, gridColumns);
       const preview = resizeCard(current.start, card.id, size, data.sizesOf);
 
-      if (preview !== current.preview) {
-        current = { ...current, preview };
-        setGesture(current);
-      }
+      current = { ...current, preview, pointer: { x: move.clientX, y: move.clientY } };
+      setGesture(current);
     };
 
     /** Keeps the size the corner settled on. */
@@ -565,13 +596,14 @@ export function DashboardGrid(props: DashboardGridProps) {
   };
 
   /**
-   * Draws one card where its cells put it, with the editing controls when editing.
+   * Draws one card where its cells put it, with the editing outline and handles when editing.
    *
    * @param card - The card.
    * @param gridColumn - How wide one column of its grid is.
+   * @param parentId - The container it is in, or null on the page.
    * @returns The placed card.
    */
-  const place = (card: DashboardCard, gridColumn: number): ReactNode => {
+  const place = (card: DashboardCard, gridColumn: number, parentId: string | null): ReactNode => {
     const box: Box = boxOf(card, gridColumn);
     const style = {
       transform: `translate(${String(box.left)}px, ${String(box.top)}px)`,
@@ -584,7 +616,7 @@ export function DashboardGrid(props: DashboardGridProps) {
         <div
           key={card.id}
           aria-hidden="true"
-          className="absolute top-0 left-0 rounded-panel border-2 border-dashed border-primary/55 bg-primary/6"
+          className="absolute top-0 left-0 rounded-card border-2 border-dashed border-primary/55 bg-primary/6"
           /* eslint-disable-next-line react/forbid-dom-props -- a slot sits where its cells work out to, in
           pixels measured from the window (RULES.md 15.3). */
           style={style}
@@ -593,15 +625,19 @@ export function DashboardGrid(props: DashboardGridProps) {
     }
 
     const title = cardTitle(card, data);
-    const isSelected = editor?.selectedId === card.id;
+    const selectedId = editor?.selectedId ?? null;
+    const isSelected = selectedId === card.id;
     const isLifted = gesture?.kind === 'keyboard' && gesture.id === card.id;
+    // With a card chosen, the others step back - but not the cards of the group chosen.
+    const isDimmed =
+      selectedId !== null && !isSelected && selectedId !== parentId && card.type !== 'container';
 
     return (
       <div
         key={card.id}
         data-card-id={card.id}
         className={cn(
-          'absolute top-0 left-0',
+          'group/card absolute top-0 left-0',
           // Only while editing, where a card that moves should be seen moving. On a dashboard being
           // looked at, a card only moves because the window changed, and sliding then is noise.
           editor === null || isReduced || gesture?.kind === 'resize'
@@ -617,21 +653,26 @@ export function DashboardGrid(props: DashboardGridProps) {
           <ContainerView
             container={card}
             data={data}
-            isEditing={editor !== null}
+            editor={editor}
             isSelected={isSelected}
             onSelect={() => editor?.onSelect(card.id)}
             place={place}
+            spaces={spaces}
           />
         ) : (
           <div
             className={cn(
-              'h-full rounded-panel',
-              isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-canvas' : undefined,
-              isLifted ? 'shadow-dialog ring-2 ring-primary' : undefined,
+              'h-full rounded-card transition-[opacity,box-shadow] duration-200 ease-out',
+              isDimmed ? 'opacity-50' : undefined,
+              isLifted ? 'shadow-dialog' : undefined,
             )}
             inert={editor !== null}
           >
-            <CardView card={card} data={data} isEditing={editor !== null} />
+            {editor?.pending[card.id] === undefined ? (
+              <CardView card={card} data={data} isEditing={editor !== null} />
+            ) : (
+              <PendingCard kind={editor.pending[card.id] ?? ''} />
+            )}
           </div>
         )}
 
@@ -641,81 +682,97 @@ export function DashboardGrid(props: DashboardGridProps) {
               <button
                 type="button"
                 aria-label={t('dashboard.dashboardGrid.editTitle', 'Edit {{title}}', { title })}
-                className="absolute inset-0 cursor-pointer rounded-panel"
+                aria-pressed={isSelected}
+                className="absolute inset-0 cursor-pointer rounded-card focus-visible:outline-none"
                 onClick={() => {
                   editor.onSelect(card.id);
                 }}
               />
             )}
-            <button
-              type="button"
-              aria-label={t('dashboard.dashboardGrid.moveTitle', 'Move {{title}}', { title })}
-              aria-pressed={isLifted}
-              aria-describedby="dashboard-grid-help"
-              className={cn(
-                'absolute top-0 left-1/2 z-20 flex h-4.5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none items-center rounded-full border border-border-strong bg-surface-raised px-2 text-foreground-subtle',
-                'focus-visible:ring-2 focus-visible:ring-primary',
-                isLifted ? 'cursor-grabbing text-primary' : undefined,
-              )}
-              onPointerDown={(event) => {
+            <CardOutline isSelected={isSelected || isLifted} />
+            <CardHandles
+              title={title}
+              isSelected={isSelected}
+              isLifted={isLifted}
+              canMove={editor.canMove}
+              onGripDown={(event) => {
                 startMove(event, card);
               }}
-              onKeyDown={(event) => {
+              onGripKey={(event) => {
                 onGripKey(event, card);
               }}
-              onBlur={() => {
+              onGripBlur={() => {
                 if (gesture?.kind === 'keyboard' && gesture.id === card.id) {
                   editor.onChange(gesture.preview);
                   setGesture(null);
                 }
               }}
-            >
-              <AppIcon id="grip-horizontal" size={14} />
-            </button>
-            <span
-              aria-hidden="true"
-              className="absolute top-2 left-2 z-20 rounded-chip border border-border-strong bg-surface-raised px-1.5 font-mono text-mono-caption text-foreground-muted tabular"
-            >
-              {card.w}×{card.h}
-            </span>
-            <button
-              type="button"
-              aria-label={t('dashboard.dashboardGrid.removeTitle', 'Remove {{title}}', { title })}
-              className="absolute -top-2 -right-2 z-20 flex size-6 items-center justify-center rounded-full border border-border-strong bg-surface-raised text-foreground-muted hover:text-danger"
-              onClick={() => {
-                editor.onRemove(card.id);
-              }}
-            >
-              <AppIcon id="x" size={12} />
-            </button>
-            <div
-              aria-hidden="true"
-              className="absolute right-1 bottom-1 z-20 flex size-5 cursor-nwse-resize touch-none items-end justify-end p-0.5 text-foreground-subtle hover:text-foreground"
-              onPointerDown={(event) => {
+              onCornerDown={(event) => {
                 startResize(event, card);
               }}
-            >
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              >
-                <path d="M9 1L1 9M9 5.5L5.5 9" />
-              </svg>
-            </div>
+              onRemove={() => {
+                editor.onRemove(card.id);
+              }}
+            />
           </>
         )}
       </div>
     );
   };
 
+  /**
+   * Draws the empty spaces of a grid while it is edited, each offering Add card and Paste.
+   *
+   * @param cards - The grid's cards.
+   * @param gridColumns - How many columns it has.
+   * @param rows - How many rows of it to fill.
+   * @param gridColumn - How wide one of its columns is.
+   * @param parentId - The container it is, or null for the page.
+   * @returns The spaces.
+   */
+  const spaces = (
+    cards: readonly DashboardCard[],
+    gridColumns: number,
+    rows: number,
+    gridColumn: number,
+    parentId: string | null,
+  ): ReactNode => {
+    if (editor === null || !editor.canMove || gesture?.kind === 'move' || gridColumn <= 0) {
+      return null;
+    }
+
+    return freeCells(cards, gridColumns, rows).map(({ x, y }) => {
+      const box = boxOf({ x, y, w: 1, h: 1 }, gridColumn);
+
+      return (
+        <EmptySpace
+          key={`space-${String(x)}-${String(y)}`}
+          style={{
+            transform: `translate(${String(box.left)}px, ${String(box.top)}px)`,
+            width: box.width,
+            height: box.height,
+          }}
+          clipboardName={editor.clipboardName}
+          onAdd={() => {
+            editor.onAddAt({ parentId, x, y });
+          }}
+          onPaste={() => {
+            editor.onPasteAt({ parentId, x, y });
+          }}
+        />
+      );
+    });
+  };
+
   const moving = gesture?.kind === 'move' ? gesture : null;
   const carried = moving === null ? null : findCard(moving.start, moving.id)?.card;
-  const rows = bottomOf(shown.cards);
+  // While editing, one whole empty row is kept under the last card for the next one.
+  const rows =
+    editor === null
+      ? bottomOf(shown.cards)
+      : Math.max(2, bottomOf(shown.cards) + (editor.canMove ? 1 : 0));
+  const resizing = gesture?.kind === 'resize' ? gesture : null;
+  const resized = resizing === null ? null : findCard(resizing.preview, resizing.id)?.card;
 
   return (
     <div
@@ -724,13 +781,14 @@ export function DashboardGrid(props: DashboardGridProps) {
       className="relative"
       /* eslint-disable-next-line react/forbid-dom-props -- the grid is as tall as the rows its cards
       reach, a number no class can carry (RULES.md 15.3). */
-      style={{
-        height:
-          Math.max(rowsHeight(rows), editor === null ? 0 : rowsHeight(2)) +
-          (editor === null ? 0 : GAP_PX),
-      }}
+      style={{ height: rowsHeight(rows) + (editor === null ? 0 : GAP_PX) }}
     >
-      {width === 0 ? null : shown.cards.map((card) => place(card, column))}
+      {width === 0 ? null : spaces(shown.cards, columns, rows, column, null)}
+      {width === 0 ? null : shown.cards.map((card) => place(card, column, null))}
+
+      {resizing === null || resized === null || resized === undefined ? null : (
+        <SizeTag size={sizeName(resized)} at={resizing.pointer} />
+      )}
 
       {emptyState === undefined || editor === null || shown.cards.length > 0 ? null : (
         // Over the two rows the editor keeps, not the gap under them (GAP_PX, 16px).
@@ -750,15 +808,16 @@ export function DashboardGrid(props: DashboardGridProps) {
             height: moving.size.height,
           }}
         >
-          <div className="h-full origin-center scale-[1.02] -rotate-[1.6deg] rounded-panel shadow-dialog ring-2 ring-primary/70">
+          <div className="h-full origin-center scale-[1.02] -rotate-[1.6deg] rounded-card shadow-dialog ring-2 ring-primary/70">
             {carried.type === 'container' ? (
               <ContainerView
                 container={carried}
                 data={data}
-                isEditing
+                editor={null}
                 isSelected={false}
                 onSelect={() => undefined}
                 place={place}
+                spaces={() => null}
               />
             ) : (
               <CardView card={carried} data={data} isEditing />
@@ -784,16 +843,29 @@ export function DashboardGrid(props: DashboardGridProps) {
 type ContainerViewProps = {
   readonly container: DashboardContainerCard;
   readonly data: DashboardData;
-  readonly isEditing: boolean;
+
+  /** The editor, while the layout is edited; null to only show it. */
+  readonly editor: GridEditor | null;
   readonly isSelected: boolean;
   readonly onSelect: () => void;
 
   /** Draws one of its cards on its own grid. */
-  readonly place: (card: DashboardCard, gridColumn: number) => ReactNode;
+  readonly place: (card: DashboardCard, gridColumn: number, parentId: string | null) => ReactNode;
+
+  /** Draws the empty spaces of its grid while it is edited. */
+  readonly spaces: (
+    cards: readonly DashboardCard[],
+    gridColumns: number,
+    rows: number,
+    gridColumn: number,
+    parentId: string | null,
+  ) => ReactNode;
 };
 
 /**
- * Renders a container: its heading, and its cards on a grid as wide as it is.
+ * Renders a container - a group: its heading, and its cards on a grid as wide as it is, with its
+ * own empty spaces while it is edited. A group that is full has no space left: its heading offers
+ * Add card and Paste instead, and what is added there makes it a row taller.
  *
  * @param props - See {@link ContainerViewProps}.
  * @returns The container.
@@ -801,11 +873,14 @@ type ContainerViewProps = {
 function ContainerView(props: ContainerViewProps) {
   const { t } = useTranslation();
 
-  const { container, data, isEditing, isSelected, onSelect, place } = props;
+  const { container, data, editor, isSelected, onSelect, place, spaces } = props;
   const [innerWidth, setInnerWidth] = useState(0);
   const innerRef = useRef<HTMLDivElement>(null);
   const icon = container.icon === null ? undefined : data.icons.get(container.icon);
   const count = container.cards.length;
+  const isEditing = editor !== null;
+  const innerRows = Math.max(1, container.h - 1);
+  const isFull = freeCells(container.cards, container.w, innerRows).length === 0;
 
   useLayoutEffect(() => {
     const element = innerRef.current;
@@ -836,40 +911,41 @@ function ContainerView(props: ContainerViewProps) {
   }, []);
 
   const innerColumn = columnWidth(innerWidth, container.w);
+  const below = { parentId: container.id, x: 0, y: bottomOf(container.cards) };
 
   return (
     <section
       aria-label={container.title}
       className={cn(
-        'relative h-full rounded-panel border border-border bg-surface-raised/45',
-        isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-canvas' : undefined,
+        'relative h-full rounded-[20px] border bg-rail transition-[border-color] duration-200',
+        isEditing && !isSelected ? 'border-dashed border-border-strong' : 'border-border',
       )}
     >
       <div
-        className="absolute inset-x-0 top-0 flex items-center gap-3 px-4"
+        className="absolute inset-x-0 top-0 flex items-start justify-between gap-2.5 px-3 pt-3"
         /* eslint-disable-next-line react/forbid-dom-props -- the heading fills the container's first row,
         measured from the grid's own constants (RULES.md 15.3). */
         style={{ height: CONTAINER_HEADING_PX - CONTAINER_PADDING_PX / 2 }}
       >
-        <span
-          aria-hidden="true"
-          className="flex size-10 shrink-0 items-center justify-center rounded-tile border border-border bg-surface-raised text-foreground-muted"
-        >
-          {icon === undefined ? (
-            <AppIcon id="layout-grid" size={18} />
-          ) : (
-            <DeviceIcon icon={icon} size={18} />
-          )}
-        </span>
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-subhead font-medium">{container.title}</span>
-          <span className="text-caption text-foreground-subtle tabular">
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className="flex size-7 shrink-0 items-center justify-center rounded-field bg-success/14 text-success"
+          >
+            {icon === undefined ? (
+              <AppIcon id="layout-grid" size={14} />
+            ) : (
+              <DeviceIcon icon={icon} size={14} />
+            )}
+          </span>
+          <span className="truncate text-ui font-medium">{container.title}</span>
+          <span className="truncate text-caption text-foreground-subtle tabular">
             {count === 0
-              ? t('dashboard.dashboardGrid.empty', 'Empty')
-              : t('dashboard.cards.count', {
+              ? t('dashboard.dashboardGrid.emptyGroup', 'Group · empty')
+              : t('dashboard.dashboardGrid.groupCount', {
                   count,
-                  defaultValue_one: '{{count}} card',
-                  defaultValue_other: '{{count}} cards',
+                  defaultValue_one: 'Group · {{count}} card',
+                  defaultValue_other: 'Group · {{count}} cards',
                 })}
           </span>
         </span>
@@ -879,9 +955,36 @@ function ContainerView(props: ContainerViewProps) {
             aria-label={t('dashboard.dashboardGrid.editTitle', 'Edit {{title}}', {
               title: container.title,
             })}
-            className="absolute inset-0 cursor-pointer rounded-t-panel"
+            aria-pressed={isSelected}
+            className="absolute inset-0 cursor-pointer rounded-t-[20px] focus-visible:outline-none"
             onClick={onSelect}
           />
+        ) : null}
+        {editor !== null && editor.canMove && isFull ? (
+          <span className="relative z-10 flex shrink-0 items-center gap-1.5">
+            {editor.clipboardName === null ? null : (
+              <button
+                type="button"
+                className="press-scale inline-flex h-7 items-center gap-1.5 rounded-pill border border-primary/60 bg-primary/14 px-2.5 text-caption font-medium text-foreground"
+                onClick={() => {
+                  editor.onPasteAt(below);
+                }}
+              >
+                <AppIcon id="clipboard-paste" size={13} />
+                {t('dashboard.dashboardGrid.paste', 'Paste')}
+              </button>
+            )}
+            <button
+              type="button"
+              className="press-scale inline-flex h-7 items-center gap-1.5 rounded-pill border border-border-strong bg-surface-raised px-2.5 text-caption font-medium text-foreground hover:bg-surface-high"
+              onClick={() => {
+                editor.onAddAt(below);
+              }}
+            >
+              <AppIcon id="plus" size={13} />
+              {t('dashboard.editChrome.addCard', 'Add card')}
+            </button>
+          </span>
         ) : null}
       </div>
 
@@ -899,14 +1002,17 @@ function ContainerView(props: ContainerViewProps) {
           bottom: CONTAINER_PADDING_PX,
         }}
       >
-        {count === 0 ? (
-          <div className="flex h-full items-center justify-center rounded-panel border border-dashed border-border-strong text-caption text-foreground-subtle">
-            {isEditing
-              ? t('dashboard.dashboardGrid.dragCardsHere', 'Drag cards here')
-              : t('dashboard.dashboardGrid.nothingInThisGroup', 'Nothing in this group yet')}
-          </div>
-        ) : innerWidth === 0 ? null : (
-          container.cards.map((card) => place(card, innerColumn))
+        {innerWidth === 0 ? null : (
+          <>
+            {spaces(container.cards, container.w, innerRows, innerColumn, container.id)}
+            {count === 0 && !isEditing ? (
+              <div className="flex h-full items-center justify-center rounded-card border border-dashed border-border-strong text-caption text-foreground-subtle">
+                {t('dashboard.dashboardGrid.nothingInThisGroup', 'Nothing in this group yet')}
+              </div>
+            ) : (
+              container.cards.map((card) => place(card, innerColumn, container.id))
+            )}
+          </>
         )}
       </div>
     </section>

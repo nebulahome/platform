@@ -33,6 +33,13 @@ export type CardDefinition<
 
   /** What its inspector asks, per card on a dashboard. */
   readonly options?: TOptions;
+
+  /**
+   * Draw the card as a sample in the Add card catalogue, with these option values. The card is
+   * then given `isPreview: true` there, and must draw itself from sample values: no stream, no
+   * subscription, no command. Without it the catalogue shows the card's name and sizes. Since 1.14.
+   */
+  readonly preview?: { readonly options?: Partial<FormValues<TOptions>> };
 };
 
 /** The sizes a card is drawn at. */

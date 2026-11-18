@@ -58,3 +58,23 @@ export const activityEntrySchema = z.object({
 
 /** One thing that happened on a device. */
 export type ActivityEntry = z.output<typeof activityEntrySchema>;
+
+/**
+ * What the activity of many entities may be narrowed by, for a dashboard's activity card: one
+ * area, or a few entities by address (comma-separated). Neither, the whole house.
+ */
+export const activityQuerySchema = z.object({
+  /** The area, by its key. */
+  areaKey: z.string().trim().min(1).max(64).optional(),
+
+  /** The entities, their addresses joined by commas. */
+  entityIds: z
+    .string()
+    .max(4096)
+    .transform((value) => value.split(',').filter((id) => id !== ''))
+    .pipe(z.array(entityIdSchema).max(32))
+    .optional(),
+});
+
+/** What the activity of many entities may be narrowed by. */
+export type ActivityQuery = z.output<typeof activityQuerySchema>;

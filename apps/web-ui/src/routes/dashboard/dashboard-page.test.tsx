@@ -5,7 +5,7 @@
  * The API modules are stood in for; the session, the live store and the draft are the real ones.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -34,7 +34,8 @@ vi.mock('@/dashboard/api', () => ({
   deleteDashboard: vi.fn(),
   exportDashboard: vi.fn(),
   importDashboard: vi.fn(),
-  DASHBOARD_QUERY_KEYS: { dashboards: ['dashboards'] },
+  fetchAssignees: vi.fn(async () => Promise.resolve([])),
+  DASHBOARD_QUERY_KEYS: { dashboards: ['dashboards'], assignees: ['dashboards', 'assignees'] },
 }));
 
 vi.mock('@/library/api', () => ({
@@ -187,14 +188,16 @@ describe('a person with no dashboard assigned', () => {
 
     expect(await screen.findByText(/No dashboard is assigned to you yet/u)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'New dashboard' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Manage dashboards' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add dashboard' })).toBeNull();
   });
 
-  it('who manages dashboards is pointed to where they are made', async () => {
+  it('who manages dashboards can add one from there, in the dialog Dashboard setup opens', async () => {
     vi.mocked(fetchDashboards).mockResolvedValue([]);
     renderPage('/dashboards', true);
 
-    expect(await screen.findByRole('button', { name: 'Manage dashboards' })).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Add dashboard' }));
+
+    expect(await screen.findByRole('dialog', { name: 'New dashboard' })).toBeTruthy();
   });
 });
 
@@ -205,7 +208,8 @@ describe('a dashboard', () => {
 
     const lamp = await screen.findByRole('article', { name: 'Kitchen ceiling' });
 
-    expect(within(lamp).getByText('60%')).toBeTruthy();
+    // The figure and its unit are drawn apart: 60, and a smaller %.
+    expect(within(lamp).getByText('60')).toBeTruthy();
     expect(within(lamp).getByRole('switch', { name: 'Kitchen ceiling' })).toBeTruthy();
     expect(screen.getByText('switch.removed_plug')).toBeTruthy();
   });

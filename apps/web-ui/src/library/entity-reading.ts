@@ -234,6 +234,39 @@ function withUnit(value: number, unit: string | null): string {
   return unit === '%' ? `${figure}%` : `${figure} ${unit}`;
 }
 
+/** A state's own word, for the states every device of a kind shares; others are capitalised. */
+const STATE_WORDS: Readonly<Record<string, Message>> = {
+  opening: defineMessage('library.entityReading.opening', 'Opening'),
+  closing: defineMessage('library.entityReading.closing', 'Closing'),
+  locked: defineMessage('library.entityReading.locked', 'Locked'),
+  unlocked: defineMessage('library.entityReading.unlocked', 'Unlocked'),
+  jammed: defineMessage('library.entityReading.jammed', 'Jammed'),
+  off: defineMessage('common.off', 'Off'),
+  idle: defineMessage('library.entityReading.idle', 'Idle'),
+  heating: defineMessage('library.entityReading.heating', 'Heating'),
+  cooling: defineMessage('library.entityReading.cooling', 'Cooling'),
+  drying: defineMessage('library.entityReading.drying', 'Drying'),
+  fan: defineMessage('library.entityReading.fan', 'Fan'),
+  preheating: defineMessage('library.entityReading.preheating', 'Preheating'),
+  defrosting: defineMessage('library.entityReading.defrosting', 'Defrosting'),
+  playing: defineMessage('library.entityReading.playing', 'Playing'),
+  paused: defineMessage('library.entityReading.paused', 'Paused'),
+  stopped: defineMessage('library.entityReading.stopped', 'Stopped'),
+  buffering: defineMessage('library.entityReading.buffering', 'Loading'),
+};
+
+/**
+ * A state in words: its own when it is a shared one, else the word capitalised.
+ *
+ * @param word - As the state carries it, e.g. `heating`.
+ * @returns `Heating`, in the person's language.
+ */
+function stateWord(word: string): string {
+  const said = STATE_WORDS[word];
+
+  return said === undefined ? capitalised(word) : text(said);
+}
+
 /**
  * Capitalises one word.
  *
@@ -334,12 +367,12 @@ export function describeState(
     );
 
     if (motion !== 'stopped') {
-      parts.push(capitalised(motion));
+      parts.push(stateWord(motion));
     }
   }
 
   if (value.lock !== undefined) {
-    parts.push(capitalised(value.lock.lockState));
+    parts.push(stateWord(value.lock.lockState));
   }
 
   if (value.thermostat !== undefined) {
@@ -349,7 +382,7 @@ export function describeState(
       currentTemperature === undefined
         ? withUnit(targetTemperature, unit)
         : `${withUnit(currentTemperature, unit)} → ${withUnit(targetTemperature, unit)}`,
-      capitalised(action),
+      stateWord(action),
     );
   }
 
@@ -371,7 +404,7 @@ export function describeState(
     const { playback, volume, isMuted, mediaTitle } = value.media_player;
 
     parts.push(
-      capitalised(playback),
+      stateWord(playback),
       isMuted
         ? translate('library.entityReading.muted', 'Muted')
         : translate('library.entityReading.volume', '{{volume}}%', {

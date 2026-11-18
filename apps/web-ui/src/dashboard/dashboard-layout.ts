@@ -296,6 +296,27 @@ export function resizeCard(
 }
 
 /**
+ * Adds a card with its top-left cell on a chosen place - the empty space the person clicked - on
+ * the page or in a container. The cards in its way make room as they do for a card dropped there.
+ *
+ * @param layout - The layout.
+ * @param card - The new card; where it says it sits is ignored.
+ * @param place - The cell, and the container it is in or null for the page.
+ * @param sizesOf - What sizes a card may take.
+ * @returns The new layout; the same one when it cannot go there.
+ */
+export function addCardAt(
+  layout: DashboardLayout,
+  card: DashboardCard,
+  place: CardPlace,
+  sizesOf: SizesOf,
+): DashboardLayout {
+  const added = addCard(layout, card, place.parentId, sizesOf);
+
+  return added === layout ? layout : placeCard(added, card.id, place, sizesOf);
+}
+
+/**
  * Adds a card in the first place it fits, on the page or in a container.
  *
  * @param layout - The layout.

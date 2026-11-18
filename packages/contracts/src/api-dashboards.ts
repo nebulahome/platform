@@ -47,6 +47,15 @@ export const DASHBOARD_CARD_TYPES = [
   'clock',
   'energy',
   'package',
+  'together',
+  'summary',
+  'room',
+  'list',
+  'actions',
+  'compare',
+  'activity',
+  'automation',
+  'shortcut',
   'container',
 ] as const;
 
@@ -68,6 +77,21 @@ export type DashboardHistoryRange = (typeof DASHBOARD_HISTORY_RANGES)[number];
 export const dashboardCardIdSchema = z
   .string()
   .regex(/^[a-z0-9]{8,32}$/, 'Must be 8 to 32 lower case letters and digits');
+
+/** What a tap on an entity card does: open the entity, switch it on or off, or nothing. */
+export const DASHBOARD_CARD_TAPS = ['sheet', 'toggle', 'none'] as const;
+
+/** What a tap on an entity card does. */
+export type DashboardCardTap = (typeof DASHBOARD_CARD_TAPS)[number];
+
+/** How an entity card draws a reading's past. */
+export const DASHBOARD_CHART_STYLES = ['line', 'bars'] as const;
+
+/** How an entity card draws a reading's past. */
+export type DashboardChartStyle = (typeof DASHBOARD_CHART_STYLES)[number];
+
+/** A part of a card that its settings may switch off, by the card's own name for it. */
+const cardPartSchema = z.string().regex(/^[a-z][a-z-]{0,31}$/);
 
 /** What a card's title may be: a person's own words, or null for the thing's own name. */
 const cardTitleSchema = z.string().trim().min(1).max(60).nullable();
@@ -94,6 +118,18 @@ export const dashboardEntityCardSchema = z.object({
 
   /** How far back its chart looks, when it draws one; null for the card's own default. */
   range: z.enum(DASHBOARD_HISTORY_RANGES).nullable(),
+
+  /**
+   * The parts of the card switched off in its settings, by the names each kind of card gives its
+   * parts ("presets", "brightness", "chart"). Absent, every part its size can hold is drawn.
+   */
+  hide: z.array(cardPartSchema).max(16).optional(),
+
+  /** What a tap on the card does; absent, it opens the entity. */
+  tap: z.enum(DASHBOARD_CARD_TAPS).optional(),
+
+  /** How a reading's past is drawn: a line, or one bar an hour or a day for totals and prices. */
+  chart: z.enum(DASHBOARD_CHART_STYLES).optional(),
 });
 
 /** A card showing one entity. */
@@ -214,6 +250,186 @@ export const dashboardPackageCardSchema = z.object({
 /** A card a package draws. */
 export type DashboardPackageCard = z.output<typeof dashboardPackageCardSchema>;
 
+/** Where a card that reads many entities looks: one area, by its key, or the whole house. */
+const areaKeySchema = z.string().trim().min(1).max(64).nullable();
+
+/** The kinds of entity a card that gathers them can stand for. */
+export const TOGETHER_DOMAINS = ['light', 'switch', 'cover', 'lock', 'thermostat'] as const;
+
+/** The kind of entity a card that gathers them stands for. */
+export type TogetherDomain = (typeof TOGETHER_DOMAINS)[number];
+
+/**
+ * Which entities a gathering card stands for: by rule - every one of its kind in an area, or in
+ * the house, but the ones left out, so a new light in the Kitchen joins by itself - or by hand.
+ */
+export const togetherMembersSchema = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal('rule'),
+    areaKey: areaKeySchema,
+    exclude: z.array(entityIdSchema).max(64),
+  }),
+  z.object({ mode: z.literal('hand'), entityIds: z.array(entityIdSchema).max(64) }),
+]);
+
+/** Which entities a gathering card stands for. */
+export type TogetherMembers = z.output<typeof togetherMembersSchema>;
+
+/**
+ * One card that stands for many entities of a kind - every light of the Kitchen - with one state:
+ * how many are on, their average, and controls that act on all of them at once.
+ */
+export const dashboardTogetherCardSchema = z.object({
+  ...placement,
+  type: z.literal('together'),
+  domain: z.enum(TOGETHER_DOMAINS),
+  members: togetherMembersSchema,
+  title: cardTitleSchema,
+  icon: iconIdSchema.nullable(),
+});
+
+/** One card for many entities of a kind. */
+export type DashboardTogetherCard = z.output<typeof dashboardTogetherCardSchema>;
+
+/** What a summary counts. `glance` is the house at a glance: every count side by side. */
+export const SUMMARY_SUBJECTS = [
+  'openings',
+  'lights',
+  'batteries',
+  'updates',
+  'offline',
+  'glance',
+] as const;
+
+/** What a summary counts. */
+export type SummarySubject = (typeof SUMMARY_SUBJECTS)[number];
+
+/** A card counting what needs a look - doors open, lights on, batteries low - in an area or all. */
+export const dashboardSummaryCardSchema = z.object({
+  ...placement,
+  type: z.literal('summary'),
+  what: z.enum(SUMMARY_SUBJECTS),
+  areaKey: areaKeySchema,
+  title: cardTitleSchema,
+});
+
+/** A card counting what needs a look. */
+export type DashboardSummaryCard = z.output<typeof dashboardSummaryCardSchema>;
+
+/** One area in one card: its climate, then a row for each kind of thing it has. */
+export const dashboardRoomCardSchema = z.object({
+  ...placement,
+  type: z.literal('room'),
+  areaKey: z.string().trim().min(1).max(64),
+  title: cardTitleSchema,
+  icon: iconIdSchema.nullable(),
+});
+
+/** One area in one card. */
+export type DashboardRoomCard = z.output<typeof dashboardRoomCardSchema>;
+
+/** Entities of any kind as rows, each with its value or its one main control. */
+export const dashboardListCardSchema = z.object({
+  ...placement,
+  type: z.literal('list'),
+  entityIds: z.array(entityIdSchema).max(12),
+  title: cardTitleSchema,
+  icon: iconIdSchema.nullable(),
+});
+
+/** Entities as rows. */
+export type DashboardListCard = z.output<typeof dashboardListCardSchema>;
+
+/** One button of a quick-actions card: a scene to apply, or a button or a switch to press. */
+export const quickActionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('scene'), sceneId: z.uuid() }),
+  z.object({ kind: z.literal('entity'), entityId: entityIdSchema }),
+]);
+
+/** One button of a quick-actions card. */
+export type QuickAction = z.output<typeof quickActionSchema>;
+
+/** Plain buttons with no readings: scenes, buttons and switches. */
+export const dashboardActionsCardSchema = z.object({
+  ...placement,
+  type: z.literal('actions'),
+  items: z.array(quickActionSchema).max(6),
+  title: cardTitleSchema,
+});
+
+/** Plain buttons. */
+export type DashboardActionsCard = z.output<typeof dashboardActionsCardSchema>;
+
+/** Up to four readings of the same unit, drawn on one chart. */
+export const dashboardCompareCardSchema = z.object({
+  ...placement,
+  type: z.literal('compare'),
+  entityIds: z.array(entityIdSchema).max(4),
+  range: z.enum(DASHBOARD_HISTORY_RANGES).nullable(),
+  title: cardTitleSchema,
+});
+
+/** Readings compared. */
+export type DashboardCompareCard = z.output<typeof dashboardCompareCardSchema>;
+
+/** What an activity card follows: the house, one area, or entities picked by hand. */
+export const activityScopeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('house') }),
+  z.object({ kind: z.literal('area'), areaKey: z.string().trim().min(1).max(64) }),
+  z.object({ kind: z.literal('entities'), entityIds: z.array(entityIdSchema).max(32) }),
+]);
+
+/** What an activity card follows. */
+export type ActivityScope = z.output<typeof activityScopeSchema>;
+
+/** What happened lately, newest first, from the history the house keeps. Read only. */
+export const dashboardActivityCardSchema = z.object({
+  ...placement,
+  type: z.literal('activity'),
+  scope: activityScopeSchema,
+  title: cardTitleSchema,
+});
+
+/** What happened lately. */
+export type DashboardActivityCard = z.output<typeof dashboardActivityCardSchema>;
+
+/** An automation: on or off, Run now, its last run and its next. */
+export const dashboardAutomationCardSchema = z.object({
+  ...placement,
+  type: z.literal('automation'),
+  automationId: z.uuid(),
+  title: cardTitleSchema,
+  icon: iconIdSchema.nullable(),
+});
+
+/** An automation's card. */
+export type DashboardAutomationCard = z.output<typeof dashboardAutomationCardSchema>;
+
+/** Where a shortcut goes: a page of the platform, a package's page, or a web address. */
+export const shortcutTargetSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('page'), path: z.string().regex(/^\/[^\s]{0,255}$/) }),
+  z.object({ kind: z.literal('package'), packageId: packageIdSchema }),
+  z.object({
+    kind: z.literal('url'),
+    url: z.url({ protocol: /^https?$/ }).max(1024),
+  }),
+]);
+
+/** Where a shortcut goes. */
+export type ShortcutTarget = z.output<typeof shortcutTargetSchema>;
+
+/** A tile that goes somewhere: a page, a package, a web address. */
+export const dashboardShortcutCardSchema = z.object({
+  ...placement,
+  type: z.literal('shortcut'),
+  target: shortcutTargetSchema,
+  title: cardTitleSchema,
+  icon: iconIdSchema.nullable(),
+});
+
+/** A tile that goes somewhere. */
+export type DashboardShortcutCard = z.output<typeof dashboardShortcutCardSchema>;
+
 /** A card that can sit inside a container: anything but another container. */
 export const dashboardLeafCardSchema = z.discriminatedUnion('type', [
   dashboardEntityCardSchema,
@@ -221,6 +437,15 @@ export const dashboardLeafCardSchema = z.discriminatedUnion('type', [
   dashboardClockCardSchema,
   dashboardEnergyCardSchema,
   dashboardPackageCardSchema,
+  dashboardTogetherCardSchema,
+  dashboardSummaryCardSchema,
+  dashboardRoomCardSchema,
+  dashboardListCardSchema,
+  dashboardActionsCardSchema,
+  dashboardCompareCardSchema,
+  dashboardActivityCardSchema,
+  dashboardAutomationCardSchema,
+  dashboardShortcutCardSchema,
 ]);
 
 /** A card that can sit inside a container. */
@@ -250,6 +475,15 @@ export const dashboardCardSchema = z.discriminatedUnion('type', [
   dashboardClockCardSchema,
   dashboardEnergyCardSchema,
   dashboardPackageCardSchema,
+  dashboardTogetherCardSchema,
+  dashboardSummaryCardSchema,
+  dashboardRoomCardSchema,
+  dashboardListCardSchema,
+  dashboardActionsCardSchema,
+  dashboardCompareCardSchema,
+  dashboardActivityCardSchema,
+  dashboardAutomationCardSchema,
+  dashboardShortcutCardSchema,
   dashboardContainerCardSchema,
 ]);
 

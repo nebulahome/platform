@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "dev": "vite --host",
     "preview:entity": "vite --open /entity-lab.html",
+    "preview:dashboard": "vite --open /dashboard-lab.html",
     "preview:sdk": "vite --open /sdk-preview.html",
     "preview:palette": "vite --open /palette.html",
     "preview": "vite preview",

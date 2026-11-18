@@ -8,7 +8,7 @@
  * button here that leads there.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
@@ -20,6 +20,7 @@ import { DASHBOARD_QUERY_KEYS, fetchDashboards } from '@/dashboard/api';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { toMessage } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
+import { DashboardDialog } from '@/routes/dashboard/dashboard-dialog';
 import { DashboardGrid } from '@/routes/dashboard/dashboard-grid';
 import { DashboardTabs } from '@/routes/dashboard/dashboard-tabs';
 import { useDashboardData } from '@/routes/dashboard/use-dashboard-data';
@@ -132,18 +133,7 @@ export function DashboardPage() {
                   'A dashboard is a page of cards for what you want close at hand. Whoever manages the dashboards of this house can assign you one.',
                 )
           }
-          action={
-            canManage ? (
-              <Button
-                onClick={() => {
-                  void navigate(DASHBOARDS_CONFIGURATION_PATH);
-                }}
-              >
-                <AppIcon id="plus" size={15} />
-                {t('dashboard.dashboard.manageDashboards', 'Manage dashboards')}
-              </Button>
-            ) : undefined
-          }
+          action={canManage ? <AddDashboardButton /> : undefined}
           learnMoreHref={DOCS_LINKS.dashboards}
         />
       </Frame>
@@ -152,6 +142,55 @@ export function DashboardPage() {
 
   return (
     <OpenDashboard key={current.id} dashboard={current} dashboards={list} tools={manageLink} />
+  );
+}
+
+/**
+ * The empty page's Add dashboard: the same dialog Dashboard setup opens for a new dashboard - a
+ * name, an icon, who sees it, or a file to start from - and then, for a dashboard with nothing on
+ * it yet, its editor; one started from a file opens as it is.
+ *
+ * @returns The button, and the dialog it opens.
+ */
+function AddDashboardButton() {
+  const { t } = useTranslation();
+
+  const navigate = useNavigate();
+  const [isOpen, setOpen] = useState(false);
+  // What this house has, for the preview of a file about to be imported.
+  const house = useDashboardData(undefined);
+
+  return (
+    <>
+      <Button
+        onClick={() => {
+          setOpen(true);
+        }}
+      >
+        <AppIcon id="plus" size={15} />
+        {t('dashboard.dashboard.addDashboard', 'Add dashboard')}
+      </Button>
+      <DashboardDialog
+        key={isOpen ? 'new' : 'shut'}
+        target={isOpen ? { mode: 'create' } : null}
+        onClose={() => {
+          setOpen(false);
+        }}
+        hasEntity={(entityId) => house.entityById.has(entityId)}
+        hasScene={(sceneId) => house.sceneById.has(sceneId)}
+        onSaved={(saved) => {
+          setOpen(false);
+          void navigate(
+            saved.layout.cards.length === 0
+              ? `${DASHBOARDS_CONFIGURATION_PATH}/${saved.id}/edit`
+              : `/dashboards/${saved.id}`,
+          );
+        }}
+        onDeleted={() => {
+          setOpen(false);
+        }}
+      />
+    </>
   );
 }
 

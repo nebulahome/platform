@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
+import { CameraView } from '@/components/camera-view';
 import { hasCapability, paramsOf } from '@/library/entity-control';
 import { useCameraStill } from '@/routes/dashboard/cards/use-camera-still';
 import { clockText } from '@/routes/library/entity/sheet/history';
@@ -405,7 +406,9 @@ export function ButtonBody(props: SheetBodyProps) {
 
 /**
  * The body of a camera: its picture - live, the last still, or greyed while it is off - with
- * Full screen, Snapshot or Refresh under it, and its motion detection.
+ * Full screen, Snapshot or Refresh under it, and its motion detection. A camera that streams
+ * plays as soon as the sheet opens, with a button on the picture to pause it, and stops with the
+ * sheet: a picture nobody looks at costs the camera, the hub and the network for nothing.
  *
  * @param props - See {@link SheetBodyProps}.
  * @returns The body.
@@ -415,6 +418,7 @@ export function CameraBody(props: SheetBodyProps) {
   const { entity, state, commander, disabled, now } = props;
   const params = paramsOf(entity, 'camera');
   const picture = useRef<HTMLDivElement>(null);
+  const [isPlaying, setPlaying] = useState(true);
   const camera = state.camera;
   const hasPower = hasCapability(entity, 'on_off');
   const isOff = hasPower && state.on_off?.isOn === false;
@@ -446,6 +450,7 @@ export function CameraBody(props: SheetBodyProps) {
     }
   };
 
+  const isWatching = isLive && isPlaying;
   const buttons: { key: string; icon: UiIconId; label: string }[] = isOff
     ? [
         {
@@ -514,6 +519,16 @@ export function CameraBody(props: SheetBodyProps) {
             className="absolute inset-0 size-full animate-fade-in object-cover"
           />
         )}
+        {isLive ? (
+          <CameraView
+            entityId={entity.entityId}
+            name={entity.name}
+            isPlaying={isPlaying}
+            isStreamAvailable
+            hasFullScreen={false}
+            className={cn('absolute inset-0 size-full bg-transparent', !isPlaying && 'hidden')}
+          />
+        ) : null}
         <span className="absolute top-3 left-3 inline-flex h-6 items-center gap-1.5 rounded-pill bg-canvas/70 px-2.25 text-[11px] text-foreground-muted">
           {isOff ? (
             <>
@@ -524,12 +539,17 @@ export function CameraBody(props: SheetBodyProps) {
                 })}
               </span>
             </>
-          ) : isLive ? (
+          ) : isWatching ? (
             <>
               <span className="entity-blink size-1.75 rounded-full bg-danger" />
               <span className="font-semibold tracking-[0.04em] text-foreground">
                 {t('entity.sheet.camera.live', 'LIVE')}
               </span>
+            </>
+          ) : isLive ? (
+            <>
+              <AppIcon id="pause" size={12} />
+              <span className="text-foreground">{t('entity.sheet.camera.paused', 'Paused')}</span>
             </>
           ) : (
             <>
@@ -538,6 +558,28 @@ export function CameraBody(props: SheetBodyProps) {
             </>
           )}
         </span>
+        {isLive ? (
+          // Watching is not a command: it needs no right to control the camera.
+          <button
+            type="button"
+            aria-label={
+              isPlaying
+                ? t('entity.sheet.camera.pause', 'Pause')
+                : t('entity.sheet.camera.play', 'Play')
+            }
+            title={
+              isPlaying
+                ? t('entity.sheet.camera.pause', 'Pause')
+                : t('entity.sheet.camera.play', 'Play')
+            }
+            onClick={() => {
+              setPlaying(!isPlaying);
+            }}
+            className="press absolute right-3 bottom-3 inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-border-strong bg-canvas/70 text-foreground transition-colors duration-200 hover:border-foreground-subtle"
+          >
+            <AppIcon id={isPlaying ? 'pause' : 'play'} size={15} />
+          </button>
+        ) : null}
         {camera.isRecording ? (
           <span className="absolute top-3 right-3 inline-flex h-6 items-center gap-1.5 rounded-pill bg-canvas/70 px-2.25 text-[11px] font-semibold text-danger">
             <span className="entity-blink size-1.75 rounded-full bg-danger" />
@@ -583,9 +625,11 @@ export function CameraBody(props: SheetBodyProps) {
           ? t('entity.sheet.camera.off', 'Off')
           : camera.isRecording
             ? t('entity.sheet.camera.recording', 'Recording')
-            : isLive
+            : isWatching
               ? t('entity.sheet.camera.streaming', 'Streaming')
-              : t('entity.sheet.camera.idle', 'Idle')}
+              : isLive
+                ? t('entity.sheet.camera.paused', 'Paused')
+                : t('entity.sheet.camera.idle', 'Idle')}
       </span>
     </div>
   );
