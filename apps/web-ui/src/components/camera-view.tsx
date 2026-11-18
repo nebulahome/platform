@@ -28,6 +28,9 @@ export type CameraViewProps = {
 
   /** Anything extra for the frame. */
   readonly className?: string;
+
+  /** Whether the view offers its own full-screen button; off where the frame around it has one. */
+  readonly hasFullScreen?: boolean;
 };
 
 /**
@@ -38,7 +41,7 @@ export type CameraViewProps = {
  */
 export function CameraView(props: CameraViewProps) {
   const { t } = useTranslation();
-  const { entityId, name, isPlaying, isStreamAvailable, className } = props;
+  const { entityId, name, isPlaying, isStreamAvailable, className, hasFullScreen = true } = props;
   const { setCanvas, status, message, showFullScreen } = useCameraStream(
     entityId,
     isPlaying && isStreamAvailable,
@@ -70,7 +73,7 @@ export function CameraView(props: CameraViewProps) {
           </span>
         </div>
       )}
-      {status === 'playing' ? (
+      {status === 'playing' && hasFullScreen ? (
         <IconButton
           label={t('camera.fullScreen', 'Full screen')}
           variant="raised"
