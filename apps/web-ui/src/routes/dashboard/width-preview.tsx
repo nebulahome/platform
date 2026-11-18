@@ -105,10 +105,12 @@ export function WidthPreview(props: WidthPreviewProps) {
     <div className="flex min-h-full animate-fade-in flex-col items-center gap-4 rounded-card border border-border bg-well bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] bg-size-[16px_16px] px-4 pt-6 pb-8">
       <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-caption">
         <span className="font-mono text-label tracking-[0.08em] text-primary-hover uppercase tabular">
-          {t('dashboard.widthPreview.measure', '{{device}} · {{width}} px · {{count}} columns', {
+          {t('dashboard.widthPreview.measure', {
             device: label,
             width,
             count: columns,
+            defaultValue_one: '{{device}} · {{width}} px · {{count}} column',
+            defaultValue_other: '{{device}} · {{width}} px · {{count}} columns',
           })}
         </span>
         <span className="text-foreground-subtle">

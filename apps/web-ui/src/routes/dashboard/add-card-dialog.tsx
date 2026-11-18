@@ -54,6 +54,7 @@ import { useInstalledPackages } from '@/packages/use-packages';
 import { CardPreview } from '@/routes/dashboard/card-preview';
 import { SAMPLE_ENTITIES, sampleDashboardData } from '@/routes/dashboard/card-samples';
 import { SAMPLE_CARDS } from '@/routes/dashboard/samples/cards';
+import { SAMPLE_SCENES } from '@/routes/dashboard/samples/more';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 import { EntityTile } from '@/routes/library/entity-tile';
 
@@ -249,7 +250,8 @@ function tilesOf(input: {
             name: kindName('scene'),
             description: kindDescription('scene'),
             sizes: sizesLine(CARD_SIZES.scene.sizes),
-            preview: null,
+            // The catalogue draws samples: the sample house's first scene stands for the scenes.
+            preview: SAMPLE_SCENES[0] === undefined ? null : sceneCardFor(SAMPLE_SCENES[0].id),
             /**
              * A scene's card, on the first scene: another is chosen in its settings.
              *
