@@ -17,6 +17,14 @@ type CardDefinition<TId extends string = string, TSize extends CardSize = CardSi
   readonly padding?: CardPadding;
   /** What its inspector asks, per card on a dashboard. */
   readonly options?: TOptions;
+  /**
+   * Draw the card as a sample in the Add card catalogue, with these option values. The card is
+   * then given `isPreview: true` there, and must draw itself from sample values: no stream, no
+   * subscription, no command. Without it the catalogue shows the card's name and sizes. Since 1.14.
+   */
+  readonly preview?: {
+    readonly options?: Partial<FormValues<TOptions>>;
+  };
 };
 /** The sizes a card is drawn at. */
 type SizeOf<TCard> = TCard extends CardDefinition<string, infer TSize> ? TSize : CardSize;
@@ -61,6 +69,11 @@ type CardProps<TCard extends CardDefinition = CardDefinition> = {
   readonly options: OptionsOf<TCard>;
   /** Whether the dashboard is being edited: no interaction is expected. */
   readonly isEditing: boolean;
+  /**
+   * Whether it is drawn as a sample in the Add card catalogue, for a card that declares `preview`:
+   * draw sample values, open no stream or subscription, send no command. Since 1.14.
+   */
+  readonly isPreview: boolean;
 };
 /** What an entity view is given. */
 type EntityViewProps<TType extends EntityTypeDefinition = EntityTypeDefinition> = {
