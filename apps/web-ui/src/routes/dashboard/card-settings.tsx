@@ -27,7 +27,7 @@ import {
 } from '@nebulahome/contracts';
 import { AppIcon, cn, SelectField, Switch } from '@nebulahome/ui';
 
-import { kindName, partsOf, tapChoices } from '@/dashboard/card-options';
+import { kindIcon, kindName, partsOf, tapChoices } from '@/dashboard/card-options';
 import {
   allowedSizes,
   CARD_SIZES,
@@ -572,9 +572,7 @@ export function CardSettings(props: CardSettingsProps) {
               id={
                 card.type === 'container'
                   ? 'layout-grid'
-                  : card.type === 'clock'
-                    ? 'clock'
-                    : 'layout-dashboard'
+                  : kindIcon(card.type === 'together' ? `together-${card.domain}` : card.type)
               }
               size={14}
             />
