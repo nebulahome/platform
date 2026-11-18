@@ -10,7 +10,7 @@ import type { CapabilityName, EntityView, PackageCardSize } from '@nebulahome/co
 
 import type { GridSize } from '@/dashboard/grid-engine';
 import { translate } from '@/i18n/messages';
-import { hasCapability } from '@/library/entity-control';
+import { hasCapability, paramsOf } from '@/library/entity-control';
 
 /** A size a card is drawn for. */
 export type CardSize = GridSize;
@@ -34,6 +34,9 @@ export const ENTITY_CARD_KINDS = [
   'update',
   'picture',
   'custom',
+  'fan',
+  'time',
+  'person',
   'text',
 ] as const;
 
@@ -117,6 +120,13 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
   activity: { sizes: [CARD, LARGE], preferred: CARD },
   automation: { sizes: [TILE, STRIP], preferred: TILE },
   shortcut: { sizes: [TILE], preferred: TILE },
+
+  // A fan as a light is drawn: switch and speed on the tile, presets and speed on the tall card,
+  // swing and direction beside them on the square. A time reads on the tile, is set on the strip;
+  // a person is home, away or where on the tile, and on the square beside a map.
+  fan: { sizes: [TILE, CARD, SQUARE], preferred: CARD },
+  time: { sizes: [TILE, STRIP], preferred: TILE },
+  person: { sizes: [TILE, CARD, SQUARE], preferred: TILE },
 
   // An entity that is not there may keep whatever size it had, and take any other.
   missing: { sizes: ALL_CARD_SIZES, preferred: TILE },
@@ -231,10 +241,15 @@ const RICHEST_FIRST: readonly (readonly [CapabilityName, EntityCardKind])[] = [
   ['image', 'picture'],
   ['cover', 'cover'],
   ['lock', 'lock'],
+  ['fan', 'fan'],
   ['level', 'light'],
   ['color_hs', 'light'],
   ['color_temp', 'light'],
   ['on_off', 'switch'],
+  ['location', 'person'],
+  ['time_of_day', 'time'],
+  ['date', 'time'],
+  ['datetime', 'time'],
   ['sensor_numeric', 'sensor'],
   ['sensor_binary', 'binary'],
   ['select', 'select'],
@@ -289,7 +304,35 @@ export function missingSizes(
     ];
   }
 
+  if (kind === 'fan' && fanOnlySwitches(entity)) {
+    return [
+      {
+        size: SQUARE,
+        reason: translate(
+          'dashboard.cardSizes.fanOnlySwitches',
+          'this fan only switches on and off',
+        ),
+      },
+    ];
+  }
+
   return [];
+}
+
+/**
+ * Whether a fan only switches: no speeds, no presets, no swing and no direction. Its card is a
+ * switch's, with no square to fill.
+ *
+ * @param entity - Its capabilities.
+ * @returns True when on and off is all it does.
+ */
+export function fanOnlySwitches(entity: Pick<EntityView, 'capabilities'>): boolean {
+  const fan = paramsOf(entity, 'fan');
+
+  return (
+    fan === null ||
+    (fan.speedCount === 0 && fan.presets.length === 0 && !fan.canOscillate && !fan.canReverse)
+  );
 }
 
 /**

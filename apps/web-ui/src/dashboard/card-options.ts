@@ -8,9 +8,9 @@
 import type { EntityView } from '@nebulahome/contracts';
 import type { UiIconId } from '@nebulahome/ui';
 
-import { cardKindOf, type CardSize } from '@/dashboard/card-sizes';
+import { cardKindOf, fanOnlySwitches, type CardSize } from '@/dashboard/card-sizes';
 import { defineMessage, text, translate, type Message } from '@/i18n/messages';
-import { hasCapability } from '@/library/entity-control';
+import { hasCapability, paramsOf } from '@/library/entity-control';
 
 /** A part of a card that may be switched off. */
 export type CardPart = {
@@ -98,6 +98,26 @@ const PARTS: Readonly<Record<string, readonly CardPart[]>> = {
       id: 'chart',
       label: defineMessage('dashboard.cardOptions.chart', 'Chart'),
       sizes: ['2x1', '1x2', '2x2'],
+    },
+  ],
+  fan: [
+    {
+      id: 'presets',
+      label: defineMessage('dashboard.cardOptions.fanPresets', 'Presets'),
+      sizes: ['1x2', '2x2'],
+      /**
+       * Whether the fan has presets.
+       *
+       * @param entity - The entity.
+       * @returns True when the part has something to show.
+       */
+      needs: (entity) => (paramsOf(entity, 'fan')?.presets.length ?? 0) > 0,
+    },
+    {
+      id: 'day',
+      label: defineMessage('dashboard.cardOptions.todaysUse', 'Today’s use'),
+      sizes: ['1x2'],
+      needs: fanOnlySwitches,
     },
   ],
 };

@@ -37,12 +37,15 @@ import {
 } from '@/routes/dashboard/cards/control-settings-card';
 import { CoverCard } from '@/routes/dashboard/cards/cover-card';
 import type { EntityCardModel } from '@/routes/dashboard/cards/entity-model';
+import { FanCard } from '@/routes/dashboard/cards/fan-card';
 import { LightCard } from '@/routes/dashboard/cards/light-card';
 import { LockCard } from '@/routes/dashboard/cards/lock-card';
 import { MediaCard } from '@/routes/dashboard/cards/media-card';
+import { PersonCard } from '@/routes/dashboard/cards/person-card';
 import { SensorCard } from '@/routes/dashboard/cards/sensor-card';
 import { SwitchCard } from '@/routes/dashboard/cards/switch-card';
 import { ThermostatCard } from '@/routes/dashboard/cards/thermostat-card';
+import { TimeCard } from '@/routes/dashboard/cards/time-card';
 import { useCardCommand } from '@/routes/dashboard/cards/use-card-command';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 import { entityPath } from '@/routes/library/entity/entity-path';
@@ -70,6 +73,9 @@ const KINDS: Readonly<
   update: UpdateCard,
   picture: PictureCard,
   custom: CustomCard,
+  fan: FanCard,
+  time: TimeCard,
+  person: PersonCard,
 };
 
 /** What an entity card needs. */

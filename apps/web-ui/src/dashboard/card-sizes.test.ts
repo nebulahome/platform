@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import type { CapabilityName, EntityDomain } from '@nebulahome/contracts';
 
-import { CARD_SIZES, cardKindOf, sizeName, snapSize, stepSize } from '@/dashboard/card-sizes';
+import {
+  allowedSizes,
+  CARD_SIZES,
+  cardKindOf,
+  missingSizes,
+  sizeName,
+  snapSize,
+  stepSize,
+} from '@/dashboard/card-sizes';
 
 /**
  * An entity reduced to what decides its card.
@@ -63,6 +71,32 @@ describe('cardKindOf', () => {
 
   it('draws a light that only switches as a light', () => {
     expect(cardKindOf(entity('light', 'on_off'))).toBe('light');
+  });
+
+  it('gives a fan, a time and a person their own cards', () => {
+    expect(cardKindOf(entity('fan', 'on_off', 'fan'))).toBe('fan');
+    expect(cardKindOf(entity('time', 'time_of_day'))).toBe('time');
+    expect(cardKindOf(entity('time', 'date'))).toBe('time');
+    expect(cardKindOf(entity('time', 'datetime'))).toBe('time');
+    expect(cardKindOf(entity('device_tracker', 'location'))).toBe('person');
+    expect(CARD_SIZES.fan.sizes.map(sizeName)).toEqual(['1×1', '1×2', '2×2']);
+    expect(CARD_SIZES.time.sizes.map(sizeName)).toEqual(['1×1', '2×1']);
+    expect(CARD_SIZES.person.sizes.map(sizeName)).toEqual(['1×1', '1×2', '2×2']);
+  });
+
+  it('offers no square to a fan that only switches', () => {
+    const onOff = entity('fan', 'on_off', 'fan');
+    const withSpeeds = {
+      domain: 'fan' as const,
+      capabilities: [
+        { capability: 'on_off' as const, params: {} },
+        { capability: 'fan' as const, params: { speedCount: 3 } },
+      ],
+    };
+
+    expect(allowedSizes(onOff).map(sizeName)).toEqual(['1×1', '1×2']);
+    expect(missingSizes(onOff).map((each) => sizeName(each.size))).toEqual(['2×2']);
+    expect(allowedSizes(withSpeeds).map(sizeName)).toEqual(['1×1', '1×2', '2×2']);
   });
 
   it('falls back on the reading', () => {

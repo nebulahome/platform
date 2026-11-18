@@ -15,6 +15,37 @@ const ROOMS = ['Kitchen', 'Living room', 'Hallway', 'Office', 'Bathroom', 'Bedro
   (name, index) => ({ id: String(index + 1), name }),
 );
 
+/** The boards' ceiling fan: a speed in percent, three presets, swing and direction. */
+const CEILING_FAN = {
+  speedCount: 100,
+  presets: ['Normal', 'Breeze', 'Sleep'],
+  canOscillate: true,
+  canReverse: true,
+};
+
+/**
+ * A day this many days from today, as a date entity keeps it.
+ *
+ * @param days - How many.
+ * @param at - The time of day, `HH:MM`, for a moment rather than a day.
+ * @returns `YYYY-MM-DD`, or the moment in ISO 8601.
+ */
+function daysOn(days: number, at?: string): string {
+  const when = new Date();
+
+  when.setDate(when.getDate() + days);
+
+  if (at === undefined) {
+    return `${String(when.getFullYear())}-${String(when.getMonth() + 1).padStart(2, '0')}-${String(when.getDate()).padStart(2, '0')}`;
+  }
+
+  const [hours = 0, minutes = 0] = at.split(':').map(Number);
+
+  when.setHours(hours, minutes, 0, 0);
+
+  return when.toISOString();
+}
+
 /** One entity per kind of card. */
 export const MORE_SAMPLES: readonly EntityView[] = [
   sampleEntity('vacuum.robbie', {
@@ -26,13 +57,30 @@ export const MORE_SAMPLES: readonly EntityView[] = [
   sampleEntity('fan.ceiling', {
     name: 'Ceiling fan',
     area: 'Bedroom',
-    capabilities: [
-      can('on_off'),
-      can('fan', { speedCount: 0, presets: ['Normal', 'Breeze', 'Sleep'], canOscillate: true }),
-    ],
+    capabilities: [can('on_off'), can('fan', CEILING_FAN)],
     state: {
       on_off: { isOn: true },
       fan: { percentage: 60, preset: 'Breeze', isOscillating: true, direction: 'forward' },
+    },
+  }),
+  sampleEntity('time.wake_up', {
+    name: 'Wake-up',
+    area: 'Bedroom',
+    capabilities: [can('time_of_day', { canSet: true, step: 60 })],
+    state: { time_of_day: { value: '06:45' } },
+  }),
+  sampleEntity('device_tracker.giulia', {
+    name: 'Giulia',
+    area: null,
+    capabilities: [can('location', { source: 'gps' })],
+    state: {
+      location: {
+        zone: 'Work',
+        latitude: 45.4842,
+        longitude: 9.2041,
+        accuracyMeters: 18,
+        distanceKm: 14,
+      },
     },
   }),
   sampleEntity('lawn_mower.garden', {
@@ -136,7 +184,100 @@ export const MORE_VARIANTS: readonly EntityView[] = [
     },
   }),
 
+  // K-New: a fan that only switches, one off, and one with three speeds.
+  sampleEntity('fan.bathroom', {
+    name: 'Bathroom fan',
+    area: 'Bathroom',
+    capabilities: [can('on_off'), can('fan')],
+    state: { on_off: { isOn: true }, fan: {} },
+  }),
+  sampleEntity('fan.ceiling_off', {
+    name: 'Ceiling fan',
+    area: 'Bedroom',
+    capabilities: [can('on_off'), can('fan', CEILING_FAN)],
+    state: {
+      on_off: { isOn: false },
+      fan: { percentage: 60, preset: 'Breeze', isOscillating: false, direction: 'forward' },
+    },
+  }),
+  sampleEntity('fan.kitchen_hood', {
+    name: 'Kitchen hood',
+    area: 'Kitchen',
+    capabilities: [can('on_off'), can('fan', { speedCount: 3 })],
+    state: { on_off: { isOn: true }, fan: { percentage: 67 } },
+  }),
+
+  // K-New: a day, and a moment read only and one that may be set.
+  sampleEntity('time.filter_change', {
+    name: 'Filter change',
+    area: 'Ventilation',
+    capabilities: [can('date', { canSet: true })],
+    state: { date: { value: daysOn(26) } },
+  }),
+  sampleEntity('time.next_watering', {
+    name: 'Next watering',
+    area: 'Garden',
+    capabilities: [can('datetime')],
+    state: { datetime: { value: daysOn(1, '06:30') } },
+  }),
+  sampleEntity('time.next_watering_set', {
+    name: 'Next watering',
+    area: 'Garden',
+    capabilities: [can('datetime', { canSet: true })],
+    state: { datetime: { value: daysOn(1, '06:30') } },
+  }),
+
+  // K-New: a person at home, and one away.
+  sampleEntity('device_tracker.roberto', {
+    name: 'Roberto',
+    area: null,
+    capabilities: [can('location', { source: 'gps' })],
+    state: { location: { zone: 'home', latitude: 45.5412, longitude: 9.1503, accuracyMeters: 12 } },
+  }),
+  sampleEntity('device_tracker.luca', {
+    name: 'Luca',
+    area: null,
+    capabilities: [can('location', { source: 'gps' })],
+    state: {
+      location: { zone: 'away', latitude: 45.5301, longitude: 9.1789, distanceKm: 2.4 },
+    },
+  }),
+
   // K-States: out of reach, and for someone who may only look.
+  sampleEntity('fan.ceiling_offline', {
+    name: 'Ceiling fan',
+    area: 'Bedroom',
+    capabilities: [can('on_off'), can('fan', CEILING_FAN)],
+    state: { on_off: { isOn: true }, fan: { percentage: 60, preset: 'Breeze' } },
+    isAvailable: false,
+  }),
+  sampleEntity('fan.ceiling_view_only', {
+    name: 'Ceiling fan',
+    area: 'Bedroom',
+    capabilities: [can('on_off'), can('fan', CEILING_FAN)],
+    state: { on_off: { isOn: true }, fan: { percentage: 60, preset: 'Breeze' } },
+    isViewOnly: true,
+  }),
+  sampleEntity('time.wake_up_view_only', {
+    name: 'Wake-up',
+    area: 'Bedroom',
+    capabilities: [can('time_of_day', { canSet: true })],
+    state: { time_of_day: { value: '06:45' } },
+    isViewOnly: true,
+  }),
+  sampleEntity('time.wake_up_no_value', {
+    name: 'Wake-up',
+    area: 'Bedroom',
+    capabilities: [can('time_of_day', { canSet: true })],
+    state: { time_of_day: { value: null } },
+  }),
+  sampleEntity('device_tracker.giulia_offline', {
+    name: 'Giulia',
+    area: null,
+    capabilities: [can('location', { source: 'gps' })],
+    state: { location: { zone: 'Work', distanceKm: 14 } },
+    isAvailable: false,
+  }),
   sampleEntity('select.fan_speed_offline', {
     name: 'Fan speed',
     area: 'Bathroom',
