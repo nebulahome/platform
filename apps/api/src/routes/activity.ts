@@ -8,6 +8,7 @@
  */
 import {
   activityEntrySchema,
+  activityQuerySchema,
   pageQuerySchema,
   pageSchema,
   type ActivityEntry,
@@ -17,7 +18,11 @@ import {
 import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
-import { readActivity, readableActivityEntities } from '../services/activity.js';
+import {
+  readActivity,
+  readableActivityEntities,
+  scopedActivityEntities,
+} from '../services/activity.js';
 import { readDevice } from '../services/devices.js';
 import { findEntities } from '../services/entities.js';
 
@@ -70,6 +75,33 @@ export function registerActivityRoutes(environment: RouteEnvironment, context: A
         },
         device.linked?.ways.map((way) => way.deviceId) ?? [device.id],
       );
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/activity',
+      summary: 'Read what changed on the entities of the house, an area or a few, newest first',
+      tag: 'History',
+      permission: 'history:read',
+      query: activityQuerySchema.extend(pageQuerySchema.shape),
+      response: pageSchema(activityEntrySchema),
+    },
+    async (route): Promise<Page<ActivityEntry>> => {
+      const entities = readableActivityEntities(
+        route.identity,
+        await scopedActivityEntities(context.db, {
+          ...(route.query.areaKey === undefined ? {} : { areaKey: route.query.areaKey }),
+          ...(route.query.entityIds === undefined ? {} : { entityIds: route.query.entityIds }),
+        }),
+      );
+
+      return readActivity(context.db, entities, {
+        limit: route.query.limit,
+        ...(route.query.cursor === undefined ? {} : { cursor: route.query.cursor }),
+      });
     },
   );
 }
