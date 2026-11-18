@@ -29,6 +29,7 @@ import { z } from 'zod';
 import { containerDependenciesSchema } from './container-dependencies.js';
 import { iconIdSchema } from './icons.js';
 import { setupFieldSchema } from './integration-setup.js';
+import { jsonObjectSchema } from './json.js';
 import { packageIdSchema } from './package-id.js';
 import { packageRequiresSchema, packageServiceNameSchema } from './package-requires.js';
 import { semverRangeSchema, semverSchema } from './semver.js';
@@ -117,6 +118,13 @@ export const packageCardSchema = z.strictObject({
 
   /** `none` draws the card to its frame's edges: an image, a map, a canvas. */
   padding: z.enum(PACKAGE_CARD_PADDINGS).default('default'),
+
+  /**
+   * The card draws itself as a sample in the Add card catalogue, with these option values: it
+   * honours `isPreview` (package SDK 1.14), opening no stream and sending no command. A card
+   * without it is shown there by its name and sizes only.
+   */
+  preview: z.strictObject({ options: jsonObjectSchema.default({}) }).optional(),
 });
 
 /** A card a package adds to the dashboard. */

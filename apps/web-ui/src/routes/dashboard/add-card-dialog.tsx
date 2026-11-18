@@ -474,9 +474,34 @@ function CatalogueTile(props: {
   const { t } = useTranslation();
 
   const { tile, index, onChoose } = props;
+  const box = useRef<HTMLButtonElement>(null);
+  // A package's card is its package's own code, loaded on demand: only once its tile is in view.
+  const [isSeen, setSeen] = useState(tile.packageName === undefined);
+
+  useEffect(() => {
+    const element = box.current;
+
+    if (isSeen || element === null || typeof IntersectionObserver === 'undefined') {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setSeen(true);
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(element);
+
+    return (): void => {
+      observer.disconnect();
+    };
+  }, [isSeen]);
 
   return (
     <button
+      ref={box}
       type="button"
       className={cn(
         'group/tile relative flex animate-rise flex-col overflow-hidden rounded-[18px] border border-border bg-surface text-left',
@@ -489,7 +514,7 @@ function CatalogueTile(props: {
       onClick={onChoose}
     >
       <span className="flex h-32 items-center justify-center border-b border-border bg-well bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] bg-size-[16px_16px]">
-        {tile.preview === null ? (
+        {tile.preview === null || !isSeen ? (
           <span className="flex h-[100px] w-59 flex-col items-center justify-center gap-1.5 rounded-card border border-dashed border-border-strong text-caption text-foreground-subtle">
             <AppIcon
               id={tile.packageName === undefined ? 'layout-dashboard' : 'package'}
@@ -592,8 +617,11 @@ export function AddCardDialog(props: AddCardDialogProps) {
       name: declared.name,
       description: declared.description ?? found.name,
       sizes: sizesLine(packageCardSizes(declared.sizes)),
-      // shortcut: package cards show the neutral tile until the SDK draws its own previews.
-      preview: null,
+      // Drawn by the package itself, but only for a card that says it can (`preview`, SDK 1.14).
+      preview:
+        declared.preview === undefined
+          ? null
+          : { ...packageCardFor(found.id, declared), options: declared.preview.options },
       packageName: found.name,
       /**
        * The package's card, with the defaults its options declare.

@@ -30,6 +30,7 @@ import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { PackageSlot } from '@/packages/package-slot';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
+import { useCardSample } from '@/routes/dashboard/cards/card-sample';
 
 /** What a package's card needs. */
 export type PackageCardProps = {
@@ -163,6 +164,9 @@ export function PackageCard(props: PackageCardProps) {
   const { t } = useTranslation();
 
   const { card, isEditing = false } = props;
+  // Under the samples' source the card is a tile of the Add card catalogue: the package draws it
+  // with sample values, and only a card that declared it can is drawn there at all.
+  const isPreview = useCardSample() !== null;
   const { packages, canRead, isPending } = useInstalledPackages();
   const found = packages.find((each) => each.id === card.packageId);
   const declared = found?.ui?.cards.find((each) => each.id === card.cardId);
@@ -206,6 +210,7 @@ export function PackageCard(props: PackageCardProps) {
             // The options are the card's own fields, which its inspector holds to their types.
             options: packageCardOptionsOf(declared, card.options) as CardProps['options'],
             isEditing,
+            isPreview,
           },
         }}
         loading={
