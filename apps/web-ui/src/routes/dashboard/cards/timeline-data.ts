@@ -144,7 +144,7 @@ export function useActivityEntries(
         ? { entityIds: scope.entityIds }
         : {};
   const query = useQuery({
-    queryKey: [...LIBRARY_QUERY_KEYS.activity, 'scope', narrowed, limit],
+    queryKey: ['dashboard', 'activity', narrowed, limit],
     /**
      * Reads the changes.
      *

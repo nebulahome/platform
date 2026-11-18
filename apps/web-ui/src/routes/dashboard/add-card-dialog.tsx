@@ -591,6 +591,13 @@ export function AddCardDialog(props: AddCardDialogProps) {
 
   const { isOpen, onClose, targetName, isInGroup, data, scenes, onAdd } = props;
   const [category, setCategory] = useState<Category>('all');
+  // The catalogue draws dozens of real cards: only once the dialog has been opened, and then kept
+  // so that it fades out whole when it closes.
+  const [hasOpened, setOpened] = useState(isOpen);
+
+  if (isOpen && !hasOpened) {
+    setOpened(true);
+  }
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const { packages } = useInstalledPackages();
@@ -729,93 +736,198 @@ export function AddCardDialog(props: AddCardDialogProps) {
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} layout="bare">
-      <div className="relative isolate m-auto flex h-full max-h-[860px] w-[1120px] max-w-full animate-dialog-in flex-col overflow-hidden rounded-[26px] border border-border-strong bg-well shadow-[0_50px_140px_-30px_rgb(0_0_0/0.95)]">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-65 bg-[radial-gradient(60%_100%_at_10%_0%,rgb(124_134_255/0.20),transparent_70%),radial-gradient(50%_90%_at_90%_0%,rgb(167_139_250/0.12),transparent_70%)]"
-        />
-        <div className="flex shrink-0 items-center gap-3.5 pt-5.5 pr-5.5 pl-7">
-          <span className="flex min-w-0 grow flex-col gap-[3px]">
-            <h2 className="text-headline font-semibold tracking-[-0.02em]">{title}</h2>
-            <span className="text-[13.5px] text-foreground-muted">
-              {t('dashboard.addCardDialog.toTarget', 'to {{name}}, in the space you clicked', {
-                name: targetName,
-              })}
+      {hasOpened ? (
+        <div className="relative isolate m-auto flex h-full max-h-[860px] w-[1120px] max-w-full animate-dialog-in flex-col overflow-hidden rounded-[26px] border border-border-strong bg-well shadow-[0_50px_140px_-30px_rgb(0_0_0/0.95)]">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-65 bg-[radial-gradient(60%_100%_at_10%_0%,rgb(124_134_255/0.20),transparent_70%),radial-gradient(50%_90%_at_90%_0%,rgb(167_139_250/0.12),transparent_70%)]"
+          />
+          <div className="flex shrink-0 items-center gap-3.5 pt-5.5 pr-5.5 pl-7">
+            <span className="flex min-w-0 grow flex-col gap-[3px]">
+              <h2 className="text-headline font-semibold tracking-[-0.02em]">{title}</h2>
+              <span className="text-[13.5px] text-foreground-muted">
+                {t('dashboard.addCardDialog.toTarget', 'to {{name}}, in the space you clicked', {
+                  name: targetName,
+                })}
+              </span>
             </span>
-          </span>
-          <button
-            type="button"
-            aria-label={t('ui.modal.close', 'Close')}
-            className="press-scale flex size-9.5 shrink-0 items-center justify-center rounded-pill border border-foreground/14 bg-canvas/45 text-foreground hover:bg-surface-raised"
-            onClick={onClose}
-          >
-            <AppIcon id="x" size={16} />
-          </button>
-        </div>
-
-        <div className="shrink-0 px-7 pt-4.5 pb-3.5">
-          <label className="flex h-10.5 items-center gap-2.5 rounded-pill border border-border-strong bg-well px-4 transition-[border-color,box-shadow] duration-150 focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgb(124_134_255/0.16)]">
-            <AppIcon id="search" size={16} />
-            <input
-              type="search"
-              value={query}
-              aria-label={t('dashboard.addCardDialog.search', 'Search entities, rooms and cards')}
-              placeholder={t('dashboard.addCardDialog.search', 'Search entities, rooms and cards')}
-              ref={searchRef}
-              autoComplete="off"
-              className="min-w-0 grow bg-transparent text-[14.5px] text-foreground outline-none placeholder:text-foreground-subtle [&::-webkit-search-cancel-button]:appearance-none"
-              onChange={(event) => {
-                setQuery(event.target.value);
-              }}
-            />
-          </label>
-        </div>
-
-        {words === '' ? (
-          <div className="flex min-h-0 grow gap-5 pl-7">
-            <nav
-              aria-label={t('dashboard.addCardDialog.kinds', 'Kinds of card')}
-              className="flex w-[190px] shrink-0 flex-col gap-0.5 pt-0.5 max-md:hidden"
+            <button
+              type="button"
+              aria-label={t('ui.modal.close', 'Close')}
+              className="press-scale flex size-9.5 shrink-0 items-center justify-center rounded-pill border border-foreground/14 bg-canvas/45 text-foreground hover:bg-surface-raised"
+              onClick={onClose}
             >
-              {categories
-                .filter((each) => each.id === 'all' || countOf(each.id) > 0)
-                .map((each) => (
-                  <button
-                    key={each.id}
-                    type="button"
-                    aria-current={category === each.id ? 'true' : undefined}
-                    className={cn(
-                      'flex h-9.5 items-center justify-between rounded-field border px-3 text-ui transition-colors duration-150',
-                      category === each.id
-                        ? 'border-border-strong bg-surface-raised font-medium text-foreground'
-                        : 'border-transparent text-foreground-muted hover:text-foreground',
-                    )}
-                    onClick={() => {
-                      setCategory(each.id);
-                    }}
-                  >
-                    {each.label}
-                    <span className="font-mono text-label text-foreground-subtle">
-                      {countOf(each.id)}
-                    </span>
-                  </button>
-                ))}
-            </nav>
-            <div key={category} className="min-w-0 grow overflow-y-auto pr-7 pb-1">
-              {shownGroups.map((each) => {
-                const inGroup = shown.filter((tile) => tile.category === each.id);
+              <AppIcon id="x" size={16} />
+            </button>
+          </div>
 
-                return (
+          <div className="shrink-0 px-7 pt-4.5 pb-3.5">
+            <label className="flex h-10.5 items-center gap-2.5 rounded-pill border border-border-strong bg-well px-4 transition-[border-color,box-shadow] duration-150 focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgb(124_134_255/0.16)]">
+              <AppIcon id="search" size={16} />
+              <input
+                type="search"
+                value={query}
+                aria-label={t('dashboard.addCardDialog.search', 'Search entities, rooms and cards')}
+                placeholder={t(
+                  'dashboard.addCardDialog.search',
+                  'Search entities, rooms and cards',
+                )}
+                ref={searchRef}
+                autoComplete="off"
+                className="min-w-0 grow bg-transparent text-[14.5px] text-foreground outline-none placeholder:text-foreground-subtle [&::-webkit-search-cancel-button]:appearance-none"
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                }}
+              />
+            </label>
+          </div>
+
+          {words === '' ? (
+            <div className="flex min-h-0 grow gap-5 pl-7">
+              <nav
+                aria-label={t('dashboard.addCardDialog.kinds', 'Kinds of card')}
+                className="flex w-[190px] shrink-0 flex-col gap-0.5 pt-0.5 max-md:hidden"
+              >
+                {categories
+                  .filter((each) => each.id === 'all' || countOf(each.id) > 0)
+                  .map((each) => (
+                    <button
+                      key={each.id}
+                      type="button"
+                      aria-current={category === each.id ? 'true' : undefined}
+                      className={cn(
+                        'flex h-9.5 items-center justify-between rounded-field border px-3 text-ui transition-colors duration-150',
+                        category === each.id
+                          ? 'border-border-strong bg-surface-raised font-medium text-foreground'
+                          : 'border-transparent text-foreground-muted hover:text-foreground',
+                      )}
+                      onClick={() => {
+                        setCategory(each.id);
+                      }}
+                    >
+                      {each.label}
+                      <span className="font-mono text-label text-foreground-subtle">
+                        {countOf(each.id)}
+                      </span>
+                    </button>
+                  ))}
+              </nav>
+              <div key={category} className="min-w-0 grow overflow-y-auto pr-7 pb-1">
+                {shownGroups.map((each) => {
+                  const inGroup = shown.filter((tile) => tile.category === each.id);
+
+                  return (
+                    <TileGroup
+                      key={each.id}
+                      label={each.label}
+                      count={t('dashboard.addCardDialog.cards', {
+                        count: inGroup.length,
+                        defaultValue_one: '{{count}} card',
+                        defaultValue_other: '{{count}} cards',
+                      })}
+                    >
+                      {inGroup.map((tile, index) => (
+                        <CatalogueTile
+                          key={tile.id}
+                          tile={tile}
+                          index={index}
+                          onChoose={() => {
+                            choose(tile.make());
+                          }}
+                        />
+                      ))}
+                    </TileGroup>
+                  );
+                })}
+                {category === 'packages' || (category === 'all' && packageTiles.length > 0) ? (
+                  <Link
+                    to="/packages"
+                    className="mb-4 flex h-13 items-center justify-center gap-2 rounded-card border border-dashed border-foreground/14 text-ui-sm text-foreground-muted transition-colors hover:border-primary/60"
+                  >
+                    {t('dashboard.addCardDialog.moreCards', 'More cards come with packages')}
+                    <span className="inline-flex items-center gap-1.5 text-foreground">
+                      {t('dashboard.addCardDialog.browsePackages', 'Browse packages')}
+                      <AppIcon id="external-link" size={14} />
+                    </span>
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-0 grow animate-fade-in overflow-y-auto px-3.5 pb-3">
+              {found.length === 0 && matchingTiles.length === 0 ? (
+                <p className="px-3.5 py-8 text-center text-ui-sm text-foreground-subtle">
+                  {t('dashboard.addCardDialog.nothingFound', 'Nothing matches “{{query}}”', {
+                    query: query.trim(),
+                  })}
+                </p>
+              ) : null}
+              {found.length === 0 ? null : (
+                <section>
+                  <div className="flex h-7.5 items-center justify-between px-3.5 font-mono text-label tracking-[0.08em] text-foreground-subtle uppercase">
+                    <span>{t('dashboard.addCardDialog.entities', 'Entities')}</span>
+                    <span>
+                      {t('dashboard.addCardDialog.found', '{{count}} found', {
+                        count: found.length,
+                      })}
+                    </span>
+                  </div>
+                  <ul className="mb-3.5 flex flex-col gap-0.5">
+                    {found.map((entity) => {
+                      const kind: EntityCardKind = cardKindOf(entity);
+
+                      return (
+                        <li
+                          key={entity.entityId}
+                          className="grid min-h-15.5 grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-[14px] border border-transparent px-3.5 transition-colors duration-150 hover:border-primary/60 hover:bg-primary/8"
+                        >
+                          <EntityTile
+                            icon={undefined}
+                            kind={entityKindOf(entity)}
+                            isActive={null}
+                            size="well"
+                            className="size-10 rounded-tile"
+                          />
+                          <span className="flex min-w-0 flex-col gap-[3px]">
+                            <span className="truncate text-[14.5px] font-semibold">
+                              {entity.name}
+                            </span>
+                            <span className="truncate text-[12.5px] text-foreground-muted">
+                              {entity.areaName === null
+                                ? entity.entityId
+                                : `${entity.areaName} · ${entity.entityId}`}
+                            </span>
+                          </span>
+                          <span className="flex items-center gap-3.5">
+                            <span className="text-[12.5px] whitespace-nowrap text-foreground-subtle max-sm:hidden">
+                              {readingOf(entity, data.readings[entity.entityId]).text}
+                            </span>
+                            <button
+                              type="button"
+                              className="press-scale inline-flex h-7.5 items-center gap-1.5 rounded-pill border border-border-strong pr-3 pl-2 text-[12.5px] font-medium whitespace-nowrap text-foreground hover:border-primary/60 hover:bg-primary/10"
+                              onClick={() => {
+                                choose({ card: entityCardFor(entity), pendingKind: null });
+                              }}
+                            >
+                              <AppIcon id="plus" size={14} />
+                              {kindName(kind)}
+                            </button>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+              {matchingTiles.length === 0 ? null : (
+                <div className="px-3.5">
                   <TileGroup
-                    key={each.id}
-                    label={each.label}
-                    count={t('dashboard.addCardDialog.cards', {
-                      count: inGroup.length,
-                      defaultValue_one: '{{count}} card',
-                      defaultValue_other: '{{count}} cards',
+                    label={t('dashboard.addCardDialog.cardsLabel', 'Cards')}
+                    count={t('dashboard.addCardDialog.found', '{{count}} found', {
+                      count: matchingTiles.length,
                     })}
                   >
-                    {inGroup.map((tile, index) => (
+                    {matchingTiles.map((tile, index) => (
                       <CatalogueTile
                         key={tile.id}
                         tile={tile}
@@ -826,118 +938,18 @@ export function AddCardDialog(props: AddCardDialogProps) {
                       />
                     ))}
                   </TileGroup>
-                );
-              })}
-              {category === 'packages' || (category === 'all' && packageTiles.length > 0) ? (
-                <Link
-                  to="/packages"
-                  className="mb-4 flex h-13 items-center justify-center gap-2 rounded-card border border-dashed border-foreground/14 text-ui-sm text-foreground-muted transition-colors hover:border-primary/60"
-                >
-                  {t('dashboard.addCardDialog.moreCards', 'More cards come with packages')}
-                  <span className="inline-flex items-center gap-1.5 text-foreground">
-                    {t('dashboard.addCardDialog.browsePackages', 'Browse packages')}
-                    <AppIcon id="external-link" size={14} />
-                  </span>
-                </Link>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <div className="min-h-0 grow animate-fade-in overflow-y-auto px-3.5 pb-3">
-            {found.length === 0 && matchingTiles.length === 0 ? (
-              <p className="px-3.5 py-8 text-center text-ui-sm text-foreground-subtle">
-                {t('dashboard.addCardDialog.nothingFound', 'Nothing matches “{{query}}”', {
-                  query: query.trim(),
-                })}
-              </p>
-            ) : null}
-            {found.length === 0 ? null : (
-              <section>
-                <div className="flex h-7.5 items-center justify-between px-3.5 font-mono text-label tracking-[0.08em] text-foreground-subtle uppercase">
-                  <span>{t('dashboard.addCardDialog.entities', 'Entities')}</span>
-                  <span>
-                    {t('dashboard.addCardDialog.found', '{{count}} found', {
-                      count: found.length,
-                    })}
-                  </span>
                 </div>
-                <ul className="mb-3.5 flex flex-col gap-0.5">
-                  {found.map((entity) => {
-                    const kind: EntityCardKind = cardKindOf(entity);
+              )}
+            </div>
+          )}
 
-                    return (
-                      <li
-                        key={entity.entityId}
-                        className="grid min-h-15.5 grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3.5 rounded-[14px] border border-transparent px-3.5 transition-colors duration-150 hover:border-primary/60 hover:bg-primary/8"
-                      >
-                        <EntityTile
-                          icon={undefined}
-                          kind={entityKindOf(entity)}
-                          isActive={null}
-                          size="well"
-                          className="size-10 rounded-tile"
-                        />
-                        <span className="flex min-w-0 flex-col gap-[3px]">
-                          <span className="truncate text-[14.5px] font-semibold">
-                            {entity.name}
-                          </span>
-                          <span className="truncate text-[12.5px] text-foreground-muted">
-                            {entity.areaName === null
-                              ? entity.entityId
-                              : `${entity.areaName} · ${entity.entityId}`}
-                          </span>
-                        </span>
-                        <span className="flex items-center gap-3.5">
-                          <span className="text-[12.5px] whitespace-nowrap text-foreground-subtle max-sm:hidden">
-                            {readingOf(entity, data.readings[entity.entityId]).text}
-                          </span>
-                          <button
-                            type="button"
-                            className="press-scale inline-flex h-7.5 items-center gap-1.5 rounded-pill border border-border-strong pr-3 pl-2 text-[12.5px] font-medium whitespace-nowrap text-foreground hover:border-primary/60 hover:bg-primary/10"
-                            onClick={() => {
-                              choose({ card: entityCardFor(entity), pendingKind: null });
-                            }}
-                          >
-                            <AppIcon id="plus" size={14} />
-                            {kindName(kind)}
-                          </button>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            )}
-            {matchingTiles.length === 0 ? null : (
-              <div className="px-3.5">
-                <TileGroup
-                  label={t('dashboard.addCardDialog.cardsLabel', 'Cards')}
-                  count={t('dashboard.addCardDialog.found', '{{count}} found', {
-                    count: matchingTiles.length,
-                  })}
-                >
-                  {matchingTiles.map((tile, index) => (
-                    <CatalogueTile
-                      key={tile.id}
-                      tile={tile}
-                      index={index}
-                      onChoose={() => {
-                        choose(tile.make());
-                      }}
-                    />
-                  ))}
-                </TileGroup>
-              </div>
-            )}
+          <div className="flex h-14 shrink-0 items-center gap-3 border-t border-border px-7 text-ui-sm text-foreground-muted">
+            <AppIcon id="info" size={15} />
+            <span className="min-w-0 grow truncate">{help}</span>
+            <span className="shrink-0">{total}</span>
           </div>
-        )}
-
-        <div className="flex h-14 shrink-0 items-center gap-3 border-t border-border px-7 text-ui-sm text-foreground-muted">
-          <AppIcon id="info" size={15} />
-          <span className="min-w-0 grow truncate">{help}</span>
-          <span className="shrink-0">{total}</span>
         </div>
-      </div>
+      ) : null}
     </Modal>
   );
 }
