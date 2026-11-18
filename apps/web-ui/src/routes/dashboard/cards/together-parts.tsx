@@ -29,20 +29,6 @@ const TONES: Readonly<Record<TogetherDomain, EntityTone>> = {
   thermostat: 'climate',
 };
 
-/** How many members of each kind are written: "6 lights". */
-const COUNTS: Readonly<Record<TogetherDomain, readonly [key: string, one: string, other: string]>> =
-  {
-    light: ['dashboard.cards.togetherCard.lights', '{{count}} light', '{{count}} lights'],
-    switch: ['dashboard.cards.togetherCard.switches', '{{count}} switch', '{{count}} switches'],
-    cover: ['dashboard.cards.togetherCard.covers', '{{count}} cover', '{{count}} covers'],
-    lock: ['dashboard.cards.togetherCard.locks', '{{count}} lock', '{{count}} locks'],
-    thermostat: [
-      'dashboard.cards.togetherCard.thermostats',
-      '{{count}} thermostat',
-      '{{count}} thermostats',
-    ],
-  };
-
 /**
  * The chip of a together card: its kind's glyph and family.
  *
@@ -65,9 +51,38 @@ export function togetherKind(domain: TogetherDomain): EntityKind {
  * @returns "6 lights".
  */
 export function membersCount(domain: TogetherDomain, count: number): string {
-  const [key, one, other] = COUNTS[domain];
-
-  return translate(key, { count, defaultValue_one: one, defaultValue_other: other });
+  switch (domain) {
+    case 'light':
+      return translate('dashboard.cards.togetherCard.lights', {
+        count,
+        defaultValue_one: '{{count}} light',
+        defaultValue_other: '{{count}} lights',
+      });
+    case 'switch':
+      return translate('dashboard.cards.togetherCard.switches', {
+        count,
+        defaultValue_one: '{{count}} switch',
+        defaultValue_other: '{{count}} switches',
+      });
+    case 'cover':
+      return translate('dashboard.cards.togetherCard.covers', {
+        count,
+        defaultValue_one: '{{count}} cover',
+        defaultValue_other: '{{count}} covers',
+      });
+    case 'lock':
+      return translate('dashboard.cards.togetherCard.locks', {
+        count,
+        defaultValue_one: '{{count}} lock',
+        defaultValue_other: '{{count}} locks',
+      });
+    case 'thermostat':
+      return translate('dashboard.cards.togetherCard.thermostats', {
+        count,
+        defaultValue_one: '{{count}} thermostat',
+        defaultValue_other: '{{count}} thermostats',
+      });
+  }
 }
 
 /**
@@ -367,7 +382,11 @@ export function MoreRow(props: { readonly count: number; readonly height: RowHei
         height,
       )}
     >
-      {t('dashboard.cards.togetherCard.andMore', 'and {{count}} more', { count })}
+      {t('dashboard.cards.togetherCard.andMore', {
+        count,
+        defaultValue_one: 'and {{count}} more',
+        defaultValue_other: 'and {{count}} more',
+      })}
     </div>
   );
 }
@@ -477,8 +496,10 @@ export function Unanswered(props: { readonly command: TogetherCommand }) {
       <span className="inline-flex min-w-0 items-center gap-1.5 text-ui-sm text-danger">
         <AppIcon id="triangle-alert" size={14} />
         <span className="truncate">
-          {t('dashboard.cards.togetherCard.didNotAnswer', '{{count}} did not answer', {
+          {t('dashboard.cards.togetherCard.didNotAnswer', {
             count: command.unanswered,
+            defaultValue_one: '{{count}} did not answer',
+            defaultValue_other: '{{count}} did not answer',
           })}
         </span>
       </span>

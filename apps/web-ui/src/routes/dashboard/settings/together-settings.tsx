@@ -464,8 +464,10 @@ export function TogetherSettings(props: TypeSettingsProps<DashboardTogetherCard>
           />
           <div className="flex min-w-0 items-center justify-between gap-2.5 border-t border-border pt-3 text-caption">
             <span className="text-foreground-muted tabular-nums">
-              {t('dashboard.togetherSettings.picked', '{{count}} picked', {
+              {t('dashboard.togetherSettings.picked', {
                 count: members.entityIds.length,
+                defaultValue_one: '{{count}} picked',
+                defaultValue_other: '{{count}} picked',
               })}
             </span>
             <span className="text-foreground-subtle">

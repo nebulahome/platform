@@ -130,7 +130,9 @@ export function LockCard(props: { readonly model: EntityCardModel }) {
         >
           <span className="inline-flex items-center gap-2">
             {isTile ? null : <AppIcon id="lock-open" size={16} />}
-            {t('dashboard.cards.lockCard.holdToUnlock', 'Hold to unlock')}
+            {isTile
+              ? t('dashboard.cards.lockCard.holdOnTile', 'Hold to unlock')
+              : t('dashboard.cards.lockCard.holdToUnlock', 'Hold to unlock')}
           </span>
         </HoldButton>
       );

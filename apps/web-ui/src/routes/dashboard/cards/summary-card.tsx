@@ -292,15 +292,25 @@ function CountFace(props: CountFaceProps) {
         offline: t('dashboard.cards.summaryCard.allReachable', 'All reachable'),
       }[what]
     : {
-        openings: t('dashboard.cards.summaryCard.countOpen', '{{count}} open', {
+        openings: t('dashboard.cards.summaryCard.countOpen', {
           count: found.length,
+          defaultValue_one: '{{count}} open',
+          defaultValue_other: '{{count}} open',
         }),
-        lights: t('dashboard.cards.summaryCard.countOn', '{{count}} on', { count: found.length }),
-        batteries: t('dashboard.cards.summaryCard.countLow', '{{count}} low', {
+        lights: t('dashboard.cards.summaryCard.countOn', {
           count: found.length,
+          defaultValue_one: '{{count}} on',
+          defaultValue_other: '{{count}} on',
         }),
-        updates: t('dashboard.cards.summaryCard.countReady', '{{count}} ready', {
+        batteries: t('dashboard.cards.summaryCard.countLow', {
           count: found.length,
+          defaultValue_one: '{{count}} low',
+          defaultValue_other: '{{count}} low',
+        }),
+        updates: t('dashboard.cards.summaryCard.countReady', {
+          count: found.length,
+          defaultValue_one: '{{count}} ready',
+          defaultValue_other: '{{count}} ready',
         }),
         offline: t('dashboard.cards.summaryCard.countOffline', '{{count}} offline', {
           count: found.length,
@@ -532,11 +542,31 @@ function GlanceFace(props: GlanceFaceProps) {
         offline: t('dashboard.cards.summaryCard.glanceOffline', 'Offline'),
       }[column.subject],
       value: {
-        lights: t('dashboard.cards.summaryCard.countOn', '{{count}} on', { count: many }),
-        openings: t('dashboard.cards.summaryCard.countOpen', '{{count}} open', { count: many }),
-        blinds: t('dashboard.cards.summaryCard.countOpen', '{{count}} open', { count: many }),
-        batteries: t('dashboard.cards.summaryCard.countLow', '{{count}} low', { count: many }),
-        updates: t('dashboard.cards.summaryCard.countReady', '{{count}} ready', { count: many }),
+        lights: t('dashboard.cards.summaryCard.countOn', {
+          count: many,
+          defaultValue_one: '{{count}} on',
+          defaultValue_other: '{{count}} on',
+        }),
+        openings: t('dashboard.cards.summaryCard.countOpen', {
+          count: many,
+          defaultValue_one: '{{count}} open',
+          defaultValue_other: '{{count}} open',
+        }),
+        blinds: t('dashboard.cards.summaryCard.countOpen', {
+          count: many,
+          defaultValue_one: '{{count}} open',
+          defaultValue_other: '{{count}} open',
+        }),
+        batteries: t('dashboard.cards.summaryCard.countLow', {
+          count: many,
+          defaultValue_one: '{{count}} low',
+          defaultValue_other: '{{count}} low',
+        }),
+        updates: t('dashboard.cards.summaryCard.countReady', {
+          count: many,
+          defaultValue_one: '{{count}} ready',
+          defaultValue_other: '{{count}} ready',
+        }),
         offline: String(many),
       }[column.subject],
       colour: many === 0 ? 'text-foreground-muted' : column.figure,
@@ -556,7 +586,8 @@ function GlanceFace(props: GlanceFaceProps) {
       <CardFrame label={title} tap={tap}>
         <div className="flex h-full items-center gap-5">
           <div className="w-33 shrink-0">{head}</div>
-          <div className="grid grow grid-cols-5 gap-2.5">
+          {/* Columns as wide as their words, so a longer language still fits five. */}
+          <div className="flex min-w-0 grow justify-between gap-2.5">
             {columns.map((column) => (
               <div key={column.subject} className="flex min-w-0 flex-col gap-[3px]">
                 <span className="text-label tracking-normal whitespace-nowrap text-foreground-subtle">

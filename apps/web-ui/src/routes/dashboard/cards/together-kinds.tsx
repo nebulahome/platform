@@ -471,9 +471,15 @@ export function TogetherLocks(props: { readonly view: TogetherView }) {
     : isAllLocked
       ? t('dashboard.cards.togetherCard.allLocked', 'All locked')
       : jammed.length > 0
-        ? t('dashboard.cards.togetherCard.jammed', '{{count}} jammed', { count: jammed.length })
-        : t('dashboard.cards.togetherCard.unlocked', '{{count}} unlocked', {
+        ? t('dashboard.cards.togetherCard.jammed', {
+            count: jammed.length,
+            defaultValue_one: '{{count}} jammed',
+            defaultValue_other: '{{count}} jammed',
+          })
+        : t('dashboard.cards.togetherCard.unlocked', {
             count: unlocked.length,
+            defaultValue_one: '{{count}} unlocked',
+            defaultValue_other: '{{count}} unlocked',
           });
   const colour =
     view.isOffline || !hasValue
@@ -553,7 +559,9 @@ export function TogetherLocks(props: { readonly view: TogetherView }) {
         }}
       >
         {look === 'tile' ? null : <AppIcon id="lock" size={16} />}
-        {t('dashboard.cards.togetherCard.lockAll', 'Lock all')}
+        {look === 'tile'
+          ? t('dashboard.cards.togetherCard.lockAllOnTile', 'Lock all')
+          : t('dashboard.cards.togetherCard.lockAll', 'Lock all')}
       </button>
     );
   };
@@ -784,8 +792,16 @@ export function TogetherClimate(props: { readonly view: TogetherView }) {
     tone === null || view.isOffline ? undefined : (
       <Pill className={cn(TONE_CHOSEN[tone], 'border-border-strong *:bg-current')}>
         {tone === 'heat'
-          ? t('dashboard.cards.togetherCard.heating', '{{count}} heating', { count: heating })
-          : t('dashboard.cards.togetherCard.cooling', '{{count}} cooling', { count: cooling })}
+          ? t('dashboard.cards.togetherCard.heating', {
+              count: heating,
+              defaultValue_one: '{{count}} heating',
+              defaultValue_other: '{{count}} heating',
+            })
+          : t('dashboard.cards.togetherCard.cooling', {
+              count: cooling,
+              defaultValue_one: '{{count}} cooling',
+              defaultValue_other: '{{count}} cooling',
+            })}
       </Pill>
     );
   const kind = togetherKind('thermostat');

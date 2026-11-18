@@ -196,7 +196,10 @@ function DashboardLab() {
 const root = document.getElementById('root');
 
 if (root !== null) {
-  void applyLanguage('en');
+  // `?lang=it` draws the lab in Italian, to see that its words still fit.
+  void applyLanguage(
+    new URLSearchParams(window.location.search).get('lang') === 'it' ? 'it' : 'en',
+  );
   createRoot(root).render(
     <StrictMode>
       <DashboardLab />
