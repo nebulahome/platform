@@ -117,6 +117,18 @@ export type SummaryCardProps = {
 };
 
 /**
+ * What a summary is called when nobody named it: what it counts.
+ *
+ * @param what - What it counts.
+ * @returns "Doors and windows", "At a glance".
+ */
+export function summaryName(what: SummarySubject): string {
+  return what === 'glance'
+    ? translate('dashboard.cards.summaryCard.atAGlance', 'At a glance')
+    : text(LOOKS[what].name);
+}
+
+/**
  * Renders a summary card.
  *
  * @param props - See {@link SummaryCardProps}.

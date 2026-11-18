@@ -17,7 +17,7 @@ import { PackageCard } from '@/routes/dashboard/cards/package-card';
 import { RoomCard } from '@/routes/dashboard/cards/room-card';
 import { SceneCard } from '@/routes/dashboard/cards/scene-card';
 import { ShortcutCard } from '@/routes/dashboard/cards/shortcut-card';
-import { SummaryCard } from '@/routes/dashboard/cards/summary-card';
+import { SummaryCard, summaryName } from '@/routes/dashboard/cards/summary-card';
 import { TogetherCard } from '@/routes/dashboard/cards/together-card';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
 
@@ -99,8 +99,15 @@ export function cardTitle(card: DashboardCard, data: DashboardData): string {
         `${card.packageId} · ${card.cardId}`
       );
     case 'together':
+      return (
+        card.title ??
+        (card.members.mode === 'rule' ? areaNameOf(card.members.areaKey, data) : null) ??
+        kindName(`together-${card.domain}`)
+      );
     case 'summary':
+      return card.title ?? summaryName(card.what);
     case 'room':
+      return card.title ?? areaNameOf(card.areaKey, data) ?? kindName('room');
     case 'list':
     case 'actions':
     case 'compare':
@@ -111,4 +118,25 @@ export function cardTitle(card: DashboardCard, data: DashboardData): string {
     case 'container':
       return card.title;
   }
+}
+
+/**
+ * An area's name, read off the entities placed in it.
+ *
+ * @param areaKey - The area, or none.
+ * @param data - What the page read.
+ * @returns Its name; null when no entity sits there.
+ */
+function areaNameOf(areaKey: string | null, data: DashboardData): string | null {
+  if (areaKey === null) {
+    return null;
+  }
+
+  for (const entity of data.entityById.values()) {
+    if (entity.areaKey === areaKey && entity.areaName !== null) {
+      return entity.areaName;
+    }
+  }
+
+  return null;
 }

@@ -532,9 +532,11 @@ export function CardSettings(props: CardSettingsProps) {
         ? t('dashboard.cardSettings.kindCard', '{{kind}} card', {
             kind: kindName(cardKindOf(entity)),
           })
-        : typeName === undefined
-          ? kindName(card.type)
-          : text(typeName);
+        : typeName !== undefined
+          ? text(typeName)
+          : card.type === 'together'
+            ? kindName(`together-${card.domain}`)
+            : t('dashboard.cardSettings.kindCard', '{{kind}} card', { kind: kindName(card.type) });
 
   /** Says the card now has what it waited for. */
   const settle = (): void => {
