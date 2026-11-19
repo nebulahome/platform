@@ -57,7 +57,7 @@ export function releaseNotesUrl(version: string): string {
   return `https://github.com/nebulahome/platform/releases/tag/v${version}`;
 }
 
-/** Asks GitHub again now for Nebula Home's releases. */
+/** Looks again now for updates: Nebula Home's releases on GitHub, the Hub's indexes. */
 export async function checkSystemUpdates(): Promise<void> {
   await apiRequest('/system/updates/check', z.unknown(), { method: 'POST' });
 }

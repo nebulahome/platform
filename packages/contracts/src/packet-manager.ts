@@ -282,8 +282,11 @@ export const availablePackageSchema = z.object({
 /** A package the index offers. */
 export type AvailablePackage = z.output<typeof availablePackageSchema>;
 
-/** `svc.packet-manager.list`: nothing. */
+/** `svc.packet-manager.list`, `update_status`, `reload_updates`: nothing. */
 export const packetManagerEmptyRequestSchema = z.strictObject({});
+
+/** `svc.packet-manager.available`: `check` to read the index again now, whatever its age. */
+export const packageAvailableRequestSchema = z.strictObject({ check: z.boolean().default(false) });
 
 /** Every installed package. */
 export const packageListReplySchema = z.object({ items: z.array(installedPackageSchema) });

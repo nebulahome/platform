@@ -52,7 +52,7 @@ export type SystemUpdatesContext = {
 /** Who asked. */
 type Requester = { readonly id: string; readonly username: string };
 
-/** Reads answer quickly; a check asks GitHub, a restart waits for the daemon. */
+/** Reads answer quickly; a check asks GitHub and the Hub, a restart waits for the daemon. */
 const READ_TIMEOUT_MS = 10_000;
 const CHECK_TIMEOUT_MS = 30_000;
 const POWER_TIMEOUT_MS = 60_000;
@@ -234,19 +234,44 @@ function newestFor(core: PlatformReleasesReply, channel: UpdateChannel) {
 }
 
 /**
- * Asks GitHub again now for Nebula Home's releases.
+ * Looks again now for every update: GitHub for Nebula Home's releases, the Community Hub's indexes
+ * for the packages and the integrations. An index that cannot be read fails nothing: the list read
+ * next says why in its `problems`.
  *
  * @param context - The request's collaborators.
+ * @throws {Error} When GitHub could not be asked.
  */
 export async function checkSystemUpdates(context: SystemUpdatesContext): Promise<void> {
-  await ask(
-    context,
-    SUPERVISOR_SERVICE,
-    SUPERVISOR_METHODS.platformReleases,
-    { check: true },
-    platformReleasesReplySchema,
-    CHECK_TIMEOUT_MS,
-  );
+  const [core] = await Promise.allSettled([
+    ask(
+      context,
+      SUPERVISOR_SERVICE,
+      SUPERVISOR_METHODS.platformReleases,
+      { check: true },
+      platformReleasesReplySchema,
+      CHECK_TIMEOUT_MS,
+    ),
+    ask(
+      context,
+      PACKET_MANAGER_SERVICE,
+      PACKET_MANAGER_METHODS.available,
+      { check: true },
+      packageAvailableReplySchema,
+      CHECK_TIMEOUT_MS,
+    ),
+    ask(
+      context,
+      PACKET_MANAGER_SERVICE,
+      PACKET_MANAGER_METHODS.integrationAvailable,
+      { check: true },
+      integrationAvailableReplySchema,
+      CHECK_TIMEOUT_MS,
+    ),
+  ]);
+
+  if (core.status === 'rejected') {
+    throw core.reason;
+  }
 }
 
 /**

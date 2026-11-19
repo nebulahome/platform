@@ -17,6 +17,7 @@ import {
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
   packageAnnounceRequestSchema,
+  packageAvailableRequestSchema,
   packageConfigureRequestSchema,
   packageHubLogoRequestSchema,
   packageIdRequestSchema,
@@ -77,8 +78,8 @@ export function servePacketManager(
     ),
     client.serve(
       subject(PACKET_MANAGER_METHODS.available),
-      packetManagerEmptyRequestSchema,
-      async () => service.available(),
+      packageAvailableRequestSchema,
+      async (request) => service.available(request.check),
       reads,
     ),
     client.serve(
@@ -108,7 +109,7 @@ export function servePacketManager(
     client.serve(
       subject(PACKET_MANAGER_METHODS.integrationAvailable),
       integrationAvailableRequestSchema,
-      async () => integrations.available(),
+      async (request) => integrations.available(request.check),
       reads,
     ),
     client.serve(

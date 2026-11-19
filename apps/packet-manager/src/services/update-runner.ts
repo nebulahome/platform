@@ -430,9 +430,10 @@ export class UpdateRunner {
      * @returns Whether to look for its updates.
      */
     const wants = (kind: AutoKind): boolean => due.has(kind) && settings.auto[kind];
+    // The indexes read now, not as kept: a release out since the last read is in today's round.
     const [installed, vendors] = await Promise.all([
-      wants('package') ? packages.available() : null,
-      wants('integration') ? integrations.available() : null,
+      wants('package') ? packages.available(true) : null,
+      wants('integration') ? integrations.available(true) : null,
     ]);
 
     for (const error of [installed?.error, vendors?.error]) {

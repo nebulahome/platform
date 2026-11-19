@@ -352,14 +352,18 @@ export class PacketManager {
   /**
    * What the index offers, each with its newest release that works with this platform.
    *
+   * @param check - Whether to read the index again now, whatever its age.
    * @returns The packages, and whether the index could be read.
    */
-  public async available(): Promise<{
+  public async available(check = false): Promise<{
     items: AvailablePackage[];
     checkedAt: Date | null;
     error: string | null;
   }> {
-    const [read, dependents] = await Promise.all([this.#options.index.read(), this.#dependents()]);
+    const [read, dependents] = await Promise.all([
+      this.#options.index.read(check),
+      this.#dependents(),
+    ]);
 
     return {
       items: (read.index?.packages ?? []).map((entry): AvailablePackage => {

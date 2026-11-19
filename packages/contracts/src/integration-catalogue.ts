@@ -217,8 +217,10 @@ export const hubDetailSchema = z.object({
 /** What the Hub says of one item. */
 export type HubDetail = z.output<typeof hubDetailSchema>;
 
-/** `svc.packet-manager.integration_available`: nothing. */
-export const integrationAvailableRequestSchema = z.strictObject({});
+/** `svc.packet-manager.integration_available`: `check` to read the index again now, whatever its age. */
+export const integrationAvailableRequestSchema = z.strictObject({
+  check: z.boolean().default(false),
+});
 
 /** One installed integration, and what the index offers it. */
 export const integrationAvailabilitySchema = z.object({

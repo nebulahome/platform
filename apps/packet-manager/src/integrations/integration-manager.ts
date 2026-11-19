@@ -231,11 +231,12 @@ export class IntegrationManager {
   /**
    * Every integration the platform installed, and the update the index offers it.
    *
+   * @param check - Whether to read the index again now, whatever its age.
    * @returns Them, and why the index could not be read, when it could not.
    */
-  public async available(): Promise<IntegrationAvailableReply> {
+  public async available(check = false): Promise<IntegrationAvailableReply> {
     const [read, markers] = await Promise.all([
-      this.#options.index.read(),
+      this.#options.index.read(check),
       readMarkers(this.#options.integrationsDir),
     ]);
     const entries = new Map((read.index?.integrations ?? []).map((entry) => [entry.id, entry]));

@@ -367,6 +367,25 @@ describe('UpdateRunner, by itself', () => {
     expect(done).toEqual(['package mqtt']);
   });
 
+  it('reads the index again, not as kept, to choose what an automatic round updates', async () => {
+    const available = vi.fn(async () =>
+      Promise.resolve({ items: [{ id: 'mqtt', hasUpdate: true }], checkedAt: null, error: null }),
+    );
+    const { runner, clock } = runnerWith({
+      readSettings: async () => Promise.resolve(AUTO_PACKAGES),
+      packages: {
+        update: vi.fn(async () => Promise.resolve({})),
+        available,
+      } as unknown as UpdateRunnerOptions['packages'],
+    });
+
+    clock.at = new Date('2026-11-06T01:00:00Z');
+    await runner.start();
+    await tickAt(runner, clock, '2026-11-06T03:00:00Z');
+    await ended(runner);
+    expect(available).toHaveBeenCalledExactlyOnceWith(true);
+  });
+
   it('runs a window the change to summer time skips, and one it repeats once', async () => {
     const { runner, done, clock } = runnerWith({
       readSettings: async () =>

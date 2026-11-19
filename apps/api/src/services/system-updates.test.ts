@@ -8,6 +8,11 @@ import {
   ConflictError,
   HUB_CATALOGUE_METHOD,
   HUB_SERVICE,
+  integrationAvailableRequestSchema,
+  PACKET_MANAGER_METHODS,
+  PACKET_MANAGER_SERVICE,
+  packageAvailableRequestSchema,
+  platformReleasesRequestSchema,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   supervisorEmptyRequestSchema,
@@ -17,7 +22,12 @@ import {
 } from '@nebulahome/contracts';
 import { createLogger } from '@nebulahome/logging';
 
-import { offeredItems, platformState, type SystemUpdatesContext } from './system-updates.js';
+import {
+  checkSystemUpdates,
+  offeredItems,
+  platformState,
+  type SystemUpdatesContext,
+} from './system-updates.js';
 
 /**
  * The list as the page reads it: Nebula Home, a package and an integration with an update.
@@ -165,5 +175,116 @@ describe('what every page reads of Nebula Home', () => {
 
   it('says the hub is away, and still what the supervisor says, while it does not', async () => {
     await expect(platformState(context(false))).resolves.toEqual({ ...STATE, isHubUp: false });
+  });
+});
+
+describe('checking again now', () => {
+  /**
+   * The api's side of the bus, with the supervisor and the packet-manager answering when asked
+   * for, each saying what it was asked.
+   *
+   * @param serving - Who answers.
+   * @param serving.isSupervisorServing - Whether the supervisor answers.
+   * @param serving.isPacketManagerServing - Whether the packet-manager answers.
+   * @returns The context, and what each was asked.
+   */
+  function context({
+    isSupervisorServing,
+    isPacketManagerServing,
+  }: {
+    isSupervisorServing: boolean;
+    isPacketManagerServing: boolean;
+  }): { context: SystemUpdatesContext; asked: string[] } {
+    const transport = new FakeTransport();
+    const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
+    const asked: string[] = [];
+
+    if (isSupervisorServing) {
+      new BusClient({ transport, source: 'supervisor', logger }).serve(
+        busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.platformReleases),
+        platformReleasesRequestSchema,
+        (request) => {
+          asked.push(`core check=${String(request.check)}`);
+
+          return {
+            installedVersion: '2026.10.1',
+            stable: null,
+            beta: null,
+            dev: null,
+            checkedAt: null,
+            error: null,
+            refusal: null,
+            lastUpdate: null,
+          };
+        },
+      );
+    }
+
+    if (isPacketManagerServing) {
+      const packetManager = new BusClient({ transport, source: 'packet-manager', logger });
+
+      packetManager.serve(
+        busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.available),
+        packageAvailableRequestSchema,
+        (request) => {
+          asked.push(`packages check=${String(request.check)}`);
+
+          return { items: [], checkedAt: null, error: null };
+        },
+      );
+      packetManager.serve(
+        busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.integrationAvailable),
+        integrationAvailableRequestSchema,
+        (request) => {
+          asked.push(`integrations check=${String(request.check)}`);
+
+          return { items: [], error: null };
+        },
+      );
+    }
+
+    return {
+      context: {
+        bus: new BusClient({ transport, source: 'api', logger }),
+        // Not read: a check asks the bus alone.
+        db: {} as unknown as SystemUpdatesContext['db'],
+        traceId: '01JBZ8Y6Q0000000000000000A',
+        logger,
+      },
+      asked,
+    };
+  }
+
+  it("asks GitHub and both of the Hub's indexes again", async () => {
+    const { context: checking, asked } = context({
+      isSupervisorServing: true,
+      isPacketManagerServing: true,
+    });
+
+    await checkSystemUpdates(checking);
+    expect(asked.toSorted()).toEqual([
+      'core check=true',
+      'integrations check=true',
+      'packages check=true',
+    ]);
+  });
+
+  it('checks Nebula Home still while the packet-manager does not answer', async () => {
+    const { context: checking, asked } = context({
+      isSupervisorServing: true,
+      isPacketManagerServing: false,
+    });
+
+    await expect(checkSystemUpdates(checking)).resolves.toBeUndefined();
+    expect(asked).toEqual(['core check=true']);
+  });
+
+  it('fails when GitHub could not be asked', async () => {
+    const { context: checking } = context({
+      isSupervisorServing: false,
+      isPacketManagerServing: true,
+    });
+
+    await expect(checkSystemUpdates(checking)).rejects.toThrow();
   });
 });

@@ -304,7 +304,7 @@ export function SoftwareSettings() {
   };
 
   const check = useMutation({
-    /** Asks GitHub again, then reads the list. */
+    /** Asks GitHub and the Hub's indexes again, then reads the list. */
     mutationFn: async (): Promise<void> => {
       await checkSystemUpdates();
       await queryClient.invalidateQueries({ queryKey: UPDATES_QUERY_KEY });

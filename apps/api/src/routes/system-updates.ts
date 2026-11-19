@@ -155,7 +155,7 @@ export function registerSystemUpdateRoutes(
     {
       method: 'POST',
       url: '/system/updates/check',
-      summary: "Ask GitHub now for Nebula Home's newest releases",
+      summary: 'Look again now for updates of Nebula Home, the packages and the integrations',
       tag: 'System',
       permission: 'system:update',
       successStatus: 202,
