@@ -107,10 +107,13 @@ describe('changing what is installed', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(packetManagerRequests.at(-1)).toEqual({
+    const asked = packetManagerRequests.at(-1);
+
+    expect(asked).toMatchObject({
       method: 'package_install',
       payload: { packageId: 'nvr', version: '1.4.0' },
     });
+    expect((asked?.payload as { requestedBy?: string }).requestedBy).toEqual(expect.any(String));
   });
 });
 

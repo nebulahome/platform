@@ -238,7 +238,7 @@ describe('checking again now', () => {
         (request) => {
           asked.push(`integrations check=${String(request.check)}`);
 
-          return { items: [], error: null };
+          return { items: [], checkedAt: null, error: null };
         },
       );
     }

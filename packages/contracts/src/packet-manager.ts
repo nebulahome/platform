@@ -426,19 +426,25 @@ export const packageIdRequestSchema = z.strictObject({ packageId: packageIdSchem
 /** A method about one package. */
 export type PackageIdRequest = z.output<typeof packageIdRequestSchema>;
 
-/** Installing or planning one: which package, which release, who asked. */
+/** Installing one: which package, which release, who asked. */
 export const packageInstallRequestSchema = z.strictObject({
   packageId: packageIdSchema,
 
   /** A release; the newest that fits when not said. */
   version: semverSchema.optional(),
 
-  /** The account that asked, for the audit trail. */
+  /** The account that asked, written as `installed_by` on each package it installs. */
   requestedBy: z.uuid().optional(),
 });
 
-/** Installing or planning one. */
+/** Installing one. */
 export type PackageInstallRequest = z.output<typeof packageInstallRequestSchema>;
+
+/** `svc.packet-manager.package_plan`: which package, which release. */
+export const packagePlanRequestSchema = packageInstallRequestSchema.omit({ requestedBy: true });
+
+/** Planning one. */
+export type PackagePlanRequest = z.output<typeof packagePlanRequestSchema>;
 
 /** What installing would take, or why it cannot be done. */
 export const packagePlanReplySchema = z.object({

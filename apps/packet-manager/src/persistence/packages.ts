@@ -33,6 +33,9 @@ export type PackageRow = {
   readonly lastError: string | null;
   readonly installedAt: Date;
   readonly updatedAt: Date;
+
+  /** The account that installed it; null when no one did, or the account is gone. */
+  readonly installedBy: string | null;
 };
 
 /** What the service reads and writes the table through: the database, or a fake in a test. */
@@ -44,6 +47,7 @@ export type PackageStore = {
     readonly source: PackageSource;
     readonly state: PackageState;
     readonly artifactSha256: string | null;
+    readonly installedBy: string | null;
   }) => Promise<void>;
   readonly update: (
     id: string,
@@ -97,6 +101,7 @@ export function databasePackageStore(db: Database): PackageStore {
         lastError: row.lastError,
         installedAt: row.installedAt,
         updatedAt: row.updatedAt,
+        installedBy: row.installedBy,
       }));
     },
 
@@ -114,6 +119,7 @@ export function databasePackageStore(db: Database): PackageStore {
         source: row.source,
         manifest: row.manifest,
         artifactSha256: row.artifactSha256,
+        installedBy: row.installedBy,
       });
     },
 

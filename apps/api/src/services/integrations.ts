@@ -321,7 +321,7 @@ export function vendorViewOf(
       update === undefined
         ? null
         : {
-            latestVersion: update.latestVersion,
+            latestVersion: update.latest?.version ?? null,
             hasUpdate: update.hasUpdate,
             hasNewBuild: update.hasNewBuild,
           },
@@ -639,7 +639,7 @@ export async function integrationUpdates(
       { traceId: context.traceId, timeoutMs: AVAILABLE_TIMEOUT_MS },
     );
 
-    return new Map(reply.items.map((item) => [item.vendorId, item]));
+    return new Map(reply.items.map((item) => [item.id, item]));
   } catch (error: unknown) {
     context.logger.debug({ err: error }, 'No integration updates read: the packet-manager is away');
 

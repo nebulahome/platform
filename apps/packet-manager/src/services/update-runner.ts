@@ -448,7 +448,7 @@ export class UpdateRunner {
         .map((each) => ({ kind: 'package' as const, id: each.id })),
       ...(vendors?.items ?? [])
         .filter((each) => each.hasUpdate)
-        .map((each) => ({ kind: 'integration' as const, id: each.vendorId })),
+        .map((each) => ({ kind: 'integration' as const, id: each.id })),
     ];
 
     if (items.length === 0) {

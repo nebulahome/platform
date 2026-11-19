@@ -258,7 +258,7 @@ describe('installing integrations', () => {
     );
     expect(await buildsOf(integrationsDir, 'acme')).toEqual([first.install.build]);
     expect((await manager.updates()).items).toMatchObject([
-      { vendorId: 'acme', installedVersion: '1.0.0', latestVersion: '1.1.0', hasUpdate: true },
+      { id: 'acme', installedVersion: '1.0.0', latest: { version: '1.1.0' }, hasUpdate: true },
     ]);
   });
 

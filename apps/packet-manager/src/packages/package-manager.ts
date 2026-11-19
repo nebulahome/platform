@@ -654,10 +654,15 @@ export class PackageManager {
    *
    * @param packageId - The package.
    * @param version - A release; the newest that fits when not said.
+   * @param requestedBy - The account that asked, kept as each new package's `installed_by`.
    * @returns The packages installed, the one asked for last.
    * @throws {ConflictError} When it cannot be installed, saying why.
    */
-  public async install(packageId: string, version?: string): Promise<InstalledPackage[]> {
+  public async install(
+    packageId: string,
+    version?: string,
+    requestedBy?: string,
+  ): Promise<InstalledPackage[]> {
     return this.#serially(async () => {
       const read = await this.#options.index.read(true);
       const plan = this.#planWith(read.index, packageId, version);
@@ -683,7 +688,7 @@ export class PackageManager {
         } else {
           // One after another: a download each, and each the next one's requirement.
           // eslint-disable-next-line no-await-in-loop -- see above
-          installed.push(await this.#installCandidate(read.index, candidate));
+          installed.push(await this.#installCandidate(read.index, candidate, requestedBy));
         }
       }
 
@@ -1677,10 +1682,15 @@ export class PackageManager {
    *
    * @param index - The index it is in.
    * @param candidate - The release.
+   * @param requestedBy - The account that asked, written on a new row.
    * @returns Its entry.
    * @throws {NotFoundError} When the index does not have it after all.
    */
-  async #installCandidate(index: PackageIndex | null, candidate: Candidate): Promise<Entry> {
+  async #installCandidate(
+    index: PackageIndex | null,
+    candidate: Candidate,
+    requestedBy: string | undefined,
+  ): Promise<Entry> {
     const release = index?.packages
       .find((entry) => entry.id === candidate.id)
       ?.versions.find((each) => each.version === candidate.version);
@@ -1706,6 +1716,7 @@ export class PackageManager {
         source: sourceOf(release.artifact.url),
         state: 'installed',
         artifactSha256: release.artifact.sha256,
+        installedBy: requestedBy ?? null,
       });
     } else {
       await this.#options.store.update(candidate.id, {

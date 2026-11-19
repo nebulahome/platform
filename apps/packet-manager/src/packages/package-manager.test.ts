@@ -530,7 +530,8 @@ describe('the packet-manager', () => {
   });
 
   it('installs from the index, and says what it needs and why another cannot be', async () => {
-    const { manager } = await setUp();
+    const { manager, store } = await setUp();
+    const owner = '0192a6f0-0000-7000-8000-00000000000a';
 
     await manager.start();
 
@@ -540,11 +541,12 @@ describe('the packet-manager', () => {
     });
     await expect(manager.install('watcher')).rejects.toThrow(/object-detection/u);
 
-    const installed = await manager.install('zigbee-tools');
+    const installed = await manager.install('zigbee-tools', undefined, owner);
 
     expect(installed.map((item) => [item.id, item.state, item.source])).toEqual([
       ['zigbee-tools', 'running', 'index'],
     ]);
+    expect((await store.list()).find((row) => row.id === 'zigbee-tools')?.installedBy).toBe(owner);
     expect(
       (await manager.available()).items.find((item) => item.id === 'zigbee-tools'),
     ).toMatchObject({

@@ -247,16 +247,19 @@ export class IntegrationManager {
         const latest = this.#latestOf(entry);
 
         return {
-          vendorId,
+          id: vendorId,
+          name: entry?.name ?? null,
           installedVersion: marker.version,
           source: marker.source,
-          latestVersion: latest?.version ?? null,
+          latest:
+            latest === undefined
+              ? null
+              : { version: latest.version, changelogUrl: latest.changelogUrl ?? null },
           hasUpdate: latest !== undefined && isNewer(latest.version, marker.version),
           hasNewBuild: this.#rebuildOf(entry, marker) !== undefined,
-          name: entry?.name ?? null,
-          changelogUrl: latest?.changelogUrl ?? null,
         };
       }),
+      checkedAt: read.checkedAt,
       error: read.error,
     };
   }

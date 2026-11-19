@@ -128,7 +128,11 @@ function runnerWith(
         return Promise.resolve({});
       }),
       updates: vi.fn(async () =>
-        Promise.resolve({ items: [{ vendorId: 'shelly', hasUpdate: true }], error: null }),
+        Promise.resolve({
+          items: [{ id: 'shelly', hasUpdate: true }],
+          checkedAt: null,
+          error: null,
+        }),
       ),
     } as unknown as UpdateRunnerOptions['integrations'],
     logger,
@@ -444,7 +448,11 @@ describe('UpdateRunner, by itself', () => {
       integrations: {
         install,
         updates: vi.fn(async () =>
-          Promise.resolve({ items: [{ vendorId: 'shelly', hasUpdate: true }], error: null }),
+          Promise.resolve({
+            items: [{ id: 'shelly', hasUpdate: true }],
+            checkedAt: null,
+            error: null,
+          }),
         ),
       } as unknown as UpdateRunnerOptions['integrations'],
     });

@@ -336,17 +336,19 @@ export async function planPackage(
  * @param context - The request's collaborators.
  * @param packageId - The package.
  * @param version - A release, or the newest.
+ * @param requestedBy - Who asked, kept with each package it installs.
  * @returns What was installed.
  */
 export async function installPackage(
   context: PackagesContext,
   packageId: string,
   version: string | undefined,
+  requestedBy: string,
 ): Promise<InstalledPackage[]> {
   const reply = await ask(
     context,
     PACKET_MANAGER_METHODS.packageInstall,
-    { packageId, ...(version === undefined ? {} : { version }) },
+    { packageId, requestedBy, ...(version === undefined ? {} : { version }) },
     packageInstallReplySchema,
     INSTALL_TIMEOUT_MS,
   );

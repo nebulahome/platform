@@ -196,14 +196,14 @@ export async function systemUpdates(context: SystemUpdatesContext): Promise<Syst
           notesUrl: each.latest?.changelogUrl ?? null,
         })),
       ...(integrations?.items ?? [])
-        .filter((each) => each.hasUpdate && each.latestVersion !== null)
+        .filter((each) => each.hasUpdate && each.latest !== null)
         .map((each) => ({
-          item: { kind: 'integration' as const, id: each.vendorId },
-          name: each.name ?? each.vendorId,
+          item: { kind: 'integration' as const, id: each.id },
+          name: each.name ?? each.id,
           installedVersion: each.installedVersion,
-          latestVersion: each.latestVersion ?? '',
+          latestVersion: each.latest?.version ?? '',
           notes: null,
-          notesUrl: each.changelogUrl,
+          notesUrl: each.latest?.changelogUrl ?? null,
         })),
     ],
     problems,

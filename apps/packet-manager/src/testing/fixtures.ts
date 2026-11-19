@@ -160,6 +160,7 @@ export function memoryStore(): PackageStore & { readonly rows: Map<string, Packa
         lastError: null,
         installedAt: now,
         updatedAt: now,
+        installedBy: row.installedBy,
       });
 
       return Promise.resolve();

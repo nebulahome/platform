@@ -212,20 +212,29 @@ export const integrationUpdatesRequestSchema = z.strictObject({
   check: z.boolean().default(false),
 });
 
-/** One installed integration, and what the index offers it. */
+/** One installed integration, and what the index offers it: an `availablePackageSchema`'s twin. */
 export const integrationUpdateSchema = z.object({
-  vendorId: vendorIdSchema,
+  id: vendorIdSchema,
+
+  /** The name the index gives it; null when the index has none. */
+  name: z.string().max(128).nullable(),
+
   installedVersion: z.string().max(64),
   source: z.enum(INTEGRATION_SOURCES),
 
   /** The newest release that works here; null when the index has none. */
-  latestVersion: semverSchema.nullable(),
-  hasUpdate: z.boolean(),
-  hasNewBuild: z.boolean(),
+  latest: z
+    .object({
+      version: semverSchema,
+      changelogUrl: z.url().max(1024).nullable(),
+    })
+    .nullable(),
 
-  /** The name the index gives it, and the newest release's notes; null when it has none. */
-  name: z.string().max(128).nullable().default(null),
-  changelogUrl: z.url().max(1024).nullable().default(null),
+  /** Whether a newer compatible release than the one installed is out. */
+  hasUpdate: z.boolean(),
+
+  /** Whether the local folder holds other bytes of the version installed: a rebuild to reinstall. */
+  hasNewBuild: z.boolean(),
 });
 
 /** One installed integration, and what the index offers it. */
@@ -234,6 +243,11 @@ export type IntegrationUpdate = z.output<typeof integrationUpdateSchema>;
 /** Every installed integration, and whether the index could be read. */
 export const integrationUpdatesReplySchema = z.object({
   items: z.array(integrationUpdateSchema).max(1024),
+
+  /** When the index was last read; null before it ever was. */
+  checkedAt: timestampSchema.nullable(),
+
+  /** Why it could not be read, when it could not. */
   error: z.string().max(1024).nullable(),
 });
 

@@ -23,6 +23,7 @@ import {
   packageIdRequestSchema,
   packageInstallRequestSchema,
   packageLogsRequestSchema,
+  packagePlanRequestSchema,
   packageRemoveRequestSchema,
   packetManagerEmptyRequestSchema,
   runUpdatesRequestSchema,
@@ -93,7 +94,7 @@ export function servePacketManager(
     ),
     client.serve(
       subject(PACKET_MANAGER_METHODS.packagePlan),
-      packageInstallRequestSchema,
+      packagePlanRequestSchema,
       async (request) => packages.plan(request.packageId, request.version),
       reads,
     ),
@@ -101,7 +102,7 @@ export function servePacketManager(
       subject(PACKET_MANAGER_METHODS.packageInstall),
       packageInstallRequestSchema,
       async (request) => ({
-        installed: await packages.install(request.packageId, request.version),
+        installed: await packages.install(request.packageId, request.version, request.requestedBy),
       }),
     ),
     client.serve(

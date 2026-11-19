@@ -425,6 +425,7 @@ export function registerPackageRoutes(environment: RouteEnvironment, context: Ap
               packagesContext(context, route.request.traceId),
               route.params.packageId,
               route.body.version,
+              route.identity.userId,
             ),
         ),
       };
