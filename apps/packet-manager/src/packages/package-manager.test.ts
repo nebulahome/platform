@@ -30,11 +30,10 @@ import {
 import { sealSecret } from '@nebulahome/db';
 import { createLogger } from '@nebulahome/logging';
 
-import { packetManagerEnvSchema } from './config.js';
-import { PackageManager } from './service.js';
-import { CommunityHubClient } from './services/hub-client.js';
-import { PackageIndexClient } from './services/index-client.js';
-import { LocalPackageReleases } from './services/local-releases.js';
+import { packetManagerEnvSchema } from '../config.js';
+import { CommunityHubClient } from '../services/hub-client.js';
+import { PackageIndexClient } from '../services/index-client.js';
+import { LocalPackageReleases } from '../services/local-releases.js';
 import {
   archiveOf,
   fakeRunner,
@@ -42,7 +41,9 @@ import {
   memoryStore,
   scratch,
   writePackage,
-} from './testing/fixtures.js';
+} from '../testing/fixtures.js';
+
+import { PackageManager } from './package-manager.js';
 
 const logger = createLogger({ service: 'packet-manager', version: '0.0.0', level: 'fatal' });
 const managers: PackageManager[] = [];

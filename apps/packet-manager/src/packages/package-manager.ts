@@ -93,22 +93,23 @@ import type { PlatformLogger } from '@nebulahome/logging';
 import { renderContainers } from '@nebulahome/package-runtime';
 import { SDK_VERSION } from '@nebulahome/package-sdk';
 
-import type { PacketManagerConfig } from './config.js';
+import type { PacketManagerConfig } from '../config.js';
 import {
   clipped,
   INDEX_RECHECK_MS,
   LOCAL_LISTINGS_LIMIT,
   messageOf,
   sourceOf,
-} from './domain/listing.js';
-import { LogRing } from './domain/log-ring.js';
-import type { PackageRow, PackageStore } from './persistence/packages.js';
-import type { CommunityHubClient, HubItem } from './services/hub-client.js';
-import type { InstallReporter } from './services/hub-reporter.js';
-import type { PackageIndexRead, PackageIndexClient } from './services/index-client.js';
-import { installPackageRelease } from './services/installer.js';
-import { readPackageFiles, type PackageFiles } from './services/package-files.js';
-import { PackageProcess, type ProcessState } from './services/package-process.js';
+} from '../domain/listing.js';
+import { LogRing } from '../domain/log-ring.js';
+import type { PackageRow, PackageStore } from '../persistence/packages.js';
+import type { CommunityHubClient, HubItem } from '../services/hub-client.js';
+import type { InstallReporter } from '../services/hub-reporter.js';
+import type { PackageIndexRead, PackageIndexClient } from '../services/index-client.js';
+import { installPackageRelease } from '../services/installer.js';
+import { readPackageFiles, type PackageFiles } from '../services/package-files.js';
+
+import { PackageProcess, type ProcessState } from './package-process.js';
 
 /** How long the supervisor and `core` have to answer. */
 const CALL_TIMEOUT_MS = 10_000;

@@ -41,6 +41,7 @@ import type { PlatformLogger } from '@nebulahome/logging';
 
 import { isBackupSucceeded, isRecentBackupEnough } from '../domain/backup-first.js';
 import type { IntegrationManager } from '../integrations/integration-manager.js';
+import type { PackageManager } from '../packages/package-manager.js';
 import {
   readAutomaticRuns,
   writeAutomaticRuns,
@@ -52,7 +53,6 @@ import {
   type AutoKind,
   type UpdateSettings,
 } from '../persistence/update-settings.js';
-import type { PackageManager } from '../service.js';
 
 /** What the runner needs. */
 export type UpdateRunnerOptions = {

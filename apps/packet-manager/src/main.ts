@@ -26,10 +26,10 @@ import {
   SERVICE_NAME,
 } from './config.js';
 import { IntegrationManager } from './integrations/integration-manager.js';
+import { PackageManager } from './packages/package-manager.js';
 import { databaseHubInstallationStore } from './persistence/hub-installations.js';
 import { databasePackageStore } from './persistence/packages.js';
 import { readChannel } from './persistence/update-settings.js';
-import { PackageManager } from './service.js';
 import { CommunityHubClient } from './services/hub-client.js';
 import { HubReporter } from './services/hub-reporter.js';
 import { IntegrationIndexClient, PackageIndexClient } from './services/index-client.js';

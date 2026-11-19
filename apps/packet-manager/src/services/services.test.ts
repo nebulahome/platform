@@ -17,13 +17,13 @@ import { createLogger } from '@nebulahome/logging';
 
 import { packageIndexUrlOf, type PacketManagerConfig } from '../config.js';
 import { RestartPolicy } from '../domain/restart-policy.js';
+import { PackageProcess, type ProcessState } from '../packages/package-process.js';
 import { archiveOf, fakeRunner, manifest, scratch, writePackage } from '../testing/fixtures.js';
 
 import { CommunityHubClient } from './hub-client.js';
 import { PackageIndexClient } from './index-client.js';
 import { installPackageRelease, removeInstallLeftovers } from './installer.js';
 import { LocalPackageReleases } from './local-releases.js';
-import { PackageProcess, type ProcessState } from './package-process.js';
 
 const logger = createLogger({ service: 'packet-manager', version: '0.0.0', level: 'fatal' });
 const folders: string[] = [];

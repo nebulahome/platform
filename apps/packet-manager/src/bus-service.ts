@@ -29,7 +29,7 @@ import {
 } from '@nebulahome/contracts';
 
 import type { IntegrationManager } from './integrations/integration-manager.js';
-import type { PackageManager } from './service.js';
+import type { PackageManager } from './packages/package-manager.js';
 import type { UpdateRunner } from './services/update-runner.js';
 
 /** What every acknowledged method answers. */
