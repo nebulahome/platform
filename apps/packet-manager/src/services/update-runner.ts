@@ -52,14 +52,14 @@ import {
   type AutoKind,
   type UpdateSettings,
 } from '../persistence/update-settings.js';
-import type { PacketManager } from '../service.js';
+import type { PackageManager } from '../service.js';
 
 /** What the runner needs. */
 export type UpdateRunnerOptions = {
   readonly client: BusClient;
   readonly db: Database;
-  readonly packages: Pick<PacketManager, 'available' | 'update'>;
-  readonly integrations: Pick<IntegrationManager, 'available' | 'install'>;
+  readonly packages: Pick<PackageManager, 'available' | 'update'>;
+  readonly integrations: Pick<IntegrationManager, 'updates' | 'install'>;
   readonly logger: PlatformLogger;
 
   /** The clock. */
@@ -433,7 +433,7 @@ export class UpdateRunner {
     // The indexes read now, not as kept: a release out since the last read is in today's round.
     const [installed, vendors] = await Promise.all([
       wants('package') ? packages.available(true) : null,
-      wants('integration') ? integrations.available(true) : null,
+      wants('integration') ? integrations.updates(true) : null,
     ]);
 
     for (const error of [installed?.error, vendors?.error]) {

@@ -225,7 +225,7 @@ export const BUNDLE_ORIGINS = ['installed', 'development', 'platform'] as const;
 export type BundleOrigin = (typeof BUNDLE_ORIGINS)[number];
 
 /** Where an installed vendor came from: the integrations index, or the platform's local folder. */
-export const INTEGRATION_INSTALL_SOURCES = ['index', 'local'] as const;
+export const INTEGRATION_SOURCES = ['index', 'local'] as const;
 
 /**
  * How the platform installed a vendor: the contents of the marker beside its builds,
@@ -243,7 +243,7 @@ export const integrationInstallSchema = z.strictObject({
   /** The bundle's version, as its manifest says it. */
   version: z.string().min(1).max(64),
 
-  source: z.enum(INTEGRATION_INSTALL_SOURCES),
+  source: z.enum(INTEGRATION_SOURCES),
 
   /** The archive's SHA-256, in hex: what tells a rebuilt local file from the one installed. */
   artifactSha256: z.string().regex(/^[0-9a-f]{64}$/u, 'Must be a SHA-256 in hex'),

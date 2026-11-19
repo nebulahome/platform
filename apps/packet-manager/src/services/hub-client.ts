@@ -16,10 +16,10 @@ import { z } from 'zod';
 
 import {
   NotFoundError,
-  PACKAGE_HUB_LOGO_MAXIMUM_BYTES,
+  HUB_LOGO_MAXIMUM_BYTES,
   UpstreamError,
   type HubItemKind,
-  type PackageHubLogoReply,
+  type HubLogoReply,
   type UpdateChannel,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -234,7 +234,7 @@ export class CommunityHubClient {
   readonly #knownLogos = new Set<string>();
 
   /** Logos fetched, by digest, oldest first. */
-  readonly #logos = new Map<string, PackageHubLogoReply>();
+  readonly #logos = new Map<string, HubLogoReply>();
 
   /**
    * Makes a client that has asked nothing yet.
@@ -388,7 +388,7 @@ export class CommunityHubClient {
    * @throws {NotFoundError} When no search handed it out, or the Hub has it no more.
    * @throws {UpstreamError} When the Hub cannot be reached, or the bytes are not the logo.
    */
-  public async logo(sha256: string): Promise<PackageHubLogoReply> {
+  public async logo(sha256: string): Promise<HubLogoReply> {
     const cached = this.#logos.get(sha256);
 
     if (cached !== undefined) {
@@ -410,7 +410,7 @@ export class CommunityHubClient {
     }
 
     if (
-      bytes.length > PACKAGE_HUB_LOGO_MAXIMUM_BYTES ||
+      bytes.length > HUB_LOGO_MAXIMUM_BYTES ||
       createHash('sha256').update(bytes).digest('hex') !== sha256
     ) {
       throw new UpstreamError('The Community Hub answered a logo that is not the one asked for');

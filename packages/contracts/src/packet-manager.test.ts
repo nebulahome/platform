@@ -4,13 +4,13 @@ import { wsClientMessageSchema } from './api-ws.js';
 import { isPackageServiceAllowed } from './package-id.js';
 import {
   packageAnnounceRequestSchema,
-  packageHubLogoReplySchema,
+  hubLogoReplySchema,
   packageListingSchema,
   packageLiveInboxSchema,
   packageLiveMessageSchema,
   packageRemoveRequestSchema,
   packageRpcRequestSchema,
-  packageSearchRequestSchema,
+  hubSearchRequestSchema,
   packageSettingsChangeSchema,
 } from './packet-manager.js';
 import { packageDeviceId, packageObjectPrefix, syncPackageRequestSchema } from './registration.js';
@@ -166,8 +166,8 @@ describe('a search of the Community Hub', () => {
   };
 
   it('trims what is looked for, and asks for nothing more', () => {
-    expect(packageSearchRequestSchema.parse({ q: '  rec ' })).toEqual({ q: 'rec' });
-    expect(packageSearchRequestSchema.safeParse({ q: 'rec', limit: 500 }).success).toBe(false);
+    expect(hubSearchRequestSchema.parse({ q: '  rec ' })).toEqual({ q: 'rec' });
+    expect(hubSearchRequestSchema.safeParse({ q: 'rec', limit: 500 }).success).toBe(false);
   });
 
   it('takes the Hub’s empty description, and no colour or digest that is not one', () => {
@@ -182,15 +182,13 @@ describe('a search of the Community Hub', () => {
 
   it('relays an image logo, no bigger than the Hub keeps', () => {
     expect(
-      packageHubLogoReplySchema.safeParse({ contentType: 'image/png', data: 'iVBORw0KGgo=' })
-        .success,
+      hubLogoReplySchema.safeParse({ contentType: 'image/png', data: 'iVBORw0KGgo=' }).success,
     ).toBe(true);
+    expect(hubLogoReplySchema.safeParse({ contentType: 'text/html', data: 'PGI+' }).success).toBe(
+      false,
+    );
     expect(
-      packageHubLogoReplySchema.safeParse({ contentType: 'text/html', data: 'PGI+' }).success,
-    ).toBe(false);
-    expect(
-      packageHubLogoReplySchema.safeParse({ contentType: 'image/png', data: 'A'.repeat(400_000) })
-        .success,
+      hubLogoReplySchema.safeParse({ contentType: 'image/png', data: 'A'.repeat(400_000) }).success,
     ).toBe(false);
   });
 });

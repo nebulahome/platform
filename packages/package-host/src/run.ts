@@ -22,6 +22,7 @@ import {
   jsonObjectSchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
+  packetManagerAcknowledgementSchema,
 } from '@nebulahome/contracts';
 import { createLogger } from '@nebulahome/logging';
 import { SDK_VERSION } from '@nebulahome/package-sdk';
@@ -174,13 +175,13 @@ async function run(): Promise<void> {
 
   try {
     await client.request(
-      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.announce),
+      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.packageAnnounce),
       {
         packageId: env.NEBULA_PACKAGE_ID,
         version: env.NEBULA_PACKAGE_VERSION,
         rpcMethods: handle.rpcMethods(),
       },
-      z.unknown(),
+      packetManagerAcknowledgementSchema,
     );
   } catch (error: unknown) {
     // Run by hand, with no packet-manager: its pages cannot call it, the rest works.

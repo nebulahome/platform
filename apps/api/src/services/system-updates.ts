@@ -13,9 +13,10 @@ import {
   ConflictError,
   HUB_CATALOGUE_METHOD,
   HUB_SERVICE,
-  integrationAvailableReplySchema,
+  integrationUpdatesReplySchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
+  packetManagerAcknowledgementSchema,
   packageAvailableReplySchema,
   platformReleasesReplySchema,
   platformStateSchema,
@@ -131,7 +132,7 @@ export async function systemUpdates(context: SystemUpdatesContext): Promise<Syst
       ask(
         context,
         PACKET_MANAGER_SERVICE,
-        PACKET_MANAGER_METHODS.available,
+        PACKET_MANAGER_METHODS.packageAvailable,
         {},
         packageAvailableReplySchema,
         CHECK_TIMEOUT_MS,
@@ -141,9 +142,9 @@ export async function systemUpdates(context: SystemUpdatesContext): Promise<Syst
       ask(
         context,
         PACKET_MANAGER_SERVICE,
-        PACKET_MANAGER_METHODS.integrationAvailable,
+        PACKET_MANAGER_METHODS.integrationUpdates,
         {},
-        integrationAvailableReplySchema,
+        integrationUpdatesReplySchema,
         CHECK_TIMEOUT_MS,
       ),
     ),
@@ -254,7 +255,7 @@ export async function checkSystemUpdates(context: SystemUpdatesContext): Promise
     ask(
       context,
       PACKET_MANAGER_SERVICE,
-      PACKET_MANAGER_METHODS.available,
+      PACKET_MANAGER_METHODS.packageAvailable,
       { check: true },
       packageAvailableReplySchema,
       CHECK_TIMEOUT_MS,
@@ -262,9 +263,9 @@ export async function checkSystemUpdates(context: SystemUpdatesContext): Promise
     ask(
       context,
       PACKET_MANAGER_SERVICE,
-      PACKET_MANAGER_METHODS.integrationAvailable,
+      PACKET_MANAGER_METHODS.integrationUpdates,
       { check: true },
-      integrationAvailableReplySchema,
+      integrationUpdatesReplySchema,
       CHECK_TIMEOUT_MS,
     ),
   ]);
@@ -376,7 +377,7 @@ export async function reloadUpdates(context: SystemUpdatesContext): Promise<void
     PACKET_MANAGER_SERVICE,
     PACKET_MANAGER_METHODS.reloadUpdates,
     {},
-    supervisorAcknowledgementSchema,
+    packetManagerAcknowledgementSchema,
   );
 }
 

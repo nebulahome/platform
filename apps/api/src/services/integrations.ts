@@ -32,7 +32,7 @@ import {
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
   HUB_VENDOR_CHANGED_METHOD,
-  integrationAvailableReplySchema,
+  integrationUpdatesReplySchema,
   integrationVendorViewSchema,
   modelChoicesOf,
   NotFoundError,
@@ -46,7 +46,7 @@ import {
   type IntegrationKind,
   type IntegrationSetup,
   type IntegrationAccountView,
-  type IntegrationAvailability,
+  type IntegrationUpdate,
   type IntegrationVendor,
   type IntegrationVendorConfigUpdate,
   type IntegrationVendorView,
@@ -301,7 +301,7 @@ export function vendorViewOf(
   counts: VendorCounts,
   containerStatuses: readonly (ManagedStatus | null)[] = [],
   accounts: readonly IntegrationAccountView[] = [],
-  update?: IntegrationAvailability,
+  update?: IntegrationUpdate,
 ): IntegrationVendorView {
   return integrationVendorViewSchema.parse({
     ...vendor,
@@ -626,16 +626,16 @@ const AVAILABLE_TIMEOUT_MS = 5000;
  */
 export async function integrationUpdates(
   context: IntegrationsContext,
-): Promise<Map<string, IntegrationAvailability>> {
+): Promise<Map<string, IntegrationUpdate>> {
   if (context.bus === undefined) {
     return new Map();
   }
 
   try {
     const reply = await context.bus.request(
-      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.integrationAvailable),
+      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.integrationUpdates),
       {},
-      integrationAvailableReplySchema,
+      integrationUpdatesReplySchema,
       { traceId: context.traceId, timeoutMs: AVAILABLE_TIMEOUT_MS },
     );
 

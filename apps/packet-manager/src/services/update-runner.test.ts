@@ -127,7 +127,7 @@ function runnerWith(
 
         return Promise.resolve({});
       }),
-      available: vi.fn(async () =>
+      updates: vi.fn(async () =>
         Promise.resolve({ items: [{ vendorId: 'shelly', hasUpdate: true }], error: null }),
       ),
     } as unknown as UpdateRunnerOptions['integrations'],
@@ -213,7 +213,7 @@ describe('UpdateRunner', () => {
       packages: { update, available: vi.fn() } as unknown as UpdateRunnerOptions['packages'],
       integrations: {
         install,
-        available: vi.fn(),
+        updates: vi.fn(),
       } as unknown as UpdateRunnerOptions['integrations'],
     });
 
@@ -443,7 +443,7 @@ describe('UpdateRunner, by itself', () => {
       } as unknown as UpdateRunnerOptions['packages'],
       integrations: {
         install,
-        available: vi.fn(async () =>
+        updates: vi.fn(async () =>
           Promise.resolve({ items: [{ vendorId: 'shelly', hasUpdate: true }], error: null }),
         ),
       } as unknown as UpdateRunnerOptions['integrations'],

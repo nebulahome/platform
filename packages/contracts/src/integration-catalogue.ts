@@ -16,28 +16,18 @@ import { z } from 'zod';
 
 import { INTEGRATION_BUNDLE_KINDS } from './integration-index.js';
 import {
-  INTEGRATION_INSTALL_SOURCES,
+  INTEGRATION_SOURCES,
   integrationInstallSchema,
   VENDOR_ID_PATTERN,
 } from './integrations.js';
 import { PACKAGE_ID_PATTERN } from './package-id.js';
 import { packageRequiresSchema } from './package-requires.js';
-import {
-  PACKAGE_LISTING_ORIGINS,
-  packageSearchRequestSchema,
-  sha256Schema,
-} from './packet-manager.js';
+import { LISTING_ORIGINS, sha256Schema } from './packet-manager.js';
 import { semverSchema } from './semver.js';
 import { timestampSchema } from './timestamp.js';
 
 /** A vendor's id, as a request names it. */
 const vendorIdSchema = z.string().regex(VENDOR_ID_PATTERN, 'Must be a vendor id');
-
-/** `svc.packet-manager.integration_search`: what to look for, and from which page on. */
-export const integrationSearchRequestSchema = packageSearchRequestSchema;
-
-/** What to look for. */
-export type IntegrationSearchRequest = z.output<typeof integrationSearchRequestSchema>;
 
 /**
  * One integration a search found: what the Hub says of it and, from the integrations index, what
@@ -70,7 +60,7 @@ export const integrationListingSchema = z.object({
   /** Whether its devices stop working when the internet does; null when nothing says. */
   internetRequired: z.boolean().nullable(),
 
-  origin: z.enum(PACKAGE_LISTING_ORIGINS),
+  origin: z.enum(LISTING_ORIGINS),
 
   /** The newest release that works with this platform; null when none does. */
   latest: z
@@ -83,7 +73,7 @@ export const integrationListingSchema = z.object({
       changelogUrl: z.string().max(1024).nullable(),
 
       /** Whether it is a file of the local folder rather than a release of the index. */
-      source: z.enum(INTEGRATION_INSTALL_SOURCES),
+      source: z.enum(INTEGRATION_SOURCES),
     })
     .nullable(),
 
@@ -217,16 +207,16 @@ export const hubDetailSchema = z.object({
 /** What the Hub says of one item. */
 export type HubDetail = z.output<typeof hubDetailSchema>;
 
-/** `svc.packet-manager.integration_available`: `check` to read the index again now, whatever its age. */
-export const integrationAvailableRequestSchema = z.strictObject({
+/** `svc.packet-manager.integration_updates`: `check` to read the index again now, whatever its age. */
+export const integrationUpdatesRequestSchema = z.strictObject({
   check: z.boolean().default(false),
 });
 
 /** One installed integration, and what the index offers it. */
-export const integrationAvailabilitySchema = z.object({
+export const integrationUpdateSchema = z.object({
   vendorId: vendorIdSchema,
   installedVersion: z.string().max(64),
-  source: z.enum(INTEGRATION_INSTALL_SOURCES),
+  source: z.enum(INTEGRATION_SOURCES),
 
   /** The newest release that works here; null when the index has none. */
   latestVersion: semverSchema.nullable(),
@@ -239,16 +229,16 @@ export const integrationAvailabilitySchema = z.object({
 });
 
 /** One installed integration, and what the index offers it. */
-export type IntegrationAvailability = z.output<typeof integrationAvailabilitySchema>;
+export type IntegrationUpdate = z.output<typeof integrationUpdateSchema>;
 
 /** Every installed integration, and whether the index could be read. */
-export const integrationAvailableReplySchema = z.object({
-  items: z.array(integrationAvailabilitySchema).max(1024),
+export const integrationUpdatesReplySchema = z.object({
+  items: z.array(integrationUpdateSchema).max(1024),
   error: z.string().max(1024).nullable(),
 });
 
 /** Every installed integration, and what the index offers. */
-export type IntegrationAvailableReply = z.output<typeof integrationAvailableReplySchema>;
+export type IntegrationUpdatesReply = z.output<typeof integrationUpdatesReplySchema>;
 
 /** `POST /integrations/vendors/:vendorId/install`: which release, the newest that fits when not said. */
 export const integrationInstallBodySchema = z.strictObject({ version: semverSchema.optional() });

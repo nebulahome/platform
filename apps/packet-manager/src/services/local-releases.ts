@@ -283,7 +283,7 @@ function grouped<TManifest>(
 }
 
 /** The local packages folder, read when asked. */
-export class LocalReleases {
+export class LocalPackageReleases {
   readonly #archives: LocalArchives<PackageManifest>;
 
   /**

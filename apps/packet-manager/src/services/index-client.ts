@@ -39,7 +39,7 @@ export type IndexReadOf<TIndex> = {
 };
 
 /** What reading the package index gave. */
-export type IndexRead = IndexReadOf<PackageIndex>;
+export type PackageIndexRead = IndexReadOf<PackageIndex>;
 
 /** What reading the integrations index gave. */
 export type IntegrationIndexRead = IndexReadOf<IntegrationIndex>;

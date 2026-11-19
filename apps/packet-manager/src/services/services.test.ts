@@ -21,8 +21,8 @@ import { archiveOf, fakeRunner, manifest, scratch, writePackage } from '../testi
 
 import { CommunityHubClient } from './hub-client.js';
 import { PackageIndexClient } from './index-client.js';
-import { installRelease, removeInstallLeftovers } from './installer.js';
-import { LocalReleases } from './local-releases.js';
+import { installPackageRelease, removeInstallLeftovers } from './installer.js';
+import { LocalPackageReleases } from './local-releases.js';
 import { PackageProcess, type ProcessState } from './package-process.js';
 
 const logger = createLogger({ service: 'packet-manager', version: '0.0.0', level: 'fatal' });
@@ -73,7 +73,7 @@ describe('installing a release', () => {
     const url = 'https://github.com/nebulahome/pkg-nvr/releases/download/v1.4.0/nvr-1.4.0.tgz';
     const packages = path.join(work, 'packages');
 
-    const files = await installRelease(
+    const files = await installPackageRelease(
       {
         id: 'nvr',
         version: '1.4.0',
@@ -118,7 +118,7 @@ describe('installing a release', () => {
       );
     };
 
-    const files = await installRelease(
+    const files = await installPackageRelease(
       {
         id: 'nvr',
         version: '1.0.0',
@@ -142,7 +142,7 @@ describe('installing a release', () => {
     const fetch = serving(url, archive.bytes);
 
     await expect(
-      installRelease(
+      installPackageRelease(
         {
           id: 'nvr',
           version: '1.0.0',
@@ -153,7 +153,7 @@ describe('installing a release', () => {
       ),
     ).rejects.toThrow(/not the one the index names/u);
     await expect(
-      installRelease(
+      installPackageRelease(
         {
           id: 'mqtt',
           version: '1.0.0',
@@ -175,7 +175,7 @@ describe('installing a release', () => {
     const url = pathToFileURL(file).href;
     const packages = path.join(work, 'packages');
 
-    const files = await installRelease(
+    const files = await installPackageRelease(
       {
         id: 'nvr',
         version: '1.0.0',
@@ -193,7 +193,7 @@ describe('installing a release', () => {
     changed[20] = (changed[20] ?? 0) ^ 0xff;
     await writeFile(file, changed);
     await expect(
-      installRelease(
+      installPackageRelease(
         {
           id: 'nvr',
           version: '1.0.0',
@@ -216,7 +216,7 @@ describe('installing a release', () => {
 
     await writeFile(file, bytes);
     await expect(
-      installRelease(
+      installPackageRelease(
         {
           id: 'nvr',
           version: '1.0.0',
@@ -282,7 +282,7 @@ describe('the local folder', () => {
     await writeFile(path.join(local, 'broken.tgz'), 'not an archive');
     await writeFile(path.join(local, 'notes.txt'), 'not even one');
 
-    const entries = await new LocalReleases(local, logger).entries();
+    const entries = await new LocalPackageReleases(local, logger).entries();
 
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
@@ -296,8 +296,10 @@ describe('the local folder', () => {
       provides: ['forecast'],
       artifact: { url: pathToFileURL(path.join(local, 'weather-0.3.0.tgz')).href },
     });
-    expect(await new LocalReleases(path.join(work, 'missing'), logger).entries()).toEqual([]);
-    expect(await new LocalReleases(undefined, logger).entries()).toEqual([]);
+    expect(await new LocalPackageReleases(path.join(work, 'missing'), logger).entries()).toEqual(
+      [],
+    );
+    expect(await new LocalPackageReleases(undefined, logger).entries()).toEqual([]);
   });
 });
 

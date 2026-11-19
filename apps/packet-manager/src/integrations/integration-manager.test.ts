@@ -257,7 +257,7 @@ describe('installing integrations', () => {
       'Acme 1.1.0 did not load: acme/plug: driver.json is not a driver',
     );
     expect(await buildsOf(integrationsDir, 'acme')).toEqual([first.install.build]);
-    expect((await manager.available()).items).toMatchObject([
+    expect((await manager.updates()).items).toMatchObject([
       { vendorId: 'acme', installedVersion: '1.0.0', latestVersion: '1.1.0', hasUpdate: true },
     ]);
   });
@@ -272,14 +272,14 @@ describe('installing integrations', () => {
 
     await packVendor(work, file, { id: 'acme', version: '1.0.0' }, 'second');
 
-    expect((await manager.available()).items[0]?.hasNewBuild).toBe(true);
+    expect((await manager.updates()).items[0]?.hasNewBuild).toBe(true);
 
     const again = await manager.install('acme');
 
     expect(again.action).toBe('reinstalled');
     expect(again.install.build).not.toBe(first.install.build);
     expect(await buildsOf(integrationsDir, 'acme')).toEqual([again.install.build]);
-    expect((await manager.available()).items[0]?.hasNewBuild).toBe(false);
+    expect((await manager.updates()).items[0]?.hasNewBuild).toBe(false);
   });
 
   it('updates to nothing older than, nor the same as, the release installed', async () => {

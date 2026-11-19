@@ -89,7 +89,7 @@ function harness(listed: InstalledPackage[] | undefined) {
 
   if (listed !== undefined) {
     const subscription = packetManager.serve(
-      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.list),
+      busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.packageList),
       z.unknown(),
       () => ({ items: state.listed ?? [] }),
     );

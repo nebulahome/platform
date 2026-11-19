@@ -18,20 +18,19 @@ import {
   busSubjects,
   ConflictError,
   hubDetailRequestSchema,
+  hubLogoRequestSchema,
+  hubSearchRequestSchema,
   integrationInstallRequestSchema,
   integrationRemoveRequestSchema,
-  integrationSearchRequestSchema,
   NotFoundError,
   PACKAGE_RPC_METHOD,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
   packageConfigureRequestSchema,
-  packageHubLogoRequestSchema,
   packageIdRequestSchema,
   packageInstallRequestSchema,
   packageRemoveRequestSchema,
   packageRpcRequestSchema,
-  packageSearchRequestSchema,
   type InstalledPackage,
   type IntegrationListing,
   type PackageDetail,
@@ -229,23 +228,27 @@ export function servePacketManagerFake(
   };
 
   return [
-    packetManager.serve(subject(PACKET_MANAGER_METHODS.list), z.unknown(), () => ({
+    packetManager.serve(subject(PACKET_MANAGER_METHODS.packageList), z.unknown(), () => ({
       items: [MQTT_PACKAGE],
     })),
-    packetManager.serve(subject(PACKET_MANAGER_METHODS.get), packageIdRequestSchema, (request) => {
-      packageDetailsAsked.push(request.packageId);
-
-      if (request.packageId !== 'mqtt') {
-        throw new NotFoundError('No package is installed by that id');
-      }
-
-      return MQTT_DETAIL;
-    }),
     packetManager.serve(
-      subject(PACKET_MANAGER_METHODS.install),
+      subject(PACKET_MANAGER_METHODS.packageGet),
+      packageIdRequestSchema,
+      (request) => {
+        packageDetailsAsked.push(request.packageId);
+
+        if (request.packageId !== 'mqtt') {
+          throw new NotFoundError('No package is installed by that id');
+        }
+
+        return MQTT_DETAIL;
+      },
+    ),
+    packetManager.serve(
+      subject(PACKET_MANAGER_METHODS.packageInstall),
       packageInstallRequestSchema,
       (request) => {
-        record('install', request);
+        record(PACKET_MANAGER_METHODS.packageInstall, request);
 
         if (request.packageId === 'watcher') {
           throw new ConflictError(
@@ -262,19 +265,19 @@ export function servePacketManagerFake(
       },
     ),
     packetManager.serve(
-      subject(PACKET_MANAGER_METHODS.search),
-      packageSearchRequestSchema,
+      subject(PACKET_MANAGER_METHODS.packageSearch),
+      hubSearchRequestSchema,
       (request) => {
-        record('search', request);
+        record(PACKET_MANAGER_METHODS.packageSearch, request);
 
         return { items: [NVR_LISTING], nextCursor: null, hubError: null };
       },
     ),
     packetManager.serve(
       subject(PACKET_MANAGER_METHODS.integrationSearch),
-      integrationSearchRequestSchema,
+      hubSearchRequestSchema,
       (request) => {
-        record('integration_search', request);
+        record(PACKET_MANAGER_METHODS.integrationSearch, request);
 
         return { items: [ZIGBEE_LISTING], nextCursor: null, hubError: null };
       },
@@ -283,7 +286,7 @@ export function servePacketManagerFake(
       subject(PACKET_MANAGER_METHODS.hubDetail),
       hubDetailRequestSchema,
       (request) => {
-        record('hub_detail', request);
+        record(PACKET_MANAGER_METHODS.hubDetail, request);
 
         return {
           ...request,
@@ -302,7 +305,7 @@ export function servePacketManagerFake(
       subject(PACKET_MANAGER_METHODS.integrationInstall),
       integrationInstallRequestSchema,
       (request) => {
-        record('integration_install', request);
+        record(PACKET_MANAGER_METHODS.integrationInstall, request);
 
         return {
           vendorId: request.vendorId,
@@ -323,7 +326,7 @@ export function servePacketManagerFake(
       subject(PACKET_MANAGER_METHODS.integrationRemove),
       integrationRemoveRequestSchema,
       (request) => {
-        record('integration_remove', request);
+        record(PACKET_MANAGER_METHODS.integrationRemove, request);
 
         if (request.vendorId !== 'zigbee') {
           throw new NotFoundError(`${request.vendorId} was not installed by the platform`);
@@ -334,7 +337,7 @@ export function servePacketManagerFake(
     ),
     packetManager.serve(
       subject(PACKET_MANAGER_METHODS.hubLogo),
-      packageHubLogoRequestSchema,
+      hubLogoRequestSchema,
       (request) => {
         if (request.sha256 !== HUB_LOGO.sha256) {
           throw new NotFoundError('No search showed this logo');
@@ -347,10 +350,10 @@ export function servePacketManagerFake(
       },
     ),
     packetManager.serve(
-      subject(PACKET_MANAGER_METHODS.remove),
+      subject(PACKET_MANAGER_METHODS.packageRemove),
       packageRemoveRequestSchema,
       (request) => {
-        record('remove', request);
+        record(PACKET_MANAGER_METHODS.packageRemove, request);
 
         throw new ConflictError('MQTT is needed by zigbee-tools', {
           details: {
@@ -362,10 +365,10 @@ export function servePacketManagerFake(
       },
     ),
     packetManager.serve(
-      subject(PACKET_MANAGER_METHODS.configure),
+      subject(PACKET_MANAGER_METHODS.packageConfigure),
       packageConfigureRequestSchema,
       (request) => {
-        record('configure', request);
+        record(PACKET_MANAGER_METHODS.packageConfigure, request);
 
         return { package: MQTT_PACKAGE };
       },
@@ -374,7 +377,7 @@ export function servePacketManagerFake(
       busSubjects.service('mqtt', PACKAGE_RPC_METHOD),
       packageRpcRequestSchema,
       (request) => {
-        record('rpc', request);
+        record(PACKAGE_RPC_METHOD, request);
 
         return { output: request.method === 'clients' ? ['tasmota-kitchen'] : null };
       },

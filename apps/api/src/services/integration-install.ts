@@ -26,7 +26,7 @@ import {
   type IntegrationInstallReply,
   type IntegrationRemoved,
   type IntegrationSearchReply,
-  type IntegrationSearchRequest,
+  type HubSearchRequest,
 } from '@nebulahome/contracts';
 import { schema } from '@nebulahome/db';
 
@@ -83,7 +83,7 @@ async function ask<TReply>(
  */
 export async function searchIntegrations(
   context: IntegrationsContext,
-  request: IntegrationSearchRequest,
+  request: HubSearchRequest,
 ): Promise<IntegrationSearchReply> {
   return ask(
     context,

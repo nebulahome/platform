@@ -348,7 +348,7 @@ export async function unpackArchive(
  * @param options - The HTTP client and how long a download may take.
  * @returns The release, read, at `packages/<id>/<version>/`.
  */
-export async function installRelease(
+export async function installPackageRelease(
   release: { readonly id: string; readonly version: string; readonly artifact: PackageArtifact },
   packagesDir: string,
   options: DownloadOptions,
@@ -437,7 +437,7 @@ async function vendorRootIn(folder: string): Promise<string> {
  * @returns The build's folder name, and its path.
  * @throws {ValidationError} When the archive is not that vendor's release, or not a bundle.
  */
-export async function installVendorRelease(
+export async function installIntegrationRelease(
   release: { readonly id: string; readonly version: string; readonly artifact: PackageArtifact },
   integrationsDir: string,
   cacheDir: string,

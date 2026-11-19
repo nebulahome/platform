@@ -108,7 +108,7 @@ describe('changing what is installed', () => {
 
     expect(response.statusCode).toBe(200);
     expect(packetManagerRequests.at(-1)).toEqual({
-      method: 'install',
+      method: 'package_install',
       payload: { packageId: 'nvr', version: '1.4.0' },
     });
   });
@@ -256,7 +256,10 @@ describe('the Community Hub', () => {
       nextCursor: null,
       hubError: null,
     });
-    expect(packetManagerRequests.at(-1)).toEqual({ method: 'search', payload: { q: 'rec' } });
+    expect(packetManagerRequests.at(-1)).toEqual({
+      method: 'package_search',
+      payload: { q: 'rec' },
+    });
   });
 
   it('has its logos served to anyone, for good, shown and never run', async () => {

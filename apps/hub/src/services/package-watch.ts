@@ -158,7 +158,7 @@ export class PackageWatch {
   async #read(): Promise<void> {
     try {
       const reply = await this.#options.client.request(
-        busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.list),
+        busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.packageList),
         {},
         packageListReplySchema,
         { timeoutMs: LIST_TIMEOUT_MS },

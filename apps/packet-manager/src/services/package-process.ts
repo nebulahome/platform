@@ -192,7 +192,7 @@ export class PackageProcess {
 
     if (decision.kind === 'give-up') {
       this.#options.logger.warn(
-        { package: this.#spec.id, exits: decision.exits, reason },
+        { packageId: this.#spec.id, exits: decision.exits, reason },
         'Gave up on a package that keeps exiting',
       );
       this.#options.onState({ kind: 'failed', reason });

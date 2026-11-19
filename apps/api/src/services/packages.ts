@@ -18,14 +18,13 @@ import {
   apiPackageDetailSchema,
   busSubjects,
   DeviceUnavailableError,
-  jsonObjectSchema,
   NotFoundError,
   PACKAGE_RPC_METHOD,
   type PackageRpcCaller,
   packageAvailableReplySchema,
   packageDetailSchema,
   hubDetailSchema,
-  packageHubLogoReplySchema,
+  hubLogoReplySchema,
   packageInstallReplySchema,
   packageListReplySchema,
   packageLogsReplySchema,
@@ -36,6 +35,7 @@ import {
   packageSearchReplySchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
+  packetManagerAcknowledgementSchema,
   secretKeysOf,
   type ApiPackage,
   type ApiPackageDetail,
@@ -50,7 +50,7 @@ import {
   type PackagePlanReply,
   type PackageRpcAccess,
   type PackageSearchReply,
-  type PackageSearchRequest,
+  type HubSearchRequest,
 } from '@nebulahome/contracts';
 import { maskSealed, schema, sealSecrets, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -187,7 +187,7 @@ function counted<T extends InstalledPackage>(
  */
 export async function listPackages(context: PackagesContext): Promise<ApiPackage[]> {
   const [reply, counts] = await Promise.all([
-    ask(context, PACKET_MANAGER_METHODS.list, {}, packageListReplySchema),
+    ask(context, PACKET_MANAGER_METHODS.packageList, {}, packageListReplySchema),
     countsByPackage(context.db),
   ]);
 
@@ -202,7 +202,7 @@ export async function listPackages(context: PackagesContext): Promise<ApiPackage
  * @returns It, with where its files are.
  */
 async function detailOf(context: PackagesContext, packageId: string): Promise<PackageDetail> {
-  return ask(context, PACKET_MANAGER_METHODS.get, { packageId }, packageDetailSchema);
+  return ask(context, PACKET_MANAGER_METHODS.packageGet, { packageId }, packageDetailSchema);
 }
 
 /**
@@ -235,7 +235,13 @@ export async function readPackage(
  * @returns The packages, and whether the index could be read.
  */
 export async function availablePackages(context: PackagesContext): Promise<PackageAvailableReply> {
-  return ask(context, PACKET_MANAGER_METHODS.available, {}, packageAvailableReplySchema, 30_000);
+  return ask(
+    context,
+    PACKET_MANAGER_METHODS.packageAvailable,
+    {},
+    packageAvailableReplySchema,
+    30_000,
+  );
 }
 
 /**
@@ -249,9 +255,15 @@ export async function availablePackages(context: PackagesContext): Promise<Packa
  */
 export async function searchCatalogue(
   context: PackagesContext,
-  request: PackageSearchRequest,
+  request: HubSearchRequest,
 ): Promise<PackageSearchReply> {
-  return ask(context, PACKET_MANAGER_METHODS.search, request, packageSearchReplySchema, 30_000);
+  return ask(
+    context,
+    PACKET_MANAGER_METHODS.packageSearch,
+    request,
+    packageSearchReplySchema,
+    30_000,
+  );
 }
 
 /**
@@ -289,7 +301,7 @@ export async function readHubLogo(context: PackagesContext, sha256: string): Pro
     context,
     PACKET_MANAGER_METHODS.hubLogo,
     { sha256 },
-    packageHubLogoReplySchema,
+    hubLogoReplySchema,
     15_000,
   );
 
@@ -311,7 +323,7 @@ export async function planPackage(
 ): Promise<PackagePlanReply> {
   return ask(
     context,
-    PACKET_MANAGER_METHODS.plan,
+    PACKET_MANAGER_METHODS.packagePlan,
     { packageId, ...(version === undefined ? {} : { version }) },
     packagePlanReplySchema,
     30_000,
@@ -333,7 +345,7 @@ export async function installPackage(
 ): Promise<InstalledPackage[]> {
   const reply = await ask(
     context,
-    PACKET_MANAGER_METHODS.install,
+    PACKET_MANAGER_METHODS.packageInstall,
     { packageId, ...(version === undefined ? {} : { version }) },
     packageInstallReplySchema,
     INSTALL_TIMEOUT_MS,
@@ -356,7 +368,7 @@ export async function updatePackage(
   return (
     await ask(
       context,
-      PACKET_MANAGER_METHODS.update,
+      PACKET_MANAGER_METHODS.packageUpdate,
       { packageId },
       packageReplySchema,
       INSTALL_TIMEOUT_MS,
@@ -379,9 +391,9 @@ export async function removePackage(
 ): Promise<void> {
   await ask(
     context,
-    PACKET_MANAGER_METHODS.remove,
+    PACKET_MANAGER_METHODS.packageRemove,
     { packageId, isDataRemoved },
-    jsonObjectSchema,
+    packetManagerAcknowledgementSchema,
     CONTROL_TIMEOUT_MS,
   );
 }
@@ -402,13 +414,20 @@ export async function controlPackage(
   return (
     await ask(
       context,
-      PACKET_MANAGER_METHODS[action],
+      CONTROL_METHODS[action],
       { packageId },
       packageReplySchema,
       CONTROL_TIMEOUT_MS,
     )
   ).package;
 }
+
+/** The packet-manager's method of each action. */
+const CONTROL_METHODS = {
+  start: PACKET_MANAGER_METHODS.packageStart,
+  stop: PACKET_MANAGER_METHODS.packageStop,
+  restart: PACKET_MANAGER_METHODS.packageRestart,
+} as const;
 
 /**
  * The keys a setup group declares, fields and constants.
@@ -479,7 +498,7 @@ export async function configurePackage(
   return (
     await ask(
       context,
-      PACKET_MANAGER_METHODS.configure,
+      PACKET_MANAGER_METHODS.packageConfigure,
       { packageId, values },
       packageReplySchema,
       CONTROL_TIMEOUT_MS,
@@ -504,7 +523,7 @@ export async function readPackageLogs(
 ): Promise<ContainerLogsReply> {
   return ask(
     context,
-    PACKET_MANAGER_METHODS.logs,
+    PACKET_MANAGER_METHODS.packageLogs,
     { packageId, tail, ...(since === undefined ? {} : { since }) },
     packageLogsReplySchema,
   );

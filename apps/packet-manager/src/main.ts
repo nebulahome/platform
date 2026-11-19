@@ -29,12 +29,12 @@ import { IntegrationManager } from './integrations/integration-manager.js';
 import { databaseHubInstallationStore } from './persistence/hub-installations.js';
 import { databasePackageStore } from './persistence/packages.js';
 import { readChannel } from './persistence/update-settings.js';
-import { PacketManager } from './service.js';
+import { PackageManager } from './service.js';
 import { CommunityHubClient } from './services/hub-client.js';
 import { HubReporter } from './services/hub-reporter.js';
 import { IntegrationIndexClient, PackageIndexClient } from './services/index-client.js';
 import { removeInstallLeftovers } from './services/installer.js';
-import { LocalIntegrationReleases, LocalReleases } from './services/local-releases.js';
+import { LocalIntegrationReleases, LocalPackageReleases } from './services/local-releases.js';
 import { UpdateRunner } from './services/update-runner.js';
 
 /** How long a graceful shutdown is given before the process ends regardless. */
@@ -99,8 +99,8 @@ async function start(): Promise<void> {
   });
   const client = new BusClient({ transport: bus.transport, source: SERVICE_NAME, logger });
   const layout = resolveDataLayout(config);
-  const localFolder = localPackagesDirectory(config);
-  const local = new LocalReleases(localFolder, logger);
+  const localPackagesFolder = localPackagesDirectory(config);
+  const localPackages = new LocalPackageReleases(localPackagesFolder, logger);
   const localIntegrationsFolder = localIntegrationsDirectory(config);
   const localIntegrations = new LocalIntegrationReleases(localIntegrationsFolder, logger);
   const secretsKey = secretsKeyFrom(config.NEBULA_SECRETS_KEY);
@@ -125,7 +125,7 @@ async function start(): Promise<void> {
     logger,
     isEnabled: config.COMMUNITY_HUB_REPORT_INSTALLS,
   });
-  const service = new PacketManager({
+  const packages = new PackageManager({
     config,
     store: databasePackageStore(database.db),
     client,
@@ -141,11 +141,11 @@ async function start(): Promise<void> {
       logger,
 
       /**
-       * The local folder's releases.
+       * The local packages folder's releases.
        *
        * @returns Them, in the index's shape.
        */
-      local: async () => local.entries(),
+      local: async () => localPackages.entries(),
     }),
     hub,
     reporter,
@@ -190,7 +190,7 @@ async function start(): Promise<void> {
   const updates = new UpdateRunner({
     client,
     db: database.db,
-    packages: service,
+    packages,
     integrations,
     logger,
     runsFile: `${layout.cache}/updates/automatic-runs.json`,
@@ -204,9 +204,9 @@ async function start(): Promise<void> {
   );
 
   // Served before the packages start: each announces itself to the service as it comes up.
-  const subscriptions = servePacketManager(client, service, integrations, updates);
+  const subscriptions = servePacketManager(client, packages, integrations, updates);
 
-  await service.start();
+  await packages.start();
   void reporter.start();
   // A plan that cannot be made now is tried again every minute.
   await updates.start().catch((error: unknown) => {
@@ -214,9 +214,9 @@ async function start(): Promise<void> {
   });
   logger.info(
     {
-      platform: service.platformVersion,
+      platform: packages.platformVersion,
       integrationRuntime: INTEGRATION_RUNTIME_VERSION,
-      localFolder: localFolder ?? null,
+      localPackagesFolder: localPackagesFolder ?? null,
       localIntegrationsFolder: localIntegrationsFolder ?? null,
       hubReports: config.COMMUNITY_HUB_URL !== undefined && config.COMMUNITY_HUB_REPORT_INSTALLS,
     },
@@ -250,7 +250,7 @@ async function start(): Promise<void> {
         await Promise.race([reporter.flush(), delay(REPORT_FLUSH_MS)]);
         reporter.stop();
         updates.stop();
-        await service.stop();
+        await packages.stop();
         await client.drain();
         await database.close();
       } catch (error: unknown) {

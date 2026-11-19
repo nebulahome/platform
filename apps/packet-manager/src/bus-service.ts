@@ -1,6 +1,6 @@
 /**
  * What `packet-manager` answers on the bus: `nebula.v1.svc.packet-manager.<method>`, asked by
- * `api` on the owner's behalf, and `announce`, by a package's own process once it runs.
+ * `api` on the owner's behalf, and `package_announce`, by a package's own process once it runs.
  *
  * An install answers once the packages are unpacked and started - or the integration's bundle is
  * unpacked and `hub` has loaded it - which can be minutes on a slow connection: `api` waits for
@@ -10,28 +10,30 @@ import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   hubDetailRequestSchema,
-  integrationAvailableRequestSchema,
+  hubLogoRequestSchema,
+  hubSearchRequestSchema,
   integrationInstallRequestSchema,
   integrationRemoveRequestSchema,
-  integrationSearchRequestSchema,
+  integrationUpdatesRequestSchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
   packageAnnounceRequestSchema,
   packageAvailableRequestSchema,
   packageConfigureRequestSchema,
-  packageHubLogoRequestSchema,
   packageIdRequestSchema,
   packageInstallRequestSchema,
   packageLogsRequestSchema,
   packageRemoveRequestSchema,
-  packageSearchRequestSchema,
   packetManagerEmptyRequestSchema,
   runUpdatesRequestSchema,
 } from '@nebulahome/contracts';
 
 import type { IntegrationManager } from './integrations/integration-manager.js';
-import type { PacketManager } from './service.js';
+import type { PackageManager } from './service.js';
 import type { UpdateRunner } from './services/update-runner.js';
+
+/** What every acknowledged method answers. */
+const ACKNOWLEDGED = { ok: true as const };
 
 /**
  * The subject of one method.
@@ -49,14 +51,14 @@ function subject(
  * Serves every method.
  *
  * @param client - The bus.
- * @param service - The packet-manager.
+ * @param packages - The packages it installs and runs.
  * @param integrations - The integrations it installs.
  * @param updates - The rounds of updates.
  * @returns The subscriptions, to end on shutdown.
  */
 export function servePacketManager(
   client: BusClient,
-  service: PacketManager,
+  packages: PackageManager,
   integrations: IntegrationManager,
   updates: UpdateRunner,
 ): BusSubscription[] {
@@ -64,52 +66,100 @@ export function servePacketManager(
   const reads = { concurrency: 8 };
 
   return [
+    // --- packages ----------------------------------------------------------------------------
     client.serve(
-      subject(PACKET_MANAGER_METHODS.list),
+      subject(PACKET_MANAGER_METHODS.packageList),
       packetManagerEmptyRequestSchema,
-      async () => ({ items: await service.list() }),
+      async () => ({ items: await packages.list() }),
       reads,
     ),
     client.serve(
-      subject(PACKET_MANAGER_METHODS.get),
+      subject(PACKET_MANAGER_METHODS.packageGet),
       packageIdRequestSchema,
-      async (request) => service.get(request.packageId),
+      async (request) => packages.get(request.packageId),
       reads,
     ),
     client.serve(
-      subject(PACKET_MANAGER_METHODS.available),
+      subject(PACKET_MANAGER_METHODS.packageAvailable),
       packageAvailableRequestSchema,
-      async (request) => service.available(request.check),
+      async (request) => packages.available(request.check),
       reads,
     ),
     client.serve(
-      subject(PACKET_MANAGER_METHODS.search),
-      packageSearchRequestSchema,
-      async (request) => service.search(request),
+      subject(PACKET_MANAGER_METHODS.packageSearch),
+      hubSearchRequestSchema,
+      async (request) => packages.search(request),
       reads,
     ),
     client.serve(
-      subject(PACKET_MANAGER_METHODS.hubLogo),
-      packageHubLogoRequestSchema,
-      async (request) => service.hubLogo(request.sha256),
+      subject(PACKET_MANAGER_METHODS.packagePlan),
+      packageInstallRequestSchema,
+      async (request) => packages.plan(request.packageId, request.version),
       reads,
     ),
     client.serve(
-      subject(PACKET_MANAGER_METHODS.hubDetail),
-      hubDetailRequestSchema,
-      async (request) => service.hubDetail(request.kind, request.id),
+      subject(PACKET_MANAGER_METHODS.packageInstall),
+      packageInstallRequestSchema,
+      async (request) => ({
+        installed: await packages.install(request.packageId, request.version),
+      }),
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.packageUpdate),
+      packageIdRequestSchema,
+      async (request) => ({ package: await packages.update(request.packageId) }),
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.packageRemove),
+      packageRemoveRequestSchema,
+      async (request) => {
+        await packages.remove(request.packageId, request.isDataRemoved);
+
+        return ACKNOWLEDGED;
+      },
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.packageStart),
+      packageIdRequestSchema,
+      async (request) => ({ package: await packages.startPackage(request.packageId) }),
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.packageStop),
+      packageIdRequestSchema,
+      async (request) => ({ package: await packages.stopPackage(request.packageId) }),
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.packageRestart),
+      packageIdRequestSchema,
+      async (request) => ({ package: await packages.restartPackage(request.packageId) }),
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.packageLogs),
+      packageLogsRequestSchema,
+      (request) => packages.logs(request.packageId, request.tail, request.since),
       reads,
     ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.packageConfigure),
+      packageConfigureRequestSchema,
+      async (request) => ({ package: await packages.configure(request.packageId, request.values) }),
+    ),
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.packageAnnounce),
+      packageAnnounceRequestSchema,
+      async (request) => {
+        await packages.announce(request);
+
+        return ACKNOWLEDGED;
+      },
+      reads,
+    ),
+
+    // --- integrations ------------------------------------------------------------------------
     client.serve(
       subject(PACKET_MANAGER_METHODS.integrationSearch),
-      integrationSearchRequestSchema,
+      hubSearchRequestSchema,
       async (request) => integrations.search(request),
-      reads,
-    ),
-    client.serve(
-      subject(PACKET_MANAGER_METHODS.integrationAvailable),
-      integrationAvailableRequestSchema,
-      async (request) => integrations.available(request.check),
       reads,
     ),
     client.serve(
@@ -124,62 +174,27 @@ export function servePacketManager(
       async (request) => integrations.remove(request.vendorId),
     ),
     client.serve(
-      subject(PACKET_MANAGER_METHODS.plan),
-      packageInstallRequestSchema,
-      async (request) => service.plan(request.packageId, request.version),
+      subject(PACKET_MANAGER_METHODS.integrationUpdates),
+      integrationUpdatesRequestSchema,
+      async (request) => integrations.updates(request.check),
       reads,
     ),
-    client.serve(
-      subject(PACKET_MANAGER_METHODS.logs),
-      packageLogsRequestSchema,
-      (request) => service.logs(request.packageId, request.tail, request.since),
-      reads,
-    ),
-    client.serve(
-      subject(PACKET_MANAGER_METHODS.install),
-      packageInstallRequestSchema,
-      async (request) => ({
-        installed: await service.install(request.packageId, request.version),
-      }),
-    ),
-    client.serve(
-      subject(PACKET_MANAGER_METHODS.update),
-      packageIdRequestSchema,
-      async (request) => ({
-        package: await service.update(request.packageId),
-      }),
-    ),
-    client.serve(
-      subject(PACKET_MANAGER_METHODS.remove),
-      packageRemoveRequestSchema,
-      async (request) => {
-        await service.remove(request.packageId, request.isDataRemoved);
 
-        return { ok: true as const };
-      },
+    // --- the Community Hub, for both -----------------------------------------------------------
+    client.serve(
+      subject(PACKET_MANAGER_METHODS.hubLogo),
+      hubLogoRequestSchema,
+      async (request) => packages.hubLogo(request.sha256),
+      reads,
     ),
     client.serve(
-      subject(PACKET_MANAGER_METHODS.start),
-      packageIdRequestSchema,
-      async (request) => ({
-        package: await service.startPackage(request.packageId),
-      }),
+      subject(PACKET_MANAGER_METHODS.hubDetail),
+      hubDetailRequestSchema,
+      async (request) => packages.hubDetail(request.kind, request.id),
+      reads,
     ),
-    client.serve(subject(PACKET_MANAGER_METHODS.stop), packageIdRequestSchema, async (request) => ({
-      package: await service.stopPackage(request.packageId),
-    })),
-    client.serve(
-      subject(PACKET_MANAGER_METHODS.restart),
-      packageIdRequestSchema,
-      async (request) => ({
-        package: await service.restartPackage(request.packageId),
-      }),
-    ),
-    client.serve(
-      subject(PACKET_MANAGER_METHODS.configure),
-      packageConfigureRequestSchema,
-      async (request) => ({ package: await service.configure(request.packageId, request.values) }),
-    ),
+
+    // --- rounds of updates, of both ----------------------------------------------------------
     client.serve(
       subject(PACKET_MANAGER_METHODS.runUpdates),
       runUpdatesRequestSchema,
@@ -198,17 +213,7 @@ export function servePacketManager(
       async () => {
         await updates.reload();
 
-        return { ok: true as const };
-      },
-      reads,
-    ),
-    client.serve(
-      subject(PACKET_MANAGER_METHODS.announce),
-      packageAnnounceRequestSchema,
-      async (request) => {
-        await service.announce(request);
-
-        return { ok: true as const };
+        return ACKNOWLEDGED;
       },
       reads,
     ),

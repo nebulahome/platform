@@ -8,7 +8,7 @@ import {
   ConflictError,
   HUB_CATALOGUE_METHOD,
   HUB_SERVICE,
-  integrationAvailableRequestSchema,
+  integrationUpdatesRequestSchema,
   PACKET_MANAGER_METHODS,
   PACKET_MANAGER_SERVICE,
   packageAvailableRequestSchema,
@@ -224,7 +224,7 @@ describe('checking again now', () => {
       const packetManager = new BusClient({ transport, source: 'packet-manager', logger });
 
       packetManager.serve(
-        busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.available),
+        busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.packageAvailable),
         packageAvailableRequestSchema,
         (request) => {
           asked.push(`packages check=${String(request.check)}`);
@@ -233,8 +233,8 @@ describe('checking again now', () => {
         },
       );
       packetManager.serve(
-        busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.integrationAvailable),
-        integrationAvailableRequestSchema,
+        busSubjects.service(PACKET_MANAGER_SERVICE, PACKET_MANAGER_METHODS.integrationUpdates),
+        integrationUpdatesRequestSchema,
         (request) => {
           asked.push(`integrations check=${String(request.check)}`);
 

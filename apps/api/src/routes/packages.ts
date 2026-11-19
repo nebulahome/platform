@@ -28,7 +28,7 @@ import {
   packageAvailableReplySchema,
   packageCatalogueQuerySchema,
   packageConfigBodySchema,
-  packageHubLogoParamsSchema,
+  hubLogoParamsSchema,
   packageIdSchema,
   packageInstallBodySchema,
   packagePlanReplySchema,
@@ -196,7 +196,7 @@ export function registerPackageFileRoutes(
      * @returns The logo.
      */
     async (request: FastifyRequest, reply: FastifyReply): Promise<Buffer> => {
-      const { sha256 } = packageHubLogoParamsSchema.parse(request.params);
+      const { sha256 } = hubLogoParamsSchema.parse(request.params);
       const file = await readHubLogo(packagesContext(context, request.traceId), sha256);
 
       // A logo is shown, never run: no script in an SVG, no page around it.

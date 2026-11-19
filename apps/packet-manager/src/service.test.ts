@@ -31,10 +31,10 @@ import { sealSecret } from '@nebulahome/db';
 import { createLogger } from '@nebulahome/logging';
 
 import { packetManagerEnvSchema } from './config.js';
-import { PacketManager } from './service.js';
+import { PackageManager } from './service.js';
 import { CommunityHubClient } from './services/hub-client.js';
 import { PackageIndexClient } from './services/index-client.js';
-import { LocalReleases } from './services/local-releases.js';
+import { LocalPackageReleases } from './services/local-releases.js';
 import {
   archiveOf,
   fakeRunner,
@@ -45,7 +45,7 @@ import {
 } from './testing/fixtures.js';
 
 const logger = createLogger({ service: 'packet-manager', version: '0.0.0', level: 'fatal' });
-const managers: PacketManager[] = [];
+const managers: PackageManager[] = [];
 const folders: string[] = [];
 
 afterEach(async () => {
@@ -163,12 +163,12 @@ const HUB_ITEMS = [
  * @returns The manager, its store, the bus, what `core` was asked and the folder it works in.
  */
 async function setUp(options: SetUpOptions = {}): Promise<{
-  manager: PacketManager;
+  manager: PackageManager;
   store: ReturnType<typeof memoryStore>;
   transport: FakeTransport;
   synced: SyncPackageRequest[];
   work: string;
-  again: () => PacketManager;
+  again: () => PackageManager;
   reconciled: unknown[];
   hubAsked: string[];
 }> {
@@ -304,15 +304,15 @@ async function setUp(options: SetUpOptions = {}): Promise<{
   });
   const store = memoryStore();
   const runner = await fakeRunner(work);
-  const local = new LocalReleases(path.join(work, 'local'), logger);
+  const local = new LocalPackageReleases(path.join(work, 'local'), logger);
 
   /**
    * A packet-manager over this store, bus and folders: the one set up, or one started after it.
    *
    * @returns The manager, stopped after the test.
    */
-  const again = (): PacketManager => {
-    const made = new PacketManager({
+  const again = (): PackageManager => {
+    const made = new PackageManager({
       config,
       store,
       client: new BusClient({ transport, source: 'packet-manager', logger, requestTimeoutMs: 500 }),
@@ -352,7 +352,7 @@ async function setUp(options: SetUpOptions = {}): Promise<{
  * @param manager - The manager.
  * @returns Each one's state.
  */
-async function states(manager: PacketManager): Promise<Record<string, string>> {
+async function states(manager: PackageManager): Promise<Record<string, string>> {
   return Object.fromEntries((await manager.list()).map((item) => [item.id, item.state]));
 }
 

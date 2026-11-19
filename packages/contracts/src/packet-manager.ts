@@ -3,7 +3,8 @@
  *
  * The packet-manager installs, runs and removes packages ([PACKAGES.md](../../../../PACKAGES.md)):
  * `api` asks it on the owner's behalf - `nebula.v1.svc.packet-manager.<method>` - and a package's
- * process, once started, announces what it registered (`announce`): the RPC methods its pages call.
+ * process, once started, announces what it registered (`package_announce`): the RPC methods its
+ * pages call. It installs and removes the integrations' bundles too (`integration-catalogue.ts`).
  * Its events, `nebula.v1.pkg.<installed|started|stopped|removed|configured>`, are what the rest of the
  * platform follows a package's life by: `hub` holds and releases the vendors that need it, `api`
  * relays them to the interface, which loads the package's page and cards without a reload.
@@ -33,59 +34,51 @@ import { timestampSchema } from './timestamp.js';
 /** The bus service name the packet-manager answers on. */
 export const PACKET_MANAGER_SERVICE = 'packet-manager';
 
-/** The methods the packet-manager answers, each `nebula.v1.svc.packet-manager.<method>`. */
+/**
+ * The methods the packet-manager answers, each `nebula.v1.svc.packet-manager.<method>`: a
+ * package's are `package_*`, an integration's `integration_*`; the Community Hub's and the rounds
+ * of updates serve both.
+ */
 export const PACKET_MANAGER_METHODS = {
   /** Every installed package, as the list shows it. */
-  list: 'list',
+  packageList: 'package_list',
 
   /** One installed package, with its setup, for its page. */
-  get: 'get',
+  packageGet: 'package_get',
 
-  /** What the package index offers, with what fits this platform. */
-  available: 'available',
+  /** Every package the package index offers, installed or not, with what fits this platform. */
+  packageAvailable: 'package_available',
 
   /**
    * The Community Hub's packages, searched - and the local folder's files - each with what
    * installing it here would take.
    */
-  search: 'search',
-
-  /** A logo the Hub showed in a search, by its digest: the interface may not load the Hub's own. */
-  hubLogo: 'hub_logo',
+  packageSearch: 'package_search',
 
   /** What installing a package would take, before the owner confirms. */
-  plan: 'plan',
+  packagePlan: 'package_plan',
 
   /** Installs a package and what it needs. */
-  install: 'install',
+  packageInstall: 'package_install',
 
   /** Updates a package to a newer release. */
-  update: 'update',
+  packageUpdate: 'package_update',
 
   /** Removes a package. */
-  remove: 'remove',
+  packageRemove: 'package_remove',
 
-  start: 'start',
-  stop: 'stop',
-  restart: 'restart',
+  packageStart: 'package_start',
+  packageStop: 'package_stop',
+  packageRestart: 'package_restart',
 
   /** The last lines a package's process wrote. */
-  logs: 'logs',
+  packageLogs: 'package_logs',
 
   /** Saves what the owner configured, and starts the package again with it. */
-  configure: 'configure',
+  packageConfigure: 'package_configure',
 
   /** A package's process, once started: the RPC methods it registered. */
-  announce: 'announce',
-
-  /** Starts a round of updates, backing up first when the settings say (contracts `updates.ts`). */
-  runUpdates: 'run_updates',
-
-  /** The round of updates running or last run. */
-  updateStatus: 'update_status',
-
-  /** Reads the update settings again and plans the automatic updates by them. */
-  reloadUpdates: 'reload_updates',
+  packageAnnounce: 'package_announce',
 
   /**
    * The Community Hub's integrations, searched - and the local integrations folder's files - each
@@ -100,10 +93,22 @@ export const PACKET_MANAGER_METHODS = {
   integrationRemove: 'integration_remove',
 
   /** Every installed integration, and the update the integrations index offers it. */
-  integrationAvailable: 'integration_available',
+  integrationUpdates: 'integration_updates',
+
+  /** A logo the Hub showed in a search, by its digest: the interface may not load the Hub's own. */
+  hubLogo: 'hub_logo',
 
   /** What the Hub says of one package or integration beyond its search row, for its own page. */
   hubDetail: 'hub_detail',
+
+  /** Starts a round of updates, backing up first when the settings say (contracts `updates.ts`). */
+  runUpdates: 'run_updates',
+
+  /** The round of updates running or last run. */
+  updateStatus: 'update_status',
+
+  /** Reads the update settings again and plans the automatic updates by them. */
+  reloadUpdates: 'reload_updates',
 } as const;
 
 /** The subject token a package answers its pages' calls on: `svc.<id>.rpc`. */
@@ -282,10 +287,13 @@ export const availablePackageSchema = z.object({
 /** A package the index offers. */
 export type AvailablePackage = z.output<typeof availablePackageSchema>;
 
-/** `svc.packet-manager.list`, `update_status`, `reload_updates`: nothing. */
+/** `svc.packet-manager.package_list`, `update_status`, `reload_updates`: nothing. */
 export const packetManagerEmptyRequestSchema = z.strictObject({});
 
-/** `svc.packet-manager.available`: `check` to read the index again now, whatever its age. */
+/** The reply to `svc.packet-manager.package_remove`, `package_announce` and `reload_updates`. */
+export const packetManagerAcknowledgementSchema = z.object({ ok: z.literal(true) });
+
+/** `svc.packet-manager.package_available`: `check` to read the index again now, whatever its age. */
 export const packageAvailableRequestSchema = z.strictObject({ check: z.boolean().default(false) });
 
 /** Every installed package. */
@@ -308,20 +316,26 @@ export const packageAvailableReplySchema = z.object({
 /** What the index offers. */
 export type PackageAvailableReply = z.output<typeof packageAvailableReplySchema>;
 
-/** How many packages one page of a search asks the Hub for. */
-export const PACKAGE_SEARCH_PAGE_SIZE = 30;
+/** How many packages or integrations one page of a search asks the Hub for. */
+export const HUB_SEARCH_PAGE_SIZE = 30;
 
-/** Where a package of a search comes from: the Community Hub, or the local folder alone. */
-export const PACKAGE_LISTING_ORIGINS = ['hub', 'local'] as const;
+/**
+ * Where a package or an integration of a search comes from: the Community Hub, or the local
+ * folder alone.
+ */
+export const LISTING_ORIGINS = ['hub', 'local'] as const;
 
-/** Where a package of a search comes from. */
-export type PackageListingOrigin = (typeof PACKAGE_LISTING_ORIGINS)[number];
+/** Where a package or an integration of a search comes from. */
+export type ListingOrigin = (typeof LISTING_ORIGINS)[number];
 
 /** A SHA-256 digest, in hex: how the Hub addresses a logo. */
 export const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u, 'Must be a SHA-256 in hex');
 
-/** `svc.packet-manager.search`: what to look for, and from which page on. */
-export const packageSearchRequestSchema = z.strictObject({
+/**
+ * `svc.packet-manager.package_search` and `integration_search`: what to look for, and from which
+ * page on.
+ */
+export const hubSearchRequestSchema = z.strictObject({
   /** Words of a name or description; the Hub's most installed first when not said. */
   q: z.string().trim().min(1).max(100).optional(),
 
@@ -330,7 +344,7 @@ export const packageSearchRequestSchema = z.strictObject({
 });
 
 /** What to look for. */
-export type PackageSearchRequest = z.output<typeof packageSearchRequestSchema>;
+export type HubSearchRequest = z.output<typeof hubSearchRequestSchema>;
 
 /**
  * One package a search found: what the Hub says of it - its colour, its logo, how many installed
@@ -362,7 +376,7 @@ export const packageListingSchema = availablePackageSchema.extend({
   downloads: z.int().min(0),
   stars: z.int().min(0),
 
-  origin: z.enum(PACKAGE_LISTING_ORIGINS),
+  origin: z.enum(LISTING_ORIGINS),
 
   /** Why it cannot be installed here, in a sentence; null when it can, or is. */
   unavailableReason: z.string().max(512).nullable(),
@@ -386,25 +400,25 @@ export const packageSearchReplySchema = z.object({
 export type PackageSearchReply = z.output<typeof packageSearchReplySchema>;
 
 /** The largest logo the Hub keeps (its importer refuses more), and so the largest relayed. */
-export const PACKAGE_HUB_LOGO_MAXIMUM_BYTES = 256 * 1024;
+export const HUB_LOGO_MAXIMUM_BYTES = 256 * 1024;
 
 /** `svc.packet-manager.hub_logo`: which logo. */
-export const packageHubLogoRequestSchema = z.strictObject({ sha256: sha256Schema });
+export const hubLogoRequestSchema = z.strictObject({ sha256: sha256Schema });
 
 /** Which logo. */
-export type PackageHubLogoRequest = z.output<typeof packageHubLogoRequestSchema>;
+export type HubLogoRequest = z.output<typeof hubLogoRequestSchema>;
 
 /** A Hub logo's bytes, in base64, and what they are. */
-export const packageHubLogoReplySchema = z.object({
+export const hubLogoReplySchema = z.object({
   contentType: z.enum(['image/svg+xml', 'image/png']),
   data: z
     .string()
-    .max(Math.ceil(PACKAGE_HUB_LOGO_MAXIMUM_BYTES / 3) * 4)
+    .max(Math.ceil(HUB_LOGO_MAXIMUM_BYTES / 3) * 4)
     .regex(/^[A-Za-z0-9+/]*={0,2}$/u),
 });
 
 /** A Hub logo. */
-export type PackageHubLogoReply = z.output<typeof packageHubLogoReplySchema>;
+export type HubLogoReply = z.output<typeof hubLogoReplySchema>;
 
 /** A method about one package. */
 export const packageIdRequestSchema = z.strictObject({ packageId: packageIdSchema });
@@ -588,7 +602,7 @@ export const packageCatalogueQuerySchema = z.object({
 });
 
 /** `GET /catalogue/logos/:sha256`. */
-export const packageHubLogoParamsSchema = packageHubLogoRequestSchema;
+export const hubLogoParamsSchema = hubLogoRequestSchema;
 
 /** `POST /packages/:id/install` and `/plan`: which release, the newest that fits when not said. */
 export const packageInstallBodySchema = z.strictObject({ version: semverSchema.optional() });

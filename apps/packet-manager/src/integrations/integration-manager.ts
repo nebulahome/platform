@@ -30,11 +30,11 @@ import {
   HUB_SERVICE,
   HUB_VENDOR_LOAD_METHOD,
   NotFoundError,
-  PACKAGE_SEARCH_PAGE_SIZE,
+  HUB_SEARCH_PAGE_SIZE,
   semverSchema,
   vendorLoadReplySchema,
   type BundleOrigin,
-  type IntegrationAvailableReply,
+  type IntegrationUpdatesReply,
   type IntegrationIndexEntry,
   type IntegrationInstall,
   type IntegrationInstallReply,
@@ -42,7 +42,7 @@ import {
   type IntegrationRelease,
   type IntegrationRemoveReply,
   type IntegrationSearchReply,
-  type IntegrationSearchRequest,
+  type HubSearchRequest,
   type VendorLoadReply,
   type VendorLoadRequest,
 } from '@nebulahome/contracts';
@@ -59,7 +59,7 @@ import {
 import type { CommunityHubClient, HubItem } from '../services/hub-client.js';
 import type { InstallReporter } from '../services/hub-reporter.js';
 import type { IntegrationIndexClient, IntegrationIndexRead } from '../services/index-client.js';
-import { installVendorRelease } from '../services/installer.js';
+import { installIntegrationRelease } from '../services/installer.js';
 
 import { readMarker, readMarkers, removeOtherBuilds, writeMarker } from './markers.js';
 
@@ -154,14 +154,14 @@ export class IntegrationManager {
    * @param request - What to look for, and from which page on.
    * @returns What was found.
    */
-  public async search(request: IntegrationSearchRequest): Promise<IntegrationSearchReply> {
+  public async search(request: HubSearchRequest): Promise<IntegrationSearchReply> {
     const [first, asked, markers, running] = await Promise.all([
       this.#options.index.read(),
       this.#options.hub
         .search('integration', {
           q: request.q,
           cursor: request.cursor,
-          limit: PACKAGE_SEARCH_PAGE_SIZE,
+          limit: HUB_SEARCH_PAGE_SIZE,
         })
         .then(
           (page) => ({ page, error: null }),
@@ -234,7 +234,7 @@ export class IntegrationManager {
    * @param check - Whether to read the index again now, whatever its age.
    * @returns Them, and why the index could not be read, when it could not.
    */
-  public async available(check = false): Promise<IntegrationAvailableReply> {
+  public async updates(check = false): Promise<IntegrationUpdatesReply> {
     const [read, markers] = await Promise.all([
       this.#options.index.read(check),
       readMarkers(this.#options.integrationsDir),
@@ -298,7 +298,7 @@ export class IntegrationManager {
       const previous = await readMarker(integrationsDir, vendorId);
       const release = this.#releaseToInstall(entry, read, previous, version);
       const source = sourceOf(release.artifact.url);
-      const { build, folder } = await installVendorRelease(
+      const { build, folder } = await installIntegrationRelease(
         { id: vendorId, version: release.version, artifact: release.artifact },
         integrationsDir,
         this.#options.cacheDir,

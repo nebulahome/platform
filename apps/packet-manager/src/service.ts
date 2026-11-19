@@ -1,6 +1,7 @@
 /**
- * The packet-manager: every installed package, installed, started in order, kept running, and
- * removed (PACKAGES.md 11, ARCHITECTURE.md 4.5).
+ * The packet-manager's packages: every installed package, installed, started in order, kept
+ * running, and removed (PACKAGES.md 11, ARCHITECTURE.md 4.5). The integrations' bundles are
+ * installed by `integrations/integration-manager.ts`.
  *
  * **Where packages come from.** Releases of the package index, and files of the platform's local
  * folder beside them, unpacked into `packages/<id>/<version>/` of the data directory and read from
@@ -53,7 +54,7 @@ import {
   managedReplySchema,
   NotFoundError,
   PACKAGE_CATEGORIES,
-  PACKAGE_SEARCH_PAGE_SIZE,
+  HUB_SEARCH_PAGE_SIZE,
   PACKAGE_SETTINGS_METHOD,
   packageIdSchema,
   packageManifestSchema,
@@ -75,7 +76,7 @@ import {
   type JsonObject,
   type PackageAnnounceRequest,
   type PackageDetail,
-  type PackageHubLogoReply,
+  type HubLogoReply,
   type PackageIndex,
   type PackageIndexEntry,
   type PackageListing,
@@ -84,7 +85,7 @@ import {
   type PackageRelease,
   type PackageRpcMethod,
   type PackageSearchReply,
-  type PackageSearchRequest,
+  type HubSearchRequest,
   type PackageState,
 } from '@nebulahome/contracts';
 import { maskSealed, openSecrets } from '@nebulahome/db';
@@ -104,8 +105,8 @@ import { LogRing } from './domain/log-ring.js';
 import type { PackageRow, PackageStore } from './persistence/packages.js';
 import type { CommunityHubClient, HubItem } from './services/hub-client.js';
 import type { InstallReporter } from './services/hub-reporter.js';
-import type { IndexRead, PackageIndexClient } from './services/index-client.js';
-import { installRelease } from './services/installer.js';
+import type { PackageIndexRead, PackageIndexClient } from './services/index-client.js';
+import { installPackageRelease } from './services/installer.js';
 import { readPackageFiles, type PackageFiles } from './services/package-files.js';
 import { PackageProcess, type ProcessState } from './services/package-process.js';
 
@@ -115,8 +116,8 @@ const CALL_TIMEOUT_MS = 10_000;
 /** How long a new release has to run before an update counts as done and cannot roll back. */
 const ROLLBACK_WINDOW_MS = 120_000;
 
-/** What the packet-manager needs. */
-export type PacketManagerOptions = {
+/** What the package manager needs. */
+export type PackageManagerOptions = {
   readonly config: PacketManagerConfig;
   readonly store: PackageStore;
   readonly client: BusClient;
@@ -250,9 +251,9 @@ function isUp(entry: Entry): boolean {
   return entry.row.state === 'running' || entry.row.state === 'starting';
 }
 
-/** The packages. */
-export class PacketManager {
-  readonly #options: PacketManagerOptions;
+/** The packages: the twin of `IntegrationManager`, which installs the integrations. */
+export class PackageManager {
+  readonly #options: PackageManagerOptions;
   readonly #entries = new Map<string, Entry>();
   #queue: Promise<unknown> = Promise.resolve();
 
@@ -261,7 +262,7 @@ export class PacketManager {
    *
    * @param options - Its collaborators.
    */
-  public constructor(options: PacketManagerOptions) {
+  public constructor(options: PackageManagerOptions) {
     this.#options = options;
   }
 
@@ -398,14 +399,14 @@ export class PacketManager {
    * @param request - What to look for, and from which page on.
    * @returns What was found.
    */
-  public async search(request: PackageSearchRequest): Promise<PackageSearchReply> {
+  public async search(request: HubSearchRequest): Promise<PackageSearchReply> {
     const [first, asked, dependents] = await Promise.all([
       this.#options.index.read(),
       this.#options.hub
         .search('package', {
           q: request.q,
           cursor: request.cursor,
-          limit: PACKAGE_SEARCH_PAGE_SIZE,
+          limit: HUB_SEARCH_PAGE_SIZE,
         })
         .then(
           (page) => ({ page, error: null }),
@@ -459,7 +460,7 @@ export class PacketManager {
    * @param sha256 - Its digest.
    * @returns Its bytes in base64, and their type.
    */
-  public async hubLogo(sha256: string): Promise<PackageHubLogoReply> {
+  public async hubLogo(sha256: string): Promise<HubLogoReply> {
     return this.#options.hub.logo(sha256);
   }
 
@@ -489,7 +490,7 @@ export class PacketManager {
   #listingOfHub(
     item: HubItem,
     entry: PackageIndexEntry | undefined,
-    read: IndexRead,
+    read: PackageIndexRead,
     dependents: readonly Dependent[],
   ): PackageListing {
     const availability = this.#availabilityOf(item.id, entry, read, dependents);
@@ -527,7 +528,7 @@ export class PacketManager {
    */
   #listingOfLocal(
     entry: PackageIndexEntry,
-    read: IndexRead,
+    read: PackageIndexRead,
     dependents: readonly Dependent[],
   ): PackageListing {
     return {
@@ -562,7 +563,7 @@ export class PacketManager {
   #availabilityOf(
     id: string,
     entry: PackageIndexEntry | undefined,
-    read: IndexRead,
+    read: PackageIndexRead,
     dependents: readonly Dependent[],
   ): Availability {
     const versions = [...(entry?.versions ?? [])].sort((left, right) =>
@@ -611,7 +612,7 @@ export class PacketManager {
    * @param read - The index, as read.
    * @returns The reason, in a sentence.
    */
-  #whyUnavailable(newest: PackageRelease | undefined, read: IndexRead): string {
+  #whyUnavailable(newest: PackageRelease | undefined, read: PackageIndexRead): string {
     if (newest === undefined) {
       return read.error === null
         ? 'No release of it is in the package index yet'
@@ -750,7 +751,7 @@ export class PacketManager {
         );
       }
 
-      const files = await installRelease(
+      const files = await installPackageRelease(
         { id: packageId, version: release.version, artifact: release.artifact },
         this.#options.packagesDir,
         {
@@ -883,10 +884,7 @@ export class PacketManager {
           { timeoutMs: CALL_TIMEOUT_MS },
         )
         .catch((error: unknown) => {
-          this.#options.logger.warn(
-            { err: error, package: packageId },
-            'Could not remove its devices',
-          );
+          this.#options.logger.warn({ err: error, packageId }, 'Could not remove its devices');
         });
       await this.#reconcileContainers();
       await this.#removeContainers(packageId, entry);
@@ -905,7 +903,7 @@ export class PacketManager {
         version: entry.row.version,
         state: entry.row.state,
       });
-      this.#options.logger.info({ package: packageId, isDataRemoved }, 'Removed a package');
+      this.#options.logger.info({ packageId, isDataRemoved }, 'Removed a package');
     });
   }
 
@@ -1103,7 +1101,7 @@ export class PacketManager {
         const parsed = packageManifestSchema.safeParse(row.manifest);
 
         logger.error(
-          { err: error, package: row.id, root },
+          { err: error, packageId: row.id, root },
           'An installed package’s files are missing',
         );
 
@@ -1393,7 +1391,7 @@ export class PacketManager {
       );
 
       this.#options.logger.warn(
-        { package: entry.row.id, failed: failedVersion, back: target.version, reason },
+        { packageId: entry.row.id, failed: failedVersion, back: target.version, reason },
         'An updated package failed to run; going back to the release before',
       );
       await this.#options.store.update(entry.row.id, {
@@ -1521,7 +1519,7 @@ export class PacketManager {
       return true;
     } catch (error: unknown) {
       this.#options.logger.warn(
-        { err: error, package: entry.row.id },
+        { err: error, packageId: entry.row.id },
         'A package did not take its settings live; starting it again',
       );
 
@@ -1690,7 +1688,7 @@ export class PacketManager {
       throw new NotFoundError(`The index has no ${candidate.id} ${candidate.version}`);
     }
 
-    const files = await installRelease(
+    const files = await installPackageRelease(
       { id: candidate.id, version: candidate.version, artifact: release.artifact },
       this.#options.packagesDir,
       {
@@ -1745,7 +1743,7 @@ export class PacketManager {
     }
 
     this.#options.logger.info(
-      { package: candidate.id, version: candidate.version },
+      { packageId: candidate.id, version: candidate.version },
       'Installed a package',
     );
 
@@ -1822,7 +1820,7 @@ export class PacketManager {
   async #reinstall(entry: Entry, release: PackageRelease): Promise<void> {
     await this.#stopProcess(entry);
 
-    const files = await installRelease(
+    const files = await installPackageRelease(
       { id: entry.row.id, version: release.version, artifact: release.artifact },
       this.#options.packagesDir,
       {
@@ -1851,7 +1849,7 @@ export class PacketManager {
     entry.rollbackTo = undefined;
     this.#publish('installed', entry);
     this.#options.logger.info(
-      { package: entry.row.id, version: release.version, build: buildOf(entry.row) },
+      { packageId: entry.row.id, version: release.version, build: buildOf(entry.row) },
       'Installed another build of a package',
     );
     await this.#reconcileContainers();
