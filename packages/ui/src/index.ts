@@ -77,6 +77,7 @@ export { useClickOutside, useEscape, useNow, type OutsideTarget } from './lib/ho
 export { CardHeading, type CardHeadingProps } from './components/card-heading.js';
 export { CatalogueIcon, type CatalogueIconProps } from './components/catalogue-icon.js';
 export { Checkbox, type CheckboxProps } from './components/checkbox.js';
+export { Collapse, type CollapseProps } from './components/collapse.js';
 export { ColorSwatches, type ColorSwatchesProps } from './components/color-swatches.js';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.js';
 export { FieldShell, type FieldIds, type FieldShellProps } from './components/field-shell.js';

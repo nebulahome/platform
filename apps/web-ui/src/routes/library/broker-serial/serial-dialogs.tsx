@@ -12,7 +12,7 @@
  * integration: what crossed the port, timestamped, as text or hex; a line to send with its ending.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -31,6 +31,7 @@ import {
   AppIcon,
   Button,
   cn,
+  Collapse,
   Modal,
   Note,
   Segmented,
@@ -347,6 +348,8 @@ export function LineFields(props: {
 }) {
   const { t } = useTranslation();
   const { line, driverLine, onChange } = props;
+  const [isAdvancedOpen, setAdvancedOpen] = useState(true);
+  const advancedId = useId();
 
   return (
     <div className="flex flex-col gap-4">
@@ -389,11 +392,31 @@ export function LineFields(props: {
           ))}
         </span>
       </div>
-      <details className="rounded-inner border border-border px-4 py-3" open>
-        <summary className="cursor-pointer text-ui-sm text-foreground">
+      <div className="rounded-inner border border-border">
+        <button
+          type="button"
+          aria-expanded={isAdvancedOpen}
+          aria-controls={advancedId}
+          onClick={() => {
+            setAdvancedOpen((open) => !open);
+          }}
+          className="flex w-full cursor-pointer items-center gap-1.5 rounded-inner px-4 py-3 text-left text-ui-sm text-foreground focus-visible:-outline-offset-2"
+        >
+          <AppIcon
+            id="chevron-right"
+            size={14}
+            className={cn(
+              'shrink-0 text-foreground-subtle transition-transform duration-200',
+              isAdvancedOpen && 'rotate-90',
+            )}
+          />
           {t('brokers.serial.line.advanced', 'Advanced · filled from the driver')}
-        </summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        </button>
+        <Collapse
+          isOpen={isAdvancedOpen}
+          id={advancedId}
+          className="grid gap-3 px-4 pb-3 sm:grid-cols-2"
+        >
           <SelectField
             label={t('brokers.serial.line.dataBits', 'Data bits')}
             value={String(line.dataBits)}
@@ -443,8 +466,8 @@ export function LineFields(props: {
                     : t('brokers.serial.line.xonxoff', 'XON/XOFF'),
             }))}
           />
-        </div>
-      </details>
+        </Collapse>
+      </div>
     </div>
   );
 }

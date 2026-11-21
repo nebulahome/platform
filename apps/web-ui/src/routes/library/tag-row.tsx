@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { DeviceView, EntityView, TagView } from '@nebulahome/contracts';
-import { cn, IconButton, TagChip } from '@nebulahome/ui';
+import { cn, Collapse, IconButton, TagChip } from '@nebulahome/ui';
 
 import { ChevronIcon, WrenchIcon } from '@/components/icons';
 import { translate } from '@/i18n/messages';
@@ -129,50 +129,49 @@ export function TagRow(props: TagRowProps) {
         </span>
       </div>
 
-      {isOpen ? (
-        <div className="grid gap-4 bg-surface-raised px-4 pt-1 pb-4 md:grid-cols-2">
-          <Carried title={t('library.tagRow.devices', 'Devices')} isEmpty={devices.length === 0}>
-            {devices.map((device) => (
-              <li key={device.id}>
-                <Link
-                  to={devicePath(device.id)}
-                  className="flex items-center gap-2.5 rounded-field border border-border bg-surface-raised px-3 py-2 text-ui font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                >
-                  <DeviceIcon
-                    icon={device.icon === null ? undefined : icons.get(device.icon)}
-                    device={device}
-                    size={18}
-                    className="text-foreground-muted"
-                  />
-                  <span className="truncate">{device.name}</span>
-                </Link>
-              </li>
-            ))}
-          </Carried>
-          <Carried title={t('library.tagRow.entities', 'Entities')} isEmpty={entities.length === 0}>
-            {entities.map((entity) => (
-              <li
-                key={entity.entityId}
-                className="flex items-center gap-2.5 rounded-field border border-border bg-surface-raised px-3 py-2"
+      <Collapse
+        isOpen={isOpen}
+        className="grid gap-4 bg-surface-raised px-4 pt-1 pb-4 md:grid-cols-2"
+      >
+        <Carried title={t('library.tagRow.devices', 'Devices')} isEmpty={devices.length === 0}>
+          {devices.map((device) => (
+            <li key={device.id}>
+              <Link
+                to={devicePath(device.id)}
+                className="flex items-center gap-2.5 rounded-field border border-border bg-surface-raised px-3 py-2 text-ui font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary"
               >
                 <DeviceIcon
-                  icon={entity.icon === null ? undefined : icons.get(entity.icon)}
+                  icon={device.icon === null ? undefined : icons.get(device.icon)}
+                  device={device}
                   size={18}
                   className="text-foreground-muted"
                 />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate text-ui font-medium text-foreground">
-                    {entity.name}
-                  </span>
-                  <span className="truncate font-mono text-caption text-foreground-subtle">
-                    {entity.entityId}
-                  </span>
+                <span className="truncate">{device.name}</span>
+              </Link>
+            </li>
+          ))}
+        </Carried>
+        <Carried title={t('library.tagRow.entities', 'Entities')} isEmpty={entities.length === 0}>
+          {entities.map((entity) => (
+            <li
+              key={entity.entityId}
+              className="flex items-center gap-2.5 rounded-field border border-border bg-surface-raised px-3 py-2"
+            >
+              <DeviceIcon
+                icon={entity.icon === null ? undefined : icons.get(entity.icon)}
+                size={18}
+                className="text-foreground-muted"
+              />
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-ui font-medium text-foreground">{entity.name}</span>
+                <span className="truncate font-mono text-caption text-foreground-subtle">
+                  {entity.entityId}
                 </span>
-              </li>
-            ))}
-          </Carried>
-        </div>
-      ) : null}
+              </span>
+            </li>
+          ))}
+        </Carried>
+      </Collapse>
     </li>
   );
 }

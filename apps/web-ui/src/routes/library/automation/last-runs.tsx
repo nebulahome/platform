@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { AutomationRun, TraceStep } from '@nebulahome/contracts';
-import { AppIcon, cn, Panel, StatusDot } from '@nebulahome/ui';
+import { AppIcon, cn, Collapse, Panel, StatusDot } from '@nebulahome/ui';
 
 import { translate } from '@/i18n/messages';
 import { formatDuration } from '@/lib/duration';
@@ -119,12 +119,17 @@ function RunRow(props: { readonly run: AutomationRun }) {
           {run.durationMs === null ? '' : formatDuration(run.durationMs)}
         </span>
         <AppIcon
-          id={isOpen ? 'chevron-down' : 'chevron-right'}
+          id="chevron-right"
           size={13}
-          className="shrink-0 text-foreground-subtle"
+          className={cn(
+            'shrink-0 text-foreground-subtle transition-transform duration-200',
+            isOpen && 'rotate-90',
+          )}
         />
       </button>
-      {isOpen ? <Trace steps={run.trace} /> : null}
+      <Collapse isOpen={isOpen}>
+        <Trace steps={run.trace} />
+      </Collapse>
     </li>
   );
 }

@@ -7,11 +7,12 @@
  * caused it. Under all that, the change as the device reported it, for the person who needs to see
  * exactly what arrived.
  */
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { EntityView } from '@nebulahome/contracts';
-import { Button, Modal } from '@nebulahome/ui';
+import { AppIcon, Button, cn, Collapse, Modal } from '@nebulahome/ui';
 
 import { dateTimeFormat } from '@/i18n/formatters';
 import { defineMessage, type Message, text } from '@/i18n/messages';
@@ -144,25 +145,59 @@ export function ActivityDialog(props: ActivityDialogProps) {
             )}
           </dl>
 
-          <details className="group rounded-field border border-border">
-            <summary className="cursor-pointer px-4 py-2.5 text-caption text-foreground-subtle select-none hover:text-foreground">
-              {t('device.activityDialog.asTheDeviceReported', 'As the device reported it')}
-            </summary>
-            <pre className="max-h-64 overflow-auto border-t border-border px-4 py-3 font-mono text-caption text-foreground-muted">
-              {JSON.stringify(
-                line.entries.map((entry) => ({
-                  entityId: entry.entityId,
-                  from: entry.from,
-                  to: entry.to,
-                  isAvailable: entry.isAvailable,
-                })),
-                null,
-                2,
-              )}
-            </pre>
-          </details>
+          <AsReported line={line} />
         </div>
       )}
     </Modal>
+  );
+}
+
+/**
+ * The change as the device reported it, folded away until asked for.
+ *
+ * @param props - The line.
+ * @param props.line - The line opened.
+ * @returns The fold.
+ */
+function AsReported(props: { readonly line: ActivityLine }) {
+  const { t } = useTranslation();
+
+  const { line } = props;
+  const [isOpen, setOpen] = useState(false);
+  const id = useId();
+
+  return (
+    <div className="rounded-field border border-border">
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={id}
+        onClick={() => {
+          setOpen((open) => !open);
+        }}
+        className="flex w-full cursor-pointer items-center gap-1.5 rounded-field px-4 py-2.5 text-left text-caption text-foreground-subtle select-none hover:text-foreground focus-visible:-outline-offset-2"
+      >
+        <AppIcon
+          id="chevron-right"
+          size={14}
+          className={cn('shrink-0 transition-transform duration-200', isOpen && 'rotate-90')}
+        />
+        {t('device.activityDialog.asTheDeviceReported', 'As the device reported it')}
+      </button>
+      <Collapse isOpen={isOpen} id={id}>
+        <pre className="max-h-64 overflow-auto border-t border-border px-4 py-3 font-mono text-caption text-foreground-muted">
+          {JSON.stringify(
+            line.entries.map((entry) => ({
+              entityId: entry.entityId,
+              from: entry.from,
+              to: entry.to,
+              isAvailable: entry.isAvailable,
+            })),
+            null,
+            2,
+          )}
+        </pre>
+      </Collapse>
+    </div>
   );
 }

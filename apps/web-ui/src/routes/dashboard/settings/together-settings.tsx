@@ -19,7 +19,7 @@ import type {
   TogetherDomain,
   TogetherMembers,
 } from '@nebulahome/contracts';
-import { AppIcon, cn, SelectField } from '@nebulahome/ui';
+import { AppIcon, cn, Collapse, SelectField } from '@nebulahome/ui';
 
 import { kindIcon, kindName } from '@/dashboard/card-options';
 import { cardKindOf } from '@/dashboard/card-sizes';
@@ -372,72 +372,75 @@ export function TogetherSettings(props: TypeSettingsProps<DashboardTogetherCard>
           />
 
           <Field label={t('dashboard.togetherSettings.leaveOut', 'Leave out')}>
-            <div className="flex flex-wrap items-center gap-2">
-              {members.exclude.map((entityId) => {
-                const name = data.entityById.get(entityId)?.name ?? entityId;
+            {/* One child: the field's gap would otherwise stay under the shut list. */}
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                {members.exclude.map((entityId) => {
+                  const name = data.entityById.get(entityId)?.name ?? entityId;
 
-                return (
-                  <span
-                    key={entityId}
-                    className="inline-flex h-7.5 items-center gap-1.5 rounded-pill border border-border-strong bg-surface-raised pr-1.5 pl-3 text-caption font-medium text-foreground"
-                  >
-                    {name}
-                    <button
-                      type="button"
-                      aria-label={t(
-                        'dashboard.togetherSettings.letBackIn',
-                        'Let {{name}} back in',
-                        {
-                          name,
-                        },
-                      )}
-                      className="press-scale inline-flex size-5 items-center justify-center rounded-full text-foreground-subtle transition-colors duration-150 hover:text-foreground"
-                      onClick={() => {
-                        onChange(
-                          withMembers((current) =>
-                            current.mode === 'rule'
-                              ? {
-                                  ...current,
-                                  exclude: current.exclude.filter((id) => id !== entityId),
-                                }
-                              : current,
-                          ),
-                        );
-                      }}
+                  return (
+                    <span
+                      key={entityId}
+                      className="inline-flex h-7.5 items-center gap-1.5 rounded-pill border border-border-strong bg-surface-raised pr-1.5 pl-3 text-caption font-medium text-foreground"
                     >
-                      <AppIcon id="x" size={11} />
-                    </button>
-                  </span>
-                );
-              })}
-              <button
-                type="button"
-                aria-expanded={isAdding}
-                className="press-scale inline-flex h-7.5 items-center gap-1.5 rounded-pill px-2.5 text-ui-sm text-foreground-muted transition-colors duration-150 hover:text-foreground"
-                onClick={() => {
-                  setAdding(!isAdding);
-                }}
-              >
-                <AppIcon id={isAdding ? 'check' : 'plus'} size={14} />
-                {isAdding
-                  ? t('dashboard.togetherSettings.done', 'Done')
-                  : t('dashboard.togetherSettings.add', 'Add')}
-              </button>
-            </div>
-            {isAdding ? (
-              <PickList
-                entities={togetherMembers(
-                  { domain, members: { ...members, exclude: [] } },
-                  entities,
-                  areas.data ?? [],
-                )}
-                chosen={new Set(members.exclude)}
-                placeholder={t('dashboard.togetherSettings.searchKind', 'Search {{kind}}', {
-                  kind: noun,
+                      {name}
+                      <button
+                        type="button"
+                        aria-label={t(
+                          'dashboard.togetherSettings.letBackIn',
+                          'Let {{name}} back in',
+                          {
+                            name,
+                          },
+                        )}
+                        className="press-scale inline-flex size-5 items-center justify-center rounded-full text-foreground-subtle transition-colors duration-150 hover:text-foreground"
+                        onClick={() => {
+                          onChange(
+                            withMembers((current) =>
+                              current.mode === 'rule'
+                                ? {
+                                    ...current,
+                                    exclude: current.exclude.filter((id) => id !== entityId),
+                                  }
+                                : current,
+                            ),
+                          );
+                        }}
+                      >
+                        <AppIcon id="x" size={11} />
+                      </button>
+                    </span>
+                  );
                 })}
-                onToggle={toggleLeftOut}
-              />
-            ) : null}
+                <button
+                  type="button"
+                  aria-expanded={isAdding}
+                  className="press-scale inline-flex h-7.5 items-center gap-1.5 rounded-pill px-2.5 text-ui-sm text-foreground-muted transition-colors duration-150 hover:text-foreground"
+                  onClick={() => {
+                    setAdding(!isAdding);
+                  }}
+                >
+                  <AppIcon id={isAdding ? 'check' : 'plus'} size={14} />
+                  {isAdding
+                    ? t('dashboard.togetherSettings.done', 'Done')
+                    : t('dashboard.togetherSettings.add', 'Add')}
+                </button>
+              </div>
+              <Collapse isOpen={isAdding} className="pt-1.5">
+                <PickList
+                  entities={togetherMembers(
+                    { domain, members: { ...members, exclude: [] } },
+                    entities,
+                    areas.data ?? [],
+                  )}
+                  chosen={new Set(members.exclude)}
+                  placeholder={t('dashboard.togetherSettings.searchKind', 'Search {{kind}}', {
+                    kind: noun,
+                  })}
+                  onToggle={toggleLeftOut}
+                />
+              </Collapse>
+            </div>
           </Field>
 
           <div className="flex min-w-0 items-center justify-between gap-2.5 border-t border-border pt-3.5">

@@ -7,10 +7,10 @@
  * and the automation or scene it is in is marked in error and does not run until it is pointed at
  * something. Below, what the port left out, when it left anything.
  */
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AppIcon, Button, Modal, Note } from '@nebulahome/ui';
+import { AppIcon, Button, cn, Collapse, Modal, Note } from '@nebulahome/ui';
 
 import { hasCapability } from '@/library/entity-control';
 import type { ImportNote } from '@/library/ha-import';
@@ -50,6 +50,8 @@ export function ResolveEntitiesModal(props: ResolveEntitiesModalProps) {
 
   const { isOpen, missing, notes = [], confirmLabel, isBusy = false, onConfirm, onClose } = props;
   const [picked, setPicked] = useState<ReadonlyMap<string, string>>(new Map());
+  const [isNotesOpen, setNotesOpen] = useState(false);
+  const notesId = useId();
   const left = missing.filter((entry) => !picked.has(entry.entityId)).length;
 
   return (
@@ -157,24 +159,43 @@ export function ResolveEntitiesModal(props: ResolveEntitiesModalProps) {
         ) : null}
 
         {notes.length === 0 ? null : (
-          <details className="rounded-inner border border-border bg-surface px-3.5 py-3">
-            <summary className="cursor-pointer text-ui font-medium text-foreground">
+          <div className="rounded-inner border border-border bg-surface">
+            <button
+              type="button"
+              aria-expanded={isNotesOpen}
+              aria-controls={notesId}
+              onClick={() => {
+                setNotesOpen((open) => !open);
+              }}
+              className="flex w-full cursor-pointer items-center gap-1.5 rounded-inner px-3.5 py-3 text-left text-ui font-medium text-foreground focus-visible:-outline-offset-2"
+            >
+              <AppIcon
+                id="chevron-right"
+                size={14}
+                className={cn(
+                  'shrink-0 text-foreground-subtle transition-transform duration-200',
+                  isNotesOpen && 'rotate-90',
+                )}
+              />
               {t('library.resolveEntities.notes', {
                 count: notes.length,
                 defaultValue_one: '1 thing was left out or changed',
                 defaultValue_other: '{{count}} things were left out or changed',
               })}
-            </summary>
-            <ul className="mt-2.5 flex flex-col gap-1.5">
-              {notes.map((note, index) => (
-                // Notes repeat word for word across items; their place is what tells them apart.
-                // eslint-disable-next-line react/no-array-index-key
-                <li key={index} className="text-caption text-foreground-muted">
-                  <span className="font-medium text-foreground">{note.item}</span> · {note.message}
-                </li>
-              ))}
-            </ul>
-          </details>
+            </button>
+            <Collapse isOpen={isNotesOpen} id={notesId} className="px-3.5 pb-3">
+              <ul className="flex flex-col gap-1.5">
+                {notes.map((note, index) => (
+                  // Notes repeat word for word across items; their place is what tells them apart.
+                  // eslint-disable-next-line react/no-array-index-key
+                  <li key={index} className="text-caption text-foreground-muted">
+                    <span className="font-medium text-foreground">{note.item}</span> ·{' '}
+                    {note.message}
+                  </li>
+                ))}
+              </ul>
+            </Collapse>
+          </div>
         )}
       </div>
     </Modal>

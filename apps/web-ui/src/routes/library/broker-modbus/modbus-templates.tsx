@@ -15,7 +15,7 @@ import {
   type ModbusTemplate,
   type ModbusTemplateRecord,
 } from '@nebulahome/contracts';
-import { AppIcon, Button, IconButton, RowList, Section, toast } from '@nebulahome/ui';
+import { AppIcon, Button, cn, Collapse, IconButton, RowList, Section, toast } from '@nebulahome/ui';
 
 import { foldForSearch } from '@/lib/search-text';
 import { saveJsonFile } from '@/library/library-file';
@@ -318,9 +318,12 @@ export function ModbusTemplates(props: ModbusTemplatesProps) {
                         }}
                       >
                         <AppIcon
-                          id={isOpen(group.vendorId, index) ? 'chevron-down' : 'chevron-right'}
+                          id="chevron-right"
                           size={15}
-                          className="text-foreground-subtle"
+                          className={cn(
+                            'text-foreground-subtle transition-transform duration-200',
+                            isOpen(group.vendorId, index) && 'rotate-90',
+                          )}
                         />
                         <span className="flex size-7 shrink-0 items-center justify-center rounded-chip bg-surface-raised font-mono text-mono-ui text-foreground">
                           {group.name.slice(0, 1).toUpperCase()}
@@ -341,7 +344,7 @@ export function ModbusTemplates(props: ModbusTemplatesProps) {
                               })}
                         </span>
                       </button>
-                      {isOpen(group.vendorId, index) ? (
+                      <Collapse isOpen={isOpen(group.vendorId, index)}>
                         <ul className="flex flex-col border-t border-border">
                           {group.kept.map((template) => (
                             <li
@@ -385,7 +388,7 @@ export function ModbusTemplates(props: ModbusTemplatesProps) {
                             </li>
                           ))}
                         </ul>
-                      ) : null}
+                      </Collapse>
                     </div>
                   ),
                 )}

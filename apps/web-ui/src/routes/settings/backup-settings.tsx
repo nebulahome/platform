@@ -12,7 +12,7 @@
  * `backup:restore`, the owner's alone by default.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -22,6 +22,7 @@ import {
   type BackupArchive,
   type BackupFrequency,
   type BackupLocationView,
+  type BackupRunView,
   type BackupSchedule,
   type BackupSections,
   type BackupStatusView,
@@ -33,6 +34,8 @@ import {
   AppIcon,
   Badge,
   Button,
+  cn,
+  Collapse,
   IconButton,
   Modal,
   Segmented,
@@ -1101,21 +1104,7 @@ export function BackupSettings() {
               >
                 {run.error === null &&
                 run.destinations.every((each) => each.error === null) ? undefined : (
-                  <details className="rounded-field border border-border bg-surface-raised px-3 py-2">
-                    <summary className="cursor-pointer text-caption text-foreground-muted">
-                      {t('backup.why', 'Why')}
-                    </summary>
-                    <div className="mt-2 flex flex-col gap-1 text-ui break-words whitespace-pre-wrap text-danger">
-                      {run.error === null ? null : <p>{run.error}</p>}
-                      {run.destinations
-                        .filter((each) => each.error !== null)
-                        .map((each) => (
-                          <p key={each.locationId}>
-                            {each.name}: {each.error}
-                          </p>
-                        ))}
-                    </div>
-                  </details>
+                  <RunWhy run={run} />
                 )}
               </SettingsRow>
             );
@@ -1180,5 +1169,55 @@ export function BackupSettings() {
         }}
       />
     </SettingsPage>
+  );
+}
+
+/**
+ * Why a run failed, folded away until asked for.
+ *
+ * @param props - The run.
+ * @param props.run - The run.
+ * @returns The fold.
+ */
+function RunWhy(props: { readonly run: BackupRunView }) {
+  const { t } = useTranslation();
+
+  const { run } = props;
+  const [isOpen, setOpen] = useState(false);
+  const id = useId();
+
+  return (
+    <div className="rounded-field border border-border bg-surface-raised">
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={id}
+        onClick={() => {
+          setOpen((open) => !open);
+        }}
+        className="flex w-full cursor-pointer items-center gap-1.5 rounded-field px-3 py-2 text-left text-caption text-foreground-muted focus-visible:-outline-offset-2"
+      >
+        <AppIcon
+          id="chevron-right"
+          size={14}
+          className={cn('shrink-0 transition-transform duration-200', isOpen && 'rotate-90')}
+        />
+        {t('backup.why', 'Why')}
+      </button>
+      <Collapse
+        isOpen={isOpen}
+        id={id}
+        className="flex flex-col gap-1 px-3 pb-2 text-ui break-words whitespace-pre-wrap text-danger"
+      >
+        {run.error === null ? null : <p>{run.error}</p>}
+        {run.destinations
+          .filter((each) => each.error !== null)
+          .map((each) => (
+            <p key={each.locationId}>
+              {each.name}: {each.error}
+            </p>
+          ))}
+      </Collapse>
+    </div>
   );
 }

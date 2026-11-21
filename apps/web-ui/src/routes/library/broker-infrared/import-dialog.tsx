@@ -8,11 +8,21 @@
  * with why. Import adds the ones ticked into the remote's next empty cells.
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type DragEvent } from 'react';
+import { useEffect, useId, useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { InfraredRemote } from '@nebulahome/contracts';
-import { AppIcon, Button, Checkbox, cn, Modal, Note, TextArea, TextField } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  Checkbox,
+  cn,
+  Collapse,
+  Modal,
+  Note,
+  TextArea,
+  TextField,
+} from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import {
@@ -55,6 +65,8 @@ export function ImportDialog(props: ImportDialogProps) {
   const [settled, setSettled] = useState(text);
   const [names, setNames] = useState<ReadonlyMap<number, string>>(new Map());
   const [left, setLeft] = useState<ReadonlySet<number>>(new Set());
+  const [isProblemsOpen, setProblemsOpen] = useState(false);
+  const problemsId = useId();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -276,34 +288,52 @@ export function ImportDialog(props: ImportDialogProps) {
         )}
 
         {problems.length === 0 ? null : (
-          <details className="rounded-card border border-border px-4 py-3">
-            <summary className="flex cursor-pointer items-center gap-2 text-ui-sm text-warning">
+          <div className="rounded-card border border-border">
+            <button
+              type="button"
+              aria-expanded={isProblemsOpen}
+              aria-controls={problemsId}
+              onClick={() => {
+                setProblemsOpen((open) => !open);
+              }}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-card px-4 py-3 text-left text-ui-sm text-warning focus-visible:-outline-offset-2"
+            >
               <AppIcon id="triangle-alert" size={14} />
               {t('brokers.infrared.import.notUnderstood', {
                 count: problems.length,
                 defaultValue_one: '{{count}} line not understood',
                 defaultValue_other: '{{count}} lines not understood',
               })}
-            </summary>
-            <ul className="mt-3 flex flex-col gap-2">
-              {problems.map((problem) => (
-                <li
-                  key={`${String(problem.line)}-${problem.text}`}
-                  className="flex flex-col gap-0.5 text-ui-sm"
-                >
-                  <span className="truncate font-mono text-mono-caption text-foreground">
-                    {problem.line === null
-                      ? problem.text
-                      : t('brokers.infrared.import.lineText', 'Line {{line}}: {{text}}', {
-                          line: problem.line,
-                          text: problem.text,
-                        })}
-                  </span>
-                  <span className="text-foreground-muted">{problem.reason}</span>
-                </li>
-              ))}
-            </ul>
-          </details>
+              <AppIcon
+                id="chevron-right"
+                size={14}
+                className={cn(
+                  'ml-auto shrink-0 text-foreground-subtle transition-transform duration-200',
+                  isProblemsOpen && 'rotate-90',
+                )}
+              />
+            </button>
+            <Collapse isOpen={isProblemsOpen} id={problemsId} className="px-4 pb-3">
+              <ul className="flex flex-col gap-2">
+                {problems.map((problem) => (
+                  <li
+                    key={`${String(problem.line)}-${problem.text}`}
+                    className="flex flex-col gap-0.5 text-ui-sm"
+                  >
+                    <span className="truncate font-mono text-mono-caption text-foreground">
+                      {problem.line === null
+                        ? problem.text
+                        : t('brokers.infrared.import.lineText', 'Line {{line}}: {{text}}', {
+                            line: problem.line,
+                            text: problem.text,
+                          })}
+                    </span>
+                    <span className="text-foreground-muted">{problem.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </Collapse>
+          </div>
         )}
 
         {[parsed.error, test.error, save.error].map((error) =>

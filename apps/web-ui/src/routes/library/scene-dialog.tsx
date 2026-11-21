@@ -27,6 +27,8 @@ import type {
 import {
   AppIcon,
   Button,
+  cn,
+  Collapse,
   DetailHero,
   IconButton,
   Modal,
@@ -549,34 +551,39 @@ export function SceneDialog(props: SceneDialogProps) {
                       setClosed(next);
                     }}
                   >
-                    <AppIcon id={isOpen ? 'chevron-down' : 'chevron-right'} size={14} />
+                    <AppIcon
+                      id="chevron-right"
+                      size={14}
+                      className={cn('transition-transform duration-200', isOpen && 'rotate-90')}
+                    />
                   </IconButton>
                 </div>
 
-                {isOpen ? (
-                  <div className="flex flex-col gap-3.5 px-4 pt-0.5 pb-4 sm:pl-19">
-                    {entity !== undefined && !entity.isAvailable ? (
-                      <p className="flex items-center gap-1.5 text-ui-sm text-warning">
-                        <AppIcon id="triangle-alert" size={14} />
-                        {t(
-                          'library.sceneDialog.unavailableKeepsValues',
-                          'Unavailable now · it keeps the values it last had.',
-                        )}
-                      </p>
-                    ) : null}
-                    <SceneMemberFields
-                      targetState={member.targetState}
-                      entity={entity}
-                      onChange={(targetState) => {
-                        setMembers(
-                          members.map((entry, i) =>
-                            i === index ? { ...entry, targetState } : entry,
-                          ),
-                        );
-                      }}
-                    />
-                  </div>
-                ) : null}
+                <Collapse
+                  isOpen={isOpen}
+                  className="flex flex-col gap-3.5 px-4 pt-0.5 pb-4 sm:pl-19"
+                >
+                  {entity !== undefined && !entity.isAvailable ? (
+                    <p className="flex items-center gap-1.5 text-ui-sm text-warning">
+                      <AppIcon id="triangle-alert" size={14} />
+                      {t(
+                        'library.sceneDialog.unavailableKeepsValues',
+                        'Unavailable now · it keeps the values it last had.',
+                      )}
+                    </p>
+                  ) : null}
+                  <SceneMemberFields
+                    targetState={member.targetState}
+                    entity={entity}
+                    onChange={(targetState) => {
+                      setMembers(
+                        members.map((entry, i) =>
+                          i === index ? { ...entry, targetState } : entry,
+                        ),
+                      );
+                    }}
+                  />
+                </Collapse>
               </li>
             );
           })}

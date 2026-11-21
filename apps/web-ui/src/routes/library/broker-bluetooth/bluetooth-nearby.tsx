@@ -26,6 +26,7 @@ import {
   Button,
   Checkbox,
   cn,
+  Collapse,
   FilterChips,
   IconButton,
   Note,
@@ -668,54 +669,52 @@ function NearbyRow(props: {
           />
         </IconButton>
       </div>
-      {isOpen ? (
-        <div className="mb-4 ml-12.5 flex flex-col gap-3">
-          <div className="grid gap-2.5 sm:grid-cols-3">
-            {item.heardBy.map((each) => (
-              <span
-                key={each.scannerId}
-                className="flex flex-col gap-1 rounded-inner border border-border px-3.5 py-2.5"
-              >
-                <span className="text-caption text-foreground-muted">{each.scannerName}</span>
-                <span className="flex items-center gap-2 font-mono text-mono-ui text-foreground">
-                  <SignalBars
-                    lit={rssiBars(each.rssi)}
-                    label={t('brokers.bluetooth.dbm', '{{rssi}} dBm', { rssi: each.rssi })}
-                  />
-                  {t('brokers.bluetooth.dbm', '{{rssi}} dBm', { rssi: each.rssi })}
-                </span>
+      <Collapse isOpen={isOpen} className="flex flex-col gap-3 pb-4 pl-12.5">
+        <div className="grid gap-2.5 sm:grid-cols-3">
+          {item.heardBy.map((each) => (
+            <span
+              key={each.scannerId}
+              className="flex flex-col gap-1 rounded-inner border border-border px-3.5 py-2.5"
+            >
+              <span className="text-caption text-foreground-muted">{each.scannerName}</span>
+              <span className="flex items-center gap-2 font-mono text-mono-ui text-foreground">
+                <SignalBars
+                  lit={rssiBars(each.rssi)}
+                  label={t('brokers.bluetooth.dbm', '{{rssi}} dBm', { rssi: each.rssi })}
+                />
+                {t('brokers.bluetooth.dbm', '{{rssi}} dBm', { rssi: each.rssi })}
               </span>
-            ))}
-          </div>
-          {raw.length === 0 ? null : (
-            <div className="flex flex-col gap-2">
-              <span className="font-mono text-label text-foreground-subtle uppercase">
-                {t('brokers.bluetooth.nearby.raw', 'Raw advertisement')}
-              </span>
-              <div className="relative rounded-inner border border-border bg-rail px-4 py-3 pr-14">
-                <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-mono-caption">
-                  {raw.map(([label, value]) => (
-                    <span key={label} className="contents">
-                      <dt className="text-foreground-muted">{label}</dt>
-                      <dd className="break-all text-foreground">
-                        {/^[0-9a-f]+$/u.exec(value ?? '') === null
-                          ? value
-                          : ((value ?? '').match(/../gu) ?? []).join(' ')}
-                      </dd>
-                    </span>
-                  ))}
-                </dl>
-                <span className="absolute top-2 right-2">
-                  <CopyButton
-                    value={raw.map(([label, value]) => `${label ?? ''}: ${value ?? ''}`).join('\n')}
-                    isCompact
-                  />
-                </span>
-              </div>
-            </div>
-          )}
+            </span>
+          ))}
         </div>
-      ) : null}
+        {raw.length === 0 ? null : (
+          <div className="flex flex-col gap-2">
+            <span className="font-mono text-label text-foreground-subtle uppercase">
+              {t('brokers.bluetooth.nearby.raw', 'Raw advertisement')}
+            </span>
+            <div className="relative rounded-inner border border-border bg-rail px-4 py-3 pr-14">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-mono-caption">
+                {raw.map(([label, value]) => (
+                  <span key={label} className="contents">
+                    <dt className="text-foreground-muted">{label}</dt>
+                    <dd className="break-all text-foreground">
+                      {/^[0-9a-f]+$/u.exec(value ?? '') === null
+                        ? value
+                        : ((value ?? '').match(/../gu) ?? []).join(' ')}
+                    </dd>
+                  </span>
+                ))}
+              </dl>
+              <span className="absolute top-2 right-2">
+                <CopyButton
+                  value={raw.map(([label, value]) => `${label ?? ''}: ${value ?? ''}`).join('\n')}
+                  isCompact
+                />
+              </span>
+            </div>
+          </div>
+        )}
+      </Collapse>
     </li>
   );
 }

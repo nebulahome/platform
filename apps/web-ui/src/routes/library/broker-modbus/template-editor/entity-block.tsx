@@ -28,6 +28,7 @@ import {
   Button,
   CatalogueIcon,
   cn,
+  Collapse,
   IconButton,
   SelectField,
   TextField,
@@ -415,7 +416,9 @@ function CapabilitySection(props: CapabilitySectionProps) {
         )}
       </div>
 
-      {isTesting ? <TestPanel {...props} /> : null}
+      <Collapse isOpen={isTesting}>
+        <TestPanel {...props} />
+      </Collapse>
 
       <div
         className={cn(
