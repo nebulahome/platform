@@ -252,7 +252,16 @@ export function EmptySpace(props: EmptySpaceProps) {
           'group-hover/space:border-primary group-hover/space:bg-primary/6',
           'focus-visible:border-primary focus-visible:bg-primary/6 focus-visible:outline-none',
         )}
-        onClick={onAdd}
+        onClick={(event) => {
+          // Clicked, the space lets go of the focus before Add card opens: the dialog hands it
+          // back when it closes, and the space stayed lit until the next click elsewhere. From
+          // the keyboard (no click count) it keeps it, so the person is back where they were.
+          if (event.detail > 0) {
+            event.currentTarget.blur();
+          }
+
+          onAdd();
+        }}
         onKeyDown={(event) => {
           if (
             clipboardName !== null &&

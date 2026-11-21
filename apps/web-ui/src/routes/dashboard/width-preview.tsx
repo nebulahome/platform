@@ -3,16 +3,42 @@
  * `-Phone`): the grid in a frame of that width, centred on a dotted floor, with the width and the
  * number of columns written above it. Either edge of the frame can be dragged for any width.
  *
- * It is the real grid, not a copy: the grid measures its own width and lays itself out on the
- * columns that width has, as it does in a narrow window. It is only looked at: cards are not
- * moved or resized here and the empty spaces are not drawn, but a card's settings still open.
+ * It is the real grid, not a copy, laid out on the columns its width has, as it is in a narrow
+ * window. It is only looked at: cards are not moved or resized here and the empty spaces are not
+ * drawn, but a card's settings still open.
+ *
+ * The grid is told the width the frame is going to rather than measuring the frame on its way
+ * there. A device chosen, the frame slides to its width and the cards slide to their places at
+ * that width on the same curve, so they move as one. Measured, the grid would see a new width
+ * every frame, each restarting the cards' slide, and they stood still until the frame stopped.
  */
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@nebulahome/ui';
 
 import { columnsFor } from '@/dashboard/geometry';
+
+/** How the frame slides to a width, and the cards in it with it. */
+export const FRAME_MOTION = 'duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]';
+
+/** The frame's border, each side: the grid is this much narrower too. */
+const FRAME_BORDER_PX = 1;
+
+/** What the grid is told of the frame it is drawn in. */
+export type PreviewFrame = {
+  /** How wide the grid is going to be, before the frame has slid there. */
+  readonly width: number;
+
+  /** Whether the cards slide there with the frame: not while an edge is dragged. */
+  readonly slides: boolean;
+};
 
 /** The narrowest and widest a frame may be dragged to. */
 const NARROWEST_PX = 320;
@@ -35,8 +61,8 @@ export type WidthPreviewProps = {
   /** Takes a width dragged to. */
   readonly onWidth: (width: number) => void;
 
-  /** The grid. */
-  readonly children: ReactNode;
+  /** Draws the grid, for the frame it is in. */
+  readonly children: (frame: PreviewFrame) => ReactNode;
 };
 
 /**
@@ -49,11 +75,38 @@ export function WidthPreview(props: WidthPreviewProps) {
   const { t } = useTranslation();
 
   const { device, width, onWidth, children } = props;
+  const floor = useRef<HTMLDivElement>(null);
+  // The room the frame has; a frame wider than that is drawn as wide as it, and so is its grid.
+  const [room, setRoom] = useState<number | null>(null);
+  const shown = room === null ? width : Math.min(width, room);
   const gutter = width >= 600 ? GUTTER_PX.wide : GUTTER_PX.narrow;
-  const columns = columnsFor(width - 2 * gutter);
+  const inner = Math.max(0, shown - 2 * gutter - 2 * FRAME_BORDER_PX);
+  const columns = columnsFor(inner);
   const start = useRef<{ readonly x: number; readonly width: number } | null>(null);
   // While an edge is dragged the frame follows the pointer at once; a device chosen slides to it.
   const [isDragging, setDragging] = useState(false);
+
+  useLayoutEffect(() => {
+    const element = floor.current;
+
+    if (element === null || typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+
+      if (entry !== undefined) {
+        setRoom(entry.contentRect.width);
+      }
+    });
+
+    observer.observe(element);
+
+    return (): void => {
+      observer.disconnect();
+    };
+  }, []);
 
   /**
    * Starts dragging an edge.
@@ -102,7 +155,10 @@ export function WidthPreview(props: WidthPreviewProps) {
   );
 
   return (
-    <div className="flex min-h-full animate-fade-in flex-col items-center gap-4 rounded-card border border-border bg-well bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] bg-size-[16px_16px] px-4 pt-6 pb-8">
+    <div
+      ref={floor}
+      className="flex min-h-full animate-fade-in flex-col items-center gap-4 rounded-card border border-border bg-well bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] bg-size-[16px_16px] px-4 pt-6 pb-8"
+    >
       <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-caption">
         <span className="font-mono text-label tracking-[0.08em] text-primary-hover uppercase tabular">
           {t('dashboard.widthPreview.measure', {
@@ -120,9 +176,7 @@ export function WidthPreview(props: WidthPreviewProps) {
       <div
         className={cn(
           'relative max-w-full rounded-[28px] border border-border-strong bg-canvas shadow-float',
-          isDragging
-            ? undefined
-            : 'transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          isDragging ? undefined : cn('transition-[width,padding]', FRAME_MOTION),
         )}
         /* eslint-disable-next-line react/forbid-dom-props -- the frame is as wide as the device chosen
         or the edge dragged to. */
@@ -147,7 +201,7 @@ export function WidthPreview(props: WidthPreviewProps) {
             }
           }}
         />
-        {children}
+        {children({ width: inner, slides: !isDragging })}
         <button
           type="button"
           aria-label={t('dashboard.widthPreview.rightEdge', 'Drag the right edge')}

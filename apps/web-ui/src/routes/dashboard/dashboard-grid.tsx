@@ -69,6 +69,7 @@ import {
   SizeTag,
 } from '@/routes/dashboard/edit-chrome';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
+import { FRAME_MOTION, type PreviewFrame } from '@/routes/dashboard/width-preview';
 import { DeviceIcon } from '@/routes/library/device-icon';
 
 /** What the grid is told while the layout is being edited. */
@@ -123,6 +124,12 @@ export type DashboardGridProps = {
    * is - and keeps measuring the window - with this laid over the two empty rows.
    */
   readonly emptyState?: ReactNode;
+
+  /**
+   * In the editor's tablet or phone preview: the width the frame is going to, used in place of
+   * the one measured, and whether the cards slide there with the frame.
+   */
+  readonly frame?: PreviewFrame;
 };
 
 /** A card in the air, and where it would land. */
@@ -227,9 +234,10 @@ function whereIs(layout: DashboardLayout, id: string, data: DashboardData): stri
 export function DashboardGrid(props: DashboardGridProps) {
   const { t } = useTranslation();
 
-  const { layout, data, editor, onNarrowChange, emptyState } = props;
+  const { layout, data, editor, onNarrowChange, emptyState, frame } = props;
   const rootRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const [measured, setWidth] = useState(0);
+  const width = frame?.width ?? measured;
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const isReduced = useReducedMotion();
@@ -640,9 +648,12 @@ export function DashboardGrid(props: DashboardGridProps) {
           'group/card absolute top-0 left-0',
           // Only while editing, where a card that moves should be seen moving. On a dashboard being
           // looked at, a card only moves because the window changed, and sliding then is noise.
-          editor === null || isReduced || gesture?.kind === 'resize'
+          // In a device's preview the cards slide with the frame, on its curve.
+          editor === null || isReduced || gesture?.kind === 'resize' || frame?.slides === false
             ? undefined
-            : 'transition-[transform,width,height] duration-200 ease-out',
+            : frame === undefined
+              ? 'transition-[transform,width,height] duration-200 ease-out'
+              : cn('transition-[transform,width,height]', FRAME_MOTION),
           isSelected || isLifted ? 'z-10' : undefined,
         )}
         /* eslint-disable-next-line react/forbid-dom-props -- a card sits where its cells work out to, in
@@ -778,7 +789,11 @@ export function DashboardGrid(props: DashboardGridProps) {
     <div
       ref={rootRef}
       data-columns={columns}
-      className="relative"
+      // In a preview it grows and shrinks with its cards, so the frame round it does too.
+      className={cn(
+        'relative',
+        frame?.slides === true && !isReduced && cn('transition-[height]', FRAME_MOTION),
+      )}
       /* eslint-disable-next-line react/forbid-dom-props -- the grid is as tall as the rows its cards
       reach, a number no class can carry (RULES.md 15.3). */
       style={{ height: rowsHeight(rows) + (editor === null ? 0 : GAP_PX) }}

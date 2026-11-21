@@ -15,7 +15,7 @@
  * Ctrl or Cmd with C, X and V copy, cut and paste the card chosen.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
@@ -52,7 +52,7 @@ import { DashboardGrid } from '@/routes/dashboard/dashboard-grid';
 import { DASHBOARDS_CONFIGURATION_PATH, PageMessage } from '@/routes/dashboard/dashboard-page';
 import { EditingHeader, type PreviewScreen } from '@/routes/dashboard/editing-header';
 import { useDashboardData } from '@/routes/dashboard/use-dashboard-data';
-import { PREVIEW_WIDTHS, WidthPreview } from '@/routes/dashboard/width-preview';
+import { PREVIEW_WIDTHS, WidthPreview, type PreviewFrame } from '@/routes/dashboard/width-preview';
 import { DetailHeader } from '@/routes/library/detail-page';
 
 /**
@@ -473,8 +473,15 @@ function Editor(props: { readonly dashboard: DashboardView }) {
 
   const addGroup = addAt?.parentId == null ? undefined : findCard(layout, addAt.parentId)?.card;
 
-  const grid = (
+  /**
+   * The grid, on the page or in a device's preview frame.
+   *
+   * @param frame - The preview's frame; none on the page.
+   * @returns The grid.
+   */
+  const gridIn = (frame?: PreviewFrame): ReactNode => (
     <DashboardGrid
+      {...(frame === undefined ? {} : { frame })}
       layout={layout}
       data={data}
       onNarrowChange={setNarrow}
@@ -538,10 +545,10 @@ function Editor(props: { readonly dashboard: DashboardView }) {
           </p>
         ) : null}
         {screen === 'desktop' ? (
-          grid
+          gridIn()
         ) : (
           <WidthPreview device={screen} width={previewWidth} onWidth={setPreviewWidth}>
-            {grid}
+            {gridIn}
           </WidthPreview>
         )}
       </div>
