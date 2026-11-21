@@ -49,7 +49,7 @@ export function QuietProfile(props: QuietProfileProps) {
     <figure className="flex flex-col gap-1">
       <svg
         viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
-        className="h-10 w-full max-w-md"
+        className="h-10 w-full"
         role="img"
         aria-label={t(
           'settings.backup.quietProfile',
@@ -79,7 +79,7 @@ export function QuietProfile(props: QuietProfileProps) {
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <figcaption className="flex max-w-md justify-between text-caption text-foreground-subtle tabular">
+      <figcaption className="flex justify-between text-caption text-foreground-subtle tabular">
         <span>00:00</span>
         <span>06:00</span>
         <span>12:00</span>

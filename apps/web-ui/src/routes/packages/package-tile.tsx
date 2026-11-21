@@ -92,16 +92,6 @@ export function PackageTile(props: PackageTileProps) {
 
   const { found, update } = props;
   const state = PACKAGE_STATE_OF[found.state];
-  const cards = found.ui?.cards.length ?? 0;
-  const extras = [
-    found.ui?.page === true ? t('packages.packageTile.page', 'a page') : null,
-    cards === 0
-      ? null
-      : cards === 1
-        ? t('packages.packageTile.card', 'a card')
-        : t('packages.packageTile.cards', '{{count}} cards', { count: cards }),
-  ].filter((part) => part !== null);
-
   return (
     <li className="list-none">
       <Link
@@ -128,15 +118,13 @@ export function PackageTile(props: PackageTileProps) {
           footer={
             <>
               <Pill tone={PILL_TONES[state.tone] ?? 'neutral'}>{text(state.label)}</Pill>
+              {/* The devices only: a page and its cards as well ran onto a second line. */}
               <span>
-                {[
-                  t('packages.packageTile.devices', {
-                    count: found.deviceCount,
-                    defaultValue_one: '{{count}} device',
-                    defaultValue_other: '{{count}} devices',
-                  }),
-                  ...extras,
-                ].join(' · ')}
+                {t('packages.packageTile.devices', {
+                  count: found.deviceCount,
+                  defaultValue_one: '{{count}} device',
+                  defaultValue_other: '{{count}} devices',
+                })}
               </span>
             </>
           }

@@ -6631,15 +6631,12 @@
       "viewOfType": "una vista di {{type}}"
     },
     "packageTile": {
-      "card": "una scheda",
-      "cards": "{{count}} schede",
       "devices_many": "{{count}} dispositivi",
       "devices_one": "{{count}} dispositivo",
       "devices_other": "{{count}} dispositivi",
       "disabled": "Disattivato",
       "failed": "Non riuscito",
       "installed": "Installato",
-      "page": "una pagina",
       "running": "In esecuzione",
       "starting": "Avvio",
       "stopped": "Fermo",
