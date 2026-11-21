@@ -5,7 +5,7 @@
  * WebSockets on the host it was loaded from. The page's files are served with the cache headers
  * their names allow: the hashed assets for a year, `index.html` never from a cache, so a new build
  * is picked up on the next load. A path the files do not have is a route of the single-page app,
- * and gets `index.html` too. Everything under `/api` goes to `api` as it came, WebSocket upgrades
+ * and gets `index.html` too - unless it is under `/assets`, where it is a build's file that is gone. Everything under `/api` goes to `api` as it came, WebSocket upgrades
  * included, uncompressed: `api` answers JSON, camera frames and streams, and compressing a stream
  * of frames only delays them.
  *
@@ -23,6 +23,9 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 
 /** Where the API is reached, on the proxy and on `api` alike. */
 const API_PREFIX = '/api';
+
+/** Where the build puts the files named by their content. */
+const ASSETS_PREFIX = '/assets/';
 
 /** How long a hashed asset may be kept: its name changes with its content. */
 const ASSET_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
@@ -219,6 +222,10 @@ export async function buildProxyServer(options: ProxyServerOptions): Promise<Fas
   await server.register(fastifyStatic, {
     root: webRoot,
     prefix: '/',
+    // A range is answered from the file as it is on disk, a whole file compressed, under the same
+    // validators: a browser resuming a download it had kept compressed would splice the two. The
+    // page's files are small enough to be sent whole.
+    acceptRanges: false,
     /**
      * Sets how long a file may be kept.
      *
@@ -235,12 +242,15 @@ export async function buildProxyServer(options: ProxyServerOptions): Promise<Fas
     },
   });
 
-  // A path the files do not have is one of the page's own routes: it gets the page.
+  // A path the files do not have is one of the page's own routes: it gets the page. Not a build's
+  // file that is gone, though: the page in its place is refused as a stylesheet or a script without
+  // a word, and the page is drawn unstyled or not at all, where a 404 says what went missing.
   server.setNotFoundHandler(async (request, reply) => {
     const isPage =
       (request.method === 'GET' || request.method === 'HEAD') &&
       !request.url.startsWith(`${API_PREFIX}/`) &&
-      request.url !== API_PREFIX;
+      request.url !== API_PREFIX &&
+      !request.url.startsWith(ASSETS_PREFIX);
 
     if (!isPage) {
       return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'No such path' } });

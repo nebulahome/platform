@@ -69,6 +69,25 @@ describe('buildProxyServer', () => {
     expect(response.headers['content-encoding']).toBe('gzip');
   });
 
+  it('answers a range of an asset with the whole of it, compressed as always', async () => {
+    const response = await proxy.inject({
+      method: 'GET',
+      url: '/assets/index-abc123.js',
+      headers: { 'accept-encoding': 'gzip', range: 'bytes=100-' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-range']).toBeUndefined();
+    expect(response.headers['content-encoding']).toBe('gzip');
+  });
+
+  it('says a build’s file is gone, rather than answering with the page', async () => {
+    const response = await proxy.inject({ method: 'GET', url: '/assets/index-gone00.css' });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).not.toContain('Nebula Home');
+  });
+
   it('answers one of the page’s own routes with the page', async () => {
     const response = await proxy.inject({ method: 'GET', url: '/settings/backup' });
 
