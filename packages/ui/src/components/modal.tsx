@@ -41,12 +41,14 @@
  */
 import { cva, type VariantProps } from 'class-variance-authority';
 import {
+  Component,
   useEffect,
   useId,
   useLayoutEffect,
   useRef,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
   type SyntheticEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -66,7 +68,8 @@ import { IconButton } from './icon-button.js';
  * pixels put the role list back inside it, with a scrollbar, ten pixels too wide.
  *
  * Closing, the dialog is gone at once - closed, or unmounted with whatever held it - so what fades
- * out with its backdrop is a copy of it as it last looked (`fadeOut`).
+ * out with its backdrop is a copy of it as it last looked (`fadeOut`), taken before the render that
+ * closes it has emptied it (`Closing`).
  */
 /** What a card of a dialog is drawn as: the dialog's own, and the one beside it. */
 const CARD = 'rounded-dialog border border-border-strong bg-surface text-foreground shadow-dialog';
@@ -170,6 +173,71 @@ function fadeOut(snapshot: Snapshot): void {
   void Promise.allSettled(animations.map(async (animation) => animation.finished)).then(() => {
     ghost.remove();
   });
+}
+
+/** What closing a dialog needs: whether it is to be open, and the dialog. */
+type ClosingProps = {
+  readonly isOpen: boolean;
+  readonly dialog: RefObject<HTMLDialogElement | null>;
+};
+
+/**
+ * Closes a dialog when it stops being open, and fades a copy of it out.
+ *
+ * The copy has to be taken before React changes the dialog. A dialog's content is usually drawn
+ * from what opened it - the line, the device, the step - and the render that closes it is the one
+ * that takes that away, so a copy taken after it is an empty card: the words went first and the card
+ * after them. `getSnapshotBeforeUpdate` is React's one moment between the render and the change to
+ * the page, and only a class has it.
+ */
+class Closing extends Component<ClosingProps> {
+  /**
+   * Copies the dialog as it still looks, when this render closes it.
+   *
+   * @param previous - The props before this render.
+   * @returns The copy, or null when nothing closes.
+   */
+  override getSnapshotBeforeUpdate(previous: ClosingProps): Snapshot | null {
+    const element = this.props.dialog.current;
+
+    return previous.isOpen && !this.props.isOpen && element?.open === true
+      ? snapshotOf(element)
+      : null;
+  }
+
+  /**
+   * Closes the dialog, and fades the copy out.
+   *
+   * @param previous - Unused.
+   * @param state - Unused.
+   * @param snapshot - The copy, from {@link Closing.getSnapshotBeforeUpdate}.
+   */
+  override componentDidUpdate(
+    previous: ClosingProps,
+    state: unknown,
+    snapshot: Snapshot | null,
+  ): void {
+    const element = this.props.dialog.current;
+
+    if (this.props.isOpen || element?.open !== true) {
+      return;
+    }
+
+    element.close();
+
+    if (snapshot !== null) {
+      fadeOut(snapshot);
+    }
+  }
+
+  /**
+   * Draws nothing: it only times the close.
+   *
+   * @returns Nothing.
+   */
+  override render(): null {
+    return null;
+  }
 }
 
 const dialogBox = cva(cn(DIALOG, CARD, 'open:animate-dialog-in'), {
@@ -318,25 +386,12 @@ export function Modal(props: ModalProps) {
   const titleId = `${id}-title`;
   const descriptionId = `${id}-description`;
 
+  // Closing is `Closing`'s, which has to copy the dialog before this render reaches the page.
   useEffect(() => {
     const element = dialog.current;
 
-    if (element === null) {
-      return;
-    }
-
-    if (isOpen && !element.open) {
+    if (isOpen && element !== null && !element.open) {
       element.showModal();
-    }
-
-    if (!isOpen && element.open) {
-      const snapshot = snapshotOf(element);
-
-      element.close();
-
-      if (snapshot !== null) {
-        fadeOut(snapshot);
-      }
     }
   }, [isOpen]);
 
@@ -469,7 +524,9 @@ export function Modal(props: ModalProps) {
         </IconButton>
       </header>
 
-      <div className="flex min-h-0 grow flex-col overflow-y-auto">{children}</div>
+      {/* Positioned, so what is placed absolutely inside - the `sr-only` words of a list's rows -
+       scrolls and is clipped with it, instead of stretching the dialog into a second scrollbar. */}
+      <div className="relative flex min-h-0 grow flex-col overflow-y-auto">{children}</div>
 
       {footer === undefined ? null : (
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2.5 border-t border-border px-6 py-4">
@@ -499,7 +556,10 @@ export function Modal(props: ModalProps) {
         </IconButton>
       </header>
 
-      <div className="flex min-h-0 grow flex-col gap-5 overflow-y-auto px-6 py-5.5">{children}</div>
+      {/* Positioned for the same reason as the sectioned body. */}
+      <div className="relative flex min-h-0 grow flex-col gap-5 overflow-y-auto px-6 py-5.5">
+        {children}
+      </div>
 
       {footer === undefined ? null : (
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border px-6 py-3.5">
@@ -543,64 +603,67 @@ export function Modal(props: ModalProps) {
   );
 
   return (
-    /* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions,
+    <>
+      <Closing isOpen={isOpen} dialog={dialog} />
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions,
        jsx-a11y/click-events-have-key-events -- the handlers are here to dismiss the dialog by
        clicking its backdrop, which is a pointer affordance on top of a keyboard one that already
        exists: Escape closes it from anywhere, including when focus has fallen back to the body.
        The rule's concern is a click-only path to an action, and there is not one. Nothing inside
        the card is reached through these; they fire only when the target is the dialog element,
-       which is the backdrop. */
-    <dialog
-      ref={dialog}
-      aria-labelledby={isBare ? undefined : titleId}
-      aria-label={isBare ? title : undefined}
-      aria-describedby={description === undefined || isBare ? undefined : descriptionId}
-      onClose={onNativeClose}
-      onCancel={onCancel}
-      onMouseDown={onMouseDown}
-      onClick={onClick}
-      className={cn(
-        isPaired || isBare
-          ? cn(DIALOG, FRAME, !isBare && 'open:animate-dialog-in')
-          : dialogBox({ size }),
-        className,
-      )}
-    >
-      {isPaired ? (
-        <div
-          ref={pair}
-          className={cn(
-            'm-auto grid max-w-full gap-3 md:grid-cols-[17.5rem_minmax(0,1fr)] md:items-stretch',
-            PAIR_WIDTH[size ?? 'medium'],
-          )}
-        >
-          <section
-            aria-label={asideLabel}
-            // Sized by the grid, not by its list: a list longer than the dialog scrolls inside the
-            // card instead of stretching the pair. Clipped to its corners, or the scrollbar of that
-            // list runs past the rounded one at the bottom.
+       which is the backdrop. */}
+      <dialog
+        ref={dialog}
+        aria-labelledby={isBare ? undefined : titleId}
+        aria-label={isBare ? title : undefined}
+        aria-describedby={description === undefined || isBare ? undefined : descriptionId}
+        onClose={onNativeClose}
+        onCancel={onCancel}
+        onMouseDown={onMouseDown}
+        onClick={onClick}
+        className={cn(
+          isPaired || isBare
+            ? cn(DIALOG, FRAME, !isBare && 'open:animate-dialog-in')
+            : dialogBox({ size }),
+          className,
+        )}
+      >
+        {isPaired ? (
+          <div
+            ref={pair}
             className={cn(
-              CARD,
-              'flex max-h-80 min-h-0 flex-col overflow-hidden md:max-h-none md:[contain:size]',
+              'm-auto grid max-w-full gap-3 md:grid-cols-[17.5rem_minmax(0,1fr)] md:items-stretch',
+              PAIR_WIDTH[size ?? 'medium'],
             )}
           >
-            {aside}
-          </section>
-          <div className={cn(CARD, 'min-w-0')}>{body}</div>
-        </div>
-      ) : isBare ? (
-        // The card arrives by itself, so the frame only places it.
-        <div
-          className={cn(
-            'max-w-full',
-            placement === 'top' ? 'mx-auto mt-[calc(12vh-1rem)] mb-auto' : 'm-auto',
-          )}
-        >
-          {body}
-        </div>
-      ) : (
-        body
-      )}
-    </dialog>
+            <section
+              aria-label={asideLabel}
+              // Sized by the grid, not by its list: a list longer than the dialog scrolls inside the
+              // card instead of stretching the pair. Clipped to its corners, or the scrollbar of that
+              // list runs past the rounded one at the bottom.
+              className={cn(
+                CARD,
+                'flex max-h-80 min-h-0 flex-col overflow-hidden md:max-h-none md:[contain:size]',
+              )}
+            >
+              {aside}
+            </section>
+            <div className={cn(CARD, 'min-w-0')}>{body}</div>
+          </div>
+        ) : isBare ? (
+          // The card arrives by itself, so the frame only places it.
+          <div
+            className={cn(
+              'max-w-full',
+              placement === 'top' ? 'mx-auto mt-[calc(12vh-1rem)] mb-auto' : 'm-auto',
+            )}
+          >
+            {body}
+          </div>
+        ) : (
+          body
+        )}
+      </dialog>
+    </>
   );
 }

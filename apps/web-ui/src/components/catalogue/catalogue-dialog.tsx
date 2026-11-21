@@ -114,51 +114,58 @@ export function CatalogueDialog(props: CatalogueDialogProps) {
       {...(item === null || footer === undefined ? {} : { footer })}
     >
       {item === null ? (
-        <div className="flex flex-col gap-3 px-6 pt-5 pb-6">
-          <label htmlFor={searchId} className="sr-only">
-            {searchLabel}
-          </label>
-          <div className="relative">
-            <AppIcon
-              id="search"
-              size={17}
-              className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-foreground-subtle"
-            />
-            <input
-              id={searchId}
-              type="search"
-              value={search}
-              placeholder={searchPlaceholder}
-              autoComplete="off"
-              // eslint-disable-next-line jsx-a11y/no-autofocus -- the dialog is a search: typing is what it is opened for
-              autoFocus
-              className="h-control-lg w-full rounded-pill border border-border-strong bg-canvas pr-16 pl-11 text-title text-foreground transition placeholder:text-foreground-subtle focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none [&::-webkit-search-cancel-button]:appearance-none"
-              onChange={(event) => {
-                onSearch(event.target.value);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape' && search !== '') {
-                  // Clearing is what Escape does while there is a search; then it closes.
-                  event.stopPropagation();
-                  onSearch('');
-                }
-              }}
-            />
-            {/* The key's name, as it is printed on the key. */}
-            <kbd
-              aria-hidden="true"
-              translate="no"
-              className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 rounded-chip border border-border-strong px-1.5 font-mono text-label text-foreground-subtle"
-            >
-              Esc
-            </kbd>
+        <div className="flex min-h-0 grow flex-col gap-3 pt-5">
+          {/* The search and the count stay put; only the results under them scroll. */}
+          <div className="flex shrink-0 flex-col gap-3 px-6">
+            <label htmlFor={searchId} className="sr-only">
+              {searchLabel}
+            </label>
+            <div className="relative">
+              <AppIcon
+                id="search"
+                size={17}
+                className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-foreground-subtle"
+              />
+              <input
+                id={searchId}
+                type="search"
+                value={search}
+                placeholder={searchPlaceholder}
+                autoComplete="off"
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- the dialog is a search: typing is what it is opened for
+                autoFocus
+                className="h-control-lg w-full rounded-pill border border-border-strong bg-canvas pr-16 pl-11 text-title text-foreground transition placeholder:text-foreground-subtle focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none [&::-webkit-search-cancel-button]:appearance-none"
+                onChange={(event) => {
+                  onSearch(event.target.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && search !== '') {
+                    // Clearing is what Escape does while there is a search; then it closes.
+                    event.stopPropagation();
+                    onSearch('');
+                  }
+                }}
+              />
+              {/* The key's name, as it is printed on the key. */}
+              <kbd
+                aria-hidden="true"
+                translate="no"
+                className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 rounded-chip border border-border-strong px-1.5 font-mono text-label text-foreground-subtle"
+              >
+                Esc
+              </kbd>
+            </div>
+
+            {status === undefined ? null : (
+              <div className="px-1 text-caption text-foreground-subtle">{status}</div>
+            )}
           </div>
 
-          {status === undefined ? null : (
-            <div className="px-1 text-caption text-foreground-subtle">{status}</div>
-          )}
-
-          {children}
+          {/* Positioned: the rows' `sr-only` words scroll with them, not the dialog. A little room
+           on top for the first row's focus ring. */}
+          <div className="relative flex min-h-0 grow flex-col gap-3 overflow-y-auto px-6 pt-1 pb-6">
+            {children}
+          </div>
         </div>
       ) : (
         children
