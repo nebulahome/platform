@@ -36,6 +36,13 @@ export * from './bluetooth.js';
 export * from './brokers.js';
 export * from './bus-envelope.js';
 export * from './bus-subjects.js';
+// Not holidays.ts nor italian-patrons.ts: `@nebulahome/contracts/holidays`, kept out of the web UI.
+export * from './calendar/calendar-bus.js';
+export * from './calendar/calendar-schemas.js';
+export * from './calendar/long-weekends.js';
+export * from './calendar/repeat.js';
+export * from './calendar/working-day.js';
+export * from './calendar/zoned-time.js';
 export * from './camera.js';
 export * from './capabilities.js';
 export * from './commands.js';

@@ -1,0 +1,166 @@
+/**
+ * The patron saint's day of every Italian province, and of the cities of the provinces with
+ * several capitals: a public holiday in that town only.
+ *
+ * Transcribed unchanged from python-holidays (`holidays/countries/italy.py`, the Italy
+ * subdivisions: https://github.com/vacanza/holidays, MIT licence, (c) Vacanza Team and
+ * contributors), which takes them from Wikipedia's list of the patron saints of the provincial
+ * capitals. Each day is written as a `date-holidays` rule - `12-07`, `1st tuesday in May`,
+ * `easter 50` - so `holidays.ts` computes it with the same engine as the national ones. `AO` is
+ * kept although the source marks it deprecated; Bolzano's day is Whit Monday, from 1993.
+ *
+ * Keyed by the province's code (`MI`, `RM`), or by the city's name as the source spells it
+ * (`Forli`, without the accent): what `calendar.town` holds for a town listed here.
+ */
+
+/** One patron's day: its name, in Italian as the source has it, and its `date-holidays` rule. */
+export type ItalianPatronDay = {
+  readonly name: string;
+  readonly rule: string;
+};
+
+/** The patron days of each province and city, in the source's order. */
+export const ITALIAN_PATRONS: Readonly<Record<string, readonly ItalianPatronDay[]>> = {
+  AG: [{ name: 'San Gerlando', rule: '02-25' }],
+  AL: [{ name: 'San Baudolino', rule: '11-10' }],
+  AN: [{ name: 'San Ciriaco', rule: '05-04' }],
+  AO: [{ name: 'San Grato', rule: '09-07' }],
+  AP: [{ name: "Sant'Emidio", rule: '08-05' }],
+  AQ: [{ name: "San Massimo d'Aveia", rule: '06-10' }],
+  AR: [{ name: "San Donato d'Arezzo", rule: '08-07' }],
+  AT: [{ name: 'San Secondo di Asti', rule: '1st tuesday in May' }],
+  AV: [{ name: 'San Modestino', rule: '02-14' }],
+  BA: [{ name: 'San Nicola', rule: '12-06' }],
+  BG: [{ name: "Sant'Alessandro di Bergamo", rule: '08-26' }],
+  BI: [{ name: 'Santo Stefano', rule: '12-26' }],
+  BL: [{ name: 'San Martino', rule: '11-11' }],
+  BN: [{ name: 'San Bartolomeo apostolo', rule: '08-24' }],
+  BO: [{ name: 'San Petronio', rule: '10-04' }],
+  BR: [{ name: "San Teodoro d'Amasea e San Lorenzo da Brindisi", rule: '1st sunday in September' }],
+  BS: [{ name: 'Santi Faustino e Giovita', rule: '02-15' }],
+  BT: [
+    { name: 'San Nicola Pellegrino', rule: '05-03' },
+    { name: 'San Riccardo di Andria', rule: '3rd sunday in September' },
+    { name: 'San Ruggero', rule: '12-30' },
+  ],
+  BZ: [{ name: 'Lunedì di Pentecoste', rule: 'easter 50 since 1993' }],
+  CA: [{ name: 'San Saturnino di Cagliari', rule: '10-30' }],
+  CB: [{ name: 'San Giorgio', rule: '04-23' }],
+  CE: [{ name: 'San Sebastiano', rule: '01-20' }],
+  CH: [{ name: 'San Giustino di Chieti', rule: '05-11' }],
+  CL: [{ name: 'San Michele Arcangelo', rule: '09-29' }],
+  CN: [{ name: 'San Michele Arcangelo', rule: '09-29' }],
+  CO: [{ name: "Sant'Abbondio", rule: '08-31' }],
+  CR: [{ name: "Sant'Omobono", rule: '11-13' }],
+  CS: [{ name: 'Madonna del Pilerio', rule: '02-12' }],
+  CT: [{ name: "Sant'Agata", rule: '02-05' }],
+  CZ: [{ name: 'San Vitaliano', rule: '07-16' }],
+  EN: [{ name: 'Madonna della Visitazione', rule: '07-02' }],
+  FC: [
+    { name: 'Madonna del Fuoco', rule: '02-04' },
+    { name: 'San Giovanni Battista', rule: '06-24' },
+  ],
+  FE: [{ name: 'San Giorgio', rule: '04-23' }],
+  FG: [{ name: 'Madonna dei Sette Veli', rule: '03-22' }],
+  FI: [{ name: 'San Giovanni Battista', rule: '06-24' }],
+  FM: [
+    { name: 'Maria Santissima Assunta', rule: '08-15' },
+    { name: 'Maria Santissima Assunta', rule: '08-16' },
+  ],
+  FR: [{ name: 'San Silverio', rule: '06-20' }],
+  GE: [{ name: 'San Giovanni Battista', rule: '06-24' }],
+  GO: [{ name: 'Santi Ilario e Taziano', rule: '03-16' }],
+  GR: [{ name: 'San Lorenzo', rule: '08-10' }],
+  IM: [{ name: 'San Leonardo da Porto Maurizio', rule: '11-26' }],
+  IS: [{ name: 'San Pietro Celestino', rule: '05-19' }],
+  KR: [{ name: 'San Dionigi', rule: '10-09' }],
+  LC: [{ name: 'San Nicola', rule: '12-06' }],
+  LE: [{ name: "Sant'Oronzo", rule: '08-26' }],
+  LI: [{ name: 'Santa Giulia', rule: '05-22' }],
+  LO: [{ name: 'San Bassiano', rule: '01-19' }],
+  LT: [
+    { name: 'San Marco Evangelista', rule: '04-25' },
+    { name: 'Santa Maria Goretti', rule: '07-06' },
+  ],
+  LU: [{ name: 'San Paolino di Lucca', rule: '07-12' }],
+  MB: [{ name: 'San Giovanni Battista', rule: '06-24' }],
+  MC: [{ name: "San Giuliano l'ospitaliere", rule: '08-31' }],
+  ME: [{ name: 'Madonna della Lettera', rule: '06-03' }],
+  MI: [{ name: "Sant'Ambrogio", rule: '12-07' }],
+  MN: [{ name: "Sant'Anselmo da Baggio", rule: '03-18' }],
+  MO: [{ name: 'San Geminiano', rule: '01-31' }],
+  MS: [{ name: "San Francesco d'Assisi", rule: '10-04' }],
+  MT: [{ name: 'Madonna della Bruna', rule: '07-02' }],
+  NA: [{ name: 'San Gennaro', rule: '09-19' }],
+  NO: [{ name: 'San Gaudenzio', rule: '01-22' }],
+  NU: [{ name: 'Nostra Signora della Neve', rule: '08-05' }],
+  OR: [{ name: "Sant'Archelao", rule: '02-13' }],
+  PA: [{ name: 'Santa Rosalia', rule: '07-15' }],
+  PC: [{ name: "Sant'Antonino di Piacenza", rule: '07-04' }],
+  PD: [{ name: "Sant'Antonio di Padova", rule: '06-13' }],
+  PE: [{ name: 'San Cetteo', rule: '10-10' }],
+  PG: [
+    { name: "Santa Chiara d'Assisi", rule: '08-11' },
+    { name: "San Francesco d'Assisi", rule: '10-04' },
+  ],
+  PI: [{ name: 'San Ranieri', rule: '06-17' }],
+  PN: [
+    { name: 'San Marco Evangelista', rule: '04-25' },
+    { name: 'Madonna delle Grazie', rule: '09-08' },
+  ],
+  PO: [{ name: 'Santo Stefano', rule: '12-26' }],
+  PR: [{ name: "Sant'Ilario di Poitiers", rule: '01-13' }],
+  PT: [{ name: 'San Jacopo', rule: '07-25' }],
+  PU: [
+    { name: 'San Crescentino', rule: '06-01' },
+    { name: 'San Terenzio di Pesaro', rule: '09-24' },
+  ],
+  PV: [{ name: 'San Siro', rule: '12-09' }],
+  PZ: [{ name: 'San Gerardo di Potenza', rule: '05-30' }],
+  RA: [{ name: "Sant'Apollinare", rule: '07-23' }],
+  RC: [{ name: 'San Giorgio', rule: '04-23' }],
+  RE: [{ name: 'San Prospero Vescovo', rule: '11-24' }],
+  RG: [
+    { name: 'San Giorgio Martire', rule: '04-23' },
+    { name: 'San Giovanni Battista', rule: '08-29' },
+  ],
+  RI: [{ name: 'Santa Barbara', rule: '12-04' }],
+  RM: [{ name: 'Santi Pietro e Paolo', rule: '06-29' }],
+  RN: [{ name: 'San Gaudenzio', rule: '10-14' }],
+  RO: [{ name: 'San Bellino', rule: '11-26' }],
+  SA: [{ name: 'San Matteo Evangelista', rule: '09-21' }],
+  SI: [{ name: "Sant'Ansano", rule: '12-01' }],
+  SO: [{ name: 'San Gervasio e San Protasio', rule: '06-19' }],
+  SP: [{ name: 'San Giuseppe', rule: '03-19' }],
+  SR: [{ name: 'Santa Lucia', rule: '12-13' }],
+  SS: [{ name: 'San Nicola', rule: '12-06' }],
+  SU: [{ name: 'San Ponziano', rule: 'thursday after 2nd sunday in May' }],
+  SV: [{ name: 'Nostra Signora della Misericordia', rule: '03-18' }],
+  TA: [{ name: 'San Cataldo', rule: '05-10' }],
+  TE: [{ name: 'San Berardo da Pagliara', rule: '12-19' }],
+  TN: [{ name: 'San Vigilio', rule: '06-26' }],
+  TO: [{ name: 'San Giovanni Battista', rule: '06-24' }],
+  TP: [{ name: "Sant'Alberto degli Abati", rule: '08-07' }],
+  TR: [{ name: 'San Valentino', rule: '02-14' }],
+  TS: [{ name: 'San Giusto', rule: '11-03' }],
+  TV: [{ name: 'San Liberale', rule: '04-27' }],
+  UD: [{ name: 'Santi Ermacora e Fortunato', rule: '07-12' }],
+  VA: [{ name: 'San Vittore il Moro', rule: '05-08' }],
+  VB: [{ name: 'San Vittore il Moro', rule: '05-08' }],
+  VC: [{ name: "Sant'Eusebio di Vercelli", rule: '08-01' }],
+  VE: [
+    { name: 'San Marco Evangelista', rule: '04-25' },
+    { name: 'Madonna della Salute', rule: '11-21' },
+  ],
+  VI: [{ name: 'Madonna di Monte Berico', rule: '09-08' }],
+  VR: [{ name: 'San Zeno', rule: '05-21' }],
+  VT: [{ name: 'Santa Rosa da Viterbo', rule: '09-04' }],
+  VV: [{ name: 'San Leoluca', rule: '03-01' }],
+  Andria: [{ name: 'San Riccardo di Andria', rule: '3rd sunday in September' }],
+  Barletta: [{ name: 'San Ruggero', rule: '12-30' }],
+  Cesena: [{ name: 'San Giovanni Battista', rule: '06-24' }],
+  Forli: [{ name: 'Madonna del Fuoco', rule: '02-04' }],
+  Pesaro: [{ name: 'San Terenzio di Pesaro', rule: '09-24' }],
+  Trani: [{ name: 'San Nicola Pellegrino', rule: '05-03' }],
+  Urbino: [{ name: 'San Crescentino', rule: '06-01' }],
+};

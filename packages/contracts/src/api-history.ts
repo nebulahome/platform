@@ -183,6 +183,7 @@ export const AUTOMATION_RUN_TRIGGER_KINDS = [
   'time',
   'sun',
   'quiet',
+  'calendar',
   'manual',
   'automation',
   'alias',
@@ -223,6 +224,12 @@ export const automationRunTriggerSchema = z.object({
   /** The alias whose action started this one, and the part the action belongs to. */
   aliasId: z.uuid().optional(),
   part: z.string().max(64).optional(),
+
+  /** The calendar, the event and the start of its time that fired, for a calendar trigger. */
+  calendarId: z.uuid().optional(),
+  eventId: z.uuid().optional(),
+  eventTitle: z.string().max(200).optional(),
+  occurrenceStart: z.string().max(40).optional(),
 });
 
 /** What started a run. */

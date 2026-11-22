@@ -40,6 +40,9 @@ export const LIBRARY_KINDS = [
 
   /** An integration's settings. */
   'vendors',
+
+  /** The calendars, their models, events, editors and share links, and the holidays. */
+  'calendar',
 ] as const;
 
 /** What part of the library changed. */

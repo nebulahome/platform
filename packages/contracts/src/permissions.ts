@@ -217,6 +217,22 @@ export const PERMISSIONS = [
     description: 'Create, edit, assign and delete dashboards',
   },
   {
+    key: 'calendar:read',
+    resource: 'calendar',
+    action: 'read',
+    isScopable: false,
+    description: 'See the calendars and their events',
+  },
+  {
+    // Editing a calendar's events is its own Editors list, not a key: this is about the calendars
+    // themselves, the holidays and the share links.
+    key: 'calendar:manage',
+    resource: 'calendar',
+    action: 'manage',
+    isScopable: false,
+    description: 'Create, change and delete calendars, their editors, the holidays and share links',
+  },
+  {
     key: 'history:read',
     resource: 'history',
     action: 'read',
@@ -402,10 +418,18 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     'scene:read',
     'scene:apply',
     'alias:read',
+    'calendar:read',
     'history:read',
     'package:read',
     'integration:read',
   ],
-  guest: ['entity:read', 'entity:control', 'area:read', 'scene:read', 'scene:apply'],
+  guest: [
+    'entity:read',
+    'entity:control',
+    'area:read',
+    'scene:read',
+    'scene:apply',
+    'calendar:read',
+  ],
   service: [],
 } as const satisfies Record<Exclude<BuiltinRole, 'owner'>, readonly string[]>;

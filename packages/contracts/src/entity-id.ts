@@ -29,6 +29,7 @@ export const ENTITY_DOMAINS = [
   'select',
   'number',
   'time',
+  'calendar',
   'vacuum',
   'fan',
   'device_tracker',
@@ -40,6 +41,12 @@ export const ENTITY_DOMAINS = [
 
 /** The kind of thing an entity is. */
 export type EntityDomain = (typeof ENTITY_DOMAINS)[number];
+
+/**
+ * Domains only the platform makes entities of: no integration or package declares one, so a
+ * profile's entity and a setup's entity field leave them out (`z.enum(…).exclude`).
+ */
+export const PLATFORM_ENTITY_DOMAINS = ['calendar'] as const satisfies readonly EntityDomain[];
 
 /** The capabilities an entity of one domain carries: one of these it must have, and those it may add. */
 export type DomainCapabilities = {
@@ -72,6 +79,7 @@ export const DOMAIN_CAPABILITIES: Readonly<Record<EntityDomain, DomainCapabiliti
   select: { oneOf: ['select'], may: [] },
   number: { oneOf: ['number'], may: [] },
   time: { oneOf: ['time_of_day', 'date', 'datetime'], may: [] },
+  calendar: { oneOf: ['calendar'], may: [] },
   vacuum: { oneOf: ['vacuum'], may: [] },
   fan: { oneOf: ['on_off'], may: ['fan'] },
   device_tracker: { oneOf: ['location'], may: [] },

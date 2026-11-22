@@ -22,7 +22,9 @@
 import { z } from 'zod';
 
 import { clockTimeSchema } from './automation-meta.js';
+import { iconIdSchema } from './icons.js';
 import { PACKAGE_ID_PATTERN } from './package-id.js';
+import { tagColorSchema } from './tags.js';
 
 /** Every capability an entity may declare. */
 export const CAPABILITIES = [
@@ -47,6 +49,7 @@ export const CAPABILITIES = [
   'time_of_day',
   'date',
   'datetime',
+  'calendar',
   'vacuum',
   'fan',
   'location',
@@ -927,6 +930,41 @@ export const datetimeCommandSchema = z.discriminatedUnion('command', [
   z.object({ command: z.literal('set_value'), value: momentSchema }),
 ]);
 
+// --- calendar ----------------------------------------------------------------------------
+
+/**
+ * One event as a calendar entity tells it: what a card draws, never its notes. All day it has
+ * days (the last included), timed it has moments.
+ */
+export const calendarEventSummarySchema = z.object({
+  title: z.string().min(1).max(120),
+  icon: iconIdSchema.nullable(),
+  modelId: z.uuid().nullable(),
+  isAllDay: z.boolean(),
+  startsOn: calendarDaySchema.nullable(),
+  endsOn: calendarDaySchema.nullable(),
+  startsAt: momentSchema.nullable(),
+  endsAt: momentSchema.nullable(),
+});
+
+/**
+ * A calendar of the house, read only (`calendar.<slug>`, one a calendar): on while one of its
+ * events is, the event on now and the next to start. `isStale` says its source failed its last
+ * read, so what it tells may be old.
+ */
+export const calendarStateSchema = z.object({
+  isActive: z.boolean(),
+  current: calendarEventSummarySchema.nullable().default(null),
+  next: calendarEventSummarySchema.nullable().default(null),
+  isStale: z.boolean().default(false),
+});
+
+/** Which calendar it is, and the colour it is drawn in; null on an alias, which is none. */
+export const calendarParamsSchema = z.object({
+  calendarId: z.uuid().nullable().default(null),
+  color: tagColorSchema.nullable().default(null),
+});
+
 // --- fan ---------------------------------------------------------------------------------
 
 /** Which way a fan's blades turn. */
@@ -1079,6 +1117,7 @@ export const CAPABILITY_DEFINITIONS = {
     params: datetimeParamsSchema,
     commands: datetimeCommandSchema,
   },
+  calendar: { state: calendarStateSchema, params: calendarParamsSchema, commands: NO_COMMANDS },
   vacuum: { state: vacuumStateSchema, params: vacuumParamsSchema, commands: vacuumCommandSchema },
   fan: { state: fanStateSchema, params: fanParamsSchema, commands: fanCommandSchema },
   location: { state: locationStateSchema, params: locationParamsSchema, commands: NO_COMMANDS },
@@ -1115,6 +1154,7 @@ export const capabilityStateSchema = z.object({
   time_of_day: timeOfDayStateSchema.optional(),
   date: dateStateSchema.optional(),
   datetime: datetimeStateSchema.optional(),
+  calendar: calendarStateSchema.optional(),
   vacuum: vacuumStateSchema.optional(),
   fan: fanStateSchema.optional(),
   location: locationStateSchema.optional(),

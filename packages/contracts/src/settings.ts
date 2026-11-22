@@ -16,6 +16,7 @@ import {
   backupSectionsSchema,
   timeZoneSchema,
 } from './backup.js';
+import { calendarPatronSchema, calendarPlaceSchema } from './calendar/calendar-schemas.js';
 import { DEFAULT_LOCALE, supportedLocaleSchema } from './locale.js';
 import type { LOG_LEVELS } from './log-level.js';
 import { updateChannelSchema, updateWindowSchema } from './updates.js';
@@ -122,6 +123,12 @@ export type SettingDefinition = {
   /** What the setting controls, in English. */
   readonly description: string;
 };
+
+/** Saturday and Sunday, 0 being Monday. Mutable arrays, so a default reads as JSON. */
+const DEFAULT_WEEKEND_DAYS: number[] = [5, 6];
+
+/** No holiday hidden. */
+const NO_HIDDEN_HOLIDAYS: string[] = [];
 
 /**
  * Every setting the initial migration seeds, with its schema and default.
@@ -318,6 +325,47 @@ export const SETTINGS = [
     schema: z.int().min(1).max(600),
     defaultValue: 30,
     description: 'Calls a minute one webhook takes; above it they get 429 and start nothing',
+  },
+  // The calendar's place stays empty until the owner confirms it: the page asks the first time.
+  {
+    key: 'calendar.country',
+    schema: calendarPlaceSchema.shape.country.nullable(),
+    defaultValue: null,
+    description: 'The country whose public holidays the calendar shows',
+  },
+  {
+    key: 'calendar.region',
+    schema: calendarPlaceSchema.shape.region,
+    defaultValue: null,
+    description: 'The region whose own holidays the calendar adds',
+  },
+  {
+    key: 'calendar.town',
+    schema: calendarPlaceSchema.shape.town,
+    defaultValue: null,
+    description: "The town whose patron saint's day the calendar adds",
+  },
+  {
+    key: 'calendar.patron',
+    schema: calendarPatronSchema.nullable(),
+    defaultValue: null,
+    description: "The patron saint typed by hand, in place of the town's listed one",
+  },
+  {
+    key: 'calendar.weekend_days',
+    // 0 is Monday, as DAYS_OF_WEEK orders the week.
+    schema: z
+      .array(z.int().min(0).max(6))
+      .max(6)
+      .refine((days) => new Set(days).size === days.length, 'Each day once'),
+    defaultValue: DEFAULT_WEEKEND_DAYS,
+    description: 'The days of the week that are weekend, 0 for Monday: not working days',
+  },
+  {
+    key: 'calendar.hidden_holidays',
+    schema: z.array(z.string().min(1).max(120)).max(500),
+    defaultValue: NO_HIDDEN_HOLIDAYS,
+    description: 'The holidays the owner hid, by key: working days after all',
   },
 ] as const satisfies readonly SettingDefinition[];
 

@@ -43,6 +43,7 @@ export const LOCK_TOKENS = ['locked', 'unlocked', 'jammed'] as const;
  */
 export const STATE_TOKEN_CAPABILITIES = [
   'sensor_binary',
+  'calendar',
   'media_player',
   'on_off',
   'lock',
@@ -104,6 +105,10 @@ export function stateTokenOf(
 
   if (state.sensor_binary !== undefined) {
     return state.sensor_binary.isOn ? 'on' : 'off';
+  }
+
+  if (state.calendar !== undefined) {
+    return state.calendar.isActive ? 'on' : 'off';
   }
 
   if (state.media_player !== undefined) {
@@ -230,6 +235,7 @@ export function stateTokenChoices(
   const closed = ((): readonly string[] => {
     switch (capability) {
       case 'sensor_binary':
+      case 'calendar':
       case 'on_off': {
         return ON_OFF_TOKENS;
       }

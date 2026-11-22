@@ -5,9 +5,10 @@
  * things rarely happen in the same instant, and "this happened while that holds" is what the
  * conditions are for.
  *
- * Six kinds. An entity changing (to a state, or across a number), a time on the clock, a moment
- * of the sun, a device event, somebody asking, or somebody calling its webhook address. Each
- * carries the {@link BlockMeta} every block does: a name, and whether it is turned off.
+ * An entity changing (to a state, or across a number), a time on the clock, a moment of the sun,
+ * the quietest time, an event of a calendar starting or ending, a device event, somebody asking,
+ * or somebody calling its webhook address. Each carries the {@link BlockMeta} every block does: a
+ * name, and whether it is turned off.
  */
 import { z } from 'zod';
 
@@ -40,6 +41,7 @@ export const TRIGGER_TYPES = [
   'time',
   'sun',
   'quiet',
+  'calendar',
   'event',
   'manual',
   'webhook',
@@ -163,6 +165,36 @@ const quietTriggerSchema = z.object({
   offsetMinutes: z.int().min(-720).max(720).optional(),
 });
 
+/** The most minutes a calendar trigger fires before or after an event: a day. */
+export const CALENDAR_TRIGGER_OFFSET_MAXIMUM_MINUTES = 1440;
+
+/** The edges of an event a calendar trigger fires on. */
+export const CALENDAR_TRIGGER_EDGES = ['start', 'end'] as const;
+
+/**
+ * An event of a calendar starting or ending, before or after by an offset, of any model or only
+ * of some. An all-day event starts at midnight house time and ends at the next midnight.
+ */
+export const calendarTriggerSchema = z.object({
+  type: z.literal('calendar'),
+  ...blockMetaShape,
+  calendarId: z.uuid(),
+  edge: z.enum(CALENDAR_TRIGGER_EDGES),
+
+  /** Minutes before (negative) or after (positive) the edge. */
+  offsetMinutes: z
+    .int()
+    .min(-CALENDAR_TRIGGER_OFFSET_MAXIMUM_MINUTES)
+    .max(CALENDAR_TRIGGER_OFFSET_MAXIMUM_MINUTES)
+    .default(0),
+
+  /** Only events of these models. Absent or empty means any event. */
+  modelIds: z.array(z.uuid()).max(20).optional(),
+});
+
+/** An event of a calendar starting or ending. */
+export type CalendarTrigger = z.output<typeof calendarTriggerSchema>;
+
 /** A device event - a button press, a scene controller - or a platform event. */
 const eventTriggerSchema = z.object({
   type: z.literal('event'),
@@ -218,6 +250,7 @@ export const automationTriggerSchema = z.discriminatedUnion('type', [
   timeTriggerSchema,
   sunTriggerSchema,
   quietTriggerSchema,
+  calendarTriggerSchema,
   eventTriggerSchema,
   manualTriggerSchema,
   webhookTriggerSchema,

@@ -615,3 +615,30 @@ describe('expression variables', () => {
     ).toBe(false);
   });
 });
+
+describe('the calendar trigger', () => {
+  const CALENDAR = '6f1c2a52-8a3e-4d6b-9b8e-2f1d3c4b5a69';
+
+  it('fires at an edge of an event, at it unless an offset says otherwise', () => {
+    expect(
+      automationTriggerSchema.parse({ type: 'calendar', calendarId: CALENDAR, edge: 'start' }),
+    ).toEqual({ type: 'calendar', calendarId: CALENDAR, edge: 'start', offsetMinutes: 0 });
+  });
+
+  it('reaches a day either side, and twenty models at most', () => {
+    const trigger = { type: 'calendar', calendarId: CALENDAR, edge: 'end' };
+
+    expect(automationTriggerSchema.safeParse({ ...trigger, offsetMinutes: -1440 }).success).toBe(
+      true,
+    );
+    expect(automationTriggerSchema.safeParse({ ...trigger, offsetMinutes: 1441 }).success).toBe(
+      false,
+    );
+    expect(
+      automationTriggerSchema.safeParse({
+        ...trigger,
+        modelIds: Array.from({ length: 21 }, () => CALENDAR),
+      }).success,
+    ).toBe(false);
+  });
+});

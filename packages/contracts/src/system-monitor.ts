@@ -34,7 +34,13 @@ export const SYSTEM_DEVICE_ID = 'system';
  * entity. The containers' own devices are kept apart by a prefix instead
  * ({@link RESERVED_DEVICE_PREFIXES}).
  */
-export const RESERVED_DEVICE_IDS: readonly string[] = [SYSTEM_DEVICE_ID, 'derived', 'supervisor'];
+export const RESERVED_DEVICE_IDS: readonly string[] = [
+  SYSTEM_DEVICE_ID,
+  'derived',
+  'supervisor',
+  // The device of the calendar entities.
+  'calendar',
+];
 
 /** What no device the owner adds may start with: the devices of the host's containers. */
 export const RESERVED_DEVICE_PREFIXES: readonly string[] = ['container-'];

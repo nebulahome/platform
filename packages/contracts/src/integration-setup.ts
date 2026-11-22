@@ -21,7 +21,7 @@
  */
 import { z } from 'zod';
 
-import { ENTITY_DOMAINS, entityIdSchema } from './entity-id.js';
+import { ENTITY_DOMAINS, entityIdSchema, PLATFORM_ENTITY_DOMAINS } from './entity-id.js';
 import { iconIdSchema } from './icons.js';
 import type { JsonObject, JsonValue } from './json.js';
 
@@ -190,7 +190,11 @@ const entityFieldSchema = z.strictObject({
   type: z.literal('entity'),
 
   /** Only entities of these domains may be chosen; any when not said. */
-  domains: z.array(z.enum(ENTITY_DOMAINS)).min(1).max(ENTITY_DOMAINS.length).optional(),
+  domains: z
+    .array(z.enum(ENTITY_DOMAINS).exclude([...PLATFORM_ENTITY_DOMAINS]))
+    .min(1)
+    .max(ENTITY_DOMAINS.length)
+    .optional(),
 });
 
 /** One icon of the catalogue, chosen with the interface's icon picker: its id. */
