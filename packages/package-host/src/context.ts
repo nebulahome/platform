@@ -34,6 +34,7 @@ import {
   historyTelemetryRequestSchema,
   houseReplySchema,
   isPackageServiceAllowed,
+  isRecord,
   jsonValueSchema,
   managedReplySchema,
   NotFoundError,
@@ -155,16 +156,6 @@ export type PackageContextHandle = {
   /** Ends every subscription the context made. */
   readonly close: () => void;
 };
-
-/**
- * Says whether a value is a record.
- *
- * @param value - The value.
- * @returns True for a non-null, non-array object.
- */
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /**
  * Says whether a value is one a custom entity's field holds.
