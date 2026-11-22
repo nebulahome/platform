@@ -64,6 +64,7 @@ describe('the migration set', () => {
       '0014_entity_time_capabilities.sql',
       '0015_device_parents.sql',
       '0016_drop_package_routes.sql',
+      '0017_calendar.sql',
     ]);
   });
 
@@ -89,6 +90,7 @@ describe('the brokers migrations', () => {
     '0009_aliases_parts.sql',
     '0011_alias_action_runs.sql',
     '0012_telemetry_import.sql',
+    '0017_calendar.sql',
   ];
   const later = files.slice(1).filter(({ name }) => !CORE_MIGRATIONS.includes(name));
 
@@ -126,6 +128,25 @@ describe('the brokers migrations', () => {
     }
 
     expect(grants).toContain('TO nebula_core, nebula_api;');
+  });
+
+  it('grants core and api every table the calendar migration creates, and touches updated_at', () => {
+    const calendar = files.find(({ name }) => name === '0017_calendar.sql')?.sql ?? '';
+    const grant =
+      /GRANT SELECT, INSERT, UPDATE, DELETE\s+ON ([^;]*?)\s+TO nebula_core, nebula_api;/.exec(
+        calendar,
+      );
+    const tables = [...calendar.matchAll(/CREATE TABLE (\w+\.\w+) \(([\s\S]*?)\n\);/g)];
+
+    expect(tables).toHaveLength(7);
+
+    for (const [, table, body] of tables) {
+      expect(grant?.[1]).toContain(String(table));
+
+      if (/^\s*updated_at\s/m.test(body ?? '')) {
+        expect(calendar).toContain(`BEFORE UPDATE ON ${String(table)}\n`);
+      }
+    }
   });
 
   it.each(later)(
@@ -390,7 +411,9 @@ describe('tags', () => {
 
 describe('seed data against the contracts', () => {
   it('seeds exactly the permissions the code checks for', () => {
-    const seeded = [...initialSql.matchAll(/^ {2}\('([a-z_]+:[a-z_]+)',/gm)].map(
+    // What every migration inserts: 0017 added the calendar's.
+    const allSql = files.map((file) => file.sql).join('\n');
+    const seeded = [...allSql.matchAll(/^ {2}\('([a-z_]+:[a-z_]+)',/gm)].map(
       ([, key]) => key ?? '',
     );
 

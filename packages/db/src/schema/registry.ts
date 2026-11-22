@@ -10,6 +10,7 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  date,
   doublePrecision,
   index,
   integer,
@@ -684,6 +685,11 @@ export const entities = registrySchema.table(
 
     /** The class it is shown with, alongside `shownDomain`. */
     shownDeviceClass: text('shown_device_class'),
+
+    /** Show in calendar: the calendar a time or date entity's value is shown in; null in none. */
+    calendarId: uuid('calendar_id').references((): AnyPgColumn => calendars.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -694,6 +700,7 @@ export const entities = registrySchema.table(
     index('entities_package_id_idx').on(table.packageId),
     index('entities_integration_id_idx').on(table.integrationId),
     index('entities_domain_idx').on(table.domain),
+    index('entities_calendar_id_idx').on(table.calendarId),
   ],
 );
 
@@ -985,4 +992,203 @@ export const dashboardUsers = registrySchema.table(
       .references(() => users.id, { onDelete: 'cascade' }),
   },
   (table) => [index('dashboard_users_user_id_idx').on(table.userId)],
+);
+
+/**
+ * The house's calendars: House, Holidays, Waste, one per person, and any the owner makes. Everyone
+ * sees every calendar; `calendarEditors` says who edits one besides the owner and admins.
+ *
+ * `icsState` is validated against `calendarIcsStateSchema` in `@nebulahome/contracts`, written by
+ * `core` as it reads the source. One Holidays calendar (a partial unique index) and one personal
+ * calendar a person (`ownerUserId` is unique).
+ */
+export const calendars = registrySchema.table(
+  'calendars',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    /** `house`, `holidays`, `waste`, `personal` or `custom`. */
+    kind: text('kind').notNull(),
+    name: text('name').notNull(),
+
+    /** A key into the palette (`TAG_COLORS`), not a hex. */
+    color: text('color').notNull(),
+    icon: text('icon'),
+
+    /** The person a personal calendar belongs to. */
+    ownerUserId: uuid('owner_user_id')
+      .unique()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** Whether its events are not working days: always for Holidays. */
+    isDayOff: boolean('is_day_off').notNull().default(false),
+    icsUrl: text('ics_url'),
+    icsState: jsonb('ics_state')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    position: integer('position').notNull().default(0),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('calendars_one_holidays_idx')
+      .on(table.kind)
+      .where(sql`kind = 'holidays'`),
+    index('calendars_created_by_idx').on(table.createdBy),
+  ],
+);
+
+/** The kinds of event a calendar offers - Organic, Glass - each with its icon and colour. */
+export const calendarModels = registrySchema.table(
+  'calendar_models',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    calendarId: uuid('calendar_id')
+      .notNull()
+      .references(() => calendars.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    icon: text('icon').notNull(),
+    color: text('color').notNull(),
+    position: integer('position').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('calendar_models_calendar_id_idx').on(table.calendarId)],
+);
+
+/**
+ * A calendar's events: all day as days (the last included), timed as instants. A repeating one
+ * keeps its rule (`calendarRepeatSchema`) and the wall clock of `timeZone`; a time of it deleted
+ * alone is in `skippedOn`, one changed alone is a row naming `seriesId` and `occurrenceOn`. An
+ * event of a source (`source` `ics`) is one row per occurrence, keyed by `sourceUid`.
+ */
+export const calendarEvents = registrySchema.table(
+  'calendar_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    calendarId: uuid('calendar_id')
+      .notNull()
+      .references(() => calendars.id, { onDelete: 'cascade' }),
+    modelId: uuid('model_id').references(() => calendarModels.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    icon: text('icon'),
+    notes: text('notes'),
+    isAllDay: boolean('is_all_day').notNull(),
+    startsOn: date('starts_on', { mode: 'string' }),
+    endsOn: date('ends_on', { mode: 'string' }),
+    startsAt: timestamp('starts_at', { withTimezone: true }),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+    timeZone: text('time_zone').notNull(),
+
+    /** Validated against `calendarRepeatSchema` in `@nebulahome/contracts`. */
+    repeat: jsonb('repeat'),
+    skippedOn: date('skipped_on', { mode: 'string' })
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    seriesId: uuid('series_id').references((): AnyPgColumn => calendarEvents.id, {
+      onDelete: 'cascade',
+    }),
+    occurrenceOn: date('occurrence_on', { mode: 'string' }),
+
+    /** `user` or `ics`. */
+    source: text('source').notNull().default('user'),
+
+    /** For an event of a source: its UID and recurrence id. */
+    sourceUid: text('source_uid'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('calendar_events_source_uid_key').on(table.calendarId, table.sourceUid),
+    index('calendar_events_model_id_idx').on(table.modelId),
+    index('calendar_events_series_id_idx').on(table.seriesId),
+    index('calendar_events_created_by_idx').on(table.createdBy),
+  ],
+);
+
+/**
+ * A `.ics` file loaded from the computer as a calendar's source, kept so its repeating events are
+ * expanded again as time moves on. No calendar while it is only tested.
+ */
+export const calendarIcsFiles = registrySchema.table(
+  'calendar_ics_files',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    calendarId: uuid('calendar_id')
+      .unique()
+      .references(() => calendars.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+
+    /** Bytes. */
+    size: integer('size').notNull(),
+    body: text('body').notNull(),
+    uploadedBy: uuid('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('calendar_ics_files_uploaded_by_idx').on(table.uploadedBy),
+    index('calendar_ics_files_unattached_idx')
+      .on(table.createdAt)
+      .where(sql`calendar_id IS NULL`),
+  ],
+);
+
+/** Who may edit a calendar's events besides the owner and admins. */
+export const calendarEditors = registrySchema.table(
+  'calendar_editors',
+  {
+    calendarId: uuid('calendar_id')
+      .notNull()
+      .references(() => calendars.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.calendarId, table.userId] }),
+    index('calendar_editors_user_id_idx').on(table.userId),
+  ],
+);
+
+/** Share links: an ICS feed of some calendars, read on the house's network by its token. */
+export const calendarFeeds = registrySchema.table(
+  'calendar_feeds',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+
+    /** 32 hexadecimal digits: the whole of the link's secret. */
+    token: text('token').notNull().unique(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    lastReadAt: timestamp('last_read_at', { withTimezone: true }),
+
+    /** The user agent of the app that read it last. */
+    lastReadAgent: text('last_read_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('calendar_feeds_created_by_idx').on(table.createdBy)],
+);
+
+/** Which calendars each share link carries. */
+export const calendarFeedCalendars = registrySchema.table(
+  'calendar_feed_calendars',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => calendarFeeds.id, { onDelete: 'cascade' }),
+    calendarId: uuid('calendar_id')
+      .notNull()
+      .references(() => calendars.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.feedId, table.calendarId] }),
+    index('calendar_feed_calendars_calendar_id_idx').on(table.calendarId),
+  ],
 );
