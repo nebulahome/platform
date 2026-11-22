@@ -25,6 +25,7 @@ import {
   MATTER_COMMISSIONING_STEPS,
   MATTER_NEW_DEVICE_STEPS,
   MATTER_PORT,
+  type BrokerEventPart,
   type MatterCommissioning,
   type MatterCommissioningStep,
   type MatterCommissionMode,
@@ -266,6 +267,9 @@ export type MatterBrokerOptions = {
     /** Its name and channel, for Matter's Settings; null when Matter is not handed it. */
     readonly network: () => Promise<{ networkName: string; channel: number } | null>;
   };
+
+  /** Told that part of what the broker's page shows changed on its own. */
+  readonly onChange?: (part: BrokerEventPart<'matter'>) => void;
 };
 
 /** What the controller was opened with, besides test certificates. */
@@ -367,9 +371,12 @@ export class MatterBroker {
       this.#state = 'failed';
       this.#error = error instanceof Error ? error.message : String(error);
       logger.error({ err: error }, 'The Matter fabric did not open; Matter devices are off');
+      this.#options.onChange?.('status');
 
       return;
     }
+
+    this.#options.onChange?.('status');
 
     const first = setTimeout(() => {
       void this.#checkUpdates();
@@ -561,6 +568,7 @@ export class MatterBroker {
     if (this.#options.open !== undefined) {
       this.#state = 'starting';
       this.#error = null;
+      this.#options.onChange?.('status');
     }
 
     await this.start();
@@ -1152,6 +1160,7 @@ export class MatterBroker {
       this.#state = 'failed';
       this.#error = error instanceof Error ? error.message : String(error);
       this.#options.logger.error({ err: error }, 'The Matter fabric did not open again');
+      this.#options.onChange?.('status');
     });
   }
 

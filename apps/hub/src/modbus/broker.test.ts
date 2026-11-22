@@ -13,7 +13,7 @@ import { NOTHING_TAKEN } from '../domain/taken.js';
 import { memoryModbusStore } from '../persistence/modbus.js';
 import { startModbusServer, type FakeModbusServer } from '../testing/modbus-server.js';
 
-import { ModbusBroker, modbusDeviceKeyOf } from './broker.js';
+import { ModbusBroker, modbusDeviceKeyOf, type ModbusBrokerOptions } from './broker.js';
 import { ModbusPool } from './client.js';
 
 /** A relay board's template: a coil read and written, a setpoint with limits. */
@@ -80,9 +80,13 @@ afterEach(async () => {
  * A broker over a fake server, its store in memory, searching the fake server's port.
  *
  * @param vendors - The vendors loaded.
+ * @param onChange - Told what the page shows changed.
  * @returns The broker, started.
  */
-async function broker(vendors: LoadedVendor[] = []): Promise<ModbusBroker> {
+async function broker(
+  vendors: LoadedVendor[] = [],
+  onChange?: ModbusBrokerOptions['onChange'],
+): Promise<ModbusBroker> {
   server = await startModbusServer();
   pool = new ModbusPool({ gapMs: 0 });
 
@@ -94,6 +98,7 @@ async function broker(vendors: LoadedVendor[] = []): Promise<ModbusBroker> {
     takenHosts: () => Promise.resolve(new Set()),
     isSearchTimed: false,
     searchPort: server.port,
+    ...(onChange === undefined ? {} : { onChange }),
   });
 
   await started.start();
@@ -207,6 +212,30 @@ describe('the network search', () => {
     expect(modbus.found().items[0]?.claims).toEqual([
       { vendorId: 'acme', vendorName: 'Acme', kind: 'acme/meter', model: 'M1', unitId: 1 },
     ]);
+  });
+
+  it('tells the page a search started and ended, and a device came or went', async () => {
+    const parts: string[] = [];
+    const modbus = await broker([], (part) => {
+      parts.push(part);
+    });
+
+    expect(parts).toEqual(['status']);
+    parts.length = 0;
+
+    await modbus.saveSettings({
+      isSearchEnabled: true,
+      ranges: ['127.0.0.1'],
+      intervalMinutes: 120,
+    });
+    await modbus.searched();
+    expect(parts).toEqual(['status', 'found', 'status']);
+    parts.length = 0;
+
+    modbus.notePoll('modbus:device', null);
+    modbus.notePoll('modbus:device', null);
+    modbus.notePoll('modbus:device', 'Timed out');
+    expect(parts).toEqual(['status', 'status']);
   });
 
   it('never offers a server the owner ignores', async () => {

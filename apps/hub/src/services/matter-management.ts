@@ -9,11 +9,10 @@
  * the Wi-Fi a new device is given, never handing its password back. Removing the devices of a node from the house is `api`'s
  * ordinary device removal, which tells the broker through the hub's `forget`.
  */
-import { z } from 'zod';
-
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
+  emptyRequestSchema,
   HUB_MATTER_ANSWER_METHOD,
   HUB_MATTER_CANCEL_METHOD,
   HUB_MATTER_COMMISSION_METHOD,
@@ -49,6 +48,7 @@ import {
 import type { TakenDevices } from '../domain/taken.js';
 import type { MatterBroker } from '../matter/broker.js';
 
+import { told, type BrokerChanged } from './broker-events.js';
 import type { DiscoveryService } from './discovery.js';
 
 /** How many removals may wait on their nodes at once: a node that does not answer takes a while. */
@@ -64,6 +64,9 @@ export type MatterManagementOptions = {
 
   /** Reads what is added, for the device each node is in the house. */
   readonly taken: () => Promise<TakenDevices>;
+
+  /** Told what a method that succeeded changed, for the page's live event. */
+  readonly changed?: BrokerChanged;
 };
 
 /**
@@ -113,6 +116,7 @@ export async function matterNodesView(options: MatterManagementOptions): Promise
  */
 export function serveMatter(options: MatterManagementOptions): BusSubscription[] {
   const { client, broker } = options;
+  const changed = options.changed ?? ((): void => undefined);
 
   return [
     client.serve(
@@ -154,7 +158,11 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
        * @param request - The job and the answer.
        * @returns The job.
        */
-      (request) => broker.answer(request.jobId, request.isAccepted, request.wifi),
+      (request) =>
+        told(broker.answer(request.jobId, request.isAccepted, request.wifi), changed, {
+          broker: 'matter',
+          part: 'status',
+        }),
     ),
 
     client.serve(
@@ -167,7 +175,8 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
        * @param request - The job.
        * @returns The job, as it now stands.
        */
-      (request) => broker.cancel(request.jobId),
+      (request) =>
+        told(broker.cancel(request.jobId), changed, { broker: 'matter', part: 'status' }),
     ),
 
     client.serve(
@@ -210,12 +219,16 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
        * @param request - Its pairing code, and whether it is shared or a new device.
        * @returns The job, running.
        */
-      (request) => broker.commission(request.code, request.mode),
+      (request) =>
+        told(broker.commission(request.code, request.mode), changed, {
+          broker: 'matter',
+          part: 'status',
+        }),
     ),
 
     client.serve(
       busSubjects.service(HUB_SERVICE, HUB_MATTER_NETWORKS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Says which networks a new device is given.
@@ -235,7 +248,8 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
        * @param request - The Wi-Fi, or null.
        * @returns The networks, as they now are.
        */
-      async (request) => broker.saveNetworks(request),
+      async (request) =>
+        told(await broker.saveNetworks(request), changed, { broker: 'matter', part: 'networks' }),
     ),
 
     client.serve(
@@ -248,7 +262,14 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
        * @param request - Which.
        * @returns Whether it was on it.
        */
-      async (request) => ({ isRemoved: await broker.decommission(request.nodeId) }),
+      async (request) =>
+        told(
+          { isRemoved: await broker.decommission(request.nodeId) },
+          changed,
+          { broker: 'matter', part: 'nodes' },
+          { broker: 'matter', part: 'network' },
+          { broker: 'matter', part: 'status' },
+        ),
       { concurrency: REMOVE_CONCURRENCY },
     ),
 
@@ -262,9 +283,14 @@ export function serveMatter(options: MatterManagementOptions): BusSubscription[]
        * @param request - Which node, and which endpoint behind it.
        * @returns Whether it was removed.
        */
-      async (request) => ({
-        isRestored: await broker.restore(matterDeviceKey(request.nodeId, request.endpoint)),
-      }),
+      async (request) =>
+        told(
+          {
+            isRestored: await broker.restore(matterDeviceKey(request.nodeId, request.endpoint)),
+          },
+          changed,
+          { broker: 'matter', part: 'nodes' },
+        ),
     ),
   ];
 }

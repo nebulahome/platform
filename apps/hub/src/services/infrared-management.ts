@@ -11,11 +11,10 @@
  * `infrared_import_parse` reads pasted codes or a dropped file, `infrared_import` adds the ones
  * kept, and `infrared_code_formats` writes a code as Show code copies it.
  */
-import { z } from 'zod';
-
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
+  emptyRequestSchema,
   HUB_INFRARED_BLASTERS_METHOD,
   HUB_INFRARED_BUTTON_MOVE_METHOD,
   HUB_INFRARED_BUTTON_PRESS_METHOD,
@@ -49,14 +48,21 @@ import {
 import type { InfraredBroker } from '../infrared/broker.js';
 import { infraredCodeFormats, parseInfraredImport } from '../infrared/codes.js';
 
+import { told, type BrokerChanged } from './broker-events.js';
+
 /**
  * Serves the Infrared broker's methods.
  *
  * @param client - The hub's bus client.
  * @param broker - The broker.
+ * @param changed - Told what a method that succeeded changed, for the page's live event.
  * @returns The subscriptions, to drop on stop.
  */
-export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSubscription[] {
+export function serveInfrared(
+  client: BusClient,
+  broker: InfraredBroker,
+  changed: BrokerChanged = () => undefined,
+): BusSubscription[] {
   /**
    * One method of the broker's.
    *
@@ -68,7 +74,7 @@ export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSub
   return [
     client.serve(
       subject(HUB_INFRARED_STATUS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Says where the broker stands.
@@ -80,7 +86,7 @@ export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSub
 
     client.serve(
       subject(HUB_INFRARED_BLASTERS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the blasters.
@@ -92,7 +98,7 @@ export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSub
 
     client.serve(
       subject(HUB_INFRARED_REMOTES_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the remotes.
@@ -125,7 +131,13 @@ export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSub
        * @param request - The remote.
        * @returns It; a new one with its device once added.
        */
-      async (request) => broker.saveRemote(request),
+      async (request) =>
+        told(
+          await broker.saveRemote(request),
+          changed,
+          { broker: 'infrared', part: 'remotes' },
+          { broker: 'infrared', part: 'status' },
+        ),
     ),
 
     client.serve(
@@ -138,7 +150,13 @@ export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSub
        * @param request - The remote.
        * @returns Whether there was one.
        */
-      async (request) => ({ isRemoved: await broker.removeRemote(request.id) }),
+      async (request) =>
+        told(
+          { isRemoved: await broker.removeRemote(request.id) },
+          changed,
+          { broker: 'infrared', part: 'remotes' },
+          { broker: 'infrared', part: 'status' },
+        ),
     ),
 
     client.serve(
@@ -151,7 +169,8 @@ export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSub
        * @param request - The button.
        * @returns It, saved.
        */
-      async (request) => broker.saveButton(request),
+      async (request) =>
+        told(await broker.saveButton(request), changed, { broker: 'infrared', part: 'remotes' }),
     ),
 
     client.serve(
@@ -164,7 +183,11 @@ export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSub
        * @param request - The button, and the cell.
        * @returns It, moved.
        */
-      async (request) => broker.moveButton(request.id, request.cell),
+      async (request) =>
+        told(await broker.moveButton(request.id, request.cell), changed, {
+          broker: 'infrared',
+          part: 'remotes',
+        }),
     ),
 
     client.serve(
@@ -177,7 +200,11 @@ export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSub
        * @param request - The button.
        * @returns Whether there was one.
        */
-      async (request) => ({ isRemoved: await broker.removeButton(request.id) }),
+      async (request) =>
+        told({ isRemoved: await broker.removeButton(request.id) }, changed, {
+          broker: 'infrared',
+          part: 'remotes',
+        }),
     ),
 
     client.serve(
@@ -268,7 +295,11 @@ export function serveInfrared(client: BusClient, broker: InfraredBroker): BusSub
        * @param request - The remote, and the codes.
        * @returns The remote, with its buttons.
        */
-      async (request) => broker.importButtons(request.remoteId, request.items),
+      async (request) =>
+        told(await broker.importButtons(request.remoteId, request.items), changed, {
+          broker: 'infrared',
+          part: 'remotes',
+        }),
     ),
 
     client.serve(

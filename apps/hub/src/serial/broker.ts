@@ -21,6 +21,7 @@ import {
   NotFoundError,
   serialLineSchema,
   ValidationError,
+  type BrokerEventPart,
   type BrokerState,
   type SerialBrokerHolder,
   type SerialClaim,
@@ -97,6 +98,9 @@ export type SerialBrokerOptions = {
 
   /** How often the ports are read again; every 30 s, never when 0. */
   readonly rescanMs?: number;
+
+  /** Told that part of what the broker's page shows changed on its own. */
+  readonly onChange?: (part: BrokerEventPart<'serial'>) => void;
 };
 
 /** A port opened, for whom, and how to close it from here. */
@@ -253,6 +257,8 @@ export class SerialBroker {
       this.#error = messageOf(error);
       this.#options.logger.error({ err: error }, 'The Serial broker could not read what it keeps');
     }
+
+    this.#options.onChange?.('status');
   }
 
   /**
@@ -545,6 +551,7 @@ export class SerialBroker {
     this.#ports.delete(portId);
     this.#reachable.delete(portId);
     this.#settle();
+    this.#portsChanged();
 
     return isRemoved;
   }
@@ -965,9 +972,15 @@ export class SerialBroker {
         }
       }
     } catch (error: unknown) {
+      const wasFailed = this.#state === 'failed';
+
       this.#state = 'failed';
       this.#error = messageOf(error);
       this.#options.logger.warn({ err: error }, 'The Serial broker could not read the ports');
+
+      if (!wasFailed) {
+        this.#options.onChange?.('status');
+      }
     }
   }
 
@@ -978,8 +991,12 @@ export class SerialBroker {
     }
 
     const hasNetwork = [...this.#ports.values()].some((port) => port.kind === 'network');
+    const state = this.#seen.size > 0 || hasNetwork ? 'running' : 'unavailable';
 
-    this.#state = this.#seen.size > 0 || hasNetwork ? 'running' : 'unavailable';
+    if (state !== this.#state) {
+      this.#state = state;
+      this.#options.onChange?.('status');
+    }
   }
 
   /**
@@ -1196,8 +1213,16 @@ export class SerialBroker {
     const saved = await this.#options.store.savePort(port);
 
     this.#ports.set(saved.id, saved);
+    this.#portsChanged();
 
     return saved;
+  }
+
+  /** Tells the page the ports changed: their list, the devices on them, and the counts. */
+  #portsChanged(): void {
+    this.#options.onChange?.('ports');
+    this.#options.onChange?.('devices');
+    this.#options.onChange?.('status');
   }
 
   /**

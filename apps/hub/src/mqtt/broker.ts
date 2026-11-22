@@ -143,6 +143,7 @@ export class MqttBroker {
   readonly #deviceListeners = new Set<DeviceListener>();
   readonly #devicesListeners = new Set<() => void>();
   readonly #stateListeners = new Set<(state: BrokerState) => void>();
+  readonly #clientsListeners = new Set<() => void>();
   #db: DatabaseSync | undefined;
   #principals: PrincipalStore | undefined;
   #store: MqttStore | undefined;
@@ -284,6 +285,20 @@ export class MqttBroker {
 
     return () => {
       this.#stateListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Follows the clients connecting and disconnecting.
+   *
+   * @param listener - Told each time one comes or goes.
+   * @returns What stops following.
+   */
+  public onClients(listener: () => void): () => void {
+    this.#clientsListeners.add(listener);
+
+    return () => {
+      this.#clientsListeners.delete(listener);
     };
   }
 
@@ -647,6 +662,10 @@ export class MqttBroker {
 
       /** Reports the clients online again: one came or went. */
       onSessionsChanged: (): void => {
+        for (const listener of this.#clientsListeners) {
+          listener();
+        }
+
         this.#reportBroker();
       },
     });

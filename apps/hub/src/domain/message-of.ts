@@ -1,6 +1,7 @@
 /**
  * A failure in a sentence, as the brokers hand it to the page.
  */
+import { errorMessage } from '@nebulahome/contracts';
 
 /**
  * A failure in a sentence, cut to a length a page and a stored row can carry.
@@ -9,5 +10,5 @@
  * @returns Its message, cut.
  */
 export function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 512);
+  return errorMessage(error, 512);
 }

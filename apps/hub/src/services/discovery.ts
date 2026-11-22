@@ -19,6 +19,7 @@
  */
 import { createHash } from 'node:crypto';
 
+import { delay } from '@nebulahome/bus';
 import {
   BLUETOOTH_VENDOR,
   DISCOVERY_NEW_FOR_MS,
@@ -366,32 +367,6 @@ function addressOf(config: JsonObject): string {
  */
 function isAborted(signal: AbortSignal): boolean {
   return signal.aborted;
-}
-
-/**
- * Waits, unless told to stop first.
- *
- * @param ms - How long.
- * @param signal - Ends the wait early.
- * @returns A promise that settles when the time is up or the signal fires.
- */
-async function pause(ms: number, signal: AbortSignal): Promise<void> {
-  if (signal.aborted) {
-    return;
-  }
-
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms);
-
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer);
-        resolve();
-      },
-      { once: true },
-    );
-  });
 }
 
 /**
@@ -1032,7 +1007,7 @@ export class DiscoveryService {
       }
 
       // eslint-disable-next-line no-await-in-loop -- the pause between two listenings, see above
-      await pause(restartMs, signal);
+      await delay(restartMs, signal);
     }
   }
 

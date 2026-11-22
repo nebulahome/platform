@@ -7,11 +7,10 @@
  * `thread_restart` and `thread_remove` change the border router; `thread_network_key` and
  * `thread_dataset` read the network's secrets from the border router, which `api` audits.
  */
-import { z } from 'zod';
-
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
+  emptyRequestSchema,
   HUB_SERVICE,
   HUB_THREAD_BORDER_ROUTERS_METHOD,
   HUB_THREAD_DATASET_METHOD,
@@ -33,14 +32,21 @@ import {
 
 import type { ThreadBroker } from '../thread/broker.js';
 
+import { told, type BrokerChanged } from './broker-events.js';
+
 /**
  * Serves the Thread broker's methods.
  *
  * @param client - The hub's bus client.
  * @param broker - The broker.
+ * @param changed - Told what a method that succeeded changed, for the page's live event.
  * @returns The subscriptions, to drop on stop.
  */
-export function serveThread(client: BusClient, broker: ThreadBroker): BusSubscription[] {
+export function serveThread(
+  client: BusClient,
+  broker: ThreadBroker,
+  changed: BrokerChanged = () => undefined,
+): BusSubscription[] {
   /**
    * One method of the broker's.
    *
@@ -52,7 +58,7 @@ export function serveThread(client: BusClient, broker: ThreadBroker): BusSubscri
   return [
     client.serve(
       subject(HUB_THREAD_STATUS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Says where the broker stands.
@@ -64,7 +70,7 @@ export function serveThread(client: BusClient, broker: ThreadBroker): BusSubscri
 
     client.serve(
       subject(HUB_THREAD_RADIOS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the ports a radio may be on.
@@ -97,7 +103,8 @@ export function serveThread(client: BusClient, broker: ThreadBroker): BusSubscri
        * @param request - The border router, the network, and the hand-off to Matter.
        * @returns Where the broker stands, the job running.
        */
-      async (request) => broker.setup(request),
+      async (request) =>
+        told(await broker.setup(request), changed, { broker: 'thread', part: 'status' }),
     ),
 
     client.serve(
@@ -110,7 +117,8 @@ export function serveThread(client: BusClient, broker: ThreadBroker): BusSubscri
        * @param request - What changes.
        * @returns Where the broker stands.
        */
-      async (request) => broker.saveSettings(request),
+      async (request) =>
+        told(await broker.saveSettings(request), changed, { broker: 'thread', part: 'status' }),
     ),
 
     client.serve(
@@ -123,36 +131,50 @@ export function serveThread(client: BusClient, broker: ThreadBroker): BusSubscri
        * @param request - Its dataset.
        * @returns Where the broker stands.
        */
-      async (request) => broker.join(request.dataset),
+      async (request) =>
+        told(
+          await broker.join(request.dataset),
+          changed,
+          { broker: 'thread', part: 'status' },
+          { broker: 'thread', part: 'devices' },
+          { broker: 'thread', part: 'border-routers' },
+        ),
     ),
 
     client.serve(
       subject(HUB_THREAD_RESTART_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Restarts the platform's border router.
        *
        * @returns Where the broker stands.
        */
-      async () => broker.restart(),
+      async () => told(await broker.restart(), changed, { broker: 'thread', part: 'status' }),
     ),
 
     client.serve(
       subject(HUB_THREAD_REMOVE_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Removes the border router.
        *
        * @returns Whether there was one.
        */
-      async () => broker.remove(),
+      async () =>
+        told(
+          await broker.remove(),
+          changed,
+          { broker: 'thread', part: 'status' },
+          { broker: 'thread', part: 'devices' },
+          { broker: 'thread', part: 'border-routers' },
+        ),
     ),
 
     client.serve(
       subject(HUB_THREAD_NETWORK_KEY_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Reads the network key from the border router.
@@ -164,7 +186,7 @@ export function serveThread(client: BusClient, broker: ThreadBroker): BusSubscri
 
     client.serve(
       subject(HUB_THREAD_DATASET_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Reads the active dataset from the border router.
@@ -176,7 +198,7 @@ export function serveThread(client: BusClient, broker: ThreadBroker): BusSubscri
 
     client.serve(
       subject(HUB_THREAD_BORDER_ROUTERS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the border routers heard.
@@ -188,7 +210,7 @@ export function serveThread(client: BusClient, broker: ThreadBroker): BusSubscri
 
     client.serve(
       subject(HUB_THREAD_DEVICES_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the nodes of the network.

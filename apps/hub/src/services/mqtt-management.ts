@@ -13,11 +13,10 @@
  * `mqtt_credentials` answers the supervisor alone: a username that reaches a container's topics
  * is for the container the supervisor runs, and for nobody else on the bus.
  */
-import { z } from 'zod';
-
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
+  emptyRequestSchema,
   HUB_MQTT_CLIENT_ADD_METHOD,
   HUB_MQTT_CLIENT_REMOVE_METHOD,
   HUB_MQTT_CLIENTS_METHOD,
@@ -47,6 +46,7 @@ import {
 import type { TakenDevices } from '../domain/taken.js';
 import type { MqttBroker } from '../mqtt/broker.js';
 
+import { told, type BrokerChanged } from './broker-events.js';
 import type { DiscoveryService } from './discovery.js';
 
 /** The one service a container's username is given to. */
@@ -62,6 +62,9 @@ export type MqttManagementOptions = {
 
   /** Reads what is added, for the device each one the broker hears is in the house. */
   readonly taken: () => Promise<TakenDevices>;
+
+  /** Told what a method that succeeded changed, for the page's live event. */
+  readonly changed?: BrokerChanged;
 };
 
 /**
@@ -103,6 +106,7 @@ export async function mqttDevicesView(options: MqttManagementOptions): Promise<M
  */
 export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
   const { client, broker } = options;
+  const changed = options.changed ?? ((): void => undefined);
 
   /**
    * One method of the broker's.
@@ -115,7 +119,7 @@ export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
   return [
     client.serve(
       subject(HUB_MQTT_STATUS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Says where the broker stands.
@@ -127,7 +131,7 @@ export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
 
     client.serve(
       subject(HUB_MQTT_DEVICES_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the devices the broker hears.
@@ -160,24 +164,31 @@ export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
        * @param settings - Them.
        * @returns Where the broker stands then.
        */
-      async (settings) => broker.saveSettings(settings),
+      async (settings) =>
+        told(await broker.saveSettings(settings), changed, { broker: 'mqtt', part: 'status' }),
     ),
 
     client.serve(
       subject(HUB_MQTT_RESTART_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Stops the broker and starts it again.
        *
        * @returns Where the broker stands then.
        */
-      async () => broker.restart(),
+      async () =>
+        told(
+          await broker.restart(),
+          changed,
+          { broker: 'mqtt', part: 'status' },
+          { broker: 'mqtt', part: 'clients' },
+        ),
     ),
 
     client.serve(
       subject(HUB_MQTT_CLIENTS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists who may connect, and who is connected.
@@ -212,10 +223,11 @@ export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
        * @param request - Its username, label and reach.
        * @returns Its username and password, this once.
        */
-      async (request) => ({
-        username: request.username,
-        password: await broker.addClient(request),
-      }),
+      async (request) =>
+        told({ username: request.username, password: await broker.addClient(request) }, changed, {
+          broker: 'mqtt',
+          part: 'clients',
+        }),
     ),
 
     client.serve(
@@ -228,7 +240,11 @@ export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
        * @param request - Which.
        * @returns Whether there was one.
        */
-      (request) => ({ isRemoved: broker.removeClient(request.username) }),
+      (request) =>
+        told({ isRemoved: broker.removeClient(request.username) }, changed, {
+          broker: 'mqtt',
+          part: 'clients',
+        }),
     ),
 
     client.serve(
@@ -246,7 +262,7 @@ export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
 
     client.serve(
       subject(HUB_MQTT_MAPPINGS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the owner's mappings.
@@ -266,7 +282,13 @@ export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
        * @param mapping - It.
        * @returns It, with its id.
        */
-      (mapping) => broker.saveMapping(mapping),
+      (mapping) =>
+        told(
+          broker.saveMapping(mapping),
+          changed,
+          { broker: 'mqtt', part: 'mappings' },
+          { broker: 'mqtt', part: 'devices' },
+        ),
     ),
 
     client.serve(
@@ -279,7 +301,13 @@ export function serveMqtt(options: MqttManagementOptions): BusSubscription[] {
        * @param request - Which.
        * @returns Whether there was one.
        */
-      (request) => ({ isRemoved: broker.removeMapping(request.id) }),
+      (request) =>
+        told(
+          { isRemoved: broker.removeMapping(request.id) },
+          changed,
+          { broker: 'mqtt', part: 'mappings' },
+          { broker: 'mqtt', part: 'devices' },
+        ),
     ),
 
     client.serve(

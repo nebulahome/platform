@@ -9,11 +9,10 @@
  * add dialog and the template editor. Removing a device from the house is `api`'s ordinary device
  * removal, which tells the broker through the hub's `forget`.
  */
-import { z } from 'zod';
-
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
+  emptyRequestSchema,
   HUB_MODBUS_DEVICE_REMOVE_METHOD,
   HUB_MODBUS_DEVICE_SAVE_METHOD,
   HUB_MODBUS_DEVICES_METHOD,
@@ -45,6 +44,8 @@ import {
 import type { TakenDevices } from '../domain/taken.js';
 import type { ModbusBroker } from '../modbus/broker.js';
 
+import { told, type BrokerChanged } from './broker-events.js';
+
 /** What the Modbus methods need. */
 export type ModbusManagementOptions = {
   readonly client: BusClient;
@@ -52,6 +53,9 @@ export type ModbusManagementOptions = {
 
   /** Reads what is added, for the device each one is in the house. */
   readonly taken: () => Promise<TakenDevices>;
+
+  /** Told what a method that succeeded changed, for the page's live event. */
+  readonly changed?: BrokerChanged;
 };
 
 /**
@@ -62,6 +66,7 @@ export type ModbusManagementOptions = {
  */
 export function serveModbus(options: ModbusManagementOptions): BusSubscription[] {
   const { client, broker } = options;
+  const changed = options.changed ?? ((): void => undefined);
 
   /**
    * One method of the broker's.
@@ -83,7 +88,7 @@ export function serveModbus(options: ModbusManagementOptions): BusSubscription[]
   return [
     client.serve(
       subject(HUB_MODBUS_STATUS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Says where the broker stands.
@@ -95,7 +100,7 @@ export function serveModbus(options: ModbusManagementOptions): BusSubscription[]
 
     client.serve(
       subject(HUB_MODBUS_DEVICES_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the devices.
@@ -118,7 +123,10 @@ export function serveModbus(options: ModbusManagementOptions): BusSubscription[]
       async (input) => {
         const saved = await broker.saveDevice(input);
 
-        return (await viewOf(saved.id)) ?? null;
+        return told((await viewOf(saved.id)) ?? null, changed, {
+          broker: 'modbus',
+          part: 'devices',
+        });
       },
     ),
 
@@ -132,12 +140,19 @@ export function serveModbus(options: ModbusManagementOptions): BusSubscription[]
        * @param request - Which.
        * @returns Whether there was one.
        */
-      async (request) => ({ isRemoved: await broker.removeDevice(request.id) }),
+      async (request) =>
+        told(
+          { isRemoved: await broker.removeDevice(request.id) },
+          changed,
+          { broker: 'modbus', part: 'devices' },
+          { broker: 'modbus', part: 'found' },
+          { broker: 'modbus', part: 'status' },
+        ),
     ),
 
     client.serve(
       subject(HUB_MODBUS_TEMPLATES_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the templates.
@@ -157,7 +172,13 @@ export function serveModbus(options: ModbusManagementOptions): BusSubscription[]
        * @param request - Its id, when it is not new, and the template.
        * @returns It, saved.
        */
-      (request) => broker.saveTemplate(request.id, request.document),
+      async (request) =>
+        told(
+          await broker.saveTemplate(request.id, request.document),
+          changed,
+          { broker: 'modbus', part: 'templates' },
+          { broker: 'modbus', part: 'devices' },
+        ),
     ),
 
     client.serve(
@@ -170,7 +191,11 @@ export function serveModbus(options: ModbusManagementOptions): BusSubscription[]
        * @param request - Which.
        * @returns Whether there was one.
        */
-      async (request) => ({ isRemoved: await broker.removeTemplate(request.id) }),
+      async (request) =>
+        told({ isRemoved: await broker.removeTemplate(request.id) }, changed, {
+          broker: 'modbus',
+          part: 'templates',
+        }),
     ),
 
     client.serve(
@@ -183,12 +208,13 @@ export function serveModbus(options: ModbusManagementOptions): BusSubscription[]
        * @param settings - The settings.
        * @returns Where the broker stands.
        */
-      (settings) => broker.saveSettings(settings),
+      async (settings) =>
+        told(await broker.saveSettings(settings), changed, { broker: 'modbus', part: 'status' }),
     ),
 
     client.serve(
       subject(HUB_MODBUS_SEARCH_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Searches the network now.
@@ -200,7 +226,7 @@ export function serveModbus(options: ModbusManagementOptions): BusSubscription[]
 
     client.serve(
       subject(HUB_MODBUS_FOUND_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the servers found, and those ignored.
@@ -220,9 +246,12 @@ export function serveModbus(options: ModbusManagementOptions): BusSubscription[]
        * @param request - The server, and whether it is ignored.
        * @returns How many are ignored.
        */
-      async (request) => ({
-        count: await broker.ignore(request.host, request.port, request.isIgnored),
-      }),
+      async (request) =>
+        told(
+          { count: await broker.ignore(request.host, request.port, request.isIgnored) },
+          changed,
+          { broker: 'modbus', part: 'found' },
+        ),
     ),
 
     client.serve(

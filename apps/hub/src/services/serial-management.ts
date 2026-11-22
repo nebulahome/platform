@@ -8,11 +8,10 @@
  * `serial_console_*` methods are the owner's console. A device on a port is added and removed the
  * way any device is: its instance claims the port as it starts, and lets go as it is removed.
  */
-import { z } from 'zod';
-
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
+  emptyRequestSchema,
   HUB_SERIAL_CONSOLE_CLOSE_METHOD,
   HUB_SERIAL_CONSOLE_OPEN_METHOD,
   HUB_SERIAL_CONSOLE_READ_METHOD,
@@ -40,14 +39,21 @@ import {
 
 import type { SerialBroker } from '../serial/broker.js';
 
+import { told, type BrokerChanged } from './broker-events.js';
+
 /**
  * Serves the Serial broker's methods.
  *
  * @param client - The hub's bus client.
  * @param broker - The broker.
+ * @param changed - Told what a method that succeeded changed, for the page's live event.
  * @returns The subscriptions, to drop on stop.
  */
-export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscription[] {
+export function serveSerial(
+  client: BusClient,
+  broker: SerialBroker,
+  changed: BrokerChanged = () => undefined,
+): BusSubscription[] {
   /**
    * One method of the broker's.
    *
@@ -59,7 +65,7 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
   return [
     client.serve(
       subject(HUB_SERIAL_STATUS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Says where the broker stands.
@@ -71,7 +77,7 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
 
     client.serve(
       subject(HUB_SERIAL_PORTS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the ports.
@@ -83,7 +89,7 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
 
     client.serve(
       subject(HUB_SERIAL_DEVICES_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the devices reached through a port.
@@ -103,7 +109,13 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
        * @param settings - The settings.
        * @returns Where the broker stands.
        */
-      async (settings) => broker.saveSettings(settings),
+      async (settings) =>
+        told(
+          await broker.saveSettings(settings),
+          changed,
+          { broker: 'serial', part: 'status' },
+          { broker: 'serial', part: 'ports' },
+        ),
     ),
 
     client.serve(
@@ -116,7 +128,11 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
        * @param request - The port, and whether it is ignored.
        * @returns The port.
        */
-      async (request) => broker.ignore(request.portId, request.isIgnored),
+      async (request) =>
+        told(await broker.ignore(request.portId, request.isIgnored), changed, {
+          broker: 'serial',
+          part: 'ports',
+        }),
     ),
 
     client.serve(
@@ -129,7 +145,13 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
        * @param request - The port.
        * @returns It.
        */
-      async (request) => broker.saveNetworkPort(request),
+      async (request) =>
+        told(
+          await broker.saveNetworkPort(request),
+          changed,
+          { broker: 'serial', part: 'ports' },
+          { broker: 'serial', part: 'status' },
+        ),
     ),
 
     client.serve(
@@ -155,7 +177,13 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
        * @param request - Which.
        * @returns The port, free.
        */
-      async (request) => broker.release(request.portId),
+      async (request) =>
+        told(
+          await broker.release(request.portId),
+          changed,
+          { broker: 'serial', part: 'ports' },
+          { broker: 'serial', part: 'devices' },
+        ),
     ),
 
     client.serve(
@@ -168,7 +196,13 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
        * @param request - Which.
        * @returns Whether there was one.
        */
-      async (request) => ({ isRemoved: await broker.forget(request.portId) }),
+      async (request) =>
+        told(
+          { isRemoved: await broker.forget(request.portId) },
+          changed,
+          { broker: 'serial', part: 'ports' },
+          { broker: 'serial', part: 'status' },
+        ),
     ),
 
     client.serve(
@@ -181,7 +215,11 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
        * @param request - The port and its line.
        * @returns The console.
        */
-      async (request) => broker.openConsole(request.portId, request.line),
+      async (request) =>
+        told(await broker.openConsole(request.portId, request.line), changed, {
+          broker: 'serial',
+          part: 'ports',
+        }),
     ),
 
     client.serve(
@@ -222,7 +260,11 @@ export function serveSerial(client: BusClient, broker: SerialBroker): BusSubscri
        * @param request - Which.
        * @returns Whether there was one.
        */
-      async (request) => ({ isClosed: await broker.closeConsole(request.consoleId) }),
+      async (request) =>
+        told({ isClosed: await broker.closeConsole(request.consoleId) }, changed, {
+          broker: 'serial',
+          part: 'ports',
+        }),
     ),
   ];
 }

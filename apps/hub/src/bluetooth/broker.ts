@@ -64,6 +64,7 @@ import {
   type BluetoothScanner,
   type BluetoothSettings,
   type BluetoothStatus,
+  type BrokerEventPart,
   type BrokerState,
   type JsonObject,
   type MATTER_BLE_PROBLEMS,
@@ -205,6 +206,9 @@ export type BluetoothBrokerOptions = {
 
   /** The clock, in milliseconds. */
   readonly now?: () => number;
+
+  /** Told that part of what the broker's page shows changed on its own. */
+  readonly onChange?: (part: BrokerEventPart<'bluetooth'>) => void;
 };
 
 /** One scanner hearing an address. */
@@ -404,6 +408,7 @@ export class BluetoothBroker {
         { err: error },
         'The Bluetooth broker could not read what it keeps',
       );
+      this.#options.onChange?.('status');
 
       return;
     }
@@ -1292,6 +1297,9 @@ export class BluetoothBroker {
     this.#proxies.delete(deviceId);
     this.#proxyNotes.delete(deviceId);
     this.#scanners.delete(deviceId);
+    this.#options.onChange?.('scanners');
+    this.#options.onChange?.('devices');
+    this.#options.onChange?.('status');
 
     for (const entry of this.#heard.values()) {
       entry.hearings.delete(deviceId);
@@ -1409,7 +1417,16 @@ export class BluetoothBroker {
    * @returns Once looked.
    */
   async #refresh(): Promise<void> {
-    this.#refreshing = this.#refreshing.then(async () => this.#refreshAdapter());
+    this.#refreshing = this.#refreshing.then(async () => {
+      const before = `${this.#adapter?.id ?? ''} ${this.#adapterProblem ?? ''}`;
+
+      await this.#refreshAdapter();
+
+      if (`${this.#adapter?.id ?? ''} ${this.#adapterProblem ?? ''}` !== before) {
+        this.#options.onChange?.('status');
+        this.#options.onChange?.('scanners');
+      }
+    });
     await this.#refreshing;
   }
 
@@ -1504,12 +1521,17 @@ export class BluetoothBroker {
       return;
     }
 
-    this.#state =
+    const state =
       this.#adapter !== null || this.#proxies.size > 0
         ? 'running'
         : this.#adapterProblem === 'disabled'
           ? 'disabled'
           : 'unavailable';
+
+    if (state !== this.#state) {
+      this.#state = state;
+      this.#options.onChange?.('status');
+    }
   }
 
   /**
@@ -2085,6 +2107,8 @@ export class BluetoothBroker {
 
     this.#proxies.set(saved.integrationId, saved);
     this.#settle();
+    this.#options.onChange?.('scanners');
+    this.#options.onChange?.('status');
   }
 
   /**

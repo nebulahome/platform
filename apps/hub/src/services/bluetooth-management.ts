@@ -10,8 +10,6 @@
  * being one. Removing a Bluetooth device from the house is `api`'s ordinary
  * device removal.
  */
-import { z } from 'zod';
-
 import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   bluetoothAddRequestSchema,
@@ -23,6 +21,7 @@ import {
   bluetoothProxyJobRequestSchema,
   bluetoothSettingsSchema,
   busSubjects,
+  emptyRequestSchema,
   HUB_BLUETOOTH_ADD_METHOD,
   HUB_BLUETOOTH_DEVICES_METHOD,
   HUB_BLUETOOTH_FOUND_METHOD,
@@ -43,14 +42,21 @@ import {
 
 import type { BluetoothBroker } from '../bluetooth/broker.js';
 
+import { told, type BrokerChanged } from './broker-events.js';
+
 /**
  * Serves the Bluetooth broker's methods.
  *
  * @param client - The hub's bus client.
  * @param broker - The broker.
+ * @param changed - Told what a method that succeeded changed, for the page's live event.
  * @returns The subscriptions, to drop on stop.
  */
-export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusSubscription[] {
+export function serveBluetooth(
+  client: BusClient,
+  broker: BluetoothBroker,
+  changed: BrokerChanged = () => undefined,
+): BusSubscription[] {
   /**
    * One method of the broker's.
    *
@@ -62,7 +68,7 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
   return [
     client.serve(
       subject(HUB_BLUETOOTH_STATUS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Says where the broker stands.
@@ -82,12 +88,18 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
        * @param settings - The settings.
        * @returns Where the broker stands.
        */
-      async (settings) => broker.saveSettings(settings),
+      async (settings) =>
+        told(
+          await broker.saveSettings(settings),
+          changed,
+          { broker: 'bluetooth', part: 'status' },
+          { broker: 'bluetooth', part: 'scanners' },
+        ),
     ),
 
     client.serve(
       subject(HUB_BLUETOOTH_DEVICES_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the house's Bluetooth devices.
@@ -99,7 +111,7 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
 
     client.serve(
       subject(HUB_BLUETOOTH_MAP_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Says who hears what.
@@ -111,7 +123,7 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
 
     client.serve(
       subject(HUB_BLUETOOTH_NEARBY_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists everything heard lately.
@@ -136,7 +148,7 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
 
     client.serve(
       subject(HUB_BLUETOOTH_FOUND_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the devices recognised and not in the house, and those ignored.
@@ -156,7 +168,11 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
        * @param request - The address, and which way.
        * @returns How many are ignored.
        */
-      async (request) => ({ count: await broker.ignore(request.address, request.isIgnored) }),
+      async (request) =>
+        told({ count: await broker.ignore(request.address, request.isIgnored) }, changed, {
+          broker: 'bluetooth',
+          part: 'found',
+        }),
     ),
 
     client.serve(
@@ -169,7 +185,13 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
        * @param request - The address, and the driver when more than one recognises it.
        * @returns The device added.
        */
-      async (request) => broker.add(request.address, request.kind),
+      async (request) =>
+        told(
+          await broker.add(request.address, request.kind),
+          changed,
+          { broker: 'bluetooth', part: 'found' },
+          { broker: 'bluetooth', part: 'devices' },
+        ),
 
       // Each waits up to 15 s for the house: one at a time, a second would outwait the api.
       { concurrency: 4 },
@@ -177,7 +199,7 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
 
     client.serve(
       subject(HUB_BLUETOOTH_SCANNERS_METHOD),
-      z.object({}),
+      emptyRequestSchema,
 
       /**
        * Lists the scanners.
@@ -210,7 +232,11 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
        * @param request - The device: the hub picks how it scans.
        * @returns The job, running.
        */
-      async (request) => broker.addProxy(request.deviceId),
+      async (request) =>
+        told(await broker.addProxy(request.deviceId), changed, {
+          broker: 'bluetooth',
+          part: 'scanners',
+        }),
     ),
 
     client.serve(
@@ -249,7 +275,13 @@ export function serveBluetooth(client: BusClient, broker: BluetoothBroker): BusS
        * @param request - The proxy.
        * @returns Whether it was one.
        */
-      async (request) => ({ isRemoved: await broker.removeProxy(request.deviceId) }),
+      async (request) =>
+        told(
+          { isRemoved: await broker.removeProxy(request.deviceId) },
+          changed,
+          { broker: 'bluetooth', part: 'scanners' },
+          { broker: 'bluetooth', part: 'status' },
+        ),
     ),
   ];
 }

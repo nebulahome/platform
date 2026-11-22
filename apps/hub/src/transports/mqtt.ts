@@ -27,9 +27,10 @@
  * order, on the one topic: a device whose one switch is two nodes to its firmware - a Bambu H2D's
  * two chamber lights - is switched by one command, and a profile has no way to send two.
  *
- * Reconnection is the client's own, with a bounded period. A broker restart must not need `hub` to
- * restart, and the subscriptions - and the announcements - are reapplied on every reconnect
- * because a fresh session starts with none.
+ * Reconnection is the client's own, with a period that doubles while the broker stays away, up to
+ * a minute. A broker restart must not need `hub` to restart, and the subscriptions - and the
+ * announcements - are reapplied on every reconnect because a fresh session starts with none. An
+ * outage is logged once, at its first error; the attempts after it are debug lines.
  */
 import { createHash } from 'node:crypto';
 
@@ -46,8 +47,11 @@ import type {
   TransportSubscription,
 } from '@nebulahome/package-runtime';
 
-/** How long the client waits before trying the broker again. */
+/** How long the client waits before trying the broker again, the first time. */
 const RECONNECT_PERIOD_MS = 5000;
+
+/** The longest wait between two tries, however long the broker has been away. */
+const MAX_RECONNECT_PERIOD_MS = 60_000;
 
 /**
  * How long a session may take to come up.
@@ -210,6 +214,7 @@ async function open(config: MqttConfig, context: TransportContext): Promise<Tran
   let applied: string[] = [];
   let announcements: Announcement[] = [];
   let timers: NodeJS.Timeout[] = [];
+  let hasWarnedOutage = false;
 
   /**
    * Publishes one announcement, reporting rather than throwing when the broker refuses.
@@ -264,6 +269,8 @@ async function open(config: MqttConfig, context: TransportContext): Promise<Tran
   });
 
   client.on('connect', () => {
+    hasWarnedOutage = false;
+    client.options.reconnectPeriod = RECONNECT_PERIOD_MS;
     context.report('up');
 
     // A reconnect gives a fresh session with no subscriptions, so what was applied has to be
@@ -279,13 +286,26 @@ async function open(config: MqttConfig, context: TransportContext): Promise<Tran
 
   client.on('close', () => {
     context.report('down');
+
+    // mqtt.js armed the try that follows this close before this listener ran: the period set
+    // here is the one after it.
+    client.options.reconnectPeriod = Math.min(
+      (client.options.reconnectPeriod ?? RECONNECT_PERIOD_MS) * 2,
+      MAX_RECONNECT_PERIOD_MS,
+    );
   });
 
   client.on('error', (error) => {
-    context.logger.warn(
-      { err: error, broker: safeUrl(config.url) },
-      'MQTT session reported an error',
-    );
+    const fields = { err: error, broker: safeUrl(config.url) };
+
+    if (hasWarnedOutage) {
+      context.logger.debug(fields, 'MQTT session reported an error');
+
+      return;
+    }
+
+    hasWarnedOutage = true;
+    context.logger.warn(fields, 'MQTT session reported an error');
   });
 
   return {

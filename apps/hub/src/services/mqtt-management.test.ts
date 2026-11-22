@@ -12,10 +12,14 @@ import { BusClient } from '@nebulahome/bus';
 import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   busSubjects,
+  ConflictError,
+  HUB_MQTT_CLIENT_ADD_METHOD,
   HUB_MQTT_CREDENTIALS_METHOD,
   HUB_SERVICE,
+  mqttClientAddReplySchema,
   mqttCredentialsReplySchema,
   PermissionError,
+  type BrokerEvent,
 } from '@nebulahome/contracts';
 import { createLogger } from '@nebulahome/logging';
 
@@ -78,5 +82,46 @@ describe('the MQTT broker’s methods', () => {
     await expect(as('api').request(subject, asked, mqttCredentialsReplySchema)).rejects.toThrow(
       PermissionError,
     );
+  });
+
+  it('tell the page what a method changed, and nothing when it failed', async () => {
+    const storageDir = mkdtempSync(path.join(os.tmpdir(), 'hub-mqtt-'));
+    const broker = new MqttBroker({ storageDir, port: 0, logger });
+    const transport = new FakeTransport();
+    const hub = new BusClient({ transport, source: 'hub', logger, requestTimeoutMs: 500 });
+    const api = new BusClient({ transport, source: 'api', logger, requestTimeoutMs: 500 });
+    const changes: BrokerEvent[] = [];
+
+    cleanups.push(() => {
+      rmSync(storageDir, { recursive: true, force: true });
+    });
+    await broker.start();
+    cleanups.push(async () => broker.stop());
+
+    const subscriptions = serveMqtt({
+      client: hub,
+      broker,
+      discovery: () => undefined,
+      taken: () => Promise.resolve(NOTHING_TAKEN),
+      changed: (event) => {
+        changes.push(event);
+      },
+    });
+
+    cleanups.push(() => {
+      for (const subscription of subscriptions) {
+        subscription.unsubscribe();
+      }
+    });
+
+    const subject = busSubjects.service(HUB_SERVICE, HUB_MQTT_CLIENT_ADD_METHOD);
+
+    await api.request(subject, { username: 'sensor' }, mqttClientAddReplySchema);
+    expect(changes).toStrictEqual([{ broker: 'mqtt', part: 'clients' }]);
+
+    await expect(
+      api.request(subject, { username: 'sensor' }, mqttClientAddReplySchema),
+    ).rejects.toThrow(ConflictError);
+    expect(changes).toHaveLength(1);
   });
 });

@@ -18,6 +18,7 @@
  */
 import WebSocket, { type RawData } from 'ws';
 
+import { errorMessage } from '@nebulahome/contracts';
 import type {
   ManagedSocket,
   ManagedSocketClose,
@@ -63,16 +64,6 @@ function errorTextOf(error: Error): string | null {
   return typeof code === 'string' && !error.message.includes(code)
     ? `${code}: ${error.message}`
     : error.message;
-}
-
-/**
- * Says what something thrown was.
- *
- * @param error - What was thrown.
- * @returns Its message.
- */
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /**
@@ -337,7 +328,7 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
     } catch (error: unknown) {
       // A URL the constructor refuses outright - a host with a space in it - is an address
       // with nothing behind it, as far as the bundle is concerned.
-      failSoon(messageOf(error));
+      failSoon(errorMessage(error));
 
       return;
     }
@@ -448,7 +439,7 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
     try {
       headers = typeof source === 'function' ? source() : source;
     } catch (error: unknown) {
-      failSoon(`headers failed: ${messageOf(error)}`);
+      failSoon(`headers failed: ${errorMessage(error)}`);
 
       return;
     }
@@ -467,7 +458,7 @@ export function openWebSocket(options: ManagedSocketOptions): ManagedSocket {
       },
       (error: unknown) => {
         if (!isFinal) {
-          dropped(`headers failed: ${messageOf(error)}`);
+          dropped(`headers failed: ${errorMessage(error)}`);
         }
       },
     );

@@ -135,6 +135,7 @@ import { createLinuxSerialHost } from './serial/host.js';
 import { withAccountLookups } from './services/account-lookups.js';
 import { AccountService } from './services/accounts.js';
 import { serveBluetooth } from './services/bluetooth-management.js';
+import { BrokerEvents } from './services/broker-events.js';
 import {
   loadBundles,
   loadVendor,
@@ -253,6 +254,9 @@ export class HubService {
   /** The devices saying they are set up differently, waited on before they are described again. */
   readonly #setUps = new SetUpWaits();
   readonly #client: BusClient;
+
+  /** What the Brokers pages are told changed, a burst at a time. */
+  readonly #brokerEvents: BrokerEvents;
   readonly #pool: ConnectionPool;
   readonly #identification: IdentificationService;
   readonly #listening = new Map<string, Listening>();
@@ -305,6 +309,11 @@ export class HubService {
   public constructor(options: HubServiceOptions) {
     this.#options = options;
     this.#secretsKey = secretsKeyFrom(options.config.NEBULA_SECRETS_KEY);
+    this.#brokerEvents = new BrokerEvents((event) => {
+      this.#client.publish(busSubjects.brokerEvent(), event);
+    }, options.logger);
+
+    const brokerChanged = this.#brokerEvents.changed;
 
     for (const transport of options.transports ?? []) {
       this.#transports.register(transport);
@@ -341,6 +350,15 @@ export class HubService {
             key.slice(key.indexOf('\n') + 1),
           ),
         ),
+
+      /**
+       * Tells the Modbus page what changed.
+       *
+       * @param part - Which part of it.
+       */
+      onChange: (part) => {
+        brokerChanged({ broker: 'modbus', part });
+      },
     });
     this.#transports.register(createModbusTransport(this.#modbus, this.#modbusPool));
     this.#modbus.onSaved((deviceKeys) => {
@@ -387,6 +405,15 @@ export class HubService {
             { timeoutMs: 5000 },
           )
         ).isDesktop === true,
+
+      /**
+       * Tells the Serial page what changed.
+       *
+       * @param part - Which part of it.
+       */
+      onChange: (part) => {
+        brokerChanged({ broker: 'serial', part });
+      },
     });
     this.#bluetooth = new BluetoothBroker({
       store: databaseBluetoothStore(options.db),
@@ -448,6 +475,15 @@ export class HubService {
             { timeoutMs: 5000 },
           )
         ).isDesktop === true,
+
+      /**
+       * Tells the Bluetooth page what changed.
+       *
+       * @param part - Which part of it.
+       */
+      onChange: (part) => {
+        brokerChanged({ broker: 'bluetooth', part });
+      },
     });
     this.#transports.register(createBluetoothTransport(this.#bluetooth));
 
@@ -480,6 +516,15 @@ export class HubService {
          */
         send: async (deviceId, op, args, timeoutMs) =>
           this.#sendRole(deviceId, op, args, timeoutMs),
+      },
+
+      /**
+       * Tells the Infrared page what changed.
+       *
+       * @param part - Which part of it.
+       */
+      onChange: (part) => {
+        brokerChanged({ broker: 'infrared', part });
       },
     });
     this.#transports.register(createInfraredTransport(this.#infrared));
@@ -538,9 +583,15 @@ export class HubService {
        */
       instances: async () => loadBluetoothInstances(options.db),
 
-      /** Opens the Matter controller again with Thread's diagnostics, or without. */
+      /**
+       * Opens the Matter controller again with Thread's diagnostics, or without, and tells the
+       * Thread page that a setup ended or the border router went.
+       */
       onChange: () => {
         void this.#matter.refresh();
+        brokerChanged({ broker: 'thread', part: 'status' });
+        brokerChanged({ broker: 'thread', part: 'devices' });
+        brokerChanged({ broker: 'thread', part: 'border-routers' });
       },
     });
 
@@ -581,8 +632,18 @@ export class HubService {
          */
         network: async () => this.#thread.matterNetwork(),
       },
+
+      /**
+       * Tells the Matter page what changed.
+       *
+       * @param part - Which part of it.
+       */
+      onChange: (part) => {
+        brokerChanged({ broker: 'matter', part });
+      },
     });
     this.#transports.register(createMatterTransport(this.#matter));
+    this.#followBrokers();
 
     this.#serial.onPlugged((port) => {
       // A device's port came back: started again, its code opens it again.
@@ -962,6 +1023,7 @@ export class HubService {
         ...serveMatter({
           client: this.#client,
           broker: this.#matter,
+          changed: this.#brokerEvents.changed,
 
           /**
            * Discovery, once it has started.
@@ -980,6 +1042,7 @@ export class HubService {
         ...serveModbus({
           client: this.#client,
           broker: this.#modbus,
+          changed: this.#brokerEvents.changed,
 
           /**
            * Reads what is added.
@@ -988,13 +1051,14 @@ export class HubService {
            */
           taken: async () => loadTakenDevices(db),
         }),
-        ...serveSerial(this.#client, this.#serial),
-        ...serveBluetooth(this.#client, this.#bluetooth),
-        ...serveInfrared(this.#client, this.#infrared),
-        ...serveThread(this.#client, this.#thread),
+        ...serveSerial(this.#client, this.#serial, this.#brokerEvents.changed),
+        ...serveBluetooth(this.#client, this.#bluetooth, this.#brokerEvents.changed),
+        ...serveInfrared(this.#client, this.#infrared, this.#brokerEvents.changed),
+        ...serveThread(this.#client, this.#thread, this.#brokerEvents.changed),
         ...serveMqtt({
           client: this.#client,
           broker: this.#mqtt,
+          changed: this.#brokerEvents.changed,
 
           /**
            * Discovery, once it has started.
@@ -1658,6 +1722,49 @@ export class HubService {
   }
 
   /**
+   * Tells the Brokers pages what the brokers announce of themselves: how they stand, the devices
+   * they hear, the nodes, the clients. What only the owner changes is told by the methods that
+   * change it.
+   */
+  #followBrokers(): void {
+    const changed = this.#brokerEvents.changed;
+
+    this.#mqtt.onState(() => {
+      changed({ broker: 'mqtt', part: 'status' });
+    });
+    this.#mqtt.onDevices(() => {
+      changed({ broker: 'mqtt', part: 'devices' });
+      changed({ broker: 'mqtt', part: 'status' });
+    });
+    this.#mqtt.onClients(() => {
+      changed({ broker: 'mqtt', part: 'clients' });
+      changed({ broker: 'mqtt', part: 'status' });
+    });
+    this.#matter.onNodes(() => {
+      changed({ broker: 'matter', part: 'nodes' });
+      changed({ broker: 'matter', part: 'network' });
+      changed({ broker: 'matter', part: 'status' });
+    });
+    this.#bluetooth.onDevices(() => {
+      changed({ broker: 'bluetooth', part: 'found' });
+      changed({ broker: 'bluetooth', part: 'devices' });
+    });
+    this.#bluetooth.onAdapterOff(() => {
+      changed({ broker: 'bluetooth', part: 'status' });
+      changed({ broker: 'bluetooth', part: 'scanners' });
+    });
+    this.#infrared.onDevices(() => {
+      changed({ broker: 'infrared', part: 'remotes' });
+      changed({ broker: 'infrared', part: 'status' });
+    });
+    this.#modbus.onDevices(() => {
+      changed({ broker: 'modbus', part: 'devices' });
+      changed({ broker: 'modbus', part: 'found' });
+      changed({ broker: 'modbus', part: 'status' });
+    });
+  }
+
+  /**
    * Stops everything.
    *
    * @returns A promise that settles once every subscription is dropped and every connection is
@@ -1693,6 +1800,7 @@ export class HubService {
     await this.#bluetooth.stop();
     this.#infrared.stop();
     await this.#thread.stop();
+    this.#brokerEvents.stop();
 
     // Whatever the vendors' own code holds - a UDP port - is let go of with them.
     await Promise.all([...this.#vendors.values()].map(async (vendor) => vendor.release()));

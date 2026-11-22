@@ -20,7 +20,7 @@ import {
   type InfraredCode,
   type InfraredRemoteKind,
 } from '@nebulahome/contracts';
-import { schema, type Database } from '@nebulahome/db';
+import { isUniqueViolation, schema, type Database } from '@nebulahome/db';
 
 /** A remote. */
 export type StoredInfraredRemote = {
@@ -78,31 +78,8 @@ export type InfraredStore = {
   notePressed: (id: string, at: Date) => Promise<void>;
 };
 
-/** PostgreSQL's `unique_violation`. */
-const UNIQUE_VIOLATION = '23505';
-
 const remotes = schema.registry.infraredRemotes;
 const buttons = schema.registry.infraredButtons;
-
-/**
- * Whether a failure is PostgreSQL refusing a duplicate, however deep the driver wrapped it.
- *
- * @param error - Whatever was thrown.
- * @returns True for a unique violation.
- */
-function isDuplicate(error: unknown): boolean {
-  let current: unknown = error;
-
-  for (let depth = 0; depth < 5 && typeof current === 'object' && current !== null; depth += 1) {
-    if ('code' in current && current.code === UNIQUE_VIOLATION) {
-      return true;
-    }
-
-    current = 'cause' in current ? current.cause : undefined;
-  }
-
-  return false;
-}
 
 /**
  * The refusal of a second button in one cell.
@@ -256,7 +233,7 @@ class DatabaseInfraredStore implements InfraredStore {
           ? await this.#db.insert(buttons).values(values).returning()
           : await this.#db.update(buttons).set(values).where(eq(buttons.id, button.id)).returning();
     } catch (error: unknown) {
-      throw isDuplicate(error) ? takenCellError(button) : error;
+      throw isUniqueViolation(error) ? takenCellError(button) : error;
     }
 
     const saved = row === undefined ? undefined : buttonOf(row);

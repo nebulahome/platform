@@ -23,6 +23,7 @@ import {
   NotFoundError,
   ValidationError,
   withModbusEntityIds,
+  type BrokerEventPart,
   type BrokerState,
   type JsonObject,
   type ModbusCapability,
@@ -88,6 +89,9 @@ export type ModbusBrokerOptions = {
 
   /** The port a search knocks on; 502 unless a test says. */
   readonly searchPort?: number;
+
+  /** Told that part of what the broker's page shows changed on its own. */
+  readonly onChange?: (part: BrokerEventPart<'modbus'>) => void;
 };
 
 /** How a device's last poll went. */
@@ -192,6 +196,8 @@ export class ModbusBroker {
       this.#error = messageOf(error);
       this.#options.logger.error({ err: error }, 'The Modbus broker could not read what it keeps');
     }
+
+    this.#options.onChange?.('status');
   }
 
   /** Stops the search timer; the pool's sockets are the hub's to close. */
@@ -296,7 +302,14 @@ export class ModbusBroker {
    * @param error - Why it failed, or null when it answered.
    */
   notePoll(deviceKey: string, error: string | null): void {
+    const previous = this.#polls.get(deviceKey);
+
     this.#polls.set(deviceKey, { at: new Date(), error });
+
+    // Only a device going online or offline changes what the page counts.
+    if (previous === undefined || (previous.error === null) !== (error === null)) {
+      this.#options.onChange?.('status');
+    }
   }
 
   /**
@@ -517,10 +530,15 @@ export class ModbusBroker {
    * @returns Where the broker stands.
    */
   search(): ModbusStatus {
-    this.#searching ??= this.#search().finally(() => {
-      this.#searching = undefined;
-      this.#schedule();
-    });
+    if (this.#searching === undefined) {
+      this.#searching = this.#search().finally(() => {
+        this.#searching = undefined;
+        this.#schedule();
+        this.#options.onChange?.('found');
+        this.#options.onChange?.('status');
+      });
+      this.#options.onChange?.('status');
+    }
 
     return this.status();
   }

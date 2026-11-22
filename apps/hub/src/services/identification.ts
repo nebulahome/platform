@@ -16,7 +16,7 @@
  * and it cannot be asked before its serial is known - so a pass that hears nothing is followed
  * by another almost at once, and only a pass that failed waits the longer while.
  */
-import type { BusClient } from '@nebulahome/bus';
+import { delay, type BusClient } from '@nebulahome/bus';
 import {
   busSubjects,
   CORE_REGISTER_METHOD,
@@ -78,35 +78,6 @@ export type Identified = {
 
 /** How long to wait after a pass that heard nothing, when the caller does not say. */
 const DEFAULT_PAUSE_MS = 1000;
-
-/**
- * Waits, or stops waiting the moment the signal says so.
- *
- * @param ms - How long.
- * @param signal - What cuts the wait short.
- * @returns A promise that settles either way.
- */
-async function delay(ms: number, signal: AbortSignal): Promise<void> {
-  if (signal.aborted) {
-    return;
-  }
-
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort);
-      resolve();
-    }, ms);
-    timer.unref();
-
-    /** Ends the wait early. */
-    function onAbort(): void {
-      clearTimeout(timer);
-      resolve();
-    }
-
-    signal.addEventListener('abort', onAbort, { once: true });
-  });
-}
 
 /** How many of a payload's top-level scalars a log line shows. */
 const SUMMARY_FIELDS = 12;
@@ -424,7 +395,7 @@ export class IdentificationService {
           'Nothing heard in this pass',
         );
         // eslint-disable-next-line no-await-in-loop -- a pause before listening again, same reason
-        await delay(quietMs, signal);
+        await delay(quietMs, signal, { shouldUnref: true });
         quietMs = Math.min(quietMs * 2, Math.max(retryMs, pauseMs));
       } catch (error: unknown) {
         if (stopped(signal)) {
@@ -451,7 +422,7 @@ export class IdentificationService {
         );
         tell(error instanceof Error ? error.message : String(error), pass);
         // eslint-disable-next-line no-await-in-loop -- the longer pause after a failure, same reason
-        await delay(retryMs, signal);
+        await delay(retryMs, signal, { shouldUnref: true });
       }
     }
 

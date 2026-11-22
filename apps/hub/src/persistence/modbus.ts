@@ -19,7 +19,7 @@ import {
   type ModbusSettings,
   type ModbusTemplate,
 } from '@nebulahome/contracts';
-import { schema, type Database } from '@nebulahome/db';
+import { isUniqueViolation, schema, type Database } from '@nebulahome/db';
 
 /** The settings, and how the last search went. */
 export type StoredModbusSettings = {
@@ -81,29 +81,6 @@ export type ModbusStore = {
 
 /** Whether a string is a uuid: one of the owner's templates, rather than a driver. */
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
-
-/** PostgreSQL's `unique_violation`. */
-const UNIQUE_VIOLATION = '23505';
-
-/**
- * Whether a failure is PostgreSQL refusing a duplicate, however deep the driver wrapped it.
- *
- * @param error - Whatever was thrown.
- * @returns True for a unique violation.
- */
-function isDuplicate(error: unknown): boolean {
-  let current: unknown = error;
-
-  for (let depth = 0; depth < 5 && typeof current === 'object' && current !== null; depth += 1) {
-    if ('code' in current && current.code === UNIQUE_VIOLATION) {
-      return true;
-    }
-
-    current = 'cause' in current ? current.cause : undefined;
-  }
-
-  return false;
-}
 
 /**
  * The refusal of a second device at one address and unit.
@@ -272,7 +249,7 @@ class DatabaseModbusStore implements ModbusStore {
           ? await this.#db.insert(devices).values(values).returning()
           : await this.#db.update(devices).set(values).where(eq(devices.id, device.id)).returning();
     } catch (error: unknown) {
-      throw isDuplicate(error) ? duplicateError(device) : error;
+      throw isUniqueViolation(error) ? duplicateError(device) : error;
     }
 
     if (row === undefined) {

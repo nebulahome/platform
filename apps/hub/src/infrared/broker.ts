@@ -33,6 +33,7 @@ import {
   infraredSweepResultSchema,
   NotFoundError,
   ValidationError,
+  type BrokerEventPart,
   type BrokerState,
   type InfraredBlaster,
   type InfraredButton,
@@ -111,6 +112,9 @@ export type InfraredBrokerOptions = {
 
   /** The clock, in milliseconds. */
   readonly now?: () => number;
+
+  /** Told that part of what the broker's page shows changed on its own. */
+  readonly onChange?: (part: BrokerEventPart<'infrared'>) => void;
 };
 
 /** A blaster, as last read from the instances. */
@@ -173,6 +177,16 @@ function latest(times: readonly (Date | null)[]): Date | null {
   );
 }
 
+/**
+ * What a map holds, as text two reads can be compared by.
+ *
+ * @param map - The blasters, or the remotes' devices, by id.
+ * @returns The text.
+ */
+function fingerprintOf(map: ReadonlyMap<string, object>): string {
+  return JSON.stringify([...map.entries()].map(([id, value]) => [id, Object.values(value)]));
+}
+
 /** The house's Infrared broker. */
 export class InfraredBroker {
   readonly #options: InfraredBrokerOptions;
@@ -230,12 +244,14 @@ export class InfraredBroker {
         { err: error },
         'The Infrared broker could not read what it keeps',
       );
+      this.#options.onChange?.('status');
 
       return;
     }
 
     await this.refresh();
     this.#changed();
+    this.#options.onChange?.('status');
   }
 
   /** Stops answering for the remotes; a learn job under way ends with its blaster. */
@@ -462,6 +478,9 @@ export class InfraredBroker {
     this.#blasters.delete(deviceId);
     this.#sentAt.delete(deviceId);
     this.#deliver();
+    this.#options.onChange?.('blasters');
+    this.#options.onChange?.('remotes');
+    this.#options.onChange?.('status');
   }
 
   /**
@@ -586,6 +605,8 @@ export class InfraredBroker {
     await this.#options.store.notePressed(button.id, at).catch((error: unknown) => {
       this.#options.logger.warn({ err: error, buttonId: button.id }, 'Could not note a press');
     });
+    this.#options.onChange?.('status');
+    this.#options.onChange?.('remotes');
 
     return { pressedAt: at };
   }
@@ -851,9 +872,20 @@ export class InfraredBroker {
       }
     }
 
+    const isChanged =
+      fingerprintOf(blasters) !== fingerprintOf(this.#blasters) ||
+      fingerprintOf(house) !== fingerprintOf(this.#house);
+
     this.#blasters = blasters;
     this.#house = house;
     this.#deliver();
+
+    // Read again while a new remote waits for its device: told only when something moved.
+    if (isChanged) {
+      this.#options.onChange?.('blasters');
+      this.#options.onChange?.('remotes');
+      this.#options.onChange?.('status');
+    }
   }
 
   /**
