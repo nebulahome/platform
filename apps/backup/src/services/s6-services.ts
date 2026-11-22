@@ -17,12 +17,12 @@ const run = promisify(execFile);
 /** The services a restore stops, in the order they stop; they start in the other. */
 export const RESTORED_SERVICES = ['api', 'hub', 'core'] as const;
 
-/** Controls the services the supervisor runs. */
-export class Supervisor {
+/** Controls the services s6 runs. */
+export class S6Services {
   readonly #serviceDir: string;
 
   /**
-   * @param serviceDir - Where the supervisor keeps its services: `/run/service`.
+   * @param serviceDir - Where s6 keeps its services: `/run/service`.
    */
   public constructor(serviceDir: string) {
     this.#serviceDir = serviceDir;

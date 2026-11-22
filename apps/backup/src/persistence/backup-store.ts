@@ -1,8 +1,8 @@
 /**
  * What the backup service reads and writes as its own role: the settings, the locations and
- * their outcome, the runs, and the quietest time core learned.
+ * their outcome, and the runs.
  */
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
 
 import {
   backupFrequencySchema,
@@ -18,10 +18,7 @@ import {
   type BackupSchedule,
   type BackupSection,
   type BackupSections,
-  QUIET_TIME_ENTITY_ID,
-  quietTimeFromState,
   type JsonObject,
-  type QuietTime,
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
 
@@ -324,37 +321,4 @@ export async function readBackupHistory(db: Database): Promise<BackupHistory> {
       .slice(0, 5)
       .map((run) => ((run.finishedAt?.getTime() ?? 0) - run.startedAt.getTime()) / 60_000),
   };
-}
-
-/**
- * Reads the quietest time core learned, `sensor.system_quiet_time`.
- *
- * @param db - The service's connection.
- * @returns What was learned, or null while the entity has no state.
- */
-export async function readQuietTime(db: Database): Promise<QuietTime | null> {
-  const rows = await db.execute<{ state: unknown; attributes: unknown }>(sql`
-    SELECT s.state, s.attributes
-    FROM registry.entity_states s
-    JOIN registry.entities e ON e.id = s.entity_id
-    WHERE e.entity_id = ${QUIET_TIME_ENTITY_ID}`);
-  const row = rows[0];
-
-  return row === undefined ? null : quietTimeFromState(row.state, row.attributes);
-}
-
-/**
- * The status of one run.
- *
- * @param db - The service's connection.
- * @param id - The run.
- * @returns Its status, or null.
- */
-export async function runStatus(db: Database, id: string): Promise<BackupRunStatus | null> {
-  const [row] = await db
-    .select({ status: backupRuns.status })
-    .from(backupRuns)
-    .where(and(eq(backupRuns.id, id)));
-
-  return (row?.status as BackupRunStatus | undefined) ?? null;
 }

@@ -36,12 +36,13 @@ import path from 'node:path';
 
 import type postgres from 'postgres';
 
-import type {
-  BackupKeyFile,
-  BackupPhase,
-  JsonObject,
-  MaintenanceState,
-  RESTORE_OUTCOMES,
+import {
+  errorMessage,
+  type BackupKeyFile,
+  type BackupPhase,
+  type JsonObject,
+  type MaintenanceState,
+  type RESTORE_OUTCOMES,
 } from '@nebulahome/contracts';
 import type { Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -66,8 +67,8 @@ import { BACKUP_KEY_FILE, writeKeyFile, type BackupKey } from '../key/backup-key
 import { finishRun, type StoredLocation } from '../persistence/backup-store.js';
 import { openLocation, targetOf, type OpenDependencies } from '../transports/open-location.js';
 
-import { messageOf, type BackupJobOutcome } from './backup-job.js';
-import { RESTORED_SERVICES, waitForApi, type Supervisor } from './supervisor.js';
+import type { BackupJobOutcome } from './backup-job.js';
+import { RESTORED_SERVICES, waitForApi, type S6Services } from './s6-services.js';
 
 /** What a restore needs from the service around it. */
 export type RestoreJobContext = {
@@ -86,7 +87,7 @@ export type RestoreJobContext = {
   /** The instance keys the running services use now. */
   readonly currentKeys: { readonly secretsKey: string; readonly totpKey: string | null };
   readonly open: OpenDependencies;
-  readonly supervisor: Supervisor;
+  readonly s6Services: S6Services;
 
   /**
    * The containers that keep their data in the folders a restore swaps - the integrations', the
@@ -301,7 +302,7 @@ export async function restoreArchive(
    * Undoes the swap: the databases back by name, the folders and the keys back where they were.
    */
   const rollBack = async (): Promise<void> => {
-    await context.supervisor.stop(RESTORED_SERVICES).catch(() => undefined);
+    await context.s6Services.stop(RESTORED_SERVICES).catch(() => undefined);
 
     const postgres = connectAdmin(context.adminUrl, 'postgres');
 
@@ -358,7 +359,7 @@ export async function restoreArchive(
       await context.adoptKey(context.key.file);
     }
 
-    await context.supervisor.start([...RESTORED_SERVICES].reverse());
+    await context.s6Services.start([...RESTORED_SERVICES].reverse());
     await context.managedContainers.resume();
   };
 
@@ -373,7 +374,7 @@ export async function restoreArchive(
    */
   const manual = (error: unknown): RestoreOutcome => ({
     outcome: 'manual',
-    message: `The restore failed and so did putting things back. The previous database is kept as ${previousName}, and the folders the restore replaced in ${previous}. ${messageOf(error)}`,
+    message: `The restore failed and so did putting things back. The previous database is kept as ${previousName}, and the folders the restore replaced in ${previous}. ${errorMessage(error)}`,
     switchedAt,
   });
 
@@ -541,7 +542,7 @@ export async function restoreArchive(
     context.progress('switching', 80);
     isStopping = true;
     await context.managedContainers.suspend();
-    await context.supervisor.stop(RESTORED_SERVICES);
+    await context.s6Services.stop(RESTORED_SERVICES);
     isSwitched = true;
     switchedAt = context.now();
 
@@ -633,7 +634,7 @@ export async function restoreArchive(
 
     // 7. Back.
     context.progress('starting_services', 90);
-    await context.supervisor.start([...RESTORED_SERVICES].reverse());
+    await context.s6Services.start([...RESTORED_SERVICES].reverse());
 
     if (!(await waitForApi(context.apiUrl, 120_000))) {
       context.logger.error('The services did not come back after the restore: rolling back');
@@ -668,7 +669,7 @@ export async function restoreArchive(
         );
       } catch (error: unknown) {
         context.logger.error({ err: error }, 'The named volumes were not written back');
-        volumeMessage = `The named volumes of the containers were not all written back: ${messageOf(error)}`;
+        volumeMessage = `The named volumes of the containers were not all written back: ${errorMessage(error)}`;
       }
     }
 
@@ -704,7 +705,7 @@ export async function restoreArchive(
 
         return {
           outcome: 'rolled_back',
-          message: `The restore failed after the switch, and everything was put back: ${messageOf(error)}`,
+          message: `The restore failed after the switch, and everything was put back: ${errorMessage(error)}`,
           switchedAt: null,
         };
       } catch (rollbackError: unknown) {
@@ -720,17 +721,17 @@ export async function restoreArchive(
       .catch(() => undefined)
       .finally(() => cleanup.end({ timeout: 5 }));
 
-    const messages = [messageOf(error)];
+    const messages = [errorMessage(error)];
 
     // Stopped, or stopping, before the switch: nothing else would start them again.
     if (isStopping) {
-      await context.supervisor
+      await context.s6Services
         .start([...RESTORED_SERVICES].reverse())
         .catch((startError: unknown) => {
-          messages.push(`The services were not started again: ${messageOf(startError)}`);
+          messages.push(`The services were not started again: ${errorMessage(startError)}`);
         });
       await context.managedContainers.resume().catch((resumeError: unknown) => {
-        messages.push(`The containers were not started again: ${messageOf(resumeError)}`);
+        messages.push(`The containers were not started again: ${errorMessage(resumeError)}`);
       });
     }
 

@@ -17,14 +17,15 @@ import { createReadStream } from 'node:fs';
 import { mkdir, rename, rm, stat, statfs } from 'node:fs/promises';
 import path from 'node:path';
 
-import type {
-  BackupDestination,
-  BackupPhase,
-  BackupRetention,
-  BackupRunStatus,
-  BackupSection,
-  JsonObject,
-  VolumesExportReply,
+import {
+  errorMessage,
+  type BackupDestination,
+  type BackupPhase,
+  type BackupRetention,
+  type BackupRunStatus,
+  type BackupSection,
+  type JsonObject,
+  type VolumesExportReply,
 } from '@nebulahome/contracts';
 import type { Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -90,16 +91,6 @@ export type BackupJobOutcome = {
   readonly destinations: readonly BackupDestination[];
   readonly error: string | null;
 };
-
-/**
- * Says what went wrong, in one line.
- *
- * @param error - What was thrown.
- * @returns Its message.
- */
-export function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /**
  * Removes what a location's retention no longer keeps.
@@ -184,7 +175,7 @@ async function deliver(
       await session.close();
     }
   } catch (error: unknown) {
-    const message = messageOf(error);
+    const message = errorMessage(error);
 
     context.logger.warn(
       { location: location.name, err: error },
@@ -423,7 +414,7 @@ export async function takeBackup(
         await recordLocationResult(
           context.db,
           system.id,
-          { error: messageOf(error) },
+          { error: errorMessage(error) },
           context.now(),
         );
         destinations.push({
@@ -431,7 +422,7 @@ export async function takeBackup(
           name: system.name,
           kind: 'system',
           status: 'failure',
-          error: messageOf(error),
+          error: errorMessage(error),
           bytes: null,
           durationMs: Date.now() - startedAt,
           pruned: 0,
@@ -463,7 +454,7 @@ export async function takeBackup(
       archiveBytes,
       sectionBytes,
       destinations: [],
-      error: isCancelled ? 'Cancelled' : messageOf(error),
+      error: isCancelled ? 'Cancelled' : errorMessage(error),
     };
   } finally {
     await rm(staging, { recursive: true, force: true });

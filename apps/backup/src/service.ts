@@ -16,6 +16,7 @@ import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import { resolveDataLayout } from '@nebulahome/config';
 import {
   ConflictError,
+  errorMessage,
   NotFoundError,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
@@ -39,6 +40,7 @@ import {
 import {
   openSecret,
   openSecrets,
+  readQuietTime,
   readSchemaVersion,
   sealSecret,
   type Database,
@@ -57,17 +59,11 @@ import {
   readBackupSettings,
   readLocation,
   readLocations,
-  readQuietTime,
   sectionsOf,
   startRun,
   type BackupSettings,
 } from './persistence/backup-store.js';
-import {
-  takeBackup,
-  destinationJson,
-  messageOf,
-  type BackupJobOutcome,
-} from './services/backup-job.js';
+import { takeBackup, destinationJson, type BackupJobOutcome } from './services/backup-job.js';
 import {
   EstimateCache,
   estimateSections,
@@ -75,7 +71,7 @@ import {
   type OnDisk,
 } from './services/estimates.js';
 import { recordRestore, restoreArchive, type RestoreOutcome } from './services/restore-job.js';
-import { Supervisor } from './services/supervisor.js';
+import { S6Services } from './services/s6-services.js';
 import { mountProblem } from './transports/mount.js';
 import {
   openLocation,
@@ -143,7 +139,7 @@ export class BackupService {
   readonly #logger: PlatformLogger;
   readonly #now: () => Date;
   readonly #layout: ReturnType<typeof resolveDataLayout>;
-  readonly #supervisor: Supervisor;
+  readonly #s6Services: S6Services;
   readonly #estimates = new EstimateCache();
   readonly #secretsKey: Buffer;
   #key: BackupKey | null = null;
@@ -165,7 +161,7 @@ export class BackupService {
     this.#logger = options.logger;
     this.#now = options.now ?? ((): Date => new Date());
     this.#layout = resolveDataLayout(options.config);
-    this.#supervisor = new Supervisor(options.config.BACKUP_SERVICE_DIR);
+    this.#s6Services = new S6Services(options.config.BACKUP_SERVICE_DIR);
     this.#secretsKey = Buffer.from(options.config.NEBULA_SECRETS_KEY, 'hex');
   }
 
@@ -437,11 +433,11 @@ export class BackupService {
     } catch (error: unknown) {
       problems.push({
         code: 'database',
-        message: `The database could not be measured: ${messageOf(error)}`,
+        message: `The database could not be measured: ${errorMessage(error)}`,
       });
     }
 
-    if (!this.#supervisor.isAvailable()) {
+    if (!this.#s6Services.isAvailable()) {
       problems.push({
         code: 'not-in-container',
         message: 'Restoring needs the NebulaHome container, which stops and starts the services',
@@ -489,7 +485,7 @@ export class BackupService {
       capabilities: { canMount: mountProblem() === null, mountProblem: mountProblem() },
       problems,
       maintenance: this.#maintenance,
-      canRestore: this.#supervisor.isAvailable(),
+      canRestore: this.#s6Services.isAvailable(),
     };
   }
 
@@ -546,7 +542,7 @@ export class BackupService {
         await finishRun(
           this.#db,
           runId,
-          { status: 'failure', error: messageOf(error) },
+          { status: 'failure', error: errorMessage(error) },
           this.#now(),
         ).catch(() => undefined);
         this.#announceRun(active, 'failure', null);
@@ -720,7 +716,12 @@ export class BackupService {
         await session.close();
       }
     } catch (error: unknown) {
-      return { isReachable: false, message: messageOf(error), freeBytes: null, archiveCount: null };
+      return {
+        isReachable: false,
+        message: errorMessage(error),
+        freeBytes: null,
+        archiveCount: null,
+      };
     }
   }
 
@@ -740,7 +741,7 @@ export class BackupService {
         .map((entry) => entry.name)
         .sort((a, b) => a.localeCompare(b));
     } catch (error: unknown) {
-      throw new ValidationError(`That folder cannot be read: ${messageOf(error)}`);
+      throw new ValidationError(`That folder cannot be read: ${errorMessage(error)}`);
     }
 
     let isWritable = localPathProblem(target, this.#layout.root) === null;
@@ -845,7 +846,11 @@ export class BackupService {
           await session.close();
         }
       } catch (error: unknown) {
-        problems.push({ locationId: location.id, name: location.name, message: messageOf(error) });
+        problems.push({
+          locationId: location.id,
+          name: location.name,
+          message: errorMessage(error),
+        });
       }
     }
 
@@ -881,7 +886,7 @@ export class BackupService {
     readonly takeSafetyBackup: boolean;
     readonly requestedBy: { readonly id: string } | null;
   }): Promise<string> {
-    if (!this.#supervisor.isAvailable()) {
+    if (!this.#s6Services.isAvailable()) {
       throw new ConflictError(
         'Restoring needs the NebulaHome container, which stops and starts the services',
         {
@@ -910,7 +915,7 @@ export class BackupService {
           openSecret({ $sealed: request.sealedKeyFile }, this.#secretsKey),
         );
       } catch (error: unknown) {
-        throw new ValidationError(messageOf(error));
+        throw new ValidationError(errorMessage(error));
       }
     }
 
@@ -950,7 +955,7 @@ export class BackupService {
       .catch(async (error: unknown) => {
         const failed: RestoreOutcome = {
           outcome: 'failed',
-          message: messageOf(error),
+          message: errorMessage(error),
           switchedAt: null,
         };
 
@@ -1020,7 +1025,7 @@ export class BackupService {
           totpKey: this.#config.API_TOTP_ENCRYPTION_KEY?.toLowerCase() ?? null,
         },
         open: this.#openDependencies,
-        supervisor: this.#supervisor,
+        s6Services: this.#s6Services,
         managedContainers: {
           /**
            * Stops the containers that keep their data in the data directory.

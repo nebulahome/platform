@@ -22,7 +22,7 @@
  * ever extracted from an archive: a path outside that list, absolute, or climbing out with `..`
  * is dropped, whatever the archive says.
  */
-import { createReadStream, createWriteStream, Stats } from 'node:fs';
+import { createWriteStream, Stats } from 'node:fs';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
@@ -369,14 +369,4 @@ export async function readManifest(directory: string): Promise<ArchiveManifest> 
   }
 
   return manifest as ArchiveManifest;
-}
-
-/**
- * Opens a file as a readable stream.
- *
- * @param file - The file.
- * @returns Its bytes.
- */
-export function readFileStream(file: string): Readable {
-  return createReadStream(file);
 }

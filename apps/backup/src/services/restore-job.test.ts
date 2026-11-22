@@ -22,7 +22,7 @@ import type { StoredLocation } from '../persistence/backup-store.js';
 import type { OpenDependencies } from '../transports/open-location.js';
 
 import { restoreArchive, type RestoreJobContext } from './restore-job.js';
-import type { Supervisor } from './supervisor.js';
+import type { S6Services } from './s6-services.js';
 
 /** What the fake database is asked, and how it answers. */
 const database = vi.hoisted(() => {
@@ -136,7 +136,7 @@ vi.mock('../archive/archive.js', async (importOriginal) => {
   };
 });
 
-vi.mock('./supervisor.js', async (importOriginal) => ({
+vi.mock('./s6-services.js', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   waitForApi: async (): Promise<boolean> => Promise.resolve(database.isApiReady),
 }));
@@ -211,7 +211,7 @@ function fakes(): {
     secretsKey: Buffer.alloc(32),
     currentKeys: { secretsKey: 'aa', totpKey: null },
     open: {} as unknown as OpenDependencies,
-    supervisor: { stop, start } as unknown as Supervisor,
+    s6Services: { stop, start } as unknown as S6Services,
     managedContainers: {
       suspend: vi.fn(async () => Promise.resolve()),
       resume,
