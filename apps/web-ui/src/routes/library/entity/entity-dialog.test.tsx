@@ -6,7 +6,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntityView } from '@nebulahome/contracts';
 
@@ -14,7 +14,7 @@ import { useSession } from '@/auth/session-store';
 import type * as LibraryApi from '@/library/api';
 import { fetchEntities, fetchEntity, updateEntity } from '@/library/api';
 import { useLive } from '@/live/live-store';
-import { EntityDialogHost } from '@/routes/library/entity/entity-dialog';
+import { EntityDialogHost } from '@/routes/library/entity/entity-dialog-host';
 import { anEntity } from '@/testing/fixtures';
 
 vi.mock('@/library/api', async (original) => ({
@@ -108,6 +108,12 @@ beforeEach(() => {
 });
 
 describe('the entity dialog over a page', () => {
+  // The host loads the dialog on demand. Loaded here once, the first test's wait for the dialog
+  // does not also pay for transforming the whole sheet, which a busy machine can take seconds for.
+  beforeAll(async () => {
+    await import('@/routes/library/entity/entity-dialog');
+  }, 30_000);
+
   it('opens for ?entity= and puts away only its own part of the address', async () => {
     show(RELAY, `/devices?q=garage&entity=${RELAY.entityId}`);
 

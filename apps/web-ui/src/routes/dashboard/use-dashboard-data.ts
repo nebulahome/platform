@@ -10,7 +10,7 @@
  * it cannot, rather than a switch that is refused when pressed.
  */
 import { useQuery } from '@tanstack/react-query';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 
 import type {
   ApiPackage,
@@ -97,103 +97,128 @@ export function useDashboardData(layout: DashboardLayout | undefined): Dashboard
     enabled: canReadScenes,
   });
 
-  const entityById = new Map(directory.entities.map((entity) => [entity.entityId, entity]));
-  const deviceById = new Map(directory.devices.map((device) => [device.id, device]));
-  const sceneById = new Map((scenes.data ?? []).map((scene) => [scene.id, scene]));
+  // Everything below is worked out again only when a read or a permission changes, not with each
+  // batch of live readings: only `readings` is new then.
+  const entityById = useMemo(
+    () => new Map(directory.entities.map((entity) => [entity.entityId, entity])),
+    [directory.entities],
+  );
+  const deviceById = useMemo(
+    () => new Map(directory.devices.map((device) => [device.id, device])),
+    [directory.devices],
+  );
+  const sceneById = useMemo(
+    () => new Map((scenes.data ?? []).map((scene) => [scene.id, scene])),
+    [scenes.data],
+  );
   const { packages } = useInstalledPackages();
-  const packageById = new Map(packages.map((found) => [found.id, found]));
-  const cards = layout === undefined ? [] : allCards(layout);
-
-  const chosen = useCatalogueIcons([
-    ...cards.map((card) => ('icon' in card ? card.icon : null)),
-    ...(scenes.data ?? []).map((scene) => scene.icon),
-  ]);
-
-  /**
-   * The scopes an entity falls under, the way the server works them out.
-   *
-   * @param entity - The entity.
-   * @returns Its scopes.
-   */
-  const scopesOf = (entity: EntityView): string[] =>
-    entityScopesOf(
-      entity,
-      tags,
-      entity.deviceId === null ? [] : (deviceById.get(entity.deviceId)?.tagIds ?? []),
-    );
-
-  if (given !== null) {
-    return given;
-  }
-
-  return {
-    entityById,
-    sceneById,
-    packageById,
-    icons: new Map([...directory.icons, ...chosen]),
-    readings: directory.readings,
-
-    /**
-     * What an entity's card is called when nobody named it.
-     *
-     * @param entity - The entity.
-     * @returns "Kitchen plug · Power".
-     */
-    entityTitleOf: (entity) =>
-      entityTitle(
-        entity.name,
-        entity.deviceId === null ? null : deviceById.get(entity.deviceId)?.name,
+  const packageById = useMemo(
+    () => new Map(packages.map((found) => [found.id, found])),
+    [packages],
+  );
+  const wantedIcons = useMemo(
+    () => [
+      ...(layout === undefined ? [] : allCards(layout)).map((card) =>
+        'icon' in card ? card.icon : null,
       ),
+      ...(scenes.data ?? []).map((scene) => scene.icon),
+    ],
+    [layout, scenes.data],
+  );
+  const chosen = useCatalogueIcons(wantedIcons);
+  const icons = useMemo(() => new Map([...directory.icons, ...chosen]), [directory.icons, chosen]);
+  const isPending = directory.isPending;
 
+  const settled = useMemo((): Omit<DashboardData, 'readings'> => {
     /**
-     * Whether this person may command an entity, and it takes commands at all.
+     * The scopes an entity falls under, the way the server works them out.
      *
      * @param entity - The entity.
-     * @returns True when a command would be accepted.
+     * @returns Its scopes.
      */
-    canControl: (entity) => isCommandable(entity) && can('entity:control', scopesOf(entity)),
+    const scopesOf = (entity: EntityView): string[] =>
+      entityScopesOf(
+        entity,
+        tags,
+        entity.deviceId === null ? [] : (deviceById.get(entity.deviceId)?.tagIds ?? []),
+      );
 
-    /**
-     * Whether this person may read an entity's history.
-     *
-     * @param entity - The entity.
-     * @returns True when they may.
-     */
-    canReadHistory: (entity) => can('history:read', scopesOf(entity)),
+    return {
+      entityById,
+      sceneById,
+      packageById,
+      icons,
 
-    /**
-     * Whether this person may change an entity.
-     *
-     * @param entity - The entity.
-     * @returns True when they may.
-     */
-    canWriteEntity: (entity) => can('entity:write', scopesOf(entity)),
-    canApplyScenes: can('scene:apply'),
+      /**
+       * What an entity's card is called when nobody named it.
+       *
+       * @param entity - The entity.
+       * @returns "Kitchen plug · Power".
+       */
+      entityTitleOf: (entity) =>
+        entityTitle(
+          entity.name,
+          entity.deviceId === null ? null : deviceById.get(entity.deviceId)?.name,
+        ),
 
-    /**
-     * The sizes a card may take: those of the kind of card its entity is drawn as, or those its
-     * package's manifest names.
-     *
-     * @param card - The card.
-     * @returns Its sizes.
-     */
-    sizesOf: (card) => {
-      if (card.type === 'package') {
-        const declared = packageById
-          .get(card.packageId)
-          ?.ui?.cards.find((each) => each.id === card.cardId);
+      /**
+       * Whether this person may command an entity, and it takes commands at all.
+       *
+       * @param entity - The entity.
+       * @returns True when a command would be accepted.
+       */
+      canControl: (entity) => isCommandable(entity) && can('entity:control', scopesOf(entity)),
 
-        return declared === undefined ? CARD_SIZES.package.sizes : packageCardSizes(declared.sizes);
-      }
+      /**
+       * Whether this person may read an entity's history.
+       *
+       * @param entity - The entity.
+       * @returns True when they may.
+       */
+      canReadHistory: (entity) => can('history:read', scopesOf(entity)),
 
-      if (card.type !== 'entity') {
-        return CARD_SIZES[card.type].sizes;
-      }
+      /**
+       * Whether this person may change an entity.
+       *
+       * @param entity - The entity.
+       * @returns True when they may.
+       */
+      canWriteEntity: (entity) => can('entity:write', scopesOf(entity)),
+      canApplyScenes: can('scene:apply'),
 
-      const entity = entityById.get(card.entityId);
+      /**
+       * The sizes a card may take: those of the kind of card its entity is drawn as, or those its
+       * package's manifest names.
+       *
+       * @param card - The card.
+       * @returns Its sizes.
+       */
+      sizesOf: (card) => {
+        if (card.type === 'package') {
+          const declared = packageById
+            .get(card.packageId)
+            ?.ui?.cards.find((each) => each.id === card.cardId);
 
-      return entity === undefined ? CARD_SIZES.missing.sizes : allowedSizes(entity);
-    },
-    isPending: directory.isPending,
-  };
+          return declared === undefined
+            ? CARD_SIZES.package.sizes
+            : packageCardSizes(declared.sizes);
+        }
+
+        if (card.type !== 'entity') {
+          return CARD_SIZES[card.type].sizes;
+        }
+
+        const entity = entityById.get(card.entityId);
+
+        return entity === undefined ? CARD_SIZES.missing.sizes : allowedSizes(entity);
+      },
+      isPending,
+    };
+  }, [entityById, sceneById, packageById, icons, deviceById, tags, can, isPending]);
+  const data = useMemo(
+    (): DashboardData => ({ ...settled, readings: directory.readings }),
+    [settled, directory.readings],
+  );
+
+  return given ?? data;
 }

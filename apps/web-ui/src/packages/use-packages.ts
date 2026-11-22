@@ -14,6 +14,9 @@ import { useSession } from '@/auth/session-store';
 import { signalled } from '@/lib/signalled';
 import { fetchPackages, PACKAGE_QUERY_KEYS } from '@/packages/api';
 
+/** No packages, the same each time: a new empty list per render would undo the memos built on it. */
+const NO_PACKAGES: readonly ApiPackage[] = [];
+
 /** The installed packages, as a component reads them. */
 export type InstalledPackages = {
   /** The packages; none while they are being read, or for somebody who may not see them. */
@@ -40,7 +43,7 @@ export function useInstalledPackages(): InstalledPackages {
   });
 
   return {
-    packages: query.data ?? [],
+    packages: query.data ?? NO_PACKAGES,
     canRead,
     isPending: canRead && query.isPending,
     error: query.error,

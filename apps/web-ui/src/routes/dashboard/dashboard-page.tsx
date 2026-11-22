@@ -23,7 +23,7 @@ import { signalled } from '@/lib/signalled';
 import { DashboardDialog } from '@/routes/dashboard/dashboard-dialog';
 import { DashboardGrid } from '@/routes/dashboard/dashboard-grid';
 import { DashboardTabs } from '@/routes/dashboard/dashboard-tabs';
-import { useDashboardData } from '@/routes/dashboard/use-dashboard-data';
+import { useDashboardData, type DashboardData } from '@/routes/dashboard/use-dashboard-data';
 
 /** Where this browser remembers the dashboard last looked at. */
 const LAST_DASHBOARD_KEY = 'nebula.dashboard';
@@ -76,6 +76,9 @@ export function DashboardPage() {
 
   const list = dashboards.data ?? [];
   const current = list.find((dashboard) => dashboard.id === dashboardId);
+  // Read beside the dashboards rather than once one is open: the cards' entities, devices, rooms,
+  // tags and scenes do not wait for the list of dashboards to come back first.
+  const data = useDashboardData(current?.layout);
   const manageLink = canManage ? (
     <Button
       variant="ghost"
@@ -133,7 +136,7 @@ export function DashboardPage() {
                   'A dashboard is a page of cards for what you want close at hand. Whoever manages the dashboards of this house can assign you one.',
                 )
           }
-          action={canManage ? <AddDashboardButton /> : undefined}
+          action={canManage ? <AddDashboardButton house={data} /> : undefined}
           learnMoreHref={DOCS_LINKS.dashboards}
         />
       </Frame>
@@ -141,7 +144,13 @@ export function DashboardPage() {
   }
 
   return (
-    <OpenDashboard key={current.id} dashboard={current} dashboards={list} tools={manageLink} />
+    <OpenDashboard
+      key={current.id}
+      dashboard={current}
+      dashboards={list}
+      data={data}
+      tools={manageLink}
+    />
   );
 }
 
@@ -150,15 +159,16 @@ export function DashboardPage() {
  * name, an icon, who sees it, or a file to start from - and then, for a dashboard with nothing on
  * it yet, its editor; one started from a file opens as it is.
  *
+ * @param props - What this house has, for the preview of a file about to be imported.
+ * @param props.house - See {@link DashboardData}.
  * @returns The button, and the dialog it opens.
  */
-function AddDashboardButton() {
+function AddDashboardButton(props: { readonly house: DashboardData }) {
   const { t } = useTranslation();
 
+  const { house } = props;
   const navigate = useNavigate();
   const [isOpen, setOpen] = useState(false);
-  // What this house has, for the preview of a file about to be imported.
-  const house = useDashboardData(undefined);
 
   return (
     <>
@@ -199,6 +209,9 @@ type OpenDashboardProps = {
   readonly dashboard: DashboardView;
   readonly dashboards: readonly DashboardView[];
 
+  /** What its cards read. */
+  readonly data: DashboardData;
+
   /** What sits on the right of the top bar. */
   readonly tools: ReactNode;
 };
@@ -212,8 +225,7 @@ type OpenDashboardProps = {
 function OpenDashboard(props: OpenDashboardProps) {
   const { t } = useTranslation();
 
-  const { dashboard, dashboards, tools } = props;
-  const data = useDashboardData(dashboard.layout);
+  const { dashboard, dashboards, data, tools } = props;
 
   useEffect(() => {
     rememberDashboard(dashboard.id);

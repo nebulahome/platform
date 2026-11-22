@@ -13,9 +13,7 @@ import { windowOf } from '@/library/history-series';
 import { useCardSample } from '@/routes/dashboard/cards/card-sample';
 import type { OnOffDay } from '@/routes/dashboard/cards/on-off-day';
 import { groupDay, type TogetherMember } from '@/routes/dashboard/cards/together-members';
-
-/** How often the days are read again. */
-const REFRESH_MS = 60_000;
+import { historyRefreshMs } from '@/routes/dashboard/cards/use-card-history';
 
 /**
  * Reads the members' last day, when wanted.
@@ -49,7 +47,7 @@ export function useTogetherDay(
         return { window, points };
       },
       enabled: isWanted && sample === null,
-      refetchInterval: REFRESH_MS,
+      refetchInterval: historyRefreshMs('24h'),
     })),
   });
 

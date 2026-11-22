@@ -42,6 +42,12 @@ import { apiRequest } from '@/lib/api-client';
 /** How often a broker's page reads the broker again. */
 export const BROKER_REFRESH_MS = 5000;
 
+/**
+ * How often a broker's page reads again what the live channel says changed (`broker_event`): only
+ * for what changes without the hub announcing it.
+ */
+export const BROKER_FALLBACK_MS = 60_000;
+
 /** The keys the brokers are cached under. */
 export const BROKER_QUERY_KEYS = {
   brokers: ['brokers'] as const,

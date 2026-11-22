@@ -50,7 +50,7 @@ import { toastFailure, toMessage } from '@/lib/error-message';
 import { relativeTime } from '@/lib/format-time';
 import { signalled } from '@/lib/signalled';
 import { fetchAreas, LIBRARY_QUERY_KEYS } from '@/library/api';
-import { BROKER_REFRESH_MS } from '@/library/brokers-api';
+import { BROKER_FALLBACK_MS } from '@/library/brokers-api';
 import {
   fetchInfraredBlasters,
   fetchInfraredCodeFormats,
@@ -113,7 +113,7 @@ export function InfraredRemotePage() {
 
   const remote = useQuery({
     queryKey: [...INFRARED_QUERY_KEYS.remote, remoteId],
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: BROKER_FALLBACK_MS,
 
     /**
      * Reads the remote and its buttons.

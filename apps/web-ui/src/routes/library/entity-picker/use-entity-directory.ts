@@ -6,6 +6,7 @@
  * several fields in one editor share one request.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import type { AreaView, DeviceView, EntityView, IconView } from '@nebulahome/contracts';
 
@@ -14,6 +15,10 @@ import { fetchDevices, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive, type LiveReading } from '@/live/live-store';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { useAreas } from '@/routes/library/use-areas';
+
+// The same empty lists each time: new ones per render would undo the memos built on them.
+const NO_ENTITIES: readonly EntityView[] = [];
+const NO_DEVICES: readonly DeviceView[] = [];
 
 /** What a picker reads. */
 export type EntityDirectory = {
@@ -54,18 +59,22 @@ export function useEntityDirectory(isIconsWanted = true): EntityDirectory {
     queryFn: signalled(fetchDevices),
   });
 
-  const icons = useCatalogueIcons(
-    isIconsWanted
-      ? [
-          ...(entities.data ?? []).map((entity) => entity.icon),
-          ...(devices.data ?? []).map((device) => device.icon),
-        ]
-      : [],
+  // Worked out once per read, not with every batch of live readings.
+  const wantedIcons = useMemo(
+    () =>
+      isIconsWanted
+        ? [
+            ...(entities.data ?? []).map((entity) => entity.icon),
+            ...(devices.data ?? []).map((device) => device.icon),
+          ]
+        : [],
+    [isIconsWanted, entities.data, devices.data],
   );
+  const icons = useCatalogueIcons(wantedIcons);
 
   return {
-    entities: entities.data ?? [],
-    devices: devices.data ?? [],
+    entities: entities.data ?? NO_ENTITIES,
+    devices: devices.data ?? NO_DEVICES,
     areas,
     icons,
     readings,

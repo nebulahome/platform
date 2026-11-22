@@ -32,6 +32,7 @@ import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
+  BROKER_FALLBACK_MS,
   BROKER_QUERY_KEYS,
   BROKER_REFRESH_MS,
   fetchMqttClients,
@@ -85,12 +86,12 @@ export function MqttBrokerPage() {
   });
   const devices = useQuery({
     queryKey: BROKER_QUERY_KEYS.mqttDevices,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: BROKER_FALLBACK_MS,
     queryFn: signalled(fetchMqttDevices),
   });
   const clients = useQuery({
     queryKey: BROKER_QUERY_KEYS.mqttClients,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: BROKER_FALLBACK_MS,
     queryFn: signalled(fetchMqttClients),
   });
   const mappings = useQuery({

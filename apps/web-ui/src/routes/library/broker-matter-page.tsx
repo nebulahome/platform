@@ -38,6 +38,7 @@ import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
 import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
 import {
+  BROKER_FALLBACK_MS,
   BROKER_QUERY_KEYS,
   fetchMatterNetwork,
   fetchMatterNodes,
@@ -70,7 +71,10 @@ const TABS = ['overview', 'devices', 'network'] as const;
 /** One tab. */
 type MatterTab = (typeof TABS)[number];
 
-/** How often the fabric is read again, and how often while a device is being commissioned. */
+/**
+ * How often the network map is read again, its links' quality moving on its own; and how often
+ * the fabric while a device is being commissioned.
+ */
 const REFRESH_MS = 10_000;
 const COMMISSIONING_REFRESH_MS = 2000;
 
@@ -111,20 +115,20 @@ export function MatterBrokerPage() {
      * @returns How often to read it again.
      */
     refetchInterval: (query) =>
-      isUnderWay(query.state.data) ? COMMISSIONING_REFRESH_MS : REFRESH_MS,
+      isUnderWay(query.state.data) ? COMMISSIONING_REFRESH_MS : BROKER_FALLBACK_MS,
     queryFn: signalled(fetchMatterStatus),
   });
   const isCommissioning = isUnderWay(status.data);
 
   const nodes = useQuery({
     queryKey: BROKER_QUERY_KEYS.matterNodes,
-    refetchInterval: isCommissioning ? COMMISSIONING_REFRESH_MS : REFRESH_MS,
+    refetchInterval: isCommissioning ? COMMISSIONING_REFRESH_MS : BROKER_FALLBACK_MS,
     queryFn: signalled(fetchMatterNodes),
   });
 
+  // Not polled: the live channel marks the devices stale whenever one is added or changes.
   const devices = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.devices,
-    refetchInterval: isCommissioning ? COMMISSIONING_REFRESH_MS : REFRESH_MS,
     queryFn: signalled(fetchDevices),
   });
 

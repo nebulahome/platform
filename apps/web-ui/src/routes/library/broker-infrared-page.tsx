@@ -16,7 +16,7 @@ import { AppIcon, Button, DetailHero, HeroFact, Note, Pill, TabPanel, Tabs } fro
 import { useSession } from '@/auth/session-store';
 import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
-import { BROKER_REFRESH_MS } from '@/library/brokers-api';
+import { BROKER_FALLBACK_MS } from '@/library/brokers-api';
 import {
   fetchInfraredBlasters,
   fetchInfraredRemotes,
@@ -53,17 +53,17 @@ export function InfraredBrokerPage() {
 
   const status = useQuery({
     queryKey: INFRARED_QUERY_KEYS.status,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: BROKER_FALLBACK_MS,
     queryFn: signalled(fetchInfraredStatus),
   });
   const remotes = useQuery({
     queryKey: INFRARED_QUERY_KEYS.remotes,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: BROKER_FALLBACK_MS,
     queryFn: signalled(fetchInfraredRemotes),
   });
   const blasters = useQuery({
     queryKey: INFRARED_QUERY_KEYS.blasters,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: BROKER_FALLBACK_MS,
     queryFn: signalled(fetchInfraredBlasters),
   });
   const { areas, roomOf } = useAreas();

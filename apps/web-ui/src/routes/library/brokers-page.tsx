@@ -26,11 +26,8 @@ import {
 } from '@/components/brand-logos';
 import { translate } from '@/i18n/messages';
 import { signalled } from '@/lib/signalled';
-import { BROKER_QUERY_KEYS, fetchBrokers } from '@/library/brokers-api';
+import { BROKER_FALLBACK_MS, BROKER_QUERY_KEYS, fetchBrokers } from '@/library/brokers-api';
 import { LibraryPage } from '@/routes/library/library-page';
-
-/** How often the cards are read again: a broker coming up is worth seeing without a reload. */
-const REFRESH_MS = 10_000;
 
 /**
  * How a broker stands, as a Pill says it.
@@ -196,7 +193,7 @@ export function BrokersPage() {
   const { t } = useTranslation();
   const brokers = useQuery({
     queryKey: BROKER_QUERY_KEYS.brokers,
-    refetchInterval: REFRESH_MS,
+    refetchInterval: BROKER_FALLBACK_MS,
     queryFn: signalled(fetchBrokers),
   });
   const all = brokers.data ?? [];

@@ -3,9 +3,10 @@
  *
  * No endpoint counts things: each list page reads its whole list, and a count is that list's
  * length. So the rail reads the same lists under the same keys, which makes a count free on a page
- * that has read its list and makes the page free once the rail has. Each is read only for someone
- * who may read it - a count is not a way around a permission - and kept for a minute, so moving
- * between pages does not ask for every list again.
+ * that has read its list; the page itself still reads its list again when it opens, since what the
+ * rail read may be older than the page wants. Each is read only for someone who may read it - a
+ * count is not a way around a permission - and kept for a minute, so the rail itself does not ask
+ * for every list again each time it is drawn anew.
  *
  * Areas count the rooms: the house and its floors are how rooms are arranged, not more places.
  * Integrations count what the Integrations page lists: the brokers the platform brings are not

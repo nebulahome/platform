@@ -12,7 +12,7 @@ import { FloatingLayer } from '@/packages/floating/floating-layer';
 import { PackageBackgrounds } from '@/packages/package-backgrounds';
 import { CommandPalette } from '@/palette/command-palette';
 import { usePaletteShortcut } from '@/palette/use-palette-shortcut';
-import { EntityDialogHost } from '@/routes/library/entity/entity-dialog';
+import { EntityDialogHost } from '@/routes/library/entity/entity-dialog-host';
 
 /**
  * Renders the page for an address no page answers.

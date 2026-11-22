@@ -31,7 +31,7 @@ import { toastFailure } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
 import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
-import { BROKER_QUERY_KEYS, BROKER_REFRESH_MS } from '@/library/brokers-api';
+import { BROKER_FALLBACK_MS, BROKER_QUERY_KEYS, BROKER_REFRESH_MS } from '@/library/brokers-api';
 import {
   fetchSerialDevices,
   fetchSerialPorts,
@@ -97,6 +97,8 @@ export function SerialBrokerPage() {
   const [open, setOpen] = useState<Open | null>(null);
   const vendors = useVendorsById();
 
+  // A device going online or offline is not announced by the hub, and the status counts them:
+  // both are read as often as before. A port plugged or unplugged is announced.
   const status = useQuery({
     queryKey: SERIAL_QUERY_KEYS.status,
     refetchInterval: BROKER_REFRESH_MS,
@@ -104,7 +106,7 @@ export function SerialBrokerPage() {
   });
   const ports = useQuery({
     queryKey: SERIAL_QUERY_KEYS.ports,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: BROKER_FALLBACK_MS,
     queryFn: signalled(fetchSerialPorts),
   });
   const devices = useQuery({

@@ -7,6 +7,7 @@
  * Settings changes every printer on the next visit without a device ever being touched.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import {
   MATTER_TRANSPORT,
@@ -29,6 +30,9 @@ import { VendorLogo } from '@/routes/library/vendor-card';
 /** The catalogue's answer for the icons some devices carry, by id. */
 export type DeviceIcons = ReadonlyMap<string, IconView>;
 
+/** No icons, the same each time: a new empty map per render would undo every memo built on it. */
+const NO_ICONS: DeviceIcons = new Map();
+
 /**
  * Reads the icons a page shows, by id.
  *
@@ -36,7 +40,10 @@ export type DeviceIcons = ReadonlyMap<string, IconView>;
  * @returns The icons by id; empty until read.
  */
 export function useCatalogueIcons(wanted: readonly (string | null)[]): DeviceIcons {
-  const ids = [...new Set(wanted.flatMap((id) => (id === null ? [] : [id])))].sort().slice(0, 200);
+  const ids = useMemo(
+    () => [...new Set(wanted.flatMap((id) => (id === null ? [] : [id])))].sort().slice(0, 200),
+    [wanted],
+  );
 
   const query = useQuery({
     queryKey: [...LIBRARY_QUERY_KEYS.icons, 'ids', ids.join(',')],
@@ -53,7 +60,7 @@ export function useCatalogueIcons(wanted: readonly (string | null)[]): DeviceIco
     staleTime: 60_000,
   });
 
-  return query.data ?? new Map();
+  return query.data ?? NO_ICONS;
 }
 
 /**

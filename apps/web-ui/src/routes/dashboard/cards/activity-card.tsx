@@ -4,7 +4,8 @@
  * card gives each its chip and a second line. A row opens its entity.
  *
  * Read from the hub's history (`GET /activity`), worded as the device page's activity is
- * (`device-activity.ts`), and read again every half minute.
+ * (`device-activity.ts`), and read again a moment after the live channel says what it follows
+ * changed.
  */
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -13,7 +14,7 @@ import type { DashboardActivityCard } from '@nebulahome/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import { kindName } from '@/dashboard/card-options';
-import { dateTimeFormat } from '@/i18n/formatters';
+import { clockText } from '@/lib/format-time';
 import { activityLinesOf, type ActivityLine, type ActivityTone } from '@/library/device-activity';
 import { Caption } from '@/routes/dashboard/cards/card-kit';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
@@ -44,13 +45,6 @@ const MARKS: Readonly<
   offline: { dot: 'bg-warning', chip: 'bg-warning/14 text-warning', icon: 'wifi-off' },
   online: { dot: 'bg-success', chip: 'bg-success/14 text-success', icon: 'wifi' },
 };
-
-/**
- * The time of day a change happened at.
- *
- * @returns The formatter.
- */
-const CLOCK = (): Intl.DateTimeFormat => dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
 
 /**
  * What a change came to, briefly: what it turned into, or "turned on" for a switch.
@@ -140,7 +134,7 @@ export function ActivityCard(props: ActivityCardProps) {
             const mark = MARKS[line.tone];
             const entityId = line.entries[0]?.entityId;
             const area = entityId === undefined ? null : data.entityById.get(entityId)?.areaName;
-            const time = CLOCK().format(line.time);
+            const time = clockText(line.time);
 
             return (
               <li

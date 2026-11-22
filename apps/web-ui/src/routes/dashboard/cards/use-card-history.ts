@@ -19,8 +19,21 @@ import {
 } from '@/library/history-series';
 import { useCardSample } from '@/routes/dashboard/cards/card-sample';
 
-/** How often a card reads its history again. */
+/** How often a card reads a short window of history again: an hour, six. */
 const REFRESH_MS = 60_000;
+
+/** How often it reads a day or more again: a minute more changes little in a day's chart. */
+const LONG_REFRESH_MS = 5 * 60_000;
+
+/**
+ * How often a card reads its history again.
+ *
+ * @param range - How far back it reads.
+ * @returns Every minute for less than a day, every five minutes for a day or more.
+ */
+export function historyRefreshMs(range: HistoryRange): number {
+  return range === '1h' || range === '6h' ? REFRESH_MS : LONG_REFRESH_MS;
+}
 
 /** A window and what happened in it. */
 export type CardHistory<TPoint> = {
@@ -62,7 +75,7 @@ export function useTelemetry(
       return { window, points };
     },
     enabled: isWanted && sample === null,
-    refetchInterval: REFRESH_MS,
+    refetchInterval: historyRefreshMs(range),
   });
 
   return sample === null ? query.data : isWanted ? sample.telemetry(entityId) : undefined;
@@ -101,7 +114,7 @@ export function useStateChanges(
       return { window, points };
     },
     enabled: isWanted && sample === null,
-    refetchInterval: REFRESH_MS,
+    refetchInterval: historyRefreshMs(range),
   });
 
   return sample === null ? query.data : isWanted ? sample.stateChanges(entityId) : undefined;

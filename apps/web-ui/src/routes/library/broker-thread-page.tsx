@@ -91,7 +91,8 @@ export function ThreadBrokerPage() {
     queryKey: THREAD_QUERY_KEYS.status,
 
     /**
-     * Reads it again: often while a setup runs.
+     * Reads it again: often while a setup runs, and otherwise as before - the radio coming loose
+     * or the border router stopping is not announced by the hub.
      *
      * @param query - The query, with what it read last.
      * @returns How soon.

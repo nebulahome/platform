@@ -37,7 +37,7 @@ import { toMessage } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
 import { useTab } from '@/lib/use-tab';
 import { fetchDevices, LIBRARY_QUERY_KEYS } from '@/library/api';
-import { BROKER_QUERY_KEYS, BROKER_REFRESH_MS } from '@/library/brokers-api';
+import { BROKER_FALLBACK_MS, BROKER_QUERY_KEYS, BROKER_REFRESH_MS } from '@/library/brokers-api';
 import {
   fetchModbusDevices,
   fetchModbusFound,
@@ -107,7 +107,7 @@ export function ModbusBrokerPage() {
   });
   const found = useQuery({
     queryKey: MODBUS_QUERY_KEYS.found,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: BROKER_FALLBACK_MS,
     queryFn: signalled(fetchModbusFound),
   });
   const houseDevices = useQuery({
