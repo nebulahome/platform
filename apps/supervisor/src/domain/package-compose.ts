@@ -5,6 +5,7 @@
  * locked as a package's declared containers are.
  */
 import {
+  isRecord,
   packageComposeProblems,
   type ComposeProblem,
   type JsonObject,
@@ -33,16 +34,6 @@ export function packageProjectOf(packageId: string): string {
  */
 export function packageIdOfProject(project: string): string | undefined {
   return project.startsWith(PROJECT_PREFIX) ? project.slice(PROJECT_PREFIX.length) : undefined;
-}
-
-/**
- * Says whether a value is a record.
- *
- * @param value - The value.
- * @returns True for a non-null, non-array object.
- */
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

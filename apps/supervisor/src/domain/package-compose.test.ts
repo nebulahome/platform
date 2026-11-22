@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { COMPOSE_PLATFORM_VARIABLES } from '@nebulahome/contracts';
+
 import type { PlatformContext } from './managed.js';
 import {
   composeEnv,
@@ -89,5 +91,11 @@ describe('a package’s compose project', () => {
       NEBULA_PLATFORM_MQTT_USERNAME: 'nvr',
       NEBULA_PLATFORM_TIMEZONE: 'Europe/Rome',
     });
+  });
+
+  it('gives the file exactly the platform variables the contract lets it use', () => {
+    expect(Object.keys(platformVariables(BRIDGE)).sort()).toEqual(
+      [...COMPOSE_PLATFORM_VARIABLES].sort(),
+    );
   });
 });

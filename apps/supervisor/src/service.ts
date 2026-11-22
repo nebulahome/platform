@@ -264,6 +264,7 @@ export class SupervisorService {
   #refreshTimer: NodeJS.Timeout | null = null;
   #reconnectTimer: NodeJS.Timeout | null = null;
   #isRefreshing = false;
+  #isSampling = false;
 
   /** Ends the event stream being followed, before another replaces it. */
   #events: AbortController | null = null;
@@ -1385,13 +1386,27 @@ export class SupervisorService {
   }
 
   /**
-   * Measures every running container once.
+   * Measures every running container once. A round still waiting on a slow Docker is left to
+   * finish rather than joined by another, which would write the counters out of order.
    */
   async #sample(): Promise<void> {
-    if (!this.#status.isAvailable) {
+    if (!this.#status.isAvailable || this.#isSampling) {
       return;
     }
 
+    this.#isSampling = true;
+
+    try {
+      await this.#sampleRunning();
+    } finally {
+      this.#isSampling = false;
+    }
+  }
+
+  /**
+   * Measures every running container once, each on its own: one that fails leaves the others.
+   */
+  async #sampleRunning(): Promise<void> {
     const running = [...this.#containers.values()].filter(
       (tracked) => tracked.listed.State === 'running',
     );
