@@ -2,7 +2,7 @@
  * The three small hooks every surface that opens ended up writing for itself: a press outside, the
  * Escape key, and a clock that ticks. Lent to packages as they are (`@nebulahome/package-sdk/ui`).
  */
-import { useEffect, useEffectEvent, useState, type RefObject } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type RefObject } from 'react';
 
 /** One element, or several that count as inside together: a panel and the button that opens it. */
 export type OutsideTarget = RefObject<Element | null> | readonly RefObject<Element | null>[];
@@ -75,20 +75,35 @@ export function useEscape(onEscape: () => void, isEnabled = true): void {
  * The time, read again at an interval: for "3 min ago" and clocks, which nothing else redraws.
  *
  * @param everyMs - How often it is read again, in milliseconds; every second when not said.
+ * @param isTicking - Whether it is read again at all: off, the time stays where it was. Once on
+ *   again, it is read at once when the last reading is older than the interval.
  * @returns The time of the last reading, in milliseconds since the epoch.
  */
-export function useNow(everyMs = 1000): number {
+export function useNow(everyMs = 1000, isTicking = true): number {
   const [now, setNow] = useState(() => Date.now());
+  const readAt = useRef(now);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(Date.now());
-    }, everyMs);
+    if (!isTicking) {
+      return undefined;
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    /** Reads the time, and waits for the next reading. */
+    const read = (): void => {
+      readAt.current = Date.now();
+      setNow(readAt.current);
+      timer = setTimeout(read, everyMs);
+    };
+
+    // An interval after the last reading: at once for a clock that was stopped for longer.
+    timer = setTimeout(read, Math.max(0, readAt.current + everyMs - Date.now()));
 
     return () => {
-      clearInterval(timer);
+      clearTimeout(timer);
     };
-  }, [everyMs]);
+  }, [everyMs, isTicking]);
 
   return now;
 }

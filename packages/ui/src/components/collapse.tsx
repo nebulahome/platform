@@ -4,12 +4,14 @@
  *
  * It slides rather than appearing, the way the roles and the settings sections do: the box is a
  * one-row grid whose row goes from `0fr` to `1fr`, which a transition can follow where `height:
- * auto` cannot, and it fades as it goes. Closed, it is `inert` - nothing in it takes the focus or
- * reaches a screen reader.
+ * auto` cannot, and it fades as it goes - at once, for somebody whose system asks for less motion.
+ * Closed, it is `inert` - nothing in it takes the focus or reaches a screen reader.
  *
  * What it holds is drawn the first time it opens, not before: a section nobody opens costs nothing
  * and asks the server for nothing, as it did when it was drawn only while open. Once drawn it stays,
  * so closing can slide too, and what was typed or fetched in it is still there when it opens again.
+ * A part whose contents must be there while it is closed - for a search of the page - says so
+ * (`isAlwaysRendered`), and is drawn from the start.
  */
 import { useState, type ReactNode } from 'react';
 
@@ -26,6 +28,9 @@ export type CollapseProps = {
   /** Classes for the box what it holds is laid out in: its padding, its gap. */
   readonly className?: string;
 
+  /** Whether what it holds is drawn before it first opens: for contents a search must find. */
+  readonly isAlwaysRendered?: boolean;
+
   /** What it holds. */
   readonly children: ReactNode;
 };
@@ -37,7 +42,7 @@ export type CollapseProps = {
  * @returns The part.
  */
 export function Collapse(props: CollapseProps) {
-  const { isOpen, id, className, children } = props;
+  const { isOpen, id, className, isAlwaysRendered = false, children } = props;
   const [hasOpened, setHasOpened] = useState(isOpen);
 
   // Adjusted while rendering rather than in an effect, so what it holds is there in the very render
@@ -51,12 +56,12 @@ export function Collapse(props: CollapseProps) {
       id={id}
       inert={!isOpen}
       className={cn(
-        'grid transition-[grid-template-rows,opacity] duration-250 ease-out',
+        'grid transition-[grid-template-rows,opacity] duration-250 ease-out motion-reduce:transition-none',
         isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
       )}
     >
       <div className="min-h-0 overflow-hidden">
-        {hasOpened ? <div className={className}>{children}</div> : null}
+        {hasOpened || isAlwaysRendered ? <div className={className}>{children}</div> : null}
       </div>
     </div>
   );

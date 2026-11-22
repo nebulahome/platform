@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/cn.js';
 
 /** A colour as the wheel holds it. */
-export type WheelColour = {
+export type WheelColor = {
   /** 0 to 360, 0 being red at the right, going clockwise. */
   readonly hue: number;
 
@@ -35,13 +35,13 @@ export type ColorWheelProps = {
   readonly label: string;
 
   /** Where the knob stands. */
-  readonly value: WheelColour;
+  readonly value: WheelColor;
 
   /** Called as the knob moves. */
-  readonly onChange: (value: WheelColour) => void;
+  readonly onChange: (value: WheelColor) => void;
 
   /** Called once the knob is let go, and on each step a key takes. */
-  readonly onCommit: (value: WheelColour) => void;
+  readonly onCommit: (value: WheelColor) => void;
 
   /** Its width and height, in pixels. */
   readonly size?: number;
@@ -56,13 +56,13 @@ export type ColorWheelProps = {
 /**
  * The CSS colour of a hue and a saturation at full brightness, as the wheel paints its knob.
  *
- * @param colour - The colour.
+ * @param color - The colour.
  * @returns A CSS colour.
  */
-export function wheelColour(colour: WheelColour): string {
-  const lightness = 100 - colour.saturation / 2;
+export function wheelColor(color: WheelColor): string {
+  const lightness = 100 - color.saturation / 2;
 
-  return `hsl(${String(Math.round(colour.hue))} ${String(Math.round(colour.saturation))}% ${String(Math.round(lightness))}%)`;
+  return `hsl(${String(Math.round(color.hue))} ${String(Math.round(color.saturation))}% ${String(Math.round(lightness))}%)`;
 }
 
 /**
@@ -73,7 +73,7 @@ export function wheelColour(colour: WheelColour): string {
  * @param radius - The wheel's radius, in pixels.
  * @returns The colour; a point outside the rim reads as on it.
  */
-export function colourAt(x: number, y: number, radius: number): WheelColour {
+export function colorAt(x: number, y: number, radius: number): WheelColor {
   const hue = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
   const saturation = Math.min(100, (Math.hypot(x, y) / radius) * 100);
 
@@ -110,14 +110,14 @@ export function ColorWheel(props: ColorWheelProps) {
    * @param event - The pointer event.
    * @returns The colour, or undefined before the wheel is on the page.
    */
-  const colourOf = (event: PointerEvent<HTMLDivElement>): WheelColour | undefined => {
+  const colorOf = (event: PointerEvent<HTMLDivElement>): WheelColor | undefined => {
     const box = wheelRef.current?.getBoundingClientRect();
 
     if (box === undefined) {
       return undefined;
     }
 
-    return colourAt(
+    return colorAt(
       event.clientX - box.left - box.width / 2,
       event.clientY - box.top - box.height / 2,
       box.width / 2,
@@ -131,7 +131,7 @@ export function ColorWheel(props: ColorWheelProps) {
    */
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     const step = event.shiftKey ? 10 : 1;
-    const moves: Readonly<Record<string, WheelColour>> = {
+    const moves: Readonly<Record<string, WheelColor>> = {
       ArrowRight: { hue: (value.hue + step) % 360, saturation: value.saturation },
       ArrowLeft: { hue: (value.hue - step + 360) % 360, saturation: value.saturation },
       ArrowUp: { hue: value.hue, saturation: Math.min(100, value.saturation + step) },
@@ -180,14 +180,14 @@ export function ColorWheel(props: ColorWheelProps) {
         event.currentTarget.setPointerCapture(event.pointerId);
         setDragging(true);
 
-        const next = colourOf(event);
+        const next = colorOf(event);
 
         if (next !== undefined) {
           onChange(next);
         }
       }}
       onPointerMove={(event) => {
-        const next = isDragging ? colourOf(event) : undefined;
+        const next = isDragging ? colorOf(event) : undefined;
 
         if (next !== undefined) {
           onChange(next);
@@ -200,7 +200,7 @@ export function ColorWheel(props: ColorWheelProps) {
 
         setDragging(false);
 
-        const next = colourOf(event);
+        const next = colorOf(event);
 
         if (next !== undefined) {
           onCommit(next);
@@ -219,7 +219,7 @@ export function ColorWheel(props: ColorWheelProps) {
         )}
         /* eslint-disable-next-line react/forbid-dom-props -- where the knob is, and the colour it
            points at, are live values (RULES.md 15.3). */
-        style={{ left: knob.x, top: knob.y, backgroundColor: wheelColour(value) }}
+        style={{ left: knob.x, top: knob.y, backgroundColor: wheelColor(value) }}
       />
     </div>
   );

@@ -54,10 +54,10 @@ export {
 } from './components/block.js';
 export {
   ColorWheel,
-  colourAt,
-  wheelColour,
+  colorAt,
+  wheelColor,
   type ColorWheelProps,
-  type WheelColour,
+  type WheelColor,
 } from './components/color-wheel.js';
 export { Button, type ButtonProps } from './components/button.js';
 export {

@@ -149,9 +149,13 @@ export function Segmented<TValue extends string>(props: SegmentedProps<TValue>) 
   const measure = useCallback((): void => {
     const element = trackElement.current?.querySelectorAll('label')[chosenIndex];
 
-    if (element instanceof HTMLElement) {
-      setPill({ left: element.offsetLeft, width: element.offsetWidth });
-    }
+    // A value none of the options has - a fan that is off - shows no pill, rather than leaving it
+    // where the last choice was.
+    setPill(
+      element instanceof HTMLElement
+        ? { left: element.offsetLeft, width: element.offsetWidth }
+        : null,
+    );
   }, [chosenIndex]);
 
   // Laid out before the browser paints, so the pill is never seen at the previous option's place

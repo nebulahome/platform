@@ -10,6 +10,9 @@ export type ProgressBarProps = {
 
   /** What it is, to a screen reader. */
   readonly label: string;
+
+  /** The fill's colour: the accent, or cyan for a device's own work such as a firmware install. */
+  readonly tone?: 'primary' | 'cyan';
 };
 
 /**
@@ -19,7 +22,7 @@ export type ProgressBarProps = {
  * @returns The bar.
  */
 export function ProgressBar(props: ProgressBarProps) {
-  const { percent, label } = props;
+  const { percent, label, tone = 'primary' } = props;
 
   return (
     <span
@@ -32,7 +35,8 @@ export function ProgressBar(props: ProgressBarProps) {
     >
       <span
         className={cn(
-          'block h-full rounded-full bg-primary transition-[width] duration-500',
+          'block h-full rounded-full transition-[width] duration-500',
+          tone === 'cyan' ? 'bg-cyan' : 'bg-primary',
           percent === null ? 'w-full animate-pulse' : null,
         )}
         /* eslint-disable-next-line react/forbid-dom-props -- the width is the value itself. */

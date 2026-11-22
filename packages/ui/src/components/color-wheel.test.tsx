@@ -4,19 +4,19 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ColorWheel, colourAt, wheelColour } from './color-wheel.js';
+import { ColorWheel, colorAt, wheelColor } from './color-wheel.js';
 
 describe('colourAt', () => {
   it('reads the hue around the wheel, red at the right and clockwise, and saturation outwards', () => {
-    expect(colourAt(100, 0, 100)).toEqual({ hue: 0, saturation: 100 });
-    expect(colourAt(0, 50, 100)).toEqual({ hue: 90, saturation: 50 });
-    expect(colourAt(-100, 0, 100)).toEqual({ hue: 180, saturation: 100 });
-    expect(colourAt(0, -100, 100)).toEqual({ hue: 270, saturation: 100 });
-    expect(colourAt(0, 0, 100)).toEqual({ hue: 0, saturation: 0 });
+    expect(colorAt(100, 0, 100)).toEqual({ hue: 0, saturation: 100 });
+    expect(colorAt(0, 50, 100)).toEqual({ hue: 90, saturation: 50 });
+    expect(colorAt(-100, 0, 100)).toEqual({ hue: 180, saturation: 100 });
+    expect(colorAt(0, -100, 100)).toEqual({ hue: 270, saturation: 100 });
+    expect(colorAt(0, 0, 100)).toEqual({ hue: 0, saturation: 0 });
   });
 
   it('reads a point past the rim as on it', () => {
-    expect(colourAt(300, 0, 100).saturation).toBe(100);
+    expect(colorAt(300, 0, 100).saturation).toBe(100);
   });
 });
 
@@ -64,7 +64,7 @@ describe('ColorWheel', () => {
   });
 
   it('paints a colour the way a bulb fades to white', () => {
-    expect(wheelColour({ hue: 120, saturation: 100 })).toBe('hsl(120 100% 50%)');
-    expect(wheelColour({ hue: 120, saturation: 0 })).toBe('hsl(120 0% 100%)');
+    expect(wheelColor({ hue: 120, saturation: 100 })).toBe('hsl(120 100% 50%)');
+    expect(wheelColor({ hue: 120, saturation: 0 })).toBe('hsl(120 0% 100%)');
   });
 });

@@ -85,7 +85,7 @@ export type SliderProps = {
 };
 
 /** The token each fill is drawn in. */
-const FILL_COLOUR: Readonly<Record<NonNullable<SliderProps['fill']>, string>> = {
+const FILL_COLOR: Readonly<Record<NonNullable<SliderProps['fill']>, string>> = {
   accent: 'var(--color-primary)',
   warm: 'var(--color-lamp)',
   violet: 'var(--color-violet)',
@@ -163,7 +163,7 @@ export function Slider(props: SliderProps) {
   // a computed gradient for a colour picker, as the exception to inline styles.
   const groove: CSSProperties & Record<`--${string}`, string> = {
     '--slider-at': `${String(sliderPercent(value, min, max))}%`,
-    ...(fill === 'accent' ? {} : { '--slider-fill': FILL_COLOUR[fill] }),
+    ...(fill === 'accent' ? {} : { '--slider-fill': FILL_COLOR[fill] }),
     ...(gradient === undefined ? {} : { '--slider-track': gradient }),
   };
   const field = (
