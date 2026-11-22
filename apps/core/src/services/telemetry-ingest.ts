@@ -8,7 +8,7 @@
  */
 import type { NatsConnection } from 'nats';
 
-import { createTelemetryConsumer, type TelemetryConsumer } from '@nebulahome/bus';
+import { createTelemetryConsumer, delay, type TelemetryConsumer } from '@nebulahome/bus';
 import { schema, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
@@ -139,8 +139,9 @@ export async function runTelemetryIngest(options: TelemetryIngestOptions): Promi
     } catch (error: unknown) {
       options.logger.error({ err: error }, 'Telemetry cycle failed, the batch will be redelivered');
 
-      // eslint-disable-next-line no-await-in-loop -- a pause before retrying, same reason
-      await new Promise((resolve) => setTimeout(resolve, DEFAULT_PULL_TIMEOUT_MS));
+      // A pause before retrying, cut short by a shutdown, which the loop then sees.
+      // eslint-disable-next-line no-await-in-loop -- see above
+      await delay(DEFAULT_PULL_TIMEOUT_MS, options.signal);
     }
   }
 }
