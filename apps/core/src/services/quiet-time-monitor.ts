@@ -86,6 +86,9 @@ export class QuietTimeMonitor {
   #timeZone = 'UTC';
   #job: Cron | undefined;
 
+  /** Whether {@link stop} ran: a time learned after it is not reported. */
+  #isStopped = false;
+
   /**
    * Builds the monitor without starting it.
    *
@@ -101,28 +104,35 @@ export class QuietTimeMonitor {
    *
    * @param timeZone - The house's zone.
    */
-  public async start(timeZone: string): Promise<void> {
-    await this.sync(timeZone);
+  public start(timeZone: string): void {
+    this.sync(timeZone);
   }
 
   /**
-   * Follows the house's zone: learns again in it and moves the daily run to its midnight.
+   * Follows the house's zone: learns again in it and moves the daily run to its midnight. The
+   * learning reads weeks of history, so it is not waited for: it reports when it is done.
    *
    * @param timeZone - The house's zone.
    */
-  public async sync(timeZone: string): Promise<void> {
+  public sync(timeZone: string): void {
     this.#timeZone = timeZone;
+    this.#isStopped = false;
     this.#job?.stop();
     this.#job = new Cron(RELEARN_PATTERN, { timezone: timeZone, protect: true }, () => {
       void this.publish();
     });
 
-    await this.publish();
+    void this.publish();
   }
 
-  /** Learns the time and reports it. A failure is logged, never thrown. */
+  /**
+   * Learns the time and reports it. A failure is logged, never thrown. A time learned in a zone
+   * the house has left meanwhile is not reported, as the sync that changed it learns again, and
+   * neither is one learned after {@link stop}.
+   */
   public async publish(): Promise<void> {
     const { ingest, logger, newTraceId } = this.#options;
+    const timeZone = this.#timeZone;
 
     try {
       const record = ingest.directory.get(parseEntityId(QUIET_TIME_ENTITY_ID));
@@ -133,7 +143,11 @@ export class QuietTimeMonitor {
 
       const current = ingest.registry.get(record.entityId);
       const previous = quietTimeFromState(current?.state, current?.attributes);
-      const quiet = await this.#learn(previous?.timezone === this.#timeZone ? previous.time : null);
+      const quiet = await this.#learn(previous?.timezone === timeZone ? previous.time : null);
+
+      if (this.#isStopped || this.#timeZone !== timeZone) {
+        return;
+      }
 
       ingestReport(
         ingest,
@@ -142,7 +156,7 @@ export class QuietTimeMonitor {
           entityId: record.entityId,
           state: { sensor_text: { value: quiet.time } },
           isAvailable: true,
-          attributes: quietTimeAttributes({ ...quiet, timezone: this.#timeZone }),
+          attributes: quietTimeAttributes({ ...quiet, timezone: timeZone }),
         },
         newTraceId(),
       );
@@ -153,6 +167,7 @@ export class QuietTimeMonitor {
 
   /** Stops learning. */
   public stop(): void {
+    this.#isStopped = true;
     this.#job?.stop();
     this.#job = undefined;
   }

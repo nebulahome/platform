@@ -366,7 +366,7 @@ export class CoreService {
     const quietTimeMonitor = new QuietTimeMonitor({ db, ingest, logger, newTraceId });
 
     this.#quietTimeMonitor = quietTimeMonitor;
-    await quietTimeMonitor.start(house.timeZone);
+    quietTimeMonitor.start(house.timeZone);
 
     // A package or an integration being updated: its entities say so, its commands wait.
     const updating = new UpdatingSources({

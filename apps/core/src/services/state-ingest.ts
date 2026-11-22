@@ -31,6 +31,12 @@ import type { EntityStateRow, StateHistoryRow } from '../persistence/history-wri
 
 import { announceChange, type ChangeObserver } from './state-events.js';
 
+/** How often reports for one entity nobody registered are logged, at most. */
+const UNREGISTERED_WARNING_INTERVAL_MS = 60_000;
+
+/** How many entities' last warnings are kept before the ones a minute old are let go. */
+const UNREGISTERED_WARNINGS_KEPT = 1000;
+
 /** Everything the ingest pipeline writes to. */
 export type StateIngestOptions = {
   /** The bus client, used to subscribe and to fan out the resulting events. */
@@ -330,6 +336,36 @@ function customProblemOf(
  * @returns The subscription, to unsubscribe on shutdown.
  */
 export function startStateIngest(options: StateIngestOptions): BusSubscription {
+  /** When each unregistered entity's report was last logged: a package left behind reports often. */
+  const unregisteredWarnedAt = new Map<string, number>();
+
+  /**
+   * Says whether a report for an unregistered entity is to be logged: once a minute per entity.
+   *
+   * @param entityId - The entity.
+   * @returns True when its last warning is a minute old, or there was none.
+   */
+  const shouldWarnUnregistered = (entityId: string): boolean => {
+    const now = Date.now();
+    const warnedAt = unregisteredWarnedAt.get(entityId);
+
+    if (warnedAt !== undefined && now - warnedAt < UNREGISTERED_WARNING_INTERVAL_MS) {
+      return false;
+    }
+
+    if (unregisteredWarnedAt.size >= UNREGISTERED_WARNINGS_KEPT) {
+      for (const [id, at] of unregisteredWarnedAt) {
+        if (now - at >= UNREGISTERED_WARNING_INTERVAL_MS) {
+          unregisteredWarnedAt.delete(id);
+        }
+      }
+    }
+
+    unregisteredWarnedAt.set(entityId, now);
+
+    return true;
+  };
+
   /**
    * Handles one report.
    *
@@ -352,10 +388,12 @@ export function startStateIngest(options: StateIngestOptions): BusSubscription {
     const record = options.directory.get(report.entityId);
 
     if (record === undefined) {
-      context.logger.warn(
-        { entityId: report.entityId, source: context.header.source },
-        'Rejected a report for an entity that is not registered',
-      );
+      if (shouldWarnUnregistered(report.entityId)) {
+        context.logger.warn(
+          { entityId: report.entityId, source: context.header.source },
+          'Rejected a report for an entity that is not registered',
+        );
+      }
 
       return;
     }

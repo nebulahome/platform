@@ -131,7 +131,7 @@ export function startAutomationService(options: AutomationServiceOptions): BusSu
         const reply = await engine.syncHouse();
 
         await options.sun?.sync(engine.house.position);
-        await options.quietTime?.sync(engine.house.timeZone);
+        options.quietTime?.sync(engine.house.timeZone);
         logger.info(reply, 'Read the house again');
 
         return reply;

@@ -101,6 +101,110 @@ describe('BatchWriter', () => {
     expect(writer.dropped).toBe(2);
   });
 
+  it('says it is dropping rows now and then rather than on every row', () => {
+    vi.useFakeTimers();
+
+    try {
+      const logger = silentLogger();
+      const warn = vi.spyOn(logger, 'warn');
+      const writer = new BatchWriter<number>({
+        name: 'test',
+        logger,
+        batchSize: 1000,
+        maxBufferedRows: 3,
+        write: async () => {
+          await Promise.resolve();
+        },
+      });
+
+      for (let row = 0; row < 8; row += 1) {
+        writer.add(row);
+      }
+
+      // Five dropped, said once: the first.
+      expect(writer.dropped).toBe(5);
+      expect(warn).toHaveBeenCalledOnce();
+
+      for (let row = 0; row < 5; row += 1) {
+        writer.add(row);
+      }
+
+      // The tenth dropped row is said at once.
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenLastCalledWith(
+        { writer: 'test', dropped: 10, droppedSinceLastWarning: 9 },
+        'Buffer is full, dropping the oldest rows',
+      );
+
+      writer.add(0);
+      expect(warn).toHaveBeenCalledTimes(2);
+
+      vi.advanceTimersByTime(30_000);
+      writer.add(0);
+      expect(warn).toHaveBeenCalledTimes(3);
+      expect(writer.dropped).toBe(12);
+      expect(writer.pending).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits a moment after a failed write before flushing early again, then resumes', async () => {
+    vi.useFakeTimers();
+
+    let isDown = true;
+    const written: number[][] = [];
+    const write = vi.fn(async (rows: readonly number[]) => {
+      await Promise.resolve();
+
+      if (isDown) {
+        throw Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+      }
+
+      written.push([...rows]);
+    });
+    const writer = new BatchWriter<number>({
+      name: 'test',
+      logger: silentLogger(),
+      batchSize: 2,
+      flushIntervalMs: 1000,
+      write,
+    });
+
+    try {
+      writer.start();
+      writer.add(1);
+      writer.add(2);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(write).toHaveBeenCalledOnce();
+
+      // A full batch right after the failure waits for the timer.
+      writer.add(3);
+      writer.add(4);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(write).toHaveBeenCalledOnce();
+      expect(writer.pending).toBe(4);
+
+      // The database is back: the timer's flush writes everything, and nothing was lost.
+      isDown = false;
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(written).toStrictEqual([[1, 2, 3, 4]]);
+      expect(writer.pending).toBe(0);
+
+      // A full batch flushes at once again.
+      writer.add(5);
+      writer.add(6);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(written).toStrictEqual([
+        [1, 2, 3, 4],
+        [5, 6],
+      ]);
+    } finally {
+      await writer.stop();
+      vi.useRealTimers();
+    }
+  });
+
   it('drops the rows a caller names, for a target that no longer exists', () => {
     // A row for a deleted entity would fail every flush - the writer keeps a failed batch and
     // tries again - so what is buffered for it has to go with the rows it was for.

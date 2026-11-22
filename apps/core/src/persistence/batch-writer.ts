@@ -53,6 +53,15 @@ const DEFAULT_MAX_ROWS_PER_WRITE = 2000;
 /** How many times in a row the database may refuse a chunk's data before its rows are tried one by one. */
 const REFUSED_ATTEMPTS_BEFORE_ISOLATING = 3;
 
+/** How often a full buffer says it is dropping rows, at most, unless the count grows tenfold. */
+const FULL_WARNING_INTERVAL_MS = 30_000;
+
+/**
+ * How long after a failed write a full batch waits for the timer instead of flushing at once: a
+ * database that is down would otherwise be tried, and logged, on every row added.
+ */
+const EARLY_FLUSH_PAUSE_MS = 1000;
+
 /**
  * Whether an error is the database refusing the rows themselves rather than failing to take them.
  *
@@ -90,6 +99,9 @@ export class BatchWriter<TRow> {
   #isRunning = false;
   #droppedRows = 0;
   #refusedAttempts = 0;
+  #lastFullWarningAt = Number.NEGATIVE_INFINITY;
+  #droppedSinceWarning = 0;
+  #lastFailureAt = Number.NEGATIVE_INFINITY;
 
   /**
    * Builds a writer.
@@ -131,7 +143,8 @@ export class BatchWriter<TRow> {
   }
 
   /**
-   * Buffers one row, flushing early once the batch is full.
+   * Buffers one row, flushing early once the batch is full - unless a write failed a moment ago,
+   * when the timer's flush is soon enough.
    *
    * @param row - The row to write.
    */
@@ -140,17 +153,18 @@ export class BatchWriter<TRow> {
 
     if (this.#buffer.length > this.#options.maxBufferedRows) {
       const overflow = this.#buffer.length - this.#options.maxBufferedRows;
+      const droppedBefore = this.#droppedRows;
 
       this.#buffer.splice(0, overflow);
       this.#droppedRows += overflow;
-
-      this.#options.logger.warn(
-        { writer: this.#options.name, dropped: this.#droppedRows },
-        'Buffer is full, dropping the oldest rows',
-      );
+      this.#droppedSinceWarning += overflow;
+      this.#warnFull(droppedBefore);
     }
 
-    if (this.#buffer.length >= this.#options.batchSize) {
+    if (
+      this.#buffer.length >= this.#options.batchSize &&
+      Date.now() - this.#lastFailureAt >= EARLY_FLUSH_PAUSE_MS
+    ) {
       // Deliberately not awaited: `add` is called from the state ingest path, and making the
       // hottest path in the system wait on a database round trip is the thing this class exists
       // to avoid. Failures are reported inside `flush`.
@@ -255,12 +269,14 @@ export class BatchWriter<TRow> {
     try {
       await this.#options.write(chunk);
       this.#refusedAttempts = 0;
+      this.#lastFailureAt = Number.NEGATIVE_INFINITY;
 
       return [];
     } catch (error: unknown) {
       this.#refusedAttempts = isRefusedRowsError(error) ? this.#refusedAttempts + 1 : 0;
 
       if (this.#refusedAttempts < REFUSED_ATTEMPTS_BEFORE_ISOLATING) {
+        this.#lastFailureAt = Date.now();
         this.#options.logger.error(
           { writer: this.#options.name, rows: chunk.length, err: error },
           'Could not write a batch, keeping it buffered',
@@ -292,6 +308,7 @@ export class BatchWriter<TRow> {
       } catch (error: unknown) {
         if (!isRefusedRowsError(error)) {
           unwritten = chunk.slice(index);
+          this.#lastFailureAt = Date.now();
           this.#options.logger.error(
             { writer: this.#options.name, rows: unwritten.length, err: error },
             'Could not write a batch, keeping it buffered',
@@ -313,6 +330,34 @@ export class BatchWriter<TRow> {
     }
 
     return unwritten;
+  }
+
+  /**
+   * Says the buffer is full and dropping rows: the first time, then once every
+   * {@link FULL_WARNING_INTERVAL_MS} or when the count passes 10, 100, 1000 rows, so a database
+   * that is down for hours does not log a line per row.
+   *
+   * @param droppedBefore - The rows dropped before this row's overflow.
+   */
+  #warnFull(droppedBefore: number): void {
+    const now = Date.now();
+    // One digit more is ten times as many.
+    const hasGrownTenfold = String(this.#droppedRows).length > String(droppedBefore).length;
+
+    if (!hasGrownTenfold && now - this.#lastFullWarningAt < FULL_WARNING_INTERVAL_MS) {
+      return;
+    }
+
+    this.#options.logger.warn(
+      {
+        writer: this.#options.name,
+        dropped: this.#droppedRows,
+        droppedSinceLastWarning: this.#droppedSinceWarning,
+      },
+      'Buffer is full, dropping the oldest rows',
+    );
+    this.#lastFullWarningAt = now;
+    this.#droppedSinceWarning = 0;
   }
 
   /** Arms the next flush. */

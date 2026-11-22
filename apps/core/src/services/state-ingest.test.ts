@@ -9,6 +9,7 @@ import {
   parseEntityId,
   type EntityState,
 } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 
 import { ChangeAttribution } from '../domain/change-attribution.js';
 import type { IngestResult } from '../domain/entity-registry.js';
@@ -238,6 +239,44 @@ describe('startStateIngest', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(harness.registry.get(hallway)).toBeUndefined();
+  });
+
+  it('says once a minute, not on every report, that an entity is not registered', async () => {
+    const warn = vi.spyOn(harness.logger, 'warn');
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 10, 22, 12, 0, 0));
+    const adapter = harness.clientFor('pkg-weather');
+
+    // Every message's logger is a child; here each is the one logger the warnings are counted on.
+    vi.spyOn(harness.logger, 'child').mockImplementation(
+      (() => harness.logger) as unknown as PlatformLogger['child'],
+    );
+
+    /**
+     * Reports the unregistered hallway light and waits for the report to be handled.
+     *
+     * @returns How many times it was logged as unregistered so far.
+     */
+    const report = async (): Promise<number> => {
+      adapter.publish(busSubjects.stateReport(hallway), {
+        entityId: hallway,
+        state: { on_off: { isOn: true } },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      return warn.mock.calls.filter(
+        ([, message]) => message === 'Rejected a report for an entity that is not registered',
+      ).length;
+    };
+
+    try {
+      expect(await report()).toBe(1);
+      expect(await report()).toBe(1);
+
+      now.mockReturnValue(Date.UTC(2026, 10, 22, 12, 1, 0));
+      expect(await report()).toBe(2);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it('ignores a report for an entity the owner disabled', async () => {
