@@ -1,6 +1,6 @@
 /**
- * The `system` schema: packages, routing, settings, migration bookkeeping, the audit log and the
- * backups' locations and runs.
+ * The `system` schema: packages, settings, migration bookkeeping, the audit log and the backups'
+ * locations and runs.
  *
  * Mirrors DATABASE.md 7.
  */
@@ -69,34 +69,6 @@ export const packages = systemSchema.table(
     installedBy: uuid('installed_by').references(() => users.id, { onDelete: 'set null' }),
   },
   (table) => [index('packages_state_idx').on(table.state)],
-);
-
-/**
- * The routing table `packet-manager` publishes to `proxy`.
- *
- * Rows are written when a package registers its routes on startup, not read from a manifest
- * field: the thing that serves a route is the thing that declares it, so the two cannot drift.
- *
- * The reserved-prefix constraint stops a package hijacking `/api`. It is a database constraint
- * rather than an application check because the consequence of getting it wrong is a package
- * intercepting authenticated traffic.
- */
-export const packageRoutes = systemSchema.table(
-  'package_routes',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    packageId: text('package_id')
-      .notNull()
-      .references(() => packages.id, { onDelete: 'cascade' }),
-    pathPrefix: text('path_prefix').notNull().unique(),
-    upstream: text('upstream').notNull(),
-    stripPrefix: boolean('strip_prefix').notNull().default(true),
-    requiresPermission: text('requires_permission'),
-    isWebsocket: boolean('is_websocket').notNull().default(false),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [index('package_routes_package_id_idx').on(table.packageId)],
 );
 
 /**

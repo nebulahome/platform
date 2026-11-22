@@ -1,0 +1,29 @@
+-- 0016_drop_package_routes.sql
+--
+-- The routing table `packet-manager` was to publish to `proxy` was never written or read: no
+-- package serves HTTP of its own, and `proxy` routes nothing to one. The table goes, and with it
+-- its index, its `updated_at` trigger and the grants 0001 gave `api` and `packet-manager` on it.
+--
+-- Rollback: CREATE TABLE system.package_routes (
+--             id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+--             package_id          text        NOT NULL REFERENCES system.packages (id) ON DELETE CASCADE,
+--             path_prefix         text        NOT NULL UNIQUE,
+--             upstream            text        NOT NULL,
+--             strip_prefix        boolean     NOT NULL DEFAULT true,
+--             requires_permission text,
+--             is_websocket        boolean     NOT NULL DEFAULT false,
+--             created_at          timestamptz NOT NULL DEFAULT now(),
+--             updated_at          timestamptz NOT NULL DEFAULT now(),
+--             CONSTRAINT package_routes_path_prefix_format CHECK (path_prefix ~ '^/[a-z0-9/_-]*$'),
+--             CONSTRAINT package_routes_path_prefix_not_reserved
+--               CHECK (path_prefix !~ '^/(api|health|ready)(/|$)')
+--           );
+--           CREATE INDEX package_routes_package_id_idx ON system.package_routes (package_id);
+--           CREATE TRIGGER package_routes_touch_updated_at
+--             BEFORE UPDATE ON system.package_routes
+--             FOR EACH ROW EXECUTE FUNCTION system.touch_updated_at();
+--           GRANT SELECT ON system.package_routes TO nebula_api;
+--           GRANT SELECT, INSERT, UPDATE, DELETE ON system.package_routes TO nebula_packet_manager;
+--           DELETE FROM system.schema_migrations WHERE name = '0016_drop_package_routes.sql';
+
+DROP TABLE system.package_routes;

@@ -63,6 +63,7 @@ describe('the migration set', () => {
       '0013_telemetry_import_refresh.sql',
       '0014_entity_time_capabilities.sql',
       '0015_device_parents.sql',
+      '0016_drop_package_routes.sql',
     ]);
   });
 

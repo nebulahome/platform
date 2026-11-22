@@ -8,8 +8,10 @@
 
 export * from './client.js';
 export * from './device-identity.js';
+export * from './errors.js';
 export * from './history-reads.js';
 export * from './migrate.js';
+export * from './quiet-time.js';
 export * from './schema-version.js';
 export * from './sealed.js';
 export * as schema from './schema/index.js';
