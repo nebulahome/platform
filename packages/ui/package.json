@@ -19,6 +19,7 @@
     "clsx": "^2.1.1",
     "i18next": "^26.4.1",
     "lucide": "1.39.0",
+    "qrcode-generator": "^2.0.4",
     "radix-ui": "^1.6.7",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

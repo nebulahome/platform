@@ -20,6 +20,7 @@
     "@nebulahome/logging": "workspace:*",
     "croner": "^10.0.1",
     "drizzle-orm": "^0.45.2",
+    "ical.js": "^2.2.1",
     "jsonata": "^2.2.2",
     "nats": "^2.29.3",
     "zod": "^4.5.4"
