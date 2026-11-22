@@ -1,13 +1,13 @@
 /**
  * The pieces the settings of a card type are written with, the same the panel's own fields are
- * drawn as: a field with its label, a choice of a few drawn as pills, and a list of entities
- * with Remove on each and Add at the foot, which opens the platform's entity picker.
+ * drawn as: a field with its label, and a list of entities with Remove on each and Add at the
+ * foot, which opens the platform's entity picker. A choice of a few is the kit's `Segmented`.
  */
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { EntityView } from '@nebulahome/contracts';
-import { AppIcon, cn } from '@nebulahome/ui';
+import { AppIcon } from '@nebulahome/ui';
 
 import { entityKindOf } from '@/library/entity-kind';
 import { EntityPicker } from '@/routes/library/entity-picker/entity-picker';
@@ -36,55 +36,6 @@ export function SettingsField(props: {
         {note === undefined ? null : <span>{note}</span>}
       </div>
       {children}
-    </div>
-  );
-}
-
-/**
- * Renders a choice of a few as pills, the one chosen raised.
- *
- * @param props - The choice.
- * @param props.label - What it chooses, for a screen reader.
- * @param props.options - The choices.
- * @param props.value - The one chosen.
- * @param props.onChange - When another is chosen.
- * @returns The choice.
- */
-export function PillChoice<TValue extends string>(props: {
-  readonly label: string;
-  readonly options: readonly { readonly value: TValue; readonly label: string }[];
-  readonly value: TValue;
-  readonly onChange: (value: TValue) => void;
-}) {
-  const { label, options, value, onChange } = props;
-
-  return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="flex gap-1 rounded-pill border border-border-strong bg-surface p-1"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={option.value === value}
-          className={cn(
-            'flex h-7.5 flex-1 items-center justify-center rounded-pill text-ui-sm whitespace-nowrap',
-            'transition-[background-color,color] duration-150 ease-out',
-            'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary',
-            option.value === value
-              ? 'bg-surface-high font-medium text-foreground'
-              : 'text-foreground-muted hover:text-foreground',
-          )}
-          onClick={() => {
-            onChange(option.value);
-          }}
-        >
-          {option.label}
-        </button>
-      ))}
     </div>
   );
 }

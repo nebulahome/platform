@@ -83,7 +83,7 @@ import { TriggerLane } from '@/routes/library/automation/trigger-blocks';
 import { CopyButton } from '@/routes/library/broker-parts';
 import { BackLink } from '@/routes/library/detail-page';
 import { LibraryImportFlow } from '@/routes/library/library-import-flow';
-import { ResolveEntitiesModal } from '@/routes/library/resolve-entities-modal';
+import { ResolveEntitiesDialog } from '@/routes/library/resolve-entities-dialog';
 
 /** What each mode is called, and what a second trigger does in it. */
 const MODES: Readonly<Record<AutomationMode, { readonly label: Message; readonly note: Message }>> =
@@ -671,7 +671,7 @@ function Editor() {
           </Note>
         )}
         {isFixing ? (
-          <ResolveEntitiesModal
+          <ResolveEntitiesDialog
             isOpen
             missing={missing}
             confirmLabel={t('library.automationEditor.useThese', 'Use these')}

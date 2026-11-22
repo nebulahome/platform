@@ -58,6 +58,7 @@ import {
   spanOf,
   type Box,
 } from '@/dashboard/geometry';
+import { useElementSize } from '@/lib/use-element-size';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { CardView, cardTitle } from '@/routes/dashboard/card-view';
 import {
@@ -171,6 +172,9 @@ const DRAG_THRESHOLD_PX = 4;
 /** How close to the top or bottom of the scrolling page a dragged card scrolls it. */
 const SCROLL_EDGE_PX = 64;
 
+/** A container's border, each side (`border`): its cards' grid is this much narrower too. */
+const CONTAINER_BORDER_PX = 1;
+
 /**
  * The lowest row any card on a grid reaches.
  *
@@ -235,43 +239,15 @@ export function DashboardGrid(props: DashboardGridProps) {
   const { t } = useTranslation();
 
   const { layout, data, editor, onNarrowChange, emptyState, frame } = props;
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [measured, setWidth] = useState(0);
-  const width = frame?.width ?? measured;
+  // The grid's width is the browser's to decide, or the preview frame's it is going to; the columns
+  // are measured from it.
+  const { ref: rootRef, size: measured } = useElementSize<HTMLDivElement>();
+  const width = frame?.width ?? measured.width;
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const isReduced = useReducedMotion();
   const isNarrow = width > 0 && width < NARROW_WIDTH_PX;
   const narrowReported = useRef<boolean | null>(null);
-
-  // The grid's width is the browser's to decide; the columns are measured from it.
-  useLayoutEffect(() => {
-    const element = rootRef.current;
-
-    if (element === null) {
-      return undefined;
-    }
-
-    setWidth(element.getBoundingClientRect().width);
-
-    if (typeof ResizeObserver === 'undefined') {
-      return undefined;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-
-      if (entry !== undefined) {
-        setWidth(entry.contentRect.width);
-      }
-    });
-
-    observer.observe(element);
-
-    return (): void => {
-      observer.disconnect();
-    };
-  }, []);
 
   useLayoutEffect(() => {
     if (width > 0 && narrowReported.current !== isNarrow) {
@@ -663,6 +639,7 @@ export function DashboardGrid(props: DashboardGridProps) {
         {card.type === 'container' ? (
           <ContainerView
             container={card}
+            width={box.width}
             data={data}
             editor={editor}
             isSelected={isSelected}
@@ -827,6 +804,7 @@ export function DashboardGrid(props: DashboardGridProps) {
             {carried.type === 'container' ? (
               <ContainerView
                 container={carried}
+                width={moving.size.width}
                 data={data}
                 editor={null}
                 isSelected={false}
@@ -857,6 +835,13 @@ export function DashboardGrid(props: DashboardGridProps) {
 /** What a container needs. */
 type ContainerViewProps = {
   readonly container: DashboardContainerCard;
+
+  /**
+   * How wide it is drawn, in pixels. Its cards' grid is worked out from it rather than measured:
+   * measured, it would follow the container's own slide a frame behind, and the cards, starting
+   * a slide of their own each frame, would stick out of a preview frame narrowing under them.
+   */
+  readonly width: number;
   readonly data: DashboardData;
 
   /** The editor, while the layout is edited; null to only show it. */
@@ -888,42 +873,14 @@ type ContainerViewProps = {
 function ContainerView(props: ContainerViewProps) {
   const { t } = useTranslation();
 
-  const { container, data, editor, isSelected, onSelect, place, spaces } = props;
-  const [innerWidth, setInnerWidth] = useState(0);
-  const innerRef = useRef<HTMLDivElement>(null);
+  const { container, width, data, editor, isSelected, onSelect, place, spaces } = props;
+  // Inside its border and its padding, as the cards' grid below is placed.
+  const innerWidth = Math.max(0, width - 2 * (CONTAINER_BORDER_PX + CONTAINER_PADDING_PX));
   const icon = container.icon === null ? undefined : data.icons.get(container.icon);
   const count = container.cards.length;
   const isEditing = editor !== null;
   const innerRows = Math.max(1, container.h - 1);
   const isFull = freeCells(container.cards, container.w, innerRows).length === 0;
-
-  useLayoutEffect(() => {
-    const element = innerRef.current;
-
-    if (element === null) {
-      return undefined;
-    }
-
-    setInnerWidth(element.getBoundingClientRect().width);
-
-    if (typeof ResizeObserver === 'undefined') {
-      return undefined;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-
-      if (entry !== undefined) {
-        setInnerWidth(entry.contentRect.width);
-      }
-    });
-
-    observer.observe(element);
-
-    return (): void => {
-      observer.disconnect();
-    };
-  }, []);
 
   const innerColumn = columnWidth(innerWidth, container.w);
   const below = { parentId: container.id, x: 0, y: bottomOf(container.cards) };
@@ -1004,7 +961,6 @@ function ContainerView(props: ContainerViewProps) {
       </div>
 
       <div
-        ref={innerRef}
         data-container-grid={container.id}
         data-columns={container.w}
         className="absolute"

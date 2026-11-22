@@ -28,7 +28,7 @@ describe('entityKindOf', () => {
         { capability: 'color_temp', params: { minMireds: 111, maxMireds: 500 } },
       ],
     });
-    const colour = anEntity({
+    const color = anEntity({
       entityId: 'light.strip',
       capabilities: [...tunable.capabilities, { capability: 'color_hs', params: {} }],
     });
@@ -39,7 +39,7 @@ describe('entityKindOf', () => {
       tone: 'light',
     });
     expect(entityKindOf(tunable).label).toBe('Tunable white light');
-    expect(entityKindOf(colour).label).toBe('Colour light');
+    expect(entityKindOf(color).label).toBe('Colour light');
   });
 
   it('names a reading by what it measures, and a binary sensor by its class', () => {

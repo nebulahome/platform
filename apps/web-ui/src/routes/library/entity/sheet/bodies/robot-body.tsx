@@ -19,8 +19,8 @@ import type { JsonObject, VacuumRoom } from '@nebulahome/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import { defineMessage, text, type Message } from '@/i18n/messages';
+import { clockText } from '@/lib/format-time';
 import { paramsOf } from '@/library/entity-control';
-import { clockText } from '@/routes/library/entity/sheet/history';
 import { OptionList } from '@/routes/library/entity/sheet/parts/option-list';
 import {
   BatteryRing,

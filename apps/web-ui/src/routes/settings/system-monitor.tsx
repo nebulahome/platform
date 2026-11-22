@@ -82,7 +82,7 @@ export function SystemMonitor() {
           })}
           percent={latest?.cpuPercent ?? null}
           series={samples.map((sample) => sample.cpuPercent)}
-          colour="cyan"
+          color="cyan"
         />
         <SystemTile
           title={t('system.memory', 'Memory')}
@@ -96,7 +96,7 @@ export function SystemMonitor() {
           }
           percent={latest === undefined ? null : memoryPercent(latest)}
           series={samples.map((sample) => memoryPercent(sample))}
-          colour="lamp"
+          color="lamp"
         />
         <SystemTile
           title={t('system.disk', 'Disk')}
@@ -114,7 +114,7 @@ export function SystemMonitor() {
               : (snapshot.disk.usedBytes / (snapshot.disk.usedBytes + snapshot.disk.freeBytes)) *
                 100
           }
-          colour="violet"
+          color="violet"
         />
       </div>
 

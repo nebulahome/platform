@@ -59,7 +59,7 @@ const AUTOMATION: AutomationView = {
 function renderRow(automation: AutomationView) {
   const onEdit = vi.fn();
   const onToggle = vi.fn();
-  const onDelete = vi.fn();
+  const onRemove = vi.fn();
 
   render(
     <MemoryRouter>
@@ -68,12 +68,12 @@ function renderRow(automation: AutomationView) {
         isBusy={false}
         onEdit={onEdit}
         onToggle={onToggle}
-        onDelete={onDelete}
+        onRemove={onRemove}
       />
     </MemoryRouter>,
   );
 
-  return { onEdit, onToggle, onDelete };
+  return { onEdit, onToggle, onRemove };
 }
 
 describe('AutomationRow', () => {
@@ -149,7 +149,7 @@ describe('AutomationRow', () => {
           canWrite={false}
           onEdit={onEdit}
           onToggle={vi.fn()}
-          onDelete={vi.fn()}
+          onRemove={vi.fn()}
         />
       </MemoryRouter>,
     );

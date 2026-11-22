@@ -128,7 +128,8 @@ export function usePaletteRunner(): (command: PaletteCommand) => void {
         break;
       case 'sign-out':
         close();
-        void signOut();
+        // The store has already cleared the session when the API cannot be reached.
+        void signOut().catch(() => undefined);
         break;
       case 'power':
         // Carried out by the active row's own button.

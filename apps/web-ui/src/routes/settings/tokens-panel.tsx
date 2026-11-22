@@ -16,7 +16,16 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { type ScopedPermission } from '@nebulahome/contracts';
-import { AppIcon, Button, Modal, Segmented, SelectField, TextField, toast } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  Checkbox,
+  Modal,
+  Segmented,
+  SelectField,
+  TextField,
+  toast,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { defineMessage, text, type Message } from '@/i18n/messages';
@@ -372,25 +381,16 @@ export function TokensPanel() {
 
               <div className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-field border border-border bg-surface-high p-2">
                 {offerable.map((key) => (
-                  <label
+                  <Checkbox
                     key={key}
-                    htmlFor={`token-permission-${key}`}
-                    className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-x-2.5 rounded-chip px-2 py-1.5 hover:bg-surface-raised"
-                  >
-                    <input
-                      id={`token-permission-${key}`}
-                      type="checkbox"
-                      checked={chosen.includes(key)}
-                      onChange={() => {
-                        toggle(key);
-                      }}
-                      className="row-span-2 mt-0.5 accent-primary"
-                    />
-                    <span className="min-w-0 font-mono text-caption text-foreground">{key}</span>
-                    <span className="col-start-2 min-w-0 text-caption text-foreground-subtle">
-                      {permissionDescription(key)}
-                    </span>
-                  </label>
+                    label={<span className="font-mono text-caption">{key}</span>}
+                    note={<span className="text-caption">{permissionDescription(key)}</span>}
+                    isChecked={chosen.includes(key)}
+                    onChange={() => {
+                      toggle(key);
+                    }}
+                    className="rounded-chip px-2 py-1.5 hover:bg-surface-raised"
+                  />
                 ))}
               </div>
             </fieldset>

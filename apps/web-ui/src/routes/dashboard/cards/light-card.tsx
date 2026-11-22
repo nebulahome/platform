@@ -153,10 +153,10 @@ type Making =
  * @returns What it makes.
  */
 function makingOf(state: CapabilityState): Making {
-  const { color_hs: colour, color_temp: white } = state;
+  const { color_hs: color, color_temp: white } = state;
 
-  if (colour !== undefined && colour.saturation > 0 && colour.isActive !== false) {
-    return { kind: 'colour', hue: colour.hue, saturation: colour.saturation };
+  if (color !== undefined && color.saturation > 0 && color.isActive !== false) {
+    return { kind: 'colour', hue: color.hue, saturation: color.saturation };
   }
 
   return white === undefined
@@ -180,7 +180,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
   const hasLevel = hasCapability(entity, 'level');
   const whites = paramsOf(entity, 'color_temp');
   // What the light declares, not what it last said: a light in white mode reports no colour.
-  const hasColour = hasCapability(entity, 'color_hs');
+  const hasColor = hasCapability(entity, 'color_hs');
   const level = usePendingValue(state.level?.level ?? 0, reportedAt);
   const kelvin = usePendingValue(
     state.color_temp === undefined ? 0 : miredsToKelvin(state.color_temp.mireds),
@@ -351,8 +351,8 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
         }}
       />
     ) : null;
-  const colourBar =
-    hasColour && model.canControl ? (
+  const colorBar =
+    hasColor && model.canControl ? (
       <BarSlider
         label={t('dashboard.cards.lightCard.colour', 'Colour')}
         value={Math.round(hue.shown)}
@@ -396,14 +396,13 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
       return;
     }
 
-    const colour =
-      'hue' in preset ? preset : { hue: 35, saturation: preset.kelvin < 3300 ? 35 : 8 };
+    const color = 'hue' in preset ? preset : { hue: 35, saturation: preset.kelvin < 3300 ? 35 : 8 };
 
-    hue.sent(colour.hue);
+    hue.sent(color.hue);
     command.send('color_hs', {
       command: 'set_color',
-      hue: colour.hue,
-      saturation: colour.saturation,
+      hue: color.hue,
+      saturation: color.saturation,
     });
   };
   const swatches: Swatch[] = PRESETS.map((preset) => ({
@@ -417,7 +416,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
         : making.kind === 'colour' && Math.abs(making.hue - preset.hue) < 12),
   }));
   const presets =
-    hasColour && model.canControl && !hidden.has('presets') ? (
+    hasColor && model.canControl && !hidden.has('presets') ? (
       <Swatches
         swatches={swatches}
         size={key === '2x2' ? 20 : 18}
@@ -480,7 +479,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
     );
   }
 
-  const colourDot =
+  const colorDot =
     making.kind === 'colour' && isOn ? (
       <span
         aria-hidden="true"
@@ -493,7 +492,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
       />
     ) : null;
   // A light making a colour slides its hue; one making a white slides its white.
-  const second = making.kind === 'colour' ? colourBar : whiteBar;
+  const second = making.kind === 'colour' ? colorBar : whiteBar;
 
   if (key === '2x2') {
     return (
@@ -527,12 +526,12 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
       {head}
       <div
         className={
-          colourDot === null
+          colorDot === null
             ? 'mt-4 flex min-w-0 items-baseline justify-between gap-2.5'
             : 'mt-4 flex min-w-0 items-center justify-between gap-2.5'
         }
       >
-        {colourDot === null ? (
+        {colorDot === null ? (
           <>
             {figure(36)}
             <CommandNote command={command} sending={sending}>
@@ -547,7 +546,7 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
                 <Caption>{caption('card')}</Caption>
               </CommandNote>
             </div>
-            {colourDot}
+            {colorDot}
           </>
         )}
       </div>
@@ -559,9 +558,9 @@ export function LightCard(props: { readonly model: EntityCardModel }) {
         <NoAnswer command={command} />
       ) : (
         <div className="flex flex-col gap-2.5">
-          {making.kind === 'colour' ? colourBar : brightness}
+          {making.kind === 'colour' ? colorBar : brightness}
           {/* Without colour, the white has room under the brightness; with it, the presets do. */}
-          {hasColour || making.kind === 'colour' ? null : whiteBar}
+          {hasColor || making.kind === 'colour' ? null : whiteBar}
         </div>
       )}
     </CardFrame>

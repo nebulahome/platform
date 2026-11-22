@@ -9,9 +9,8 @@
 import { useTranslation } from 'react-i18next';
 
 import type { AreaView } from '@nebulahome/contracts';
-import { Badge, Button, IconButton, Panel } from '@nebulahome/ui';
+import { AppIcon, Badge, Button, IconButton, Panel } from '@nebulahome/ui';
 
-import { WrenchIcon } from '@/components/icons';
 import { translate } from '@/i18n/messages';
 import type { DeviceIcons } from '@/routes/library/device-icon';
 import { DeviceIcon } from '@/routes/library/device-icon';
@@ -86,7 +85,7 @@ export function FloorSection(props: FloorSectionProps) {
                 })}
                 onClick={onEdit}
               >
-                <WrenchIcon width="15" height="15" />
+                <AppIcon id="wrench" size={15} />
               </IconButton>
               <Button size="compact" variant="ghost" onClick={onAddRoom}>
                 {t('library.floorSection.addRoom', 'Add room')}
@@ -128,7 +127,7 @@ export function FloorSection(props: FloorSectionProps) {
                       onEditRoom(room);
                     }}
                   >
-                    <WrenchIcon width="15" height="15" />
+                    <AppIcon id="wrench" size={15} />
                   </IconButton>
                 ) : null}
               </span>

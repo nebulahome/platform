@@ -133,7 +133,9 @@ function EntityGroups(props: {
   const { view, onConfigure, onLink } = props;
   const vendors = useVendorsById();
   // The sections whose disabled entities are shown, by title: none until asked.
-  const [showsDisabled, setShowsDisabled] = useState<ReadonlySet<string>>(new Set());
+  const [groupsShowingDisabled, setGroupsShowingDisabled] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
   const matter = t('library.matterTag', 'Matter');
   const ways = view.device.linked?.ways ?? [];
   const wayOfSource = new Map(ways.map((way) => [way.deviceId, way]));
@@ -239,7 +241,7 @@ function EntityGroups(props: {
           pair.entityIds.every((id) => ids.has(id)),
         );
         const disabled = group.lines.filter((line) => !line.entity.isEnabled).length;
-        const isShowingDisabled = showsDisabled.has(group.title);
+        const isShowingDisabled = groupsShowingDisabled.has(group.title);
         const lines = isShowingDisabled
           ? group.lines
           : group.lines.filter((line) => line.entity.isEnabled);
@@ -255,7 +257,7 @@ function EntityGroups(props: {
                   size="compact"
                   aria-pressed={isShowingDisabled}
                   onClick={() => {
-                    setShowsDisabled((current) => {
+                    setGroupsShowingDisabled((current) => {
                       const next = new Set(current);
 
                       if (next.has(group.title)) {
@@ -672,7 +674,9 @@ export function DevicePage() {
         error={view === undefined ? error : undefined}
         problem={
           view === undefined && !isPending && isMissing
-            ? `There is no device with the id ${deviceId}.`
+            ? t('device.device.noDeviceWithId', 'There is no device with the id {{deviceId}}.', {
+                deviceId,
+              })
             : undefined
         }
         hero={

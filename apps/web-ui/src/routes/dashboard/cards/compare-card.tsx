@@ -32,7 +32,7 @@ export type CompareCardProps = {
 };
 
 /** The colours of the rows, in order: as the board draws them. */
-const COLOURS = [
+const COLORS = [
   'var(--color-cyan)',
   'var(--color-primary)',
   'var(--color-lamp)',
@@ -45,7 +45,7 @@ const CHART = { width: 300, height: 120 } as const;
 /** One row: the sensor, its colour, its reading now and its past. */
 type Row = {
   readonly entity: EntityView;
-  readonly colour: string;
+  readonly color: string;
   readonly value: number | null;
   readonly history: CardHistory<TelemetryPoint> | undefined;
 };
@@ -60,7 +60,7 @@ type Row = {
 function linesOf(
   rows: readonly Row[],
   window: TimeWindow,
-): readonly { readonly colour: string; readonly d: string }[] {
+): readonly { readonly color: string; readonly d: string }[] {
   const values = rows.flatMap((row) => row.history?.points.map((point) => point.value) ?? []);
 
   if (values.length === 0) {
@@ -88,7 +88,7 @@ function linesOf(
       })
       .join(' ');
 
-    return [{ colour: row.colour, d }];
+    return [{ color: row.color, d }];
   });
 }
 
@@ -101,7 +101,7 @@ function linesOf(
  * @returns The chart.
  */
 function Lines(props: {
-  readonly lines: readonly { readonly colour: string; readonly d: string }[];
+  readonly lines: readonly { readonly color: string; readonly d: string }[];
   readonly className: string;
 }) {
   const { lines, className } = props;
@@ -127,10 +127,10 @@ function Lines(props: {
       ))}
       {lines.map((line) => (
         <path
-          key={line.colour}
+          key={line.color}
           d={line.d}
           fill="none"
-          stroke={line.colour}
+          stroke={line.color}
           strokeWidth="1.5"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
@@ -189,7 +189,7 @@ export function CompareCard(props: CompareCardProps) {
 
     return {
       entity,
-      colour: COLOURS[index] ?? COLOURS[0],
+      color: COLORS[index] ?? COLORS[0],
       value: value ?? null,
       history: histories[index],
     };
@@ -253,7 +253,7 @@ export function CompareCard(props: CompareCardProps) {
           {rows.map((row) => (
             <span key={row.entity.entityId} className="flex min-w-0 flex-col gap-1">
               <span className="flex min-w-0 items-center gap-1.5 text-label text-foreground-subtle">
-                <Dot colour={row.colour} />
+                <Dot color={row.color} />
                 <span className="truncate">{row.entity.name}</span>
               </span>
               <span className="text-[19px] leading-none font-medium tracking-[-0.02em] tabular-nums">
@@ -287,7 +287,7 @@ export function CompareCard(props: CompareCardProps) {
               }
             >
               <span className="flex min-w-0 items-center gap-2 text-ui-sm text-foreground-muted">
-                <Dot colour={row.colour} />
+                <Dot color={row.color} />
                 <span className="truncate">{row.entity.name}</span>
               </span>
               <span className="shrink-0 text-ui-sm text-foreground tabular-nums">
@@ -313,18 +313,18 @@ export function CompareCard(props: CompareCardProps) {
  * Renders a row's colour dot.
  *
  * @param props - The colour.
- * @param props.colour - A CSS colour.
+ * @param props.color - A CSS colour.
  * @returns The dot.
  */
-function Dot(props: { readonly colour: string }) {
-  const { colour } = props;
+function Dot(props: { readonly color: string }) {
+  const { color } = props;
 
   return (
     <span
       aria-hidden="true"
       className="size-2 shrink-0 rounded-full"
       /* eslint-disable-next-line react/forbid-dom-props -- each row keeps its own colour. */
-      style={{ background: colour }}
+      style={{ background: color }}
     />
   );
 }

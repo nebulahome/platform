@@ -14,10 +14,10 @@ import { cn } from '@nebulahome/ui';
 import { formatPercent } from '@/lib/format-bytes';
 
 /** What a tile's colour is. */
-type TileColour = 'cyan' | 'lamp' | 'violet';
+type TileColor = 'cyan' | 'lamp' | 'violet';
 
 /** The classes of each colour: the bar's fill and the line's stroke. */
-const COLOURS: Readonly<Record<TileColour, { readonly bar: string; readonly line: string }>> = {
+const COLORS: Readonly<Record<TileColor, { readonly bar: string; readonly line: string }>> = {
   cyan: { bar: 'bg-cyan', line: 'text-cyan' },
   lamp: { bar: 'bg-lamp', line: 'text-lamp' },
   violet: { bar: 'bg-violet', line: 'text-violet' },
@@ -36,7 +36,7 @@ export type SystemTileProps = {
   /** The last minutes, oldest first, for the faint line; empty for none. */
   readonly series?: readonly (number | null)[];
 
-  readonly colour: TileColour;
+  readonly color: TileColor;
 };
 
 /**
@@ -64,8 +64,8 @@ function pointsOf(series: readonly (number | null)[]): string {
  */
 export function SystemTile(props: SystemTileProps) {
   const { t } = useTranslation();
-  const { title, detail, percent, series = [], colour } = props;
-  const look = COLOURS[colour];
+  const { title, detail, percent, series = [], color } = props;
+  const look = COLORS[color];
   const isHigh = percent !== null && percent >= 90;
 
   return (

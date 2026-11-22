@@ -24,6 +24,16 @@ export function useElementSize<T extends Element>(): {
   const ref = useRef<T>(null);
   const [size, setSize] = useState<ElementSize>({ width: 0, height: 0 });
 
+  /**
+   * Keeps a size, unless it is the one already kept: nothing is drawn again for it.
+   *
+   * @param width - The width.
+   * @param height - The height.
+   */
+  const keep = (width: number, height: number): void => {
+    setSize((kept) => (kept.width === width && kept.height === height ? kept : { width, height }));
+  };
+
   // The size is the browser's to decide; the drawing is composed from it.
   useLayoutEffect(() => {
     const element = ref.current;
@@ -34,7 +44,7 @@ export function useElementSize<T extends Element>(): {
 
     const { width, height } = element.getBoundingClientRect();
 
-    setSize({ width, height });
+    keep(width, height);
 
     if (typeof ResizeObserver === 'undefined') {
       return undefined;
@@ -44,7 +54,7 @@ export function useElementSize<T extends Element>(): {
       const entry = entries[0];
 
       if (entry !== undefined) {
-        setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+        keep(entry.contentRect.width, entry.contentRect.height);
       }
     });
 

@@ -10,7 +10,7 @@ import { TAG_COLORS, type TagColor } from '@nebulahome/contracts';
 import { cn, SelectField, Segmented, TAG_FILL_CLASSES, type SelectOption } from '@nebulahome/ui';
 
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
-import { tagColourName } from '@/lib/tag-colour-names';
+import { tagColorName } from '@/lib/tag-color-names';
 import type { TagFilter, TagUsage } from '@/library/tag-filters';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 
@@ -19,12 +19,12 @@ import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
  *
  * @returns The choices, in the reader's language.
  */
-function colourOptions(): readonly SelectOption[] {
+function colorOptions(): readonly SelectOption[] {
   return [
     { value: '', label: translate('library.tagFilter.anyColour', 'Any colour') },
     ...TAG_COLORS.map((color) => ({
       value: color,
-      label: tagColourName(color),
+      label: tagColorName(color),
       leading: (
         <span
           aria-hidden="true"
@@ -96,7 +96,7 @@ export function TagFilterButton(props: TagFilterButtonProps) {
           label={t('library.tagFilter.colour', 'Colour')}
           isLabelHidden
           size="compact"
-          options={colourOptions()}
+          options={colorOptions()}
           value={filter.color}
           onChange={(value) => {
             onChange({ ...filter, color: toColor(value) });

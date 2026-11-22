@@ -63,7 +63,7 @@ type NearbyFilter = {
   readonly makers: ReadonlySet<string>;
   readonly isNamedOnly: boolean;
   readonly isRecentOnly: boolean;
-  readonly showsPrivate: boolean;
+  readonly isPrivateShown: boolean;
   readonly sortBy: SortBy;
 };
 
@@ -75,7 +75,7 @@ const NO_FILTER: NearbyFilter = {
   makers: new Set(),
   isNamedOnly: false,
   isRecentOnly: false,
-  showsPrivate: false,
+  isPrivateShown: false,
   sortBy: 'signal',
 };
 
@@ -108,7 +108,7 @@ export function isKept(item: BluetoothNearby, filter: NearbyFilter, now: number)
     (filter.makers.size === 0 || (item.maker !== null && filter.makers.has(item.maker))) &&
     (!filter.isNamedOnly || item.name !== null) &&
     (!filter.isRecentOnly || now - item.lastHeardAt.getTime() <= 60_000) &&
-    (filter.showsPrivate || !item.isPrivate)
+    (filter.isPrivateShown || !item.isPrivate)
   );
 }
 
@@ -150,7 +150,7 @@ export type BluetoothNearbyViewProps = {
   readonly isForwardingAll: boolean;
 
   /** Whether to hold the lease. */
-  readonly holdsLease: boolean;
+  readonly hasLease: boolean;
 
   /** Adds a recognised device; absent when the person may not. */
   readonly onAdd?: ((item: BluetoothNearby) => void) | undefined;
@@ -179,7 +179,7 @@ export function BluetoothNearbyView(props: BluetoothNearbyViewProps) {
   const [open, setOpen] = useState<string | null>(props.openAddress ?? null);
   const [now] = useState(() => Date.now());
 
-  useNearbyLease(props.holdsLease);
+  useNearbyLease(props.hasLease);
 
   const needle = foldForSearch(search.trim());
   const makers = useMemo(
@@ -210,7 +210,7 @@ export function BluetoothNearbyView(props: BluetoothNearbyViewProps) {
    * @returns The count.
    */
   const countOf = (test: (item: BluetoothNearby) => boolean): number =>
-    items.filter((item) => test(item) && (filter.showsPrivate || !item.isPrivate)).length;
+    items.filter((item) => test(item) && (filter.isPrivateShown || !item.isPrivate)).length;
 
   /**
    * A set with a value added or taken out.
@@ -307,7 +307,7 @@ export function BluetoothNearbyView(props: BluetoothNearbyViewProps) {
     active.length +
     Number(filter.isNamedOnly) +
     Number(filter.isRecentOnly) +
-    Number(filter.showsPrivate);
+    Number(filter.isPrivateShown);
   const summary = t('brokers.bluetooth.nearby.shown', '{{kept}} of {{total}}', {
     kept: kept.length,
     total: items.length,
@@ -315,7 +315,7 @@ export function BluetoothNearbyView(props: BluetoothNearbyViewProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {props.isForwardingAll || props.holdsLease ? (
+      {props.isForwardingAll || props.hasLease ? (
         <Note tone="accent">
           {t(
             'brokers.bluetooth.nearby.forwarding',
@@ -428,7 +428,7 @@ export function BluetoothNearbyView(props: BluetoothNearbyViewProps) {
                   t('brokers.bluetooth.nearby.recent', 'Heard in the last minute'),
                 ],
                 [
-                  'showsPrivate',
+                  'isPrivateShown',
                   'eye',
                   t('brokers.bluetooth.nearby.private', 'Private addresses too'),
                 ],

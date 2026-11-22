@@ -38,12 +38,12 @@ import {
   type MenuItem,
 } from '@nebulahome/ui';
 
-import { dateTimeFormat } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
 import { BlockDragProvider } from '@/lib/block-drag';
 import { BlockUiProvider } from '@/lib/block-ui';
 import { commandChoicesOf, commandLabel } from '@/lib/command-choices';
 import { formatDuration } from '@/lib/duration';
+import { clockText } from '@/lib/format-time';
 import { partLabel } from '@/library/alias-model';
 import type { AutomationDraft } from '@/library/automation-draft';
 import { moveBlock, stepBlock } from '@/library/block-path';
@@ -321,7 +321,6 @@ function ActionBlock(props: ActionBlockProps) {
     props;
   const { when } = action;
   const last = props.lastRuns.find((run) => run.actionId === action.id);
-  const time = dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
   // A Change that commands its own alias starts itself again with every run.
   const loops =
     when.kind === 'change' && aliasStepTargets(action.then).entities.includes(aliasEntityId);
@@ -340,11 +339,11 @@ function ActionBlock(props: ActionBlockProps) {
       )
     ) : last.result === 'success' ? (
       <BlockStatus tone="success">
-        {t('library.aliasActions.ran', 'Ran {{time}}', { time: time.format(last.at) })}
+        {t('library.aliasActions.ran', 'Ran {{time}}', { time: clockText(last.at) })}
       </BlockStatus>
     ) : (
       <BlockStatus tone="danger">
-        {t('library.aliasActions.failed', 'Failed · {{time}}', { time: time.format(last.at) })}
+        {t('library.aliasActions.failed', 'Failed · {{time}}', { time: clockText(last.at) })}
       </BlockStatus>
     );
   const notice = loops ? (
@@ -354,7 +353,7 @@ function ActionBlock(props: ActionBlockProps) {
   ) : last?.error === null || last === undefined || last.result === 'success' ? undefined : (
     <BlockNotice tone="danger">
       {t('library.aliasActions.lastFailed', 'Last run {{time}} · {{error}}', {
-        time: time.format(last.at),
+        time: clockText(last.at),
         error: last.error,
       })}
     </BlockNotice>

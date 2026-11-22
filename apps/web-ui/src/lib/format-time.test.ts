@@ -11,10 +11,11 @@ import { describe, expect, it } from 'vitest';
 import { relativeTimeFormat } from '@/i18n/formatters';
 import {
   absoluteTime,
-  durationInDays,
   durationText,
+  formatUptime,
   readDateTimeLocal,
   relativeTime,
+  startOfDay,
   toDateTimeLocal,
 } from '@/lib/format-time';
 
@@ -67,18 +68,6 @@ describe('absoluteTime', () => {
   });
 });
 
-describe('durationInDays', () => {
-  it.each([
-    [null, 'Forever'],
-    [1, '1 day'],
-    [30, '30 days'],
-    [365, '1 year'],
-    [1825, '5 years'],
-  ])('calls %j %j', (days, expected) => {
-    expect(durationInDays(days)).toBe(expected);
-  });
-});
-
 describe('durationText', () => {
   it('names the two largest units that matter', () => {
     expect(durationText(30_000)).toBe('under a minute');
@@ -100,5 +89,26 @@ describe('the datetime-local field', () => {
   it('reads nothing from a field left empty or half typed', () => {
     expect(readDateTimeLocal('')).toBeNull();
     expect(readDateTimeLocal('2026-09-03')).toBeNull();
+  });
+});
+
+describe('formatUptime', () => {
+  it('says how long in its two largest units, as a duration is said', () => {
+    expect([
+      formatUptime(3 * 86_400 + 4 * 3600 + 59),
+      formatUptime(5 * 3600 + 12 * 60),
+      formatUptime(2 * 3600),
+      formatUptime(12 * 60 + 5),
+      formatUptime(30),
+    ]).toEqual(['3 d 4 h', '5 h 12 min', '2 h', '12 min', 'under a minute']);
+  });
+});
+
+describe('startOfDay', () => {
+  it('finds the midnight a moment, or a day before it, begins at', () => {
+    const evening = new Date(2026, 10, 21, 18, 30);
+
+    expect(startOfDay(evening)).toBe(new Date(2026, 10, 21).getTime());
+    expect(startOfDay(evening, 2)).toBe(new Date(2026, 10, 19).getTime());
   });
 });

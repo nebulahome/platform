@@ -25,7 +25,7 @@ import { useDebounced } from '@/lib/use-debounced';
 import { fetchIcons, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
-import { IconEditorModal, type IconEditorTarget } from '@/routes/settings/icon-editor-modal';
+import { IconEditorDialog, type IconEditorTarget } from '@/routes/settings/icon-editor-dialog';
 import { SettingsPage } from '@/routes/settings/settings-ui';
 
 /** How many icons the list shows at most. */
@@ -240,7 +240,7 @@ export function IconsPanel() {
         </p>
       ) : null}
 
-      <IconEditorModal
+      <IconEditorDialog
         // Keyed on the target, so the editor is a fresh one each time it opens.
         key={editing === null ? 'shut' : editing.mode === 'create' ? 'create' : editing.icon.id}
         target={editing}

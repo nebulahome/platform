@@ -43,7 +43,7 @@ export function RestoreDialog(props: RestoreDialogProps) {
   const [keyFile, setKeyFile] = useState<{ name: string; text: string } | null>(null);
   const [takeSafetyBackup, setSafetyBackup] = useState(true);
   const [problem, setProblem] = useState<string | null>(null);
-  const needsKey = archive?.restorable === 'needs-key';
+  const isKeyNeeded = archive?.restorable === 'needs-key';
 
   const restore = useMutation({
     /**
@@ -103,7 +103,7 @@ export function RestoreDialog(props: RestoreDialogProps) {
           <Button
             variant="danger"
             isBusy={restore.isPending}
-            disabled={password === '' || (needsKey && keyFile === null)}
+            disabled={password === '' || (isKeyNeeded && keyFile === null)}
             onClick={() => {
               setProblem(null);
               restore.mutate();
@@ -186,7 +186,7 @@ export function RestoreDialog(props: RestoreDialogProps) {
           />
         </div>
 
-        {needsKey ? (
+        {isKeyNeeded ? (
           <label className="flex flex-col gap-1.5">
             <span className="text-ui font-medium text-foreground">
               {t('backup.key.title', 'Backup key')}

@@ -29,6 +29,7 @@ import {
   Button,
   Checkbox,
   cn,
+  Collapse,
   IconButton,
   Logo,
   Modal,
@@ -40,8 +41,8 @@ import {
 import { useSession } from '@/auth/session-store';
 import { BACKUP_QUERY_KEYS, fetchBackupStatus } from '@/backup/api';
 import { toMessage } from '@/lib/error-message';
-import { formatUptime } from '@/lib/format-bytes';
 import { relativeTime } from '@/lib/format-time';
+import { formatUptime } from '@/lib/format-time';
 import { signalled } from '@/lib/signalled';
 import { isSameJson } from '@/routes/settings/backup-text';
 import {
@@ -835,210 +836,202 @@ export function SoftwareSettings() {
                   </div>
                 </div>
 
-                {/* Folded rather than removed, so it can open and shut; what is folded away is
-                    inert, out of reach of the keyboard and a screen reader. */}
-                <div
-                  className={cn(
-                    'grid transition-[grid-template-rows,opacity] duration-250 ease-out motion-reduce:transition-none',
-                    isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-                  )}
-                  inert={!isOpen}
-                >
-                  <div className="min-h-0 overflow-hidden">
-                    <div
-                      id={`${each.anchor}-settings`}
-                      className="mx-3 rounded-tile border border-border bg-canvas/40 px-4"
-                    >
-                      {each.auto === null ? null : (
-                        <SettingsRow
-                          searchId={each.auto}
-                          title={t('settingsMaintenance.automatic', 'Automatic updates')}
-                          note={
-                            isAuto
-                              ? t('settingsMaintenance.autoOn', 'Installs new versions on its own.')
-                              : t(
-                                  'settingsMaintenance.autoOff',
-                                  'New versions wait until you install them.',
-                                )
-                          }
-                          control={
-                            <Switch
-                              label={t(
-                                'settingsMaintenance.autoOf',
-                                'Update {{name}} automatically',
-                                {
-                                  name,
-                                },
-                              )}
-                              isOn={isAuto}
-                              disabled={!canWrite}
-                              onChange={(isOn) => {
-                                edit({ [each.auto]: isOn });
-                              }}
-                            />
-                          }
-                        />
-                      )}
-                      {each.window === null || !isAuto ? null : (
-                        <SettingsRow
-                          searchId={each.window}
-                          title={t('settingsMaintenance.when', 'When')}
-                          note={
-                            updateWindow.mode === 'fixed'
-                              ? t('settingsMaintenance.whenFixed', 'Every day at {{time}}.', {
-                                  time: updateWindow.time,
-                                })
-                              : quiet?.state === 'ready'
-                                ? t(
-                                    'settingsMaintenance.whenQuietest',
-                                    'When the house is quietest: {{time}}.',
-                                    { time: quiet.time },
-                                  )
-                                : t(
-                                    'settingsMaintenance.whenLearning',
-                                    'Learning when the house is idle: {{time}} for now.',
-                                    { time: quiet?.time ?? updateWindow.time },
-                                  )
-                          }
-                          control={
-                            <>
-                              {updateWindow.mode === 'fixed' ? (
-                                <TextField
-                                  label={t('settingsMaintenance.timeOf', '{{name}} update time', {
-                                    name,
-                                  })}
-                                  isLabelHidden
-                                  size="compact"
-                                  type="time"
-                                  className="font-mono"
-                                  disabled={!canWrite}
-                                  value={updateWindow.time}
-                                  onChange={(event) => {
-                                    edit({
-                                      [each.window]: { ...updateWindow, time: event.target.value },
-                                    });
-                                  }}
-                                />
-                              ) : null}
-                              <Segmented
-                                label={t('settingsMaintenance.whenOf', 'When {{name}} update', {
-                                  name,
-                                })}
-                                disabled={!canWrite}
-                                value={updateWindow.mode}
-                                options={[
-                                  {
-                                    value: 'quietest',
-                                    label: t('settingsMaintenance.quietest', 'Quietest hour'),
-                                  },
-                                  {
-                                    value: 'fixed',
-                                    label: t('settingsMaintenance.atATime', 'Set time'),
-                                  },
-                                ]}
-                                onChange={(mode) => {
-                                  edit({ [each.window]: { ...updateWindow, mode } });
-                                }}
-                              />
-                            </>
-                          }
-                        />
-                      )}
+                {/* Folded rather than removed, so it can open and shut; drawn while shut too, so
+                    the settings search and a `?highlight=` link find its rows. */}
+                <Collapse isOpen={isOpen} isAlwaysRendered>
+                  <div
+                    id={`${each.anchor}-settings`}
+                    className="mx-3 rounded-tile border border-border bg-canvas/40 px-4"
+                  >
+                    {each.auto === null ? null : (
                       <SettingsRow
-                        searchId={each.channel}
-                        title={
-                          isCore
-                            ? t('settingsMaintenance.releaseChannel', 'Release channel')
-                            : t('settingsMaintenance.hubVersions', 'Versions in the Hub')
-                        }
+                        searchId={each.auto}
+                        title={t('settingsMaintenance.automatic', 'Automatic updates')}
                         note={
-                          isCore
-                            ? {
-                                stable: t(
-                                  'settingsMaintenance.coreStable',
-                                  'Gets tested releases only.',
-                                ),
-                                beta: t(
-                                  'settingsMaintenance.coreBeta',
-                                  'Gets new releases earlier. They may still have bugs.',
-                                ),
-                                dev: t(
-                                  'settingsMaintenance.coreDev',
-                                  'Gets every build as soon as it is made. Things may break.',
-                                ),
-                              }[channel]
-                            : {
-                                stable: t(
-                                  'settingsMaintenance.hubStable',
-                                  'The Hub shows stable versions only.',
-                                ),
-                                beta: t(
-                                  'settingsMaintenance.hubBeta',
-                                  'The Hub also shows beta versions when you browse.',
-                                ),
-                                dev: t(
-                                  'settingsMaintenance.hubDev',
-                                  'The Hub shows every build, beta and dev included.',
-                                ),
-                              }[channel]
-                        }
-                        control={
-                          <Segmented
-                            label={t('settingsMaintenance.channelOf', '{{name}} channel', { name })}
-                            disabled={!canWrite}
-                            value={channel}
-                            options={[
-                              { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
-                              { value: 'beta', label: t('settingsMaintenance.beta', 'Beta') },
-                              ...(isDeveloperMode
-                                ? [
-                                    {
-                                      value: 'dev' as const,
-                                      label: t('settingsMaintenance.dev', 'Dev'),
-                                    },
-                                  ]
-                                : []),
-                            ]}
-                            onChange={(value) => {
-                              edit({ [each.channel]: value });
-                            }}
-                          />
-                        }
-                      />
-                      <SettingsRow
-                        searchId={each.backup}
-                        title={t('settingsMaintenance.backupFirst', 'Back up first')}
-                        note={
-                          shown(each.backup) === false
-                            ? t(
-                                'settingsMaintenance.backupFirstOff',
-                                'Installs updates without taking a backup.',
-                              )
+                          isAuto
+                            ? t('settingsMaintenance.autoOn', 'Installs new versions on its own.')
                             : t(
-                                'settingsMaintenance.backupFirstOn',
-                                'Takes a backup before each update, so you can roll back.',
+                                'settingsMaintenance.autoOff',
+                                'New versions wait until you install them.',
                               )
                         }
                         control={
                           <Switch
                             label={t(
-                              'settingsMaintenance.backupFirstOf',
-                              'Back up before updating {{name}}',
+                              'settingsMaintenance.autoOf',
+                              'Update {{name}} automatically',
                               {
                                 name,
                               },
                             )}
-                            isOn={shown(each.backup) !== false}
+                            isOn={isAuto}
                             disabled={!canWrite}
                             onChange={(isOn) => {
-                              edit({ [each.backup]: isOn });
+                              edit({ [each.auto]: isOn });
                             }}
                           />
                         }
                       />
-                    </div>
+                    )}
+                    {each.window === null || !isAuto ? null : (
+                      <SettingsRow
+                        searchId={each.window}
+                        title={t('settingsMaintenance.when', 'When')}
+                        note={
+                          updateWindow.mode === 'fixed'
+                            ? t('settingsMaintenance.whenFixed', 'Every day at {{time}}.', {
+                                time: updateWindow.time,
+                              })
+                            : quiet?.state === 'ready'
+                              ? t(
+                                  'settingsMaintenance.whenQuietest',
+                                  'When the house is quietest: {{time}}.',
+                                  { time: quiet.time },
+                                )
+                              : t(
+                                  'settingsMaintenance.whenLearning',
+                                  'Learning when the house is idle: {{time}} for now.',
+                                  { time: quiet?.time ?? updateWindow.time },
+                                )
+                        }
+                        control={
+                          <>
+                            {updateWindow.mode === 'fixed' ? (
+                              <TextField
+                                label={t('settingsMaintenance.timeOf', '{{name}} update time', {
+                                  name,
+                                })}
+                                isLabelHidden
+                                size="compact"
+                                type="time"
+                                className="font-mono"
+                                disabled={!canWrite}
+                                value={updateWindow.time}
+                                onChange={(event) => {
+                                  edit({
+                                    [each.window]: { ...updateWindow, time: event.target.value },
+                                  });
+                                }}
+                              />
+                            ) : null}
+                            <Segmented
+                              label={t('settingsMaintenance.whenOf', 'When {{name}} update', {
+                                name,
+                              })}
+                              disabled={!canWrite}
+                              value={updateWindow.mode}
+                              options={[
+                                {
+                                  value: 'quietest',
+                                  label: t('settingsMaintenance.quietest', 'Quietest hour'),
+                                },
+                                {
+                                  value: 'fixed',
+                                  label: t('settingsMaintenance.atATime', 'Set time'),
+                                },
+                              ]}
+                              onChange={(mode) => {
+                                edit({ [each.window]: { ...updateWindow, mode } });
+                              }}
+                            />
+                          </>
+                        }
+                      />
+                    )}
+                    <SettingsRow
+                      searchId={each.channel}
+                      title={
+                        isCore
+                          ? t('settingsMaintenance.releaseChannel', 'Release channel')
+                          : t('settingsMaintenance.hubVersions', 'Versions in the Hub')
+                      }
+                      note={
+                        isCore
+                          ? {
+                              stable: t(
+                                'settingsMaintenance.coreStable',
+                                'Gets tested releases only.',
+                              ),
+                              beta: t(
+                                'settingsMaintenance.coreBeta',
+                                'Gets new releases earlier. They may still have bugs.',
+                              ),
+                              dev: t(
+                                'settingsMaintenance.coreDev',
+                                'Gets every build as soon as it is made. Things may break.',
+                              ),
+                            }[channel]
+                          : {
+                              stable: t(
+                                'settingsMaintenance.hubStable',
+                                'The Hub shows stable versions only.',
+                              ),
+                              beta: t(
+                                'settingsMaintenance.hubBeta',
+                                'The Hub also shows beta versions when you browse.',
+                              ),
+                              dev: t(
+                                'settingsMaintenance.hubDev',
+                                'The Hub shows every build, beta and dev included.',
+                              ),
+                            }[channel]
+                      }
+                      control={
+                        <Segmented
+                          label={t('settingsMaintenance.channelOf', '{{name}} channel', { name })}
+                          disabled={!canWrite}
+                          value={channel}
+                          options={[
+                            { value: 'stable', label: t('settingsMaintenance.stable', 'Stable') },
+                            { value: 'beta', label: t('settingsMaintenance.beta', 'Beta') },
+                            ...(isDeveloperMode
+                              ? [
+                                  {
+                                    value: 'dev' as const,
+                                    label: t('settingsMaintenance.dev', 'Dev'),
+                                  },
+                                ]
+                              : []),
+                          ]}
+                          onChange={(value) => {
+                            edit({ [each.channel]: value });
+                          }}
+                        />
+                      }
+                    />
+                    <SettingsRow
+                      searchId={each.backup}
+                      title={t('settingsMaintenance.backupFirst', 'Back up first')}
+                      note={
+                        shown(each.backup) === false
+                          ? t(
+                              'settingsMaintenance.backupFirstOff',
+                              'Installs updates without taking a backup.',
+                            )
+                          : t(
+                              'settingsMaintenance.backupFirstOn',
+                              'Takes a backup before each update, so you can roll back.',
+                            )
+                      }
+                      control={
+                        <Switch
+                          label={t(
+                            'settingsMaintenance.backupFirstOf',
+                            'Back up before updating {{name}}',
+                            {
+                              name,
+                            },
+                          )}
+                          isOn={shown(each.backup) !== false}
+                          disabled={!canWrite}
+                          onChange={(isOn) => {
+                            edit({ [each.backup]: isOn });
+                          }}
+                        />
+                      }
+                    />
                   </div>
-                </div>
+                </Collapse>
 
                 {inKind.length === 0 ? (
                   <div

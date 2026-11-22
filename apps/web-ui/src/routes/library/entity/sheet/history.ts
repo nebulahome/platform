@@ -12,6 +12,7 @@ import type { CapabilityState, EntityView, StateHistoryPoint } from '@nebulahome
 
 import { dateTimeFormat } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
+import { clockText } from '@/lib/format-time';
 import { hasCapability, paramsOf } from '@/library/entity-control';
 import { describeState } from '@/library/entity-reading';
 import {
@@ -136,16 +137,6 @@ export function timesText(count: number): string {
   return count === 1
     ? translate('entity.sheet.history.once', 'once')
     : translate('entity.sheet.history.times', '{{count}} times', { count });
-}
-
-/**
- * Says the time of day of a moment: 21:48.
- *
- * @param at - The moment, in milliseconds since the epoch.
- * @returns The time, in the browser's locale.
- */
-export function clockText(at: number): string {
-  return dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(at);
 }
 
 /**
@@ -469,15 +460,20 @@ export function drawerContentOf(
  */
 export function axisLabels(window: TimeWindow, range: SheetRange): string[] {
   const isDays = range === '7d' || range === 'week' || range === 'month';
-  const format = isDays
-    ? dateTimeFormat({ weekday: 'short' })
-    : dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
+  /**
+   * Writes one label.
+   *
+   * @param at - Its moment.
+   * @returns The day, or the time.
+   */
+  const label = (at: number): string =>
+    isDays ? dateTimeFormat({ weekday: 'short' }).format(at) : clockText(at);
   const span = window.to - window.from;
 
   return [
-    format.format(window.from),
-    format.format(window.from + span / 3),
-    format.format(window.from + (span * 2) / 3),
+    label(window.from),
+    label(window.from + span / 3),
+    label(window.from + (span * 2) / 3),
     isDays
       ? translate('entity.sheet.history.today', 'Today')
       : translate('entity.sheet.history.now', 'Now'),

@@ -87,7 +87,7 @@ const RUNG_TITLES: readonly Message[] = [
 ];
 
 /** The colour of each rung's stretch of the bar: newest brightest. */
-const RUNG_COLOURS: readonly string[] = [
+const RUNG_COLORS: readonly string[] = [
   'bg-primary',
   'bg-violet',
   'bg-cyan',
@@ -299,7 +299,7 @@ export function DataAndRetention() {
                   aria-hidden="true"
                   className={cn(
                     'h-1.5 rounded-pill',
-                    RUNG_COLOURS[index] ?? 'bg-foreground-subtle/50',
+                    RUNG_COLORS[index] ?? 'bg-foreground-subtle/50',
                   )}
                 />
                 <span className="text-ui font-medium text-foreground">

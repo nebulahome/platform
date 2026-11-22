@@ -8,12 +8,12 @@
  */
 import { useTranslation } from 'react-i18next';
 
-import { ColourPicker } from '@/components/colour-picker';
+import { ColorPicker } from '@/components/color-picker';
 import { hsColor } from '@/library/entity-control';
 import {
   ControlBlock,
   type ControlProps,
-  type LightColour,
+  type LightColor,
 } from '@/routes/library/entity/controls/control-block';
 import { usePendingValue } from '@/routes/library/entity/use-pending-value';
 
@@ -27,18 +27,18 @@ export function ColorControl(props: ControlProps) {
   const { t } = useTranslation();
 
   const { state, reportedAt, commander, disabled } = props;
-  const own = usePendingValue<LightColour>(state.color_hs ?? { hue: 0, saturation: 0 }, reportedAt);
+  const own = usePendingValue<LightColor>(state.color_hs ?? { hue: 0, saturation: 0 }, reportedAt);
   // The panel's, when there is one: the white block turns it white.
-  const colour = props.colour ?? own;
-  const { hue, saturation } = colour.shown;
+  const color = props.color ?? own;
+  const { hue, saturation } = color.shown;
 
   /**
    * Sets the colour.
    *
    * @param next - The hue and the saturation.
    */
-  const send = (next: LightColour): void => {
-    colour.sent(next);
+  const send = (next: LightColor): void => {
+    color.sent(next);
     commander.send('color_hs', {
       command: 'set_color',
       hue: next.hue,
@@ -60,11 +60,11 @@ export function ColorControl(props: ControlProps) {
         />
       }
     >
-      <ColourPicker
-        value={colour.shown}
+      <ColorPicker
+        value={color.shown}
         disabled={disabled}
         onChange={(next) => {
-          colour.hold(next);
+          color.hold(next);
         }}
         onCommit={send}
       />

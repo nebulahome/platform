@@ -83,22 +83,6 @@ export async function fetchAssignees(signal?: AbortSignal): Promise<DashboardAss
 }
 
 /**
- * Reads one dashboard.
- *
- * @param dashboardId - Which one.
- * @param signal - Cancels the request.
- * @returns The dashboard.
- */
-export async function fetchDashboard(
-  dashboardId: string,
-  signal?: AbortSignal,
-): Promise<DashboardView> {
-  return apiRequest(`/dashboards/${dashboardId}`, dashboardViewSchema, {
-    signal,
-  });
-}
-
-/**
  * Creates a dashboard.
  *
  * @param request - Its name, and optionally its icon and first cards.

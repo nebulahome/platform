@@ -278,7 +278,14 @@ export function DashboardDialog(props: DashboardDialogProps) {
       footer={
         isConfirming && existing !== undefined ? (
           <ConfirmRemoval
-            question={`Remove ${existing.name} and its ${String(allCards(existing.layout).length)} cards, for everyone it is shown to?`}
+            question={t('dashboard.dashboardDialog.removeQuestion', {
+              name: existing.name,
+              count: allCards(existing.layout).length,
+              defaultValue_one:
+                'Remove {{name}} and its {{count}} card, for everyone it is shown to?',
+              defaultValue_other:
+                'Remove {{name}} and its {{count}} cards, for everyone it is shown to?',
+            })}
             isBusy={removing.isPending}
             onCancel={() => {
               setConfirming(false);

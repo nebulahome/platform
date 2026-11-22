@@ -7,7 +7,6 @@ import type { QueryClient } from '@tanstack/react-query';
 
 import type {
   DeviceView,
-  DiscoveredDevice,
   EntitySource,
   EntityView,
   LinkPreview,
@@ -17,12 +16,7 @@ import type {
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
 import { LINK_QUERY_KEYS } from '@/library/links-api';
 import { aDevice, anEntity } from '@/testing/fixtures';
-import {
-  MATTER_SAMPLE_DEVICES,
-  MATTER_SAMPLE_TWIN,
-  MATTER_SAMPLE_VENDORS,
-  matterSampleCache,
-} from '@/testing/matter-samples';
+import { MATTER_SAMPLE_DEVICES, matterSampleCache } from '@/testing/matter-samples';
 
 /** The two ways into the Dryer plug, by instance. */
 const SHELLY = 'shelly-dryer';
@@ -355,76 +349,6 @@ export function linkedSampleCache(): QueryClient {
   client.setQueryData(
     [...LINK_QUERY_KEYS.preview, 'unlink', 'entity', 'sensor.dryer_plug_energy', ''],
     UNLINK_SAMPLE_PREVIEW,
-  );
-
-  return client;
-}
-
-/** What Shelly found on the network, one of each note. */
-const FOUND_SAMPLES: DiscoveredDevice[] = [
-  ['Shelly Plus 1PM', '192.168.178.120', 'a8:03:2a:41:0c:19', ['new']],
-  ['Shelly Plus 2PM', '192.168.178.121', '08:f9:e0:12:6d:40', ['also-on-matter']],
-  ['Shelly H&T Gen3', '192.168.178.130', 'e4:b3:23:9a:11:f2', ['wakes']],
-  ['Shelly Plug S Gen3', '192.168.178.140', 'e4:b3:23:8c:02:1d', ['password']],
-  ['Shelly BLU Gateway', '192.168.178.150', 'c8:f0:9e:47:b3:66', []],
-].map(([model, address, mac, notes], index) => ({
-  id: `${String(index).padStart(2, '0')}cba9876543210`,
-  vendorId: 'shelly',
-  driverId: 'switch',
-  kind: 'shelly/switch',
-  source: 'mdns',
-  address: address as string,
-  externalId: null,
-  name: null,
-  model: model as string,
-  modelChoices: [model as string],
-  modelCode: null,
-  swVersion: null,
-  transportConfig: {},
-  adoption: 'owner',
-  movedFrom: null,
-  mac: mac as string,
-  notes: notes as DiscoveredDevice['notes'],
-  isDismissed: false,
-  dismissedAt: null,
-  firstSeenAt: new Date(Date.now() - 3_600_000),
-  lastSeenAt: new Date(Date.now() - 120_000 * (index + 1)),
-}));
-
-/**
- * A cache holding Shelly's page: the plug linked, a twin to link and what it found.
- *
- * @returns The cache.
- */
-export function integrationSampleCache(): QueryClient {
-  const client = linkedSampleCache();
-  const shelly = MATTER_SAMPLE_VENDORS[0];
-
-  client.setQueryData([...LIBRARY_QUERY_KEYS.vendors, 'shelly'], {
-    ...shelly,
-    description: 'Relays, dimmers and meters, Gen1 to Gen4, on the local network.',
-    version: '2.2.0',
-    discoverySources: ['mdns'],
-    origin: 'catalogue',
-  });
-  client.setQueryData(LIBRARY_QUERY_KEYS.discovered, FOUND_SAMPLES);
-  client.setQueryData([...LINK_QUERY_KEYS.found, 'shelly'], FOUND_SAMPLES);
-  client.setQueryData(
-    [...LINK_QUERY_KEYS.suggestions, 'shelly'],
-    [
-      {
-        ...MATTER_SAMPLE_TWIN,
-        id: '00000000-0000-4000-8000-0000000000a2',
-        device: { ...MATTER_SAMPLE_TWIN.device, id: 'shelly-kitchen', name: 'Kitchen relay' },
-        twin: {
-          ...MATTER_SAMPLE_TWIN.twin,
-          id: 'matter-5d',
-          name: 'Shelly Plus 2PM',
-          model: 'Shelly Plus 2PM',
-        },
-      },
-      { ...MATTER_SAMPLE_TWIN, dismissedAt: new Date('2026-10-12T09:00:00Z') },
-    ],
   );
 
   return client;

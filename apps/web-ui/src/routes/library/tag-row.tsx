@@ -12,9 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { DeviceView, EntityView, TagView } from '@nebulahome/contracts';
-import { cn, Collapse, IconButton, TagChip } from '@nebulahome/ui';
+import { AppIcon, cn, Collapse, IconButton, TagChip } from '@nebulahome/ui';
 
-import { ChevronIcon, WrenchIcon } from '@/components/icons';
 import { translate } from '@/i18n/messages';
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon, type DeviceIcons } from '@/routes/library/device-icon';
@@ -110,7 +109,11 @@ export function TagRow(props: TagRowProps) {
             {describeCarriers(tag)}
           </span>
           <span className="flex items-center justify-end text-foreground-subtle">
-            <ChevronIcon isOpen={isOpen} />
+            <AppIcon
+              id="chevron-down"
+              size={19}
+              className={cn('transition-transform', isOpen ? '' : '-rotate-90')}
+            />
           </span>
         </button>
 
@@ -123,7 +126,7 @@ export function TagRow(props: TagRowProps) {
               className="text-foreground-subtle hover:text-foreground"
               onClick={onEdit}
             >
-              <WrenchIcon width="15" height="15" />
+              <AppIcon id="wrench" size={15} />
             </IconButton>
           ) : null}
         </span>

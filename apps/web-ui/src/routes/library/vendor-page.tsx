@@ -70,9 +70,12 @@ function outcomeText(outcome: ScanOutcome, vendorName: string): string {
         'The hub is not looking for devices: discovery is switched off on it.',
       );
     case 'found':
-      return outcome.count === 1
-        ? `Found 1 new ${vendorName} device.`
-        : `Found ${String(outcome.count)} new ${vendorName} devices.`;
+      return translate('library.vendor.foundNew', {
+        count: outcome.count,
+        vendorName,
+        defaultValue_one: 'Found {{count}} new {{vendorName}} device.',
+        defaultValue_other: 'Found {{count}} new {{vendorName}} devices.',
+      });
     case 'nothing':
       return translate(
         'library.vendor.nothingNewFoundA',
@@ -150,8 +153,8 @@ export function VendorPage() {
   const hasSetupFields =
     found !== undefined &&
     found.setup.transport.fields.length + found.setup.options.fields.length > 0;
-  const runsContainers = found !== undefined && found.containers.length > 0;
-  const hasConfiguration = hasSetupFields && !runsContainers;
+  const hasContainers = found !== undefined && found.containers.length > 0;
+  const hasConfiguration = hasSetupFields && !hasContainers;
   // A vendor that adds its own devices finds nothing to go through.
   const hasFound = found !== undefined && !isAutomatic;
   const shownTab: VendorTab =

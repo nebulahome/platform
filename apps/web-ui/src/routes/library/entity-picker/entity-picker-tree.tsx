@@ -99,8 +99,9 @@ export function EntityPickerTree(props: EntityPickerTreeProps) {
    */
   const renderGroup = (group: DeviceGroup, place: string): ReactNode => {
     const key = `${place}:${group.device?.id ?? 'none'}`;
-    const startsOpen = isNarrowed || group.device === null || group.entities.length <= OPEN_UP_TO;
-    const isOpen = toggled.has(key) ? !startsOpen : startsOpen;
+    const isOpenAtFirst =
+      isNarrowed || group.device === null || group.entities.length <= OPEN_UP_TO;
+    const isOpen = toggled.has(key) ? !isOpenAtFirst : isOpenAtFirst;
 
     const rows = group.entities.map((entity) => {
       const live = directory.readings[entity.entityId];

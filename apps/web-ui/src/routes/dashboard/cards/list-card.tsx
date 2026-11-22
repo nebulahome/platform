@@ -22,7 +22,7 @@ import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 import { isActiveOf } from '@/routes/dashboard/cards/overview-counts';
 import {
   OverviewHead,
-  RoundButton,
+  OverviewRoundButton,
   toneText,
   WaitingFace,
 } from '@/routes/dashboard/cards/overview-parts';
@@ -175,7 +175,7 @@ function ListRow(props: {
         ? `${reading.text} · ${forHowLong(changedAt)}`
         : reading.text
       : degrees(thermostat.targetTemperature);
-  const valueColour = isOffline
+  const valueColor = isOffline
     ? 'text-foreground-subtle'
     : lock === 'locked'
       ? 'text-success'
@@ -188,7 +188,7 @@ function ListRow(props: {
             : 'text-foreground';
   const control = !canControl ? null : isLarge && thermostat !== undefined ? (
     <div className="flex shrink-0 gap-1.5">
-      <RoundButton
+      <OverviewRoundButton
         label={t('dashboard.cards.listCard.lower', 'Lower')}
         icon="minus"
         disabled={!usable('thermostat')}
@@ -196,7 +196,7 @@ function ListRow(props: {
           nudge(-1);
         }}
       />
-      <RoundButton
+      <OverviewRoundButton
         label={t('dashboard.cards.listCard.raise', 'Raise')}
         icon="plus"
         disabled={!usable('thermostat')}
@@ -207,7 +207,7 @@ function ListRow(props: {
     </div>
   ) : isLarge && state.cover !== undefined ? (
     <div className="flex shrink-0 gap-1.5">
-      <RoundButton
+      <OverviewRoundButton
         label={t('dashboard.cards.listCard.open', 'Open')}
         icon="chevron-up"
         disabled={!usable('cover')}
@@ -215,7 +215,7 @@ function ListRow(props: {
           command.send('cover', { command: 'open' });
         }}
       />
-      <RoundButton
+      <OverviewRoundButton
         label={t('dashboard.cards.listCard.close', 'Close')}
         icon="chevron-down"
         disabled={!usable('cover')}
@@ -241,7 +241,7 @@ function ListRow(props: {
     <span
       className={cn(
         'shrink-0 text-ui-sm whitespace-nowrap tabular-nums transition-colors duration-200',
-        valueColour,
+        valueColor,
       )}
     >
       {value}

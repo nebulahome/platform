@@ -22,7 +22,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation } from 'react-router';
 
-import { AppIcon, cn } from '@nebulahome/ui';
+import { AppIcon, Collapse, cn } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { text } from '@/i18n/messages';
@@ -144,34 +144,29 @@ function Scope(props: ScopeProps) {
               />
             </button>
 
-            <div
-              className={cn(
-                'grid transition-[grid-template-rows,opacity] duration-200 ease-out',
-                isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-              )}
-              inert={!isOpen}
+            {/* Drawn while shut too, as it always was: a few links, and the tree's tests read them. */}
+            <Collapse
+              isOpen={isOpen}
+              isAlwaysRendered
+              className="mt-0.5 mb-1.5 ml-4.5 flex flex-col gap-0.5 border-l border-border-strong pl-3"
             >
-              <div className="overflow-hidden">
-                <div className="mt-0.5 mb-1.5 ml-4.5 flex flex-col gap-0.5 border-l border-border-strong pl-3">
-                  {group.pages.map((page) => (
-                    <NavLink
-                      key={page.path}
-                      to={page.path}
-                      className={({ isActive: isHere }) =>
-                        cn(
-                          'flex h-8.5 items-center rounded-chip px-2.5 text-ui transition-colors duration-150',
-                          isHere
-                            ? 'bg-surface-raised font-medium text-foreground'
-                            : 'text-foreground-muted hover:bg-surface-raised/60 hover:text-foreground',
-                        )
-                      }
-                    >
-                      {text(page.label)}
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-            </div>
+              {group.pages.map((page) => (
+                <NavLink
+                  key={page.path}
+                  to={page.path}
+                  className={({ isActive: isHere }) =>
+                    cn(
+                      'flex h-8.5 items-center rounded-chip px-2.5 text-ui transition-colors duration-150',
+                      isHere
+                        ? 'bg-surface-raised font-medium text-foreground'
+                        : 'text-foreground-muted hover:bg-surface-raised/60 hover:text-foreground',
+                    )
+                  }
+                >
+                  {text(page.label)}
+                </NavLink>
+              ))}
+            </Collapse>
           </div>
         );
       })}

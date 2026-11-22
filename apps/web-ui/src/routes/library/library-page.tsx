@@ -18,10 +18,10 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
-import { cn, PageHeader, Panel } from '@nebulahome/ui';
+import { AppIcon, cn, PageHeader, Panel } from '@nebulahome/ui';
 
-import { ChevronLeftIcon } from '@/components/icons';
 import { toMessage } from '@/lib/error-message';
+import { DetailPlaceholder } from '@/routes/library/detail-page';
 
 /** What the frame needs. */
 export type LibraryPageProps = {
@@ -144,7 +144,7 @@ export function LibraryPage(props: LibraryPageProps) {
                 to={parent.to}
                 className="flex items-center gap-1 rounded-chip normal-case transition-colors hover:text-foreground"
               >
-                <ChevronLeftIcon width={14} height={14} />
+                <AppIcon id="chevron-left" size={14} />
                 <span className="font-sans text-ui-sm tracking-normal">{parent.label}</span>
               </Link>
             )
@@ -176,7 +176,7 @@ export function LibraryPage(props: LibraryPageProps) {
 
         {isPending ? (
           empty === undefined ? (
-            <Placeholder>{t('library.library.reading', 'Reading…')}</Placeholder>
+            <DetailPlaceholder>{t('library.library.reading', 'Reading…')}</DetailPlaceholder>
           ) : (
             <p role="status" className="py-16 text-center text-ui text-foreground-subtle">
               {t('library.library.reading', 'Reading…')}
@@ -187,7 +187,7 @@ export function LibraryPage(props: LibraryPageProps) {
         {error === undefined || error === null ? null : <Refusal>{toMessage(error)}</Refusal>}
 
         {!isPending && (error === undefined || error === null) && isEmpty
-          ? (empty ?? <Placeholder>{emptyMessage}</Placeholder>)
+          ? (empty ?? <DetailPlaceholder>{emptyMessage}</DetailPlaceholder>)
           : null}
 
         {isPending || isEmpty ? null : children}
@@ -201,34 +201,6 @@ type MessageProps = {
   /** What to say. */
   readonly children: ReactNode;
 };
-
-/**
- * What a page shows where the rows would be, while there are none: still reading, or nothing
- * to read.
- *
- * Drawn the way every other "nothing here yet" in the interface is - the dashboard that is not
- * built, the tile that adds a scene - as a dashed outline standing in for the rows. It used to
- * be a panel headed STATUS, which is a word for a log line: an empty list is not a status, it is
- * a room with nothing in it, and the outline says so without a heading that has to be read.
- *
- * The outline is the same height whether it says "Reading…" or "No scenes yet", so a page that
- * turns out to be empty does not move when the answer arrives.
- *
- * @param props - See {@link MessageProps}.
- * @returns The placeholder.
- */
-function Placeholder(props: MessageProps) {
-  const { children } = props;
-
-  return (
-    <div
-      role="status"
-      className="rounded-panel border border-dashed border-border-strong px-6 py-8 text-center"
-    >
-      <p className="mx-auto max-w-md text-ui text-foreground-muted">{children}</p>
-    </div>
-  );
-}
 
 /**
  * The panel a page shows when the read failed.

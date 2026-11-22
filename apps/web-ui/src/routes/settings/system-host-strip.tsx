@@ -12,8 +12,8 @@ import { useNavigate } from 'react-router';
 import type { SystemHost } from '@nebulahome/contracts';
 import { AppIcon, Button, Pill } from '@nebulahome/ui';
 
-import { formatUptime } from '@/lib/format-bytes';
 import { relativeTime } from '@/lib/format-time';
+import { formatUptime } from '@/lib/format-time';
 import { devicePath } from '@/routes/library/device/device-path';
 import { HeroCard, HeroIcon } from '@/routes/settings/settings-ui';
 

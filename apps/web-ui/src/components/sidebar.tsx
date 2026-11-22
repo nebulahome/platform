@@ -42,7 +42,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type FocusEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -57,6 +56,7 @@ import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
 import { defineMessage, text, type Message } from '@/i18n/messages';
 import { roleName } from '@/lib/role-names';
+import { useMediaQuery } from '@/lib/use-media-query';
 import {
   useRailAlerts,
   useRailCounts,
@@ -314,31 +314,6 @@ const RailContext = createContext<RailState>({
 /** Does nothing: the context's default, outside a sidebar. */
 function noop(): void {
   // Nothing to do.
-}
-
-/**
- * Listens for the window crossing 1100px.
- *
- * @param onChange - Called when it does.
- * @returns What stops listening.
- */
-function subscribeNarrow(onChange: () => void): () => void {
-  const query = globalThis.matchMedia(NARROW_QUERY);
-
-  query.addEventListener('change', onChange);
-
-  return (): void => {
-    query.removeEventListener('change', onChange);
-  };
-}
-
-/**
- * Whether the window is narrower than 1100px.
- *
- * @returns True when it is.
- */
-function isNarrowNow(): boolean {
-  return globalThis.matchMedia(NARROW_QUERY).matches;
 }
 
 /**
@@ -1092,7 +1067,7 @@ export function Sidebar() {
   const counts = useRailCounts();
   const alerts = useRailAlerts();
   const isReduced = useReducedMotion();
-  const isNarrow = useSyncExternalStore(subscribeNarrow, isNarrowNow, () => false);
+  const isNarrow = useMediaQuery(NARROW_QUERY);
 
   // Opened by hand on a narrow window: held for this visit, never saved, because the saved
   // choice is the one for a window with room for it.

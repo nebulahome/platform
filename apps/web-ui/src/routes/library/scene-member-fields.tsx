@@ -108,8 +108,8 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
   const { targetState, entity, onChange, extra } = props;
   const power = targetState.on_off;
   const level = targetState.level;
-  const colour = targetState.color_hs;
-  const colourTemp = targetState.color_temp;
+  const color = targetState.color_hs;
+  const colorTemp = targetState.color_temp;
   const cover = targetState.cover;
   const lock = targetState.lock;
   const thermostat = targetState.thermostat;
@@ -119,7 +119,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
       ? media.playback
       : 'paused';
   const isOff = power?.isOn === false;
-  const hasLight = level !== undefined || colour !== undefined || colourTemp !== undefined;
+  const hasLight = level !== undefined || color !== undefined || colorTemp !== undefined;
   const kelvin = kelvinRangeOf(entity);
   const range = entity === undefined ? null : paramsOf(entity, 'thermostat');
   const modes = range?.supportedModes ?? THERMOSTAT_MODES;
@@ -154,14 +154,14 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
             max={100}
             value={level.level}
             display={`${String(Math.round(level.level))}%`}
-            fill={colour === undefined ? 'warm' : 'violet'}
+            fill={color === undefined ? 'warm' : 'violet'}
             onChange={(next) => {
               onChange(withCapability(targetState, 'level', { level: next }));
             }}
           />
         )}
 
-        {colourTemp === undefined || isOff ? null : (
+        {colorTemp === undefined || isOff ? null : (
           <Slider
             look="bar"
             label={t('library.sceneMemberFields.white', 'White')}
@@ -169,8 +169,8 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
             min={kelvin.min}
             max={kelvin.max}
             step={50}
-            value={Math.min(kelvin.max, Math.max(kelvin.min, miredsToKelvin(colourTemp.mireds)))}
-            display={`${String(miredsToKelvin(colourTemp.mireds))} K`}
+            value={Math.min(kelvin.max, Math.max(kelvin.min, miredsToKelvin(colorTemp.mireds)))}
+            display={`${String(miredsToKelvin(colorTemp.mireds))} K`}
             gradient={warmthGradient(kelvin.min, kelvin.max)}
             onChange={(next) => {
               onChange(withCapability(targetState, 'color_temp', { mireds: kelvinToMireds(next) }));
@@ -178,7 +178,7 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
           />
         )}
 
-        {colour === undefined || isOff ? null : (
+        {color === undefined || isOff ? null : (
           <>
             <Slider
               look="bar"
@@ -186,11 +186,11 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
               caption={t('library.sceneMemberFields.colour', 'Colour')}
               min={0}
               max={360}
-              value={colour.hue}
-              display={`${String(Math.round(colour.hue))}°`}
+              value={color.hue}
+              display={`${String(Math.round(color.hue))}°`}
               gradient={hueGradient()}
               onChange={(hue) => {
-                onChange(withCapability(targetState, 'color_hs', { ...colour, hue }));
+                onChange(withCapability(targetState, 'color_hs', { ...color, hue }));
               }}
             />
             <Slider
@@ -198,11 +198,11 @@ export function SceneMemberFields(props: SceneMemberFieldsProps) {
               label={t('library.sceneMemberFields.saturation', 'Saturation')}
               min={0}
               max={100}
-              value={colour.saturation}
-              display={`${String(Math.round(colour.saturation))}%`}
-              gradient={saturationGradient(colour.hue)}
+              value={color.saturation}
+              display={`${String(Math.round(color.saturation))}%`}
+              gradient={saturationGradient(color.hue)}
               onChange={(saturation) => {
-                onChange(withCapability(targetState, 'color_hs', { ...colour, saturation }));
+                onChange(withCapability(targetState, 'color_hs', { ...color, saturation }));
               }}
             />
           </>

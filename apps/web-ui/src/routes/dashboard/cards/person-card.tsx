@@ -13,14 +13,14 @@
 import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AppIcon, cn } from '@nebulahome/ui';
+import { AppIcon, cn, useNow } from '@nebulahome/ui';
 
 import { numberFormat } from '@/i18n/formatters';
 import { durationText } from '@/library/history-stats';
 import { BigValue, Caption } from '@/routes/dashboard/cards/card-kit';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 import { cardTime, sizeKey, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
-import { useMinute } from '@/routes/dashboard/cards/time-card';
+import { MINUTE_MS } from '@/routes/dashboard/cards/time-card';
 
 /**
  * The house's map, loaded when a square person card first draws one: the rest of the dashboard
@@ -122,7 +122,7 @@ export function PersonCard(props: { readonly model: EntityCardModel }) {
   const { model } = props;
   const { entity, state, title, reportedAt } = model;
   const key = sizeKey(model.size);
-  const now = useMinute();
+  const now = useNow(MINUTE_MS);
   const location = state.location;
   const zone = location?.zone ?? null;
   const isHome = zone === 'home';

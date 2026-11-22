@@ -43,7 +43,7 @@ export type EntityStateSummaryProps = {
  * @param state - Its state.
  * @returns A CSS colour for the dot, or null for a lamp that is off or has no colour.
  */
-function lampColour(state: CapabilityState): string | null {
+function lampColor(state: CapabilityState): string | null {
   if (state.on_off?.isOn === false) {
     return null;
   }
@@ -124,7 +124,7 @@ export function EntityStateSummary(props: EntityStateSummaryProps) {
     );
   }
 
-  const colour = isCompact ? null : lampColour(state);
+  const color = isCompact ? null : lampColor(state);
   const level = isCompact || state.on_off?.isOn === false ? undefined : state.level?.level;
 
   return (
@@ -146,13 +146,13 @@ export function EntityStateSummary(props: EntityStateSummaryProps) {
           />
         </span>
       )}
-      {colour === null ? null : (
+      {color === null ? null : (
         <span
           aria-hidden="true"
           className="size-2.5 shrink-0 rounded-full ring-1 ring-border-strong"
           /* eslint-disable-next-line react/forbid-dom-props -- the dot is the lamp's own colour,
              which the palette does not hold (RULES.md 15.3). */
-          style={{ backgroundColor: colour }}
+          style={{ backgroundColor: color }}
         />
       )}
       <span className={words}>{reading.text}</span>

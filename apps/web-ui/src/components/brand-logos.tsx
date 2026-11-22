@@ -1,7 +1,7 @@
 /**
  * The marks of the brokers the platform runs.
  *
- * Not interface icons - those are catalogue ids (`icons.tsx`) - but someone else's marks, drawn
+ * Not interface icons - those are catalogue ids (`AppIcon`) - but someone else's marks, drawn
  * as they publish them, in their own colours: MQTT's purple (Simple Icons, `mqtt`), Matter's
  * symbol without its wordmark (the CSA's logo, public-domain text logo on Wikimedia Commons),
  * which is one colour and so takes the text's, Bluetooth's rune in its oval (Simple Icons,

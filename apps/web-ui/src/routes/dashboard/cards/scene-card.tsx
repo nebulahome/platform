@@ -131,7 +131,7 @@ function MemberMarks(props: {
       {scene.members.slice(0, shown).map((member, index) => {
         const entity = data.entityById.get(member.entityId);
         const kind = entity === undefined ? undefined : entityKindOf(entity);
-        const colour =
+        const color =
           kind === undefined
             ? 'text-foreground-subtle'
             : TONE_CLASSES[kind.tone].split(' ').find((name) => name.startsWith('text-'));
@@ -143,7 +143,7 @@ function MemberMarks(props: {
               'flex shrink-0 items-center justify-center rounded-full border-2 border-surface bg-surface-raised',
               isLarge ? 'size-7' : 'size-6',
               index > 0 && '-ml-1.5',
-              colour,
+              color,
             )}
           >
             <AppIcon id={kind?.icon ?? 'circle-dot'} size={isLarge ? 13 : 11} />

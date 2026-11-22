@@ -16,9 +16,9 @@ import { useTranslation } from 'react-i18next';
 import type { EntityView } from '@nebulahome/contracts';
 import { AppIcon, Button, cn, Panel, type UiIconId } from '@nebulahome/ui';
 
-import { dateTimeFormat } from '@/i18n/formatters';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime } from '@/lib/format-time';
+import { clockText } from '@/lib/format-time';
 import {
   activityLinesOf,
   byDay,
@@ -36,13 +36,6 @@ const MARKS: Readonly<Record<ActivityTone, { readonly icon: UiIconId; readonly t
   offline: { icon: 'triangle-alert', tone: 'text-warning border-warning/30 bg-warning/10' },
   online: { icon: 'check', tone: 'text-success border-success/30 bg-success/10' },
 };
-
-/**
- * The time of day a line happened at.
- *
- * @returns The formatter, in the reader's language.
- */
-const clock = (): Intl.DateTimeFormat => dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
 
 /** What the panel needs. */
 export type ActivityPanelProps = {
@@ -144,7 +137,7 @@ export function ActivityPanel(props: ActivityPanelProps) {
                           title={absoluteTime(line.time)}
                           className="text-caption whitespace-nowrap text-foreground-subtle tabular"
                         >
-                          {clock().format(line.time)}
+                          {clockText(line.time)}
                         </time>
                       </button>
                     </li>

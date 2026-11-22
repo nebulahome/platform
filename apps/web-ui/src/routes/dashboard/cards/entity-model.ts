@@ -14,6 +14,7 @@ import type {
 
 import type { CardSize } from '@/dashboard/card-sizes';
 import { dateTimeFormat } from '@/i18n/formatters';
+import { clockText } from '@/lib/format-time';
 import type { EntityKind } from '@/library/entity-kind';
 import type { Reading } from '@/library/entity-reading';
 import type { CardCommand } from '@/routes/dashboard/cards/use-card-command';
@@ -102,12 +103,6 @@ export function sizeKey(size: CardSize): SizeKey {
 }
 
 /**
- * How a moment is written on a card: the time today, the day and time before.
- *
- * @returns The formatter, in the reader's language.
- */
-const TODAY = (): Intl.DateTimeFormat => dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
-/**
  * The day and the time, for a moment before today.
  *
  * @returns The formatter, in the reader's language.
@@ -127,5 +122,5 @@ const EARLIER = (): Intl.DateTimeFormat =>
  * @returns `08:12` today, `Mon 08:12` before.
  */
 export function cardTime(when: Date, now: Date = new Date()): string {
-  return when.toDateString() === now.toDateString() ? TODAY().format(when) : EARLIER().format(when);
+  return when.toDateString() === now.toDateString() ? clockText(when) : EARLIER().format(when);
 }

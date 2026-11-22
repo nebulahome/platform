@@ -41,7 +41,7 @@ describe('the Nearby filter', () => {
           makers: new Set(),
           isNamedOnly: false,
           isRecentOnly: false,
-          showsPrivate: false,
+          isPrivateShown: false,
           sortBy: 'signal',
         },
         Date.now(),

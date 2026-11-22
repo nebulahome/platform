@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { IntegrationVendorView } from '@nebulahome/contracts';
-import { AppIcon, Pill, Tile, TILE_FRAME, TileMark } from '@nebulahome/ui';
+import { AppIcon, Pill, Tile, TILE_FRAME, TileMark, type UiIconId } from '@nebulahome/ui';
 
 import {
   InfraredLogo,
@@ -29,16 +29,8 @@ import {
   MqttLogo,
   SerialLogo,
   ThreadLogo,
+  type BrandLogoProps,
 } from '@/components/brand-logos';
-import {
-  BluetoothIcon,
-  GlobeIcon,
-  HttpIcon,
-  ModbusIcon,
-  UdpIcon,
-  ZigbeeIcon,
-  type IconProps,
-} from '@/components/icons';
 import { defineMessage, type Message, text } from '@/i18n/messages';
 import { wiresOf, type Wire } from '@/library/vendor-filters';
 import { vendorStatusOf } from '@/library/vendor-status';
@@ -46,13 +38,13 @@ import { vendorStatusOf } from '@/library/vendor-status';
 /** The colour a vendor without one of its own is drawn in: the accent. */
 export const FALLBACK_COLOR = 'var(--color-primary)';
 
-/** A glyph, as the icon set draws one. */
-type Glyph = (props: IconProps) => React.ReactNode;
+/** A glyph: an interface icon by its catalogue id, or a broker's own mark. */
+type Glyph = UiIconId | ((props: BrandLogoProps) => React.ReactNode);
 
 /** What each wire is drawn as, and what the tooltip says. */
 const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: Message }>> = {
   http: {
-    glyph: HttpIcon,
+    glyph: 'network',
     title: defineMessage('library.vendorCard.speaksHttpToEach', 'Speaks HTTP to each device'),
   },
   mqtt: {
@@ -60,28 +52,28 @@ const WIRES: Readonly<Record<Wire, { readonly glyph: Glyph; readonly title: Mess
     title: defineMessage('library.vendorCard.listensOnTheMqtt', 'Listens on the MQTT broker'),
   },
   ble: {
-    glyph: BluetoothIcon,
+    glyph: 'bluetooth',
     title: defineMessage(
       'library.vendorCard.reachesItsDevicesOver',
       'Reaches its devices over Bluetooth LE',
     ),
   },
   zigbee: {
-    glyph: ZigbeeIcon,
+    glyph: 'radio-tower',
     title: defineMessage(
       'library.vendorCard.reachesItsDevicesOver2',
       'Reaches its devices over Zigbee',
     ),
   },
   udp: {
-    glyph: UdpIcon,
+    glyph: 'router',
     title: defineMessage(
       'library.vendorCard.speaksToEachDevice',
       'Speaks to each device in its own datagrams on the network',
     ),
   },
   modbus: {
-    glyph: ModbusIcon,
+    glyph: 'cable',
     title: defineMessage(
       'library.vendorCard.readsItsDevicesOver',
       'Reads its devices over Modbus TCP',
@@ -135,10 +127,11 @@ type MarkProps = {
  */
 export function Mark(props: MarkProps) {
   const { title, glyph: Icon, tone = 'neutral', size = 'small' } = props;
+  const px = size === 'small' ? 13 : 14;
 
   return (
     <TileMark title={title} tone={tone} className={size === 'small' ? undefined : 'size-7'}>
-      <Icon width={size === 'small' ? 13 : 14} height={size === 'small' ? 13 : 14} />
+      {typeof Icon === 'string' ? <AppIcon id={Icon} size={px} /> : <Icon width={px} height={px} />}
     </TileMark>
   );
 }
@@ -170,7 +163,7 @@ export function Marks(props: MarksProps) {
       {vendor.internetRequired ? (
         <Mark
           title={t('library.vendorCard.needsTheInternet', 'Needs the internet')}
-          glyph={GlobeIcon}
+          glyph="globe"
           tone="warning"
           size={size}
         />
@@ -278,7 +271,7 @@ export function VendorCard(props: VendorCardProps) {
                 {vendor.internetRequired ? (
                   <Mark
                     title={t('library.vendorCard.needsTheInternet', 'Needs the internet')}
-                    glyph={GlobeIcon}
+                    glyph="globe"
                     tone="warning"
                   />
                 ) : null}

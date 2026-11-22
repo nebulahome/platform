@@ -15,7 +15,7 @@ import { BlockAdd, BlockDropLine, BlockDropZone, BlockGrip } from '@nebulahome/u
 import { useBlockDrag, type DragLook } from '@/lib/block-drag';
 import { blockIdOf } from '@/lib/block-ids';
 import type { BlockFamily } from '@/library/block-path';
-import { BlockPickerModal } from '@/routes/library/block-picker-modal';
+import { BlockPickerDialog } from '@/routes/library/block-picker-dialog';
 import type { EditorChoiceGroup } from '@/routes/library/editor-choices';
 
 /** What one block in the list is handed to draw itself. */
@@ -163,7 +163,7 @@ export function AddBlock(props: AddBlockProps) {
       </BlockAdd>
       {/* Mounted while open only: a long automation has an Add at the foot of every branch. */}
       {isOpen ? (
-        <BlockPickerModal
+        <BlockPickerDialog
           isOpen
           title={pickerTitle}
           {...(pickerDescription === undefined ? {} : { description: pickerDescription })}

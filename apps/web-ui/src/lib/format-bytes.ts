@@ -7,7 +7,6 @@
  * both read at a glance, where "240.3 GB" only adds a digit nobody acts on.
  */
 import { numberFormat } from '@/i18n/formatters';
-import { translate } from '@/i18n/messages';
 
 /** The steps of the scale, each a thousand times the last. */
 const UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB'] as const;
@@ -94,34 +93,4 @@ export function formatShare(fraction: number): string {
   const percent = fraction * 100;
 
   return percent > 0 && percent < 0.5 ? '<1%' : formatPercent(percent);
-}
-
-/**
- * Writes how long something has been up, in its two largest units.
- *
- * @param seconds - The span.
- * @returns `3 d 4 h`, `5 h 12 min`, `12 min`, `under a minute`.
- */
-export function formatUptime(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) {
-    return translate('time.short.daysHours', '{{days}} d {{hours}} h', {
-      days,
-      hours: hours % 24,
-    });
-  }
-
-  if (hours > 0) {
-    return translate('time.short.hoursMinutes', '{{hours}} h {{minutes}} min', {
-      hours,
-      minutes: minutes % 60,
-    });
-  }
-
-  return minutes > 0
-    ? translate('time.short.minutes', '{{minutes}} min', { minutes })
-    : translate('time.underMinute', 'under a minute');
 }

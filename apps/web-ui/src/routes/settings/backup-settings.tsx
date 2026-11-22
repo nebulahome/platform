@@ -63,6 +63,7 @@ import { defineMessage, text, translate, type Message } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { formatBytes } from '@/lib/format-bytes';
 import { absoluteTime, durationText, relativeTime } from '@/lib/format-time';
+import { saveTextFile } from '@/lib/save-text-file';
 import { signalled } from '@/lib/signalled';
 import { BackupLocationDialog } from '@/routes/settings/backup-location-dialog';
 import { BackupProgressCard } from '@/routes/settings/backup-progress-card';
@@ -129,22 +130,6 @@ const OPTIONAL_SECTIONS: readonly {
   },
 ];
 
-/**
- * Saves a file the browser holds.
- *
- * @param name - The file's name.
- * @param text - Its content.
- */
-function saveFile(name: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  const link = document.createElement('a');
-
-  link.href = url;
-  link.download = name;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 /** What the key dialog needs. */
 type KeyDialogProps = {
   readonly isOpen: boolean;
@@ -175,9 +160,10 @@ function KeyDialog(props: KeyDialogProps) {
      * @param file - The key file.
      */
     onSuccess: (file) => {
-      saveFile(
+      saveTextFile(
         `nebulahome-backup-key-${file.keyId.slice(0, 8)}.json`,
         `${JSON.stringify(file, null, 2)}\n`,
+        'application/json',
       );
       setPassword('');
       onDownloaded();

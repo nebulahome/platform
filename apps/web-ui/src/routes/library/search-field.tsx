@@ -41,7 +41,14 @@ export type SearchFieldProps = {
 export function SearchField(props: SearchFieldProps) {
   const { t } = useTranslation();
 
-  const { value, onChange, placeholder, label = 'Search', className, trail } = props;
+  const {
+    value,
+    onChange,
+    placeholder,
+    label = t('library.searchField.search', 'Search'),
+    className,
+    trail,
+  } = props;
 
   return (
     <FieldShell label={label} isLabelHidden className={cn('w-44 lg:w-72', className)}>

@@ -39,6 +39,7 @@ import {
   Caption,
   CommandNote,
   DayBlocks,
+  NoAnswer,
   PowerButton,
 } from '@/routes/dashboard/cards/card-kit';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
@@ -67,7 +68,6 @@ import {
   someOf,
   TogetherHead,
   togetherKind,
-  Unanswered,
   usableIn,
   type TogetherView,
 } from '@/routes/dashboard/cards/together-parts';
@@ -234,7 +234,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
   const { view } = props;
   const { command, counted, members, size } = view;
   const isLight = view.card.domain === 'light';
-  const colour = isLight ? LAMP : ON;
+  const color = isLight ? LAMP : ON;
   const lit = isLight ? 'text-lamp' : 'text-primary';
   const glyph = isLight ? 'lightbulb' : 'power';
   const on = counted.filter(isOnOf);
@@ -269,7 +269,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
   const today = useTogetherDay(members, !canDim && view.canReadHistory && size !== '1x1');
   // A command no member answered leaves them where they were: the switch says so.
   const isOn = command.hasFailed ? on.length > 0 : power.shown;
-  const glow = on.length > 0 && !view.isOffline ? colour : undefined;
+  const glow = on.length > 0 && !view.isOffline ? color : undefined;
   // On first, then off, then the ones out of reach: the board lists them so.
   const sorted = [...members].sort((a, b) => rankOf(a) - rankOf(b));
 
@@ -485,7 +485,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
         {head}
         <div className="grow" />
         {command.hasFailed ? (
-          <Unanswered command={command} />
+          <NoAnswer command={command} />
         ) : (
           <div className="flex min-w-0 items-end justify-between gap-2.5">
             {figure(26, 22)}
@@ -533,7 +533,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
             </div>
             <DayBlocks
               hours={today.hours}
-              color={colour}
+              color={color}
               label={t('dashboard.cards.switchCard.lastDay', 'The last 24 hours')}
             />
           </div>
@@ -562,7 +562,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
                   <Caption>{t('dashboard.cards.switchCard.today', 'Today')}</Caption>
                   <DayBlocks
                     hours={today.hours}
-                    color={colour}
+                    color={color}
                     label={t('dashboard.cards.switchCard.lastDay', 'The last 24 hours')}
                   />
                 </div>
@@ -596,7 +596,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
           {view.canControl ? (
             <PowerButton
               isOn={isOn}
-              color={colour}
+              color={color}
               label={
                 isOn
                   ? t('dashboard.cards.lightCard.turnOff', 'Turn off')
@@ -611,7 +611,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
         </div>
         <div className="grow" />
         {command.hasFailed ? (
-          <Unanswered command={command} />
+          <NoAnswer command={command} />
         ) : today === undefined ? null : (
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-2.5">
@@ -624,7 +624,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
             </div>
             <DayBlocks
               hours={today.hours}
-              color={colour}
+              color={color}
               label={t('dashboard.cards.switchCard.lastDay', 'The last 24 hours')}
             />
           </div>
@@ -645,7 +645,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
           </div>
           <div className="flex min-w-0 grow flex-col justify-end gap-2.5">
             {command.hasFailed ? (
-              <Unanswered command={command} />
+              <NoAnswer command={command} />
             ) : (
               <>
                 {brightnessBar(true)}
@@ -667,7 +667,7 @@ function TogetherSwitches(props: { readonly view: TogetherView }) {
       </div>
       <div className="mt-3.5">{marks}</div>
       <div className="grow" />
-      {command.hasFailed ? <Unanswered command={command} /> : brightnessBar(false)}
+      {command.hasFailed ? <NoAnswer command={command} /> : brightnessBar(false)}
     </CardFrame>
   );
 }

@@ -54,7 +54,11 @@ function whereItIs(position: number, motion: 'opening' | 'closing' | 'stopped'):
     return translate('entity.controls.coverControl.closed', 'Closed');
   }
 
-  return position === 100 ? 'Open' : `Open ${String(Math.round(position))}%`;
+  return position === 100
+    ? translate('entity.controls.coverControl.isOpen', 'Open')
+    : translate('entity.controls.coverControl.openAt', 'Open {{percent}}%', {
+        percent: Math.round(position),
+      });
 }
 
 /**

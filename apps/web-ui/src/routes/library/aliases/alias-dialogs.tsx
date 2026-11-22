@@ -29,7 +29,7 @@ import {
 } from '@/library/api';
 import { useInstalledPackages } from '@/packages/use-packages';
 import { AliasMark } from '@/routes/library/aliases/alias-new-dialog';
-import { UseRows, usedByCount } from '@/routes/library/aliases/use-rows';
+import { UsedByRows, usedByCount } from '@/routes/library/aliases/used-by-rows';
 import { EntityField } from '@/routes/library/entity-field';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
 
@@ -236,7 +236,7 @@ export function DeleteAliasDialog(props: {
             )}
           </span>
           <ul className="flex flex-col rounded-card border border-border">
-            <UseRows usedBy={usedBy} />
+            <UsedByRows usedBy={usedBy} />
           </ul>
         </div>
       )}

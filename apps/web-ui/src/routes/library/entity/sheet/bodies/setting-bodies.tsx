@@ -9,9 +9,9 @@ import { useTranslation } from 'react-i18next';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import { CameraView } from '@/components/camera-view';
+import { clockText } from '@/lib/format-time';
 import { hasCapability, paramsOf } from '@/library/entity-control';
 import { useCameraStill } from '@/routes/dashboard/cards/use-camera-still';
-import { clockText } from '@/routes/library/entity/sheet/history';
 import { HoldAction } from '@/routes/library/entity/sheet/parts/hold-action';
 import { OptionList, usePicked } from '@/routes/library/entity/sheet/parts/option-list';
 import {

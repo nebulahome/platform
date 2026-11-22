@@ -25,7 +25,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -37,6 +36,7 @@ import { useLocation } from 'react-router';
 
 import { AppIcon, cn, IconButton, useToastsShown } from '@nebulahome/ui';
 
+import { useMediaQuery } from '@/lib/use-media-query';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { useFloatingLayer } from '@/packages/floating/floating-layer';
 import {
@@ -123,31 +123,6 @@ const TILT_SETTLE_MS = 90;
 const UNTUCK_KEYS: ReadonlySet<string> = new Set(['ArrowLeft', 'Enter', ' ']);
 
 /**
- * Listens for the screen getting wider or narrower than a phone's.
- *
- * @param onChange - Called when it does.
- * @returns What stops listening.
- */
-function subscribeWide(onChange: () => void): () => void {
-  const query = globalThis.matchMedia(WIDE_QUERY);
-
-  query.addEventListener('change', onChange);
-
-  return (): void => {
-    query.removeEventListener('change', onChange);
-  };
-}
-
-/**
- * Reads whether the screen is wider than a phone's.
- *
- * @returns True when it is.
- */
-function isWide(): boolean {
-  return globalThis.matchMedia(WIDE_QUERY).matches;
-}
-
-/**
  * Where an element is drawn, from the top-left of another: transforms included.
  *
  * @param element - The element.
@@ -172,7 +147,7 @@ export function FloatingWindow(props: FloatingWindowProps) {
   const { t } = useTranslation();
   const layer = useFloatingLayer();
   const { pathname } = useLocation();
-  const isWideEnough = useSyncExternalStore(subscribeWide, isWide, () => true);
+  const isWideEnough = useMediaQuery(WIDE_QUERY, true);
   const isReduced = useReducedMotion();
   const areToastsShown = useToastsShown();
   const [portal, setPortal] = useState<HTMLElement | null>(null);

@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { TAG_COLORS, type TagColor, type TagUpdate, type TagView } from '@nebulahome/contracts';
 import { Button, ColorSwatches, Modal } from '@nebulahome/ui';
 
+import { listFormat } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { createTag, deleteTag, LIBRARY_QUERY_KEYS, updateTag } from '@/library/api';
@@ -67,7 +68,7 @@ function describeUse(tag: TagView): string {
 
   return parts.length === 0
     ? translate('library.tagDialog.nothingYet', 'nothing yet')
-    : parts.join(' and ');
+    : listFormat({ style: 'long', type: 'conjunction' }).format(parts);
 }
 
 /**
@@ -204,7 +205,14 @@ export function TagDialog(props: TagDialogProps) {
       footer={
         isConfirming && existing !== undefined ? (
           <ConfirmRemoval
-            question={`Delete ${existing.name}? It comes off ${describeUse(existing)}.`}
+            question={t(
+              'library.tagDialog.deleteQuestion',
+              'Delete {{name}}? It comes off {{use}}.',
+              {
+                name: existing.name,
+                use: describeUse(existing),
+              },
+            )}
             label={t('common.delete', 'Delete')}
             isBusy={removal.isPending}
             onCancel={() => {

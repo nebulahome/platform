@@ -16,9 +16,9 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Button, cn } from '@nebulahome/ui';
+import { AppIcon, Button, cn, useEscape } from '@nebulahome/ui';
 
-import { FilterIcon } from '@/components/icons';
+import { translate } from '@/i18n/messages';
 import { isOwnedListbox } from '@/lib/owned-listbox';
 
 /** What the shell needs. */
@@ -31,9 +31,6 @@ export type FilterSheetProps = {
 
   /** Called to unset every facet. */
   readonly onClear: () => void;
-
-  /** How wide the sheet is; `wide` unless said otherwise, so every page's sheet is one shape. */
-  readonly width?: 'medium' | 'wide';
 
   /** The foot's count: "4 of 9 shown". */
   readonly summary?: ReactNode;
@@ -51,11 +48,12 @@ export type FilterSheetProps = {
 export function FilterSheet(props: FilterSheetProps) {
   const { t } = useTranslation();
 
-  const { label, count, onClear, width = 'wide', summary, children } = props;
+  const { label, count, onClear, summary, children } = props;
   const [isOpen, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const sheetId = useId();
 
+  // Not `useClickOutside`: a press in a list a dropdown in the sheet portalled out is inside it.
   useEffect(() => {
     if (!isOpen) {
       return undefined;
@@ -79,25 +77,16 @@ export function FilterSheet(props: FilterSheetProps) {
       }
     };
 
-    /**
-     * Shuts the sheet on Escape.
-     *
-     * @param event - The key.
-     */
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-      }
-    };
-
     document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
 
     return (): void => {
       document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
     };
   }, [isOpen]);
+
+  useEscape(() => {
+    setOpen(false);
+  }, isOpen);
 
   return (
     <div ref={root} className="relative">
@@ -111,7 +100,7 @@ export function FilterSheet(props: FilterSheetProps) {
           setOpen((current) => !current);
         }}
       >
-        <FilterIcon width="15" height="15" />
+        <AppIcon id="list-filter" size={15} />
         <span>{t('library.filterSheet.filter', 'Filter')}</span>
         {count > 0 ? (
           <span className="rounded-pill bg-primary/15 px-1.5 font-mono text-label tabular">
@@ -127,8 +116,7 @@ export function FilterSheet(props: FilterSheetProps) {
           aria-label={label}
           className={cn(
             'absolute top-full right-0 z-40 mt-2 flex flex-col rounded-card border',
-            'animate-rise border-border-strong bg-surface shadow-float',
-            width === 'wide' ? 'w-85' : 'w-72',
+            'w-85 animate-rise border-border-strong bg-surface shadow-float',
           )}
         >
           <div className="flex items-center justify-between gap-3 px-6 pt-4.5 pb-3">
@@ -202,7 +190,14 @@ export function facetChoices(
   return [
     { value: '', label: anyLabel },
     ...sorted,
-    ...(isMissing ? [{ value: chosen, label: `${chosen} (gone)` }] : []),
+    ...(isMissing
+      ? [
+          {
+            value: chosen,
+            label: translate('library.filterSheet.gone', '{{value}} (gone)', { value: chosen }),
+          },
+        ]
+      : []),
   ];
 }
 

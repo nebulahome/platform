@@ -25,6 +25,7 @@ import {
 import {
   AppIcon,
   Button,
+  Collapse,
   IconButton,
   Pill,
   Segmented,
@@ -41,6 +42,7 @@ import { translate } from '@/i18n/messages';
 import { copyText } from '@/lib/clipboard';
 import { toMessage } from '@/lib/error-message';
 import { absoluteTime, shortTime } from '@/lib/format-time';
+import { clockText } from '@/lib/format-time';
 import { METHOD_TONES } from '@/lib/http-methods';
 import { fetchWebhookCalls, fetchWebhooks, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { webhookAddress } from '@/routes/library/automation/webhook-fields';
@@ -296,89 +298,80 @@ function WebhookRow(props: WebhookRowProps) {
         />
       </button>
 
-      <div
-        className={cn(
-          'grid transition-[grid-template-rows,opacity] duration-200 ease-out',
-          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-        )}
-        inert={!isOpen}
+      <Collapse
+        isOpen={isOpen}
+        className="-mx-4 flex flex-col gap-4.5 border-t border-border bg-surface-raised/30 pt-1 pr-4 pb-4.5 pl-15"
       >
-        <div className="overflow-hidden">
-          <div className="-mx-4 flex flex-col gap-4.5 border-t border-border bg-surface-raised/30 pt-1 pr-4 pb-4.5 pl-15">
-            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3">
-              <Pill tone={hook.isActive ? 'success' : 'warning'}>
-                {hook.isActive
-                  ? t('settings.webhooks.active', 'Active')
-                  : t('settings.webhooks.paused', 'Paused')}
-              </Pill>
-              <Button
-                variant="ghost"
-                size="compact"
-                onClick={() => {
-                  void navigate(`/automations/${hook.automationId}`);
-                }}
-              >
-                <AppIcon id="external-link" size={14} />
-                {t('settings.webhooks.openAutomation', 'Open automation')}
-              </Button>
-            </div>
-
-            <div className="flex flex-col">
-              <h4 className={cn(HEADING, 'pb-2')}>{t('settings.webhooks.address', 'Address')}</h4>
-              <DetailLine label={t('settings.webhooks.url', 'URL')}>
-                <span translate="no" className="truncate font-mono text-ui-sm text-foreground">
-                  {address}
-                </span>
-                <IconButton
-                  label={t('settings.webhooks.copyAddress', 'Copy the address')}
-                  size="small"
-                  variant="raised"
-                  onClick={() => {
-                    copyAddress(address, t('settings.webhooks.copied', 'Address copied'));
-                  }}
-                >
-                  <AppIcon id="copy" size={13} />
-                </IconButton>
-              </DetailLine>
-              <DetailLine label={t('settings.webhooks.method', 'Method')}>
-                <span
-                  translate="no"
-                  className={cn('font-mono text-caption font-medium', METHOD_TONES[hook.method])}
-                >
-                  {method}
-                </span>
-              </DetailLine>
-              <DetailLine label={t('settings.webhooks.reachableFrom', 'Reachable from')}>
-                <span className="text-ui text-foreground">{reach}</span>
-              </DetailLine>
-            </div>
-
-            <div className="flex flex-col">
-              <h4 className={cn(HEADING, 'pb-2')}>
-                {t('settings.webhooks.last24h', 'Last 24 hours')}
-              </h4>
-              <HourlyCalls hook={hook} />
-            </div>
-
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between gap-3 pb-2">
-                <h4 className={HEADING}>{t('settings.webhooks.recentCalls', 'Recent calls')}</h4>
-                <button
-                  type="button"
-                  className="flex items-center gap-1 text-ui-sm text-primary transition-colors hover:text-primary-hover"
-                  onClick={() => {
-                    void navigate(`${CALLS_PATH}?automation=${hook.automationId}`);
-                  }}
-                >
-                  {t('settings.webhooks.allCallsFor', 'All calls for this webhook')}
-                  <AppIcon id="chevron-right" size={14} />
-                </button>
-              </div>
-              {isOpen ? <LastCalls hook={hook} /> : null}
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3">
+          <Pill tone={hook.isActive ? 'success' : 'warning'}>
+            {hook.isActive
+              ? t('settings.webhooks.active', 'Active')
+              : t('settings.webhooks.paused', 'Paused')}
+          </Pill>
+          <Button
+            variant="ghost"
+            size="compact"
+            onClick={() => {
+              void navigate(`/automations/${hook.automationId}`);
+            }}
+          >
+            <AppIcon id="external-link" size={14} />
+            {t('settings.webhooks.openAutomation', 'Open automation')}
+          </Button>
         </div>
-      </div>
+
+        <div className="flex flex-col">
+          <h4 className={cn(HEADING, 'pb-2')}>{t('settings.webhooks.address', 'Address')}</h4>
+          <DetailLine label={t('settings.webhooks.url', 'URL')}>
+            <span translate="no" className="truncate font-mono text-ui-sm text-foreground">
+              {address}
+            </span>
+            <IconButton
+              label={t('settings.webhooks.copyAddress', 'Copy the address')}
+              size="small"
+              variant="raised"
+              onClick={() => {
+                copyAddress(address, t('settings.webhooks.copied', 'Address copied'));
+              }}
+            >
+              <AppIcon id="copy" size={13} />
+            </IconButton>
+          </DetailLine>
+          <DetailLine label={t('settings.webhooks.method', 'Method')}>
+            <span
+              translate="no"
+              className={cn('font-mono text-caption font-medium', METHOD_TONES[hook.method])}
+            >
+              {method}
+            </span>
+          </DetailLine>
+          <DetailLine label={t('settings.webhooks.reachableFrom', 'Reachable from')}>
+            <span className="text-ui text-foreground">{reach}</span>
+          </DetailLine>
+        </div>
+
+        <div className="flex flex-col">
+          <h4 className={cn(HEADING, 'pb-2')}>{t('settings.webhooks.last24h', 'Last 24 hours')}</h4>
+          <HourlyCalls hook={hook} />
+        </div>
+
+        <div className="flex flex-col">
+          <div className="flex items-center justify-between gap-3 pb-2">
+            <h4 className={HEADING}>{t('settings.webhooks.recentCalls', 'Recent calls')}</h4>
+            <button
+              type="button"
+              className="flex items-center gap-1 text-ui-sm text-primary transition-colors hover:text-primary-hover"
+              onClick={() => {
+                void navigate(`${CALLS_PATH}?automation=${hook.automationId}`);
+              }}
+            >
+              {t('settings.webhooks.allCallsFor', 'All calls for this webhook')}
+              <AppIcon id="chevron-right" size={14} />
+            </button>
+          </div>
+          {isOpen ? <LastCalls hook={hook} /> : null}
+        </div>
+      </Collapse>
     </div>
   );
 }
@@ -411,7 +404,6 @@ function HourlyCalls(props: { readonly hook: WebhookView }) {
   const { t } = useTranslation();
   const { hourly, calls24h } = props.hook;
   const most = Math.max(1, ...hourly);
-  const clock = dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
   const [now] = useState(() => Date.now());
 
   return (
@@ -430,7 +422,7 @@ function HourlyCalls(props: { readonly hook: WebhookView }) {
             // The bars are the hours; their order never changes.
             // eslint-disable-next-line react/no-array-index-key
             key={index}
-            title={`${clock.format(now - (24 - index) * 3_600_000)} · ${String(count)}`}
+            title={`${clockText(now - (24 - index) * 3_600_000)} · ${String(count)}`}
             /* eslint-disable-next-line react/forbid-dom-props -- a bar is as tall as its share of
             the busiest hour, a number no class can carry (RULES.md 15.3). */
             style={{ height: count === 0 ? 2 : Math.max(4, (count / most) * 44) }}
@@ -444,7 +436,7 @@ function HourlyCalls(props: { readonly hook: WebhookView }) {
       <div className="flex justify-between font-mono text-label text-foreground-subtle">
         <span>
           {t('settings.webhooks.yesterdayAt', 'yesterday {{time}}', {
-            time: clock.format(now - 24 * 3_600_000),
+            time: clockText(now - 24 * 3_600_000),
           })}
         </span>
         <span>{t('settings.webhooks.now', 'now')}</span>

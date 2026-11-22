@@ -14,7 +14,7 @@ import { AppIcon, cn, laneClass, Modal } from '@nebulahome/ui';
 import type { EditorChoice, EditorChoiceGroup } from '@/routes/library/editor-choices';
 
 /** What the picker needs. */
-export type BlockPickerModalProps = {
+export type BlockPickerDialogProps = {
   /** Whether it is open. */
   readonly isOpen: boolean;
 
@@ -52,10 +52,10 @@ function matches(choice: EditorChoice, needle: string): boolean {
 /**
  * Renders the block picker.
  *
- * @param props - See {@link BlockPickerModalProps}.
+ * @param props - See {@link BlockPickerDialogProps}.
  * @returns The dialog.
  */
-export function BlockPickerModal(props: BlockPickerModalProps) {
+export function BlockPickerDialog(props: BlockPickerDialogProps) {
   const { t } = useTranslation();
 
   const { isOpen, onClose, title, description, groups, onPick } = props;

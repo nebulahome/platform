@@ -8,7 +8,7 @@
  */
 import { useTranslation } from 'react-i18next';
 
-import { AppIcon, ColorWheel, IconButton, type WheelColour } from '@nebulahome/ui';
+import { AppIcon, ColorWheel, IconButton, type WheelColor } from '@nebulahome/ui';
 
 import { defineMessage, text } from '@/i18n/messages';
 import { useEyeDropper } from '@/lib/use-eye-dropper';
@@ -27,15 +27,15 @@ const PRESETS = [
 ] as const;
 
 /** What the picker needs. */
-export type ColourPickerProps = {
+export type ColorPickerProps = {
   /** The colour shown now: what the knob points at. */
-  readonly value: WheelColour;
+  readonly value: WheelColor;
 
   /** Called as the knob moves, to show the colour before it is sent. */
-  readonly onChange: (value: WheelColour) => void;
+  readonly onChange: (value: WheelColor) => void;
 
   /** Called with a colour chosen: the knob let go, a preset, a key, the dropper. */
-  readonly onCommit: (value: WheelColour) => void;
+  readonly onCommit: (value: WheelColor) => void;
 
   /** Whether nothing can be chosen. */
   readonly disabled?: boolean;
@@ -47,10 +47,10 @@ export type ColourPickerProps = {
 /**
  * Renders the picker.
  *
- * @param props - See {@link ColourPickerProps}.
+ * @param props - See {@link ColorPickerProps}.
  * @returns The picker.
  */
-export function ColourPicker(props: ColourPickerProps) {
+export function ColorPicker(props: ColorPickerProps) {
   const { t } = useTranslation();
   const { value, onChange, onCommit, disabled = false, size } = props;
   const dropper = useEyeDropper();
@@ -58,11 +58,11 @@ export function ColourPicker(props: ColourPickerProps) {
   /** Takes a colour from the screen, and chooses it. */
   const pickFromScreen = async (): Promise<void> => {
     const picked = await dropper.pick();
-    const colour = picked === null ? null : hexToHs(picked);
+    const color = picked === null ? null : hexToHs(picked);
 
-    if (colour !== null) {
-      onChange(colour);
-      onCommit(colour);
+    if (color !== null) {
+      onChange(color);
+      onCommit(color);
     }
   };
 
@@ -95,10 +95,10 @@ export function ColourPicker(props: ColourPickerProps) {
                  (RULES.md 15.3). */
               style={{ backgroundColor: hsColor(preset.hue, 100) }}
               onClick={() => {
-                const colour = { hue: preset.hue, saturation: 100 };
+                const color = { hue: preset.hue, saturation: 100 };
 
-                onChange(colour);
-                onCommit(colour);
+                onChange(color);
+                onCommit(color);
               }}
             />
           ))}

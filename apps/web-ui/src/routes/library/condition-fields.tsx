@@ -206,7 +206,7 @@ function SunConditionFields(props: {
 
   const { condition, onChange } = props;
   const house = useEditorHouse();
-  const takesElevation = condition.phase === 'above' || condition.phase === 'below';
+  const hasElevation = condition.phase === 'above' || condition.phase === 'below';
   const now = house.position === null ? null : sunState(new Date(), house.position);
   const holds = now === null ? null : isSunPhase(condition, now);
 
@@ -242,7 +242,7 @@ function SunConditionFields(props: {
             });
           }}
         />
-        {takesElevation ? (
+        {hasElevation ? (
           <TextField
             label={t('library.conditionFields.elevation', 'Elevation (°)')}
             size="compact"

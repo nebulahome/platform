@@ -27,7 +27,7 @@ import { ClimateBody, climateLookOf } from '@/routes/library/entity/sheet/bodies
 import { CoverBody } from '@/routes/library/entity/sheet/bodies/cover-body';
 import { FanBody } from '@/routes/library/entity/sheet/bodies/fan-body';
 import { ImageBody } from '@/routes/library/entity/sheet/bodies/image-body';
-import { LightBody, lampColourOf } from '@/routes/library/entity/sheet/bodies/light-body';
+import { LightBody, lampColorOf } from '@/routes/library/entity/sheet/bodies/light-body';
 import { LocationBody } from '@/routes/library/entity/sheet/bodies/location-body';
 import { LockBody, lockToneOf } from '@/routes/library/entity/sheet/bodies/lock-body';
 import { MediaBody } from '@/routes/library/entity/sheet/bodies/media-body';
@@ -389,10 +389,10 @@ export function sheetKindOf(entity: EntityView, state: CapabilityState): SheetKi
     };
   }
 
-  const colour = rule.id === 'light' ? lampColourOf(entity, state) : undefined;
+  const color = rule.id === 'light' ? lampColorOf(entity, state) : undefined;
 
   return {
-    ...(colour === undefined ? {} : { colour }),
+    ...(color === undefined ? {} : { color }),
     tone: toneOf(rule.id, entity, state),
 
     icon: iconOf(rule.id, entity),

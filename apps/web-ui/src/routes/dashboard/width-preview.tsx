@@ -12,18 +12,13 @@
  * that width on the same curve, so they move as one. Measured, the grid would see a new width
  * every frame, each restarting the cards' slide, and they stood still until the frame stopped.
  */
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-} from 'react';
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@nebulahome/ui';
 
 import { columnsFor } from '@/dashboard/geometry';
+import { useElementSize } from '@/lib/use-element-size';
 
 /** How the frame slides to a width, and the cards in it with it. */
 export const FRAME_MOTION = 'duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]';
@@ -75,9 +70,10 @@ export function WidthPreview(props: WidthPreviewProps) {
   const { t } = useTranslation();
 
   const { device, width, onWidth, children } = props;
-  const floor = useRef<HTMLDivElement>(null);
   // The room the frame has; a frame wider than that is drawn as wide as it, and so is its grid.
-  const [room, setRoom] = useState<number | null>(null);
+  // Not known before the floor is laid out.
+  const { ref: floor, size: floorSize } = useElementSize<HTMLDivElement>();
+  const room = floorSize.width > 0 ? floorSize.width : null;
   const shown = room === null ? width : Math.min(width, room);
   const gutter = width >= 600 ? GUTTER_PX.wide : GUTTER_PX.narrow;
   const inner = Math.max(0, shown - 2 * gutter - 2 * FRAME_BORDER_PX);
@@ -85,28 +81,6 @@ export function WidthPreview(props: WidthPreviewProps) {
   const start = useRef<{ readonly x: number; readonly width: number } | null>(null);
   // While an edge is dragged the frame follows the pointer at once; a device chosen slides to it.
   const [isDragging, setDragging] = useState(false);
-
-  useLayoutEffect(() => {
-    const element = floor.current;
-
-    if (element === null || typeof ResizeObserver === 'undefined') {
-      return undefined;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-
-      if (entry !== undefined) {
-        setRoom(entry.contentRect.width);
-      }
-    });
-
-    observer.observe(element);
-
-    return (): void => {
-      observer.disconnect();
-    };
-  }, []);
 
   /**
    * Starts dragging an edge.

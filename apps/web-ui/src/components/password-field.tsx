@@ -23,9 +23,8 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { cn, controlFace, FieldShell, IconButton } from '@nebulahome/ui';
+import { AppIcon, cn, controlFace, FieldShell, IconButton } from '@nebulahome/ui';
 
-import { CheckIcon, EyeIcon, EyeOffIcon } from '@/components/icons';
 import { passwordRules } from '@/lib/password-rules';
 
 /** What the field needs. */
@@ -113,7 +112,7 @@ export function PasswordField(props: PasswordFieldProps) {
                 )}
               >
                 {rule.isMet ? (
-                  <CheckIcon width="12" height="12" />
+                  <AppIcon id="check" size={12} />
                 ) : (
                   <span aria-hidden="true" className="flex size-3 items-center justify-center">
                     <span className="size-1 rounded-full bg-current" />
@@ -169,11 +168,7 @@ export function PasswordField(props: PasswordFieldProps) {
             }}
             className="absolute top-1/2 right-2 -translate-y-1/2"
           >
-            {isRevealed ? (
-              <EyeOffIcon width="16" height="16" />
-            ) : (
-              <EyeIcon width="16" height="16" />
-            )}
+            {isRevealed ? <AppIcon id="eye-off" size={16} /> : <AppIcon id="eye" size={16} />}
           </IconButton>
         </div>
       )}

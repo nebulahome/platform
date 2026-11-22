@@ -15,6 +15,7 @@ import { cn, Segmented } from '@nebulahome/ui';
 
 import { dateTimeFormat, numberFormat } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
+import { clockText } from '@/lib/format-time';
 import type { HistoryRange, TimeWindow } from '@/library/history-series';
 import { cardTime, type EntityCardModel } from '@/routes/dashboard/cards/entity-model';
 import { HOUR_MS, priceLevels } from '@/routes/dashboard/cards/reading-series';
@@ -331,9 +332,7 @@ export function TimeAxis(props: { readonly window: TimeWindow }) {
         <span key={at}>
           {isDays
             ? dateTimeFormat({ weekday: 'short' }).format(at)
-            : dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(
-                Math.round(at / quarter) * quarter,
-              )}
+            : clockText(Math.round(at / quarter) * quarter)}
         </span>
       ))}
       <span>{t('dashboard.cards.readingParts.now', 'now')}</span>

@@ -116,29 +116,25 @@ export function readDateTimeLocal(value: string): number | null {
 }
 
 /**
- * Says how long a duration in days is, in words.
+ * Says the time of day of a moment: 21:48.
  *
- * @param days - The number of days, or null for "kept forever".
- * @returns A phrase such as `30 days`, `1 year` or `Forever`.
+ * @param at - The moment, or milliseconds since the epoch.
+ * @returns The time, in the interface's language.
  */
-export function durationInDays(days: number | null): string {
-  if (days === null) {
-    return translate('time.forever', 'Forever');
-  }
+export function clockText(at: Date | number): string {
+  return dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(at);
+}
 
-  if (days % 365 === 0 && days >= 365) {
-    return translate('time.years', {
-      count: days / 365,
-      defaultValue_one: '{{count}} year',
-      defaultValue_other: '{{count}} years',
-    });
-  }
-
-  return translate('time.days', {
-    count: days,
-    defaultValue_one: '{{count}} day',
-    defaultValue_other: '{{count}} days',
-  });
+/**
+ * The midnight a moment's day begins at, on this browser's calendar.
+ *
+ * @param when - The moment.
+ * @param daysBefore - How many days earlier: a day counted on the calendar, so a change of clocks
+ *   does not shift it.
+ * @returns The midnight, in milliseconds since the epoch.
+ */
+export function startOfDay(when: Date, daysBefore = 0): number {
+  return new Date(when.getFullYear(), when.getMonth(), when.getDate() - daysBefore).getTime();
 }
 
 /**
@@ -185,11 +181,11 @@ export function durationText(ms: number): string {
  * @returns `08:14`, `yesterday`, `Monday`, `3 Sep`.
  */
 export function runMoment(when: Date, now: Date = new Date()): string {
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfToday = startOfDay(now);
   const day = 86_400_000;
 
   if (when.getTime() >= startOfToday) {
-    return dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(when);
+    return clockText(when);
   }
 
   if (when.getTime() >= startOfToday - day) {
@@ -206,4 +202,14 @@ export function runMoment(when: Date, now: Date = new Date()): string {
     month: 'short',
     ...(when.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' }),
   }).format(when);
+}
+
+/**
+ * Writes how long something has been up, in its two largest units.
+ *
+ * @param seconds - The span.
+ * @returns `3 d 4 h`, `5 h 12 min`, `2 h`, `12 min`, `under a minute`.
+ */
+export function formatUptime(seconds: number): string {
+  return durationText(seconds * 1000);
 }

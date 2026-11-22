@@ -19,7 +19,7 @@ import type {
   TogetherDomain,
   TogetherMembers,
 } from '@nebulahome/contracts';
-import { AppIcon, cn, Collapse, SelectField } from '@nebulahome/ui';
+import { AppIcon, cn, Collapse, Segmented, SelectField } from '@nebulahome/ui';
 
 import { kindIcon, kindName } from '@/dashboard/card-options';
 import { cardKindOf } from '@/dashboard/card-sizes';
@@ -313,37 +313,13 @@ export function TogetherSettings(props: TypeSettingsProps<DashboardTogetherCard>
   return (
     <>
       <Field label={t('dashboard.togetherSettings.members', 'Members')}>
-        <div
-          role="radiogroup"
-          aria-label={t('dashboard.togetherSettings.members', 'Members')}
-          className="flex gap-1 rounded-pill border border-border-strong bg-surface p-1"
-        >
-          {modes.map((mode) => {
-            const isOn = members.mode === mode.value;
-
-            return (
-              <button
-                key={mode.value}
-                type="button"
-                role="radio"
-                aria-checked={isOn}
-                className={cn(
-                  'flex h-7.5 flex-1 items-center justify-center rounded-pill text-ui-sm whitespace-nowrap',
-                  'transition-[background-color,color] duration-150 ease-out',
-                  'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary',
-                  isOn
-                    ? 'bg-surface-high font-medium text-foreground'
-                    : 'text-foreground-muted hover:text-foreground',
-                )}
-                onClick={() => {
-                  chooseMode(mode.value);
-                }}
-              >
-                {mode.label}
-              </button>
-            );
-          })}
-        </div>
+        <Segmented
+          isFilled
+          label={t('dashboard.togetherSettings.members', 'Members')}
+          options={modes}
+          value={members.mode}
+          onChange={chooseMode}
+        />
       </Field>
 
       {members.mode === 'rule' ? (

@@ -17,8 +17,11 @@ import { isEnded, stageRank, usePlatform } from '@/system/platform-store';
 /** How often the page looks while the server still works at it, and how long one question may take. */
 export const POLL_MS = 1500;
 
-/** How often it looks once the server went away: the screen goes as soon as it is back. */
-export const AWAY_POLL_MS = 500;
+/**
+ * How often it looks once the server went away, for as long as it stays away: the screen goes
+ * within a second of it being back.
+ */
+export const AWAY_POLL_MS = 1000;
 
 /**
  * How long a restart waits for the hub once the server answers again: one that does not come up

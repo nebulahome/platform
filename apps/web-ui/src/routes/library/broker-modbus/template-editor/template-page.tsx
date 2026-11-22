@@ -48,6 +48,7 @@ import {
   draftOf,
   emptyTemplate,
   entityOf,
+  fileNameOf,
   fileOf,
   parseFile,
   problemsOf,
@@ -89,21 +90,6 @@ function targetOf(params: URLSearchParams): ModbusTarget | null {
         unitId: Number(params.get('unit') ?? 1),
         framing: params.get('framing') === 'rtu' ? 'rtu' : 'tcp',
       };
-}
-
-/**
- * The name a template's file is exported as.
- *
- * @param name - The template's name.
- * @returns `waveshare-relay-8ch.json`.
- */
-function fileNameOf(name: string): string {
-  const slug = name
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/gu, '-')
-    .replaceAll(/^-+|-+$/gu, '');
-
-  return `${slug === '' ? 'template' : slug}.json`;
 }
 
 /**

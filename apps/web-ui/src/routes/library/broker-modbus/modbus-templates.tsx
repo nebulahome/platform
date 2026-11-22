@@ -22,7 +22,7 @@ import { saveJsonFile } from '@/library/library-file';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 
-import { parseFile, documentOf } from './template-editor/template-model';
+import { parseFile, documentOf, fileNameOf } from './template-editor/template-model';
 
 /** What the tab needs. */
 export type ModbusTemplatesProps = {
@@ -34,21 +34,6 @@ export type ModbusTemplatesProps = {
   /** Removes one of the owner's templates no device uses; absent when the person may not. */
   readonly onRemove?: ((template: ModbusTemplateRecord) => void) | undefined;
 };
-
-/**
- * The file a template is exported as.
- *
- * @param template - The template.
- * @returns `waveshare-relay-8ch.json`.
- */
-function fileNameOf(template: ModbusTemplate): string {
-  const slug = template.name
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/gu, '-')
-    .replaceAll(/^-+|-+$/gu, '');
-
-  return `${slug === '' ? 'template' : slug}.json`;
-}
 
 /**
  * Renders the tab.
@@ -261,7 +246,7 @@ export function ModbusTemplates(props: ModbusTemplatesProps) {
                       variant="bare"
                       size="compact"
                       onClick={() => {
-                        saveJsonFile(template.document, fileNameOf(template.document));
+                        saveJsonFile(template.document, fileNameOf(template.document.name));
                       }}
                     >
                       {t('brokers.modbus.export', 'Export')}

@@ -78,7 +78,7 @@ type BluetoothTab = (typeof TABS)[number];
 /** What the page's gallery samples change. */
 export type BluetoothBrokerPageProps = {
   /** Whether Nearby holds the lease that makes proxies forward everything; true but in the gallery. */
-  readonly holdsLease?: boolean;
+  readonly hasLease?: boolean;
 
   /** A Nearby row open at first, for the gallery. */
   readonly openAddress?: string;
@@ -409,7 +409,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
                 items={nearby.data ?? []}
                 scanners={scannerList}
                 isForwardingAll={current.isForwardingAll}
-                holdsLease={props.holdsLease ?? true}
+                hasLease={props.hasLease ?? true}
                 {...(props.openAddress === undefined ? {} : { openAddress: props.openAddress })}
                 addingAddress={addingAddress}
                 onAdd={

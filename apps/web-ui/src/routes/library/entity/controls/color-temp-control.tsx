@@ -42,7 +42,7 @@ const STEP_KELVIN = 50;
 export function ColorTempControl(props: ControlProps) {
   const { t } = useTranslation();
 
-  const { entity, state, reportedAt, commander, disabled, colour } = props;
+  const { entity, state, reportedAt, commander, disabled, color } = props;
   const params = paramsOf(entity, 'color_temp');
   const reportedKelvin =
     state.color_temp === undefined ? null : miredsToKelvin(state.color_temp.mireds);
@@ -89,8 +89,8 @@ export function ColorTempControl(props: ControlProps) {
     commander.send('color_temp', { command: 'set_color_temp', mireds });
 
     // A lamp that also makes colours leaves them for this white: its colour shows white at once.
-    if (colour !== undefined && hasCapability(entity, 'color_hs')) {
-      colour.sent({ hue: colour.shown.hue, saturation: 0 });
+    if (color !== undefined && hasCapability(entity, 'color_hs')) {
+      color.sent({ hue: color.shown.hue, saturation: 0 });
     }
   };
 

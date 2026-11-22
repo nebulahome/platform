@@ -150,7 +150,7 @@ function SceneButton(props: { readonly scene: SceneView; readonly data: Dashboar
         apply.mutate();
       }}
     >
-      <ButtonGlyph icon={icon} colour="text-violet" isBusy={apply.isPending} />
+      <ButtonGlyph icon={icon} color="text-violet" isBusy={apply.isPending} />
       <span className="max-w-full truncate">{scene.name}</span>
     </button>
   );
@@ -207,7 +207,7 @@ function EntityButton(props: { readonly entity: EntityView; readonly data: Dashb
       ) : (
         <ButtonGlyph
           icon={kind.icon}
-          colour={isSwitch && !shown ? 'text-foreground-muted' : toneText(kind)}
+          color={isSwitch && !shown ? 'text-foreground-muted' : toneText(kind)}
           isBusy={command.sending !== null}
         />
       )}
@@ -221,23 +221,23 @@ function EntityButton(props: { readonly entity: EntityView; readonly data: Dashb
  *
  * @param props - The glyph.
  * @param props.icon - Its icon.
- * @param props.colour - Its colour class.
+ * @param props.color - Its colour class.
  * @param props.isBusy - Whether what it sent is out.
  * @returns The glyph.
  */
 function ButtonGlyph(props: {
   readonly icon: UiIconId;
-  readonly colour: string;
+  readonly color: string;
   readonly isBusy: boolean;
 }) {
-  const { icon, colour, isBusy } = props;
+  const { icon, color, isBusy } = props;
 
   return (
     <span
       aria-hidden="true"
       className={cn(
         'inline-flex transition-colors duration-200',
-        isBusy ? 'animate-spin text-cyan' : colour,
+        isBusy ? 'animate-spin text-cyan' : color,
       )}
     >
       <AppIcon id={isBusy ? 'loader-circle' : icon} size={18} />

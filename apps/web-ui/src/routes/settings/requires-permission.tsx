@@ -13,8 +13,9 @@
 import type { ReactNode } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { AppIcon } from '@nebulahome/ui';
+
 import { useSession } from '@/auth/session-store';
-import { LockIcon } from '@/components/icons';
 
 /** What the guard needs. */
 export type RequiresPermissionProps = {
@@ -46,7 +47,7 @@ export function RequiresPermission(props: RequiresPermissionProps) {
   return (
     <div className="flex grow items-center justify-center">
       <div className="flex max-w-sm flex-col items-center gap-3 rounded-panel border border-dashed border-border-strong p-8 text-center">
-        <LockIcon className="text-foreground-subtle" />
+        <AppIcon id="lock" size={19} className="text-foreground-subtle" />
 
         <p className="text-title text-foreground-muted">
           {t('settings.forbidden.title', '{{section}} is not yours to open.', { section })}

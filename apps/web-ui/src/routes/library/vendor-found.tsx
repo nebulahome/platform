@@ -74,7 +74,7 @@ export function VendorFound(props: VendorFoundProps) {
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [page, setPage] = useState(1);
   const [size, setSize] = useState<number>(SIZES[0]);
-  const [showsDismissed, setShowsDismissed] = useState(false);
+  const [isDismissedShown, setDismissedShown] = useState(false);
 
   const found = useQuery({
     queryKey: [...LINK_QUERY_KEYS.found, vendor.id],
@@ -90,7 +90,7 @@ export function VendorFound(props: VendorFoundProps) {
   });
   const active = (found.data ?? []).filter((each) => !each.isDismissed);
   const dismissed = (found.data ?? []).filter((each) => each.isDismissed);
-  const rows = showsDismissed ? [...active, ...dismissed] : active;
+  const rows = isDismissedShown ? [...active, ...dismissed] : active;
   const pageCount = Math.max(1, Math.ceil(rows.length / size));
   const shownPage = Math.min(page, pageCount);
   const shown = rows.slice((shownPage - 1) * size, shownPage * size);
@@ -268,7 +268,7 @@ export function VendorFound(props: VendorFoundProps) {
         <p className="text-ui text-foreground-muted">
           <span className="font-medium text-foreground tabular">{active.length}</span>{' '}
           {t('library.vendorFound.foundOnNetwork', 'found on your network')}
-          {showsDismissed && dismissed.length > 0 ? (
+          {isDismissedShown && dismissed.length > 0 ? (
             <>
               {' · '}
               <span className="font-medium text-foreground tabular">{dismissed.length}</span>{' '}
@@ -288,13 +288,13 @@ export function VendorFound(props: VendorFoundProps) {
             <Button
               variant="bare"
               size="compact"
-              aria-pressed={showsDismissed}
+              aria-pressed={isDismissedShown}
               onClick={() => {
-                setShowsDismissed(!showsDismissed);
+                setDismissedShown(!isDismissedShown);
               }}
             >
-              <AppIcon id={showsDismissed ? 'eye-off' : 'eye'} size={15} />
-              {showsDismissed
+              <AppIcon id={isDismissedShown ? 'eye-off' : 'eye'} size={15} />
+              {isDismissedShown
                 ? t('library.vendorFound.hideDismissed', 'Hide dismissed')
                 : t('library.vendorFound.showDismissed', 'Show dismissed ({{count}})', {
                     count: dismissed.length,

@@ -15,7 +15,7 @@ import { AppIcon, Button, Modal } from '@nebulahome/ui';
 import { listFormat } from '@/i18n/formatters';
 import { signalled } from '@/lib/signalled';
 import { fetchDevices, LIBRARY_QUERY_KEYS, previewDeviceRemoval } from '@/library/api';
-import { UseRows, usedByCount } from '@/routes/library/aliases/use-rows';
+import { UsedByRows, usedByCount } from '@/routes/library/aliases/used-by-rows';
 import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
 
 /**
@@ -140,7 +140,7 @@ export function RemovalSummary(props: {
             )}
           </h3>
           <ul className="flex flex-col rounded-card border border-border">
-            <UseRows usedBy={removal.usedBy} />
+            <UsedByRows usedBy={removal.usedBy} />
           </ul>
         </section>
       )}

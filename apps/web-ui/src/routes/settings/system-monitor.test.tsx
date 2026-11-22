@@ -28,11 +28,6 @@ vi.mock('@/components/live-area-chart', () => ({
   LiveAreaChart: () => null,
 }));
 
-vi.mock('@/components/usage-ring', () => ({
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- the component's own name
-  UsageRing: () => null,
-}));
-
 /** A machine a quarter busy, with a database of 1.9 GB and map tiles of 100 MB. */
 const SNAPSHOT: SystemMonitorSnapshot = {
   host: {

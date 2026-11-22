@@ -46,7 +46,7 @@ import {
   type UiIconId,
 } from '@nebulahome/ui';
 
-import { dateTimeFormat } from '@/i18n/formatters';
+import { clockText } from '@/lib/format-time';
 import {
   formatPartValue,
   partGroupLabel,
@@ -232,10 +232,9 @@ export function AliasParts(props: AliasPartsProps) {
       parts[def.key] === undefined &&
       (def.group === undefined || defs.findIndex((other) => other.group === def.group) === index),
   );
-  const hour = dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
   const axis = [0, 6, 12, 18].map((hours) => ({
     hours,
-    label: hour.format(window.from + hours * 3_600_000),
+    label: clockText(window.from + hours * 3_600_000),
   }));
 
   /**
@@ -408,7 +407,6 @@ function PartRow(props: PartRowProps) {
   const isEdited = JSON.stringify(config) !== JSON.stringify(was);
   const causeName = useCauseNames();
   const { nameOf } = useEntityNames();
-  const time = dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
   const preview = useEditPreview(
     def.kind === 'number' && isEdited && config !== undefined && config.from !== 'stored'
       ? config
@@ -436,7 +434,7 @@ function PartRow(props: PartRowProps) {
       : partTrack(def, was, history, window, (point) => {
           const cause = causeName(point.context ?? null);
 
-          return `${time.format(point.time)} · ${cause.label}`;
+          return `${clockText(point.time)} · ${cause.label}`;
         });
 
   return (

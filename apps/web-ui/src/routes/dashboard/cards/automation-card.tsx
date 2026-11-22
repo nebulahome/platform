@@ -15,11 +15,11 @@ import { AppIcon, cn, Switch, toast } from '@nebulahome/ui';
 import { useSession } from '@/auth/session-store';
 import { kindName } from '@/dashboard/card-options';
 import { NO_AUTOMATION } from '@/dashboard/new-cards';
-import { dateTimeFormat } from '@/i18n/formatters';
 import { text, translate } from '@/i18n/messages';
 import { SUN_EVENTS } from '@/lib/block-summary';
 import { toMessage } from '@/lib/error-message';
 import { runMoment } from '@/lib/format-time';
+import { clockText, startOfDay } from '@/lib/format-time';
 import { LIBRARY_QUERY_KEYS, triggerAutomation, updateAutomation } from '@/library/api';
 import { Caption } from '@/routes/dashboard/cards/card-kit';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
@@ -41,23 +41,6 @@ export type AutomationCardProps = {
 };
 
 /**
- * The time of day, for a run today or tomorrow.
- *
- * @returns The formatter.
- */
-const CLOCK = (): Intl.DateTimeFormat => dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
-
-/**
- * The start of a moment's day.
- *
- * @param moment - The moment.
- * @returns Its midnight, in milliseconds since the epoch.
- */
-function startOfDay(moment: Date): number {
-  return new Date(moment.getFullYear(), moment.getMonth(), moment.getDate()).getTime();
-}
-
-/**
  * When a run was or will be, as the card writes it: the day in a word and the time.
  *
  * @param when - The moment.
@@ -66,7 +49,7 @@ function startOfDay(moment: Date): number {
  */
 function momentWords(when: Date, now: Date = new Date()): string {
   const days = Math.round((startOfDay(when) - startOfDay(now)) / 86_400_000);
-  const time = CLOCK().format(when);
+  const time = clockText(when);
 
   if (days === 0) {
     return translate('dashboard.cards.automationCard.todayAt', 'Today {{time}}', { time });
@@ -234,7 +217,7 @@ export function AutomationCard(props: AutomationCardProps) {
         ? momentWords(next.at)
         : t('dashboard.cards.automationCard.sunAt', '{{event}} · {{time}}', {
             event: sunWord(next.sun),
-            time: CLOCK().format(next.at),
+            time: clockText(next.at),
           });
   const line = hasFailed ? (
     <span className="inline-flex min-w-0 items-center gap-1.5 text-caption text-danger">

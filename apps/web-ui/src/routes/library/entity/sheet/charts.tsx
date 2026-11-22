@@ -536,7 +536,7 @@ export function LineChart(props: LineChartProps) {
   const last = points.at(-1);
   const lastX = last === undefined ? 0 : x(last.at);
   const lastY = last === undefined ? height : y(last.value);
-  const colours = TONE_CHART[isStale ? 'muted' : tone];
+  const colors = TONE_CHART[isStale ? 'muted' : tone];
   const moment = pointer.at === null ? null : window.from + pointer.at * (window.to - window.from);
   const gap =
     moment === null ? undefined : gaps.find((each) => moment > each.from && moment < each.to);
@@ -596,7 +596,7 @@ export function LineChart(props: LineChartProps) {
           preserveAspectRatio="none"
           role="img"
           aria-label={label}
-          className={cn('entity-reveal relative block', colours.fill)}
+          className={cn('entity-reveal relative block', colors.fill)}
         >
           <defs>
             <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
@@ -613,7 +613,7 @@ export function LineChart(props: LineChartProps) {
                 strokeWidth={2}
                 strokeLinejoin="round"
                 vectorEffect="non-scaling-stroke"
-                className={colours.stroke}
+                className={colors.stroke}
               />
               {isStale ? (
                 <path
@@ -622,7 +622,7 @@ export function LineChart(props: LineChartProps) {
                   strokeWidth={1.5}
                   strokeDasharray="4 4"
                   vectorEffect="non-scaling-stroke"
-                  className={colours.stroke}
+                  className={colors.stroke}
                 />
               ) : null}
             </>
@@ -761,7 +761,7 @@ export type StretchChartProps = {
   readonly window: TimeWindow;
 
   /** The colour of a value, as a class: `bg-…`. */
-  readonly colourOf: (value: string) => string;
+  readonly colorOf: (value: string) => string;
 
   /** What it shows, to a screen reader. */
   readonly label: string;
@@ -776,7 +776,7 @@ export type StretchChartProps = {
  */
 export function StretchChart(props: StretchChartProps) {
   const { t } = useTranslation();
-  const { stretches, window, colourOf, label } = props;
+  const { stretches, window, colorOf, label } = props;
   const pointer = usePointer();
   const moment = pointer.at === null ? null : window.from + pointer.at * (window.to - window.from);
   const hovered =
@@ -798,7 +798,7 @@ export function StretchChart(props: StretchChartProps) {
             key={stretch.from}
             className={cn(
               'entity-grow-x transition-opacity duration-200',
-              colourOf(stretch.value),
+              colorOf(stretch.value),
               hovered !== undefined && hovered !== stretch && 'opacity-45',
             )}
             // eslint-disable-next-line react/forbid-dom-props -- each stretch as long as it lasted
@@ -810,7 +810,7 @@ export function StretchChart(props: StretchChartProps) {
         <ChartTip
           at={pointer.at}
           tone="muted"
-          dot={colourOf(hovered.value)}
+          dot={colorOf(hovered.value)}
           title={hovered.value}
           sub={t('entity.sheet.history.span', '{{from}} – {{to}} · {{duration}}', {
             from: momentText(hovered.from, window),

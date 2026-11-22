@@ -74,7 +74,7 @@ export type SheetKind = {
   readonly isLit: boolean;
 
   /** A colour of its own for the lit tile instead of the kind's: a lamp's, `hsl(…)`. */
-  readonly colour?: string;
+  readonly color?: string;
 
   /**
    * Where its history goes: in a drawer the History button opens under the controls, in the body

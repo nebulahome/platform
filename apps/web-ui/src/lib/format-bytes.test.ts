@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatBytes, formatPercent, formatRate, formatShare, formatUptime } from './format-bytes';
+import { formatBytes, formatPercent, formatRate, formatShare } from './format-bytes';
 
 describe('formatBytes', () => {
   it('scales by thousands, as a disk is sold', () => {
@@ -36,16 +36,5 @@ describe('formatPercent', () => {
 describe('formatShare', () => {
   it('calls a slice too thin to round to one percent less than one, not nothing', () => {
     expect([formatShare(0.64), formatShare(0.004), formatShare(0)]).toEqual(['64%', '<1%', '0%']);
-  });
-});
-
-describe('formatUptime', () => {
-  it('says how long in its two largest units', () => {
-    expect([
-      formatUptime(3 * 86_400 + 4 * 3600 + 59),
-      formatUptime(5 * 3600 + 12 * 60),
-      formatUptime(12 * 60 + 5),
-      formatUptime(30),
-    ]).toEqual(['3 d 4 h', '5 h 12 min', '12 min', 'under a minute']);
   });
 });

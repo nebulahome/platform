@@ -21,8 +21,10 @@ import {
 import { AppIcon, Button, Modal, Segmented, SelectField } from '@nebulahome/ui';
 
 import { dateTimeFormat } from '@/i18n/formatters';
+import { translate } from '@/i18n/messages';
 import { commandLabel } from '@/lib/command-choices';
 import { formatDuration } from '@/lib/duration';
+import { clockText } from '@/lib/format-time';
 import { formatPartValue, partLabel, partValueOf } from '@/library/alias-model';
 import {
   fetchAliasActionRuns,
@@ -124,22 +126,35 @@ function wordOf(value: unknown): string {
  */
 function setupWords(changes: readonly AliasChange[], action: AliasSetupChange['action']): string {
   if (action !== 'update') {
-    return action === 'create' ? 'Created' : 'Imported';
+    return action === 'create'
+      ? translate('library.aliasPage.created', 'Created')
+      : translate('library.aliasPage.imported', 'Imported');
   }
 
   const source = changes.find((change) => change.path.endsWith('.from'));
 
   if (source !== undefined && changes.length <= 3) {
-    return `Source ${wordOf(source.before)} → ${wordOf(source.after)}`;
+    return translate('library.aliasPage.sourceChanged', 'Source {{before}} → {{after}}', {
+      before: wordOf(source.before),
+      after: wordOf(source.after),
+    });
   }
 
   const code = changes.find((change) => change.path === 'code');
 
   if (code !== undefined && changes.length === 1) {
-    return `${wordOf(code.after)} lines changed`;
+    return translate('library.aliasPage.linesChanged', '{{lines}} lines changed', {
+      lines: wordOf(code.after),
+    });
   }
 
-  return changes.length === 1 ? (changes[0]?.path ?? '') : `${String(changes.length)} changes`;
+  return changes.length === 1
+    ? (changes[0]?.path ?? '')
+    : translate('library.aliasPage.changeCount', {
+        count: changes.length,
+        defaultValue_one: '{{count}} change',
+        defaultValue_other: '{{count}} changes',
+      });
 }
 
 /**
@@ -279,7 +294,6 @@ export function AliasHistoryTab(props: {
   ].toSorted((left, right) => right.at.getTime() - left.at.getTime());
 
   const day = dateTimeFormat({ weekday: 'long', day: 'numeric', month: 'long' });
-  const time = dateTimeFormat({ hour: '2-digit', minute: '2-digit' });
   const today = new Date(openedAt).toDateString();
   const yesterday = new Date(openedAt - 86_400_000).toDateString();
 
@@ -364,7 +378,7 @@ export function AliasHistoryTab(props: {
                     className={`${COLUMNS} border-b border-border py-2.5 last:border-b-0`}
                   >
                     <span className="font-mono text-caption text-foreground-subtle">
-                      {time.format(row.at)}
+                      {clockText(row.at)}
                     </span>
                     <span className="flex items-center gap-1.5 text-ui-sm text-foreground-muted">
                       <AppIcon
@@ -427,7 +441,7 @@ export function AliasHistoryTab(props: {
         isOpen={diff !== null}
         size="large"
         title={t('library.aliasPage.diffTitle', 'Setup changed · {{when}}', {
-          when: diff === null ? '' : `${dayOf(diff.at)} ${time.format(diff.at)}`,
+          when: diff === null ? '' : `${dayOf(diff.at)} ${clockText(diff.at)}`,
         })}
         onClose={() => {
           setDiff(null);
@@ -468,7 +482,7 @@ export function AliasHistoryTab(props: {
         isOpen={steps !== null}
         size="large"
         title={t('library.aliasPage.stepsTitle', 'Action ran · {{when}}', {
-          when: steps === null ? '' : `${dayOf(steps.at)} ${time.format(steps.at)}`,
+          when: steps === null ? '' : `${dayOf(steps.at)} ${clockText(steps.at)}`,
         })}
         {...(steps === null ? {} : { description: steps.change })}
         onClose={() => {

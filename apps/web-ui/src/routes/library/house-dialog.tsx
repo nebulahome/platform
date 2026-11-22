@@ -220,7 +220,10 @@ export function HouseDialog(props: HouseDialogProps) {
       footer={
         isConfirming && existing !== undefined ? (
           <ConfirmRemoval
-            question={`Remove ${existing.name}? ${describeRemoval(removal)}`}
+            question={t('library.houseDialog.removeQuestion', 'Remove {{name}}? {{impact}}', {
+              name: existing.name,
+              impact: describeRemoval(removal),
+            })}
             isBusy={removing.isPending}
             onCancel={() => {
               setConfirming(false);

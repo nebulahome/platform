@@ -55,7 +55,7 @@ export function ButtonControl(props: ControlProps) {
   const [isAsking, setAsking] = useState(false);
   const asked = ASKED_FIRST[entity.deviceClass ?? ''];
   const question = asked === undefined ? undefined : text(asked);
-  const asksFirst = question !== undefined;
+  const shouldAskFirst = question !== undefined;
 
   /** Sends the press. */
   const press = (): void => {
@@ -73,7 +73,7 @@ export function ButtonControl(props: ControlProps) {
           disabled={disabled}
           isBusy={isBusy(props, 'button')}
           onClick={() => {
-            if (asksFirst) {
+            if (shouldAskFirst) {
               setAsking(true);
             } else {
               press();
@@ -84,7 +84,7 @@ export function ButtonControl(props: ControlProps) {
         </Button>
       }
     >
-      {asksFirst ? (
+      {shouldAskFirst ? (
         <Modal
           isOpen={isAsking}
           onClose={() => {

@@ -21,7 +21,7 @@ import { AppIcon, CatalogueIcon, cn } from '@nebulahome/ui';
 
 import { durationText } from '@/library/history-stats';
 import { drawerContentOf } from '@/routes/library/entity/sheet/history';
-import { HistorySheet } from '@/routes/library/entity/sheet/history-drawer';
+import { HistorySheet } from '@/routes/library/entity/sheet/history-sheet';
 import { sheetKindOf } from '@/routes/library/entity/sheet/kinds';
 import {
   ListViewContext,
@@ -245,18 +245,18 @@ export function EntitySheet(props: EntitySheetProps) {
               'entity-tint',
               isLit
                 ? cn(
-                    kind.colour === undefined && TILE_LIT[tone],
+                    kind.color === undefined && TILE_LIT[tone],
                     'shadow-[0_0_10px_-7px_currentColor]',
                   )
                 : TILE_REST,
             )}
             // eslint-disable-next-line react/forbid-dom-props -- a lamp's tile takes the colour it shines in
             style={
-              isLit && kind.colour !== undefined
+              isLit && kind.color !== undefined
                 ? {
-                    color: kind.colour,
-                    borderColor: `color-mix(in oklab, ${kind.colour} 40%, transparent)`,
-                    backgroundColor: `color-mix(in oklab, ${kind.colour} 15%, transparent)`,
+                    color: kind.color,
+                    borderColor: `color-mix(in oklab, ${kind.color} 40%, transparent)`,
+                    backgroundColor: `color-mix(in oklab, ${kind.color} 15%, transparent)`,
                   }
                 : undefined
             }

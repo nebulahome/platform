@@ -106,7 +106,7 @@ function whiteAt(at: number): string {
  * @param state - Its state.
  * @returns True when it shows a colour.
  */
-function showsColourOf(entity: EntityView, state: CapabilityState): boolean {
+function showsColorOf(entity: EntityView, state: CapabilityState): boolean {
   return (
     paramsOf(entity, 'color_hs') !== null &&
     (paramsOf(entity, 'color_temp') === null ||
@@ -151,15 +151,15 @@ function kelvinRangeOf(entity: EntityView): { minKelvin: number; maxKelvin: numb
  *
  * @param entity - The lamp.
  * @param state - Its state.
- * @param isColour - Whether it shows its colour; what it says when not given.
+ * @param isColor - Whether it shows its colour; what it says when not given.
  * @returns The colour, `hsl(…)` or `rgb(…)`; undefined for a lamp that reports neither.
  */
 function shineOf(
   entity: EntityView,
   state: CapabilityState,
-  isColour = showsColourOf(entity, state),
+  isColor = showsColorOf(entity, state),
 ): string | undefined {
-  if (isColour) {
+  if (isColor) {
     return hsColor(state.color_hs?.hue ?? 0, state.color_hs?.saturation ?? 0);
   }
 
@@ -177,7 +177,7 @@ function shineOf(
  * @param state - Its state.
  * @returns The colour, or undefined for a lamp off or one that reports no colour or white.
  */
-export function lampColourOf(entity: EntityView, state: CapabilityState): string | undefined {
+export function lampColorOf(entity: EntityView, state: CapabilityState): string | undefined {
   return state.on_off?.isOn === true ? shineOf(entity, state) : undefined;
 }
 
@@ -230,7 +230,7 @@ export function LightBody(props: SheetBodyProps) {
   );
   // White or colour: the one pressed shows at once, until the lamp says which it shows.
   const mode = usePendingValue<'white' | 'colour'>(
-    showsColourOf(entity, state) ? 'colour' : 'white',
+    showsColorOf(entity, state) ? 'colour' : 'white',
     reportedAt,
     commander.busy.has('color_temp') || commander.busy.has('color_hs'),
   );
@@ -245,14 +245,19 @@ export function LightBody(props: SheetBodyProps) {
 
   const { hue, saturation } = picked.shown;
   // Which of white and colour the controls are for: the one pressed, or what the lamp says.
-  const saysMode =
+  const isModeReported =
     state.color_hs?.isActive !== undefined || state.color_temp?.isActive !== undefined;
-  const showsColour = hs !== null && (saysMode ? mode.shown : (chosen ?? mode.shown)) === 'colour';
+  const isColorShown =
+    hs !== null && (isModeReported ? mode.shown : (chosen ?? mode.shown)) === 'colour';
   // The light the lamp gives, as it reports it - its colour or the white of its temperature: the
   // bar, the switch and the header tile all take it at the same moment. The swatches, the wheel
   // and the temperature bar answer the finger at once instead.
-  const colour = shineOf(entity, state, saysMode || chosen === null ? undefined : showsColour);
-  const swatch = showsColour ? swatchOf(hue, saturation) : undefined;
+  const color = shineOf(
+    entity,
+    state,
+    isModeReported || chosen === null ? undefined : isColorShown,
+  );
+  const swatch = isColorShown ? swatchOf(hue, saturation) : undefined;
   const kelvin = miredsToKelvin(Math.round(mireds.shown));
   const { minKelvin, maxKelvin } = kelvinRangeOf(entity);
   // How far along the bar the temperature is, from warm (0) to cool (1).
@@ -263,7 +268,7 @@ export function LightBody(props: SheetBodyProps) {
   );
   const line = !isOn
     ? since
-    : showsColour
+    : isColorShown
       ? [
           swatch === undefined ? t('entity.sheet.light.colour', 'Colour') : text(swatch[1]),
           hs.hasWhiteChannel && (state.color_hs?.white ?? 0) > 0
@@ -285,7 +290,7 @@ export function LightBody(props: SheetBodyProps) {
    * @param next.hue - The hue.
    * @param next.saturation - The saturation.
    */
-  const setColour = (next: { hue: number; saturation: number }): void => {
+  const setColor = (next: { hue: number; saturation: number }): void => {
     picked.sent(next);
     commander.send('color_hs', { command: 'set_color', ...next });
   };
@@ -303,7 +308,7 @@ export function LightBody(props: SheetBodyProps) {
         line={line}
         trail={
           <BigSwitch
-            {...(colour === undefined ? {} : { colour })}
+            {...(color === undefined ? {} : { color })}
             label={entity.name}
             isOn={isOn}
             isSending={isSending}
@@ -322,7 +327,7 @@ export function LightBody(props: SheetBodyProps) {
           value={Math.round(level.shown)}
           isOn={isOn}
           tone="lamp"
-          {...(colour === undefined ? {} : { colour })}
+          {...(color === undefined ? {} : { color })}
           disabled={disabled}
           onChange={level.hold}
           onCommit={(next) => {
@@ -352,7 +357,7 @@ export function LightBody(props: SheetBodyProps) {
             { value: 'white', label: t('entity.sheet.light.white', 'White') },
             { value: 'colour', label: t('entity.sheet.light.colour', 'Colour') },
           ]}
-          value={showsColour ? 'colour' : 'white'}
+          value={isColorShown ? 'colour' : 'white'}
           tone="lamp"
           disabled={disabled}
           onPick={(next) => {
@@ -360,7 +365,7 @@ export function LightBody(props: SheetBodyProps) {
             setChosen(next === 'colour' ? 'colour' : 'white');
 
             if (next === 'colour') {
-              setColour({ hue, saturation: Math.max(saturation, 60) });
+              setColor({ hue, saturation: Math.max(saturation, 60) });
             } else {
               commander.send('color_temp', {
                 command: 'set_color_temp',
@@ -371,7 +376,7 @@ export function LightBody(props: SheetBodyProps) {
         />
       ) : null}
 
-      {temp !== null && !showsColour ? (
+      {temp !== null && !isColorShown ? (
         <div className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
             <span className="text-ui">
@@ -435,7 +440,7 @@ export function LightBody(props: SheetBodyProps) {
         </div>
       ) : null}
 
-      {showsColour && isPicking ? (
+      {isColorShown && isPicking ? (
         // Any colour: the wheel in place of the swatches, the lamp following the knob as it moves.
         <div className="entity-slide flex flex-col items-center gap-3.5 rounded-panel border border-border bg-well p-4">
           <div className="flex w-full items-center justify-between gap-3">
@@ -466,10 +471,10 @@ export function LightBody(props: SheetBodyProps) {
             size={232}
             disabled={disabled}
             onChange={picked.hold}
-            onCommit={setColour}
+            onCommit={setColor}
           />
         </div>
-      ) : showsColour ? (
+      ) : isColorShown ? (
         <div className="grid grid-cols-6 justify-items-center gap-x-2 gap-y-3">
           {SWATCHES.map(([key, name, hex]) => {
             const isChosen = swatch?.[0] === key;
@@ -485,7 +490,7 @@ export function LightBody(props: SheetBodyProps) {
                   const next = hexToHs(hex);
 
                   if (next !== null) {
-                    setColour(next);
+                    setColor(next);
                   }
                 }}
                 className={cn(
@@ -521,7 +526,7 @@ export function LightBody(props: SheetBodyProps) {
         </div>
       ) : null}
 
-      {showsColour && hs.hasWhiteChannel ? (
+      {isColorShown && hs.hasWhiteChannel ? (
         <div className="flex flex-col gap-2.5">
           <BlockHead
             title={t('entity.sheet.light.whiteChannel', 'White channel')}

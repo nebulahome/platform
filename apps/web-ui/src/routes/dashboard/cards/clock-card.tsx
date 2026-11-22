@@ -57,7 +57,7 @@ export function calendarDay(year: number, month: number, day: number): CalendarD
  * @param isEverySecond - Whether it moves each second.
  * @returns The moment.
  */
-function useNow(isEverySecond: boolean): Date {
+function useWallClock(isEverySecond: boolean): Date {
   const [now, setNow] = useState(() => new Date());
 
   // A timer is something outside React to synchronise with (RULES.md 15.2).
@@ -154,7 +154,7 @@ export function ClockCard(props: ClockCardProps) {
 
   const { card } = props;
   const timeZone = useSession((state) => state.user?.timezone);
-  const now = useNow(card.showSeconds);
+  const now = useWallClock(card.showSeconds);
   const zone = timeZone === undefined || timeZone === '' ? {} : { timeZone };
   const clock = dateTimeFormat({
     hour: '2-digit',

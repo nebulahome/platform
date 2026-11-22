@@ -6,11 +6,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import type { DashboardActivityCard } from '@nebulahome/contracts';
-import { SelectField } from '@nebulahome/ui';
+import { Segmented, SelectField } from '@nebulahome/ui';
 
 import { signalled } from '@/lib/signalled';
 import { fetchAreas, LIBRARY_QUERY_KEYS } from '@/library/api';
-import { EntityRows, PillChoice, SettingsField } from '@/routes/dashboard/settings/settings-parts';
+import { EntityRows, SettingsField } from '@/routes/dashboard/settings/settings-parts';
 import type { TypeSettingsProps } from '@/routes/dashboard/settings/type-settings';
 
 /**
@@ -39,7 +39,8 @@ export function ActivitySettings(props: TypeSettingsProps<DashboardActivityCard>
   return (
     <>
       <SettingsField label={t('dashboard.activitySettings.follows', 'Follows')}>
-        <PillChoice
+        <Segmented
+          isFilled
           label={t('dashboard.activitySettings.follows', 'Follows')}
           options={[
             { value: 'house', label: t('dashboard.activitySettings.house', 'Whole house') },

@@ -13,6 +13,7 @@ import { secondsOfDay, type CapabilityName, type EntityView } from '@nebulahome/
 
 import { useSession } from '@/auth/session-store';
 import { dateTimeFormat, relativeTimeFormat } from '@/i18n/formatters';
+import { BROWSER_ZONE } from '@/lib/time-zones';
 
 /** The capabilities of the `time` domain, in the order an entity is looked at. */
 export const TIME_CAPABILITIES = [
@@ -49,9 +50,7 @@ export function timeCapabilityOf(entity: Pick<EntityView, 'capabilities'>): Time
 export function shownZone(): string {
   const chosen = useSession.getState().user?.timezone;
 
-  return chosen === undefined || chosen === ''
-    ? Intl.DateTimeFormat().resolvedOptions().timeZone
-    : chosen;
+  return chosen === undefined || chosen === '' ? BROWSER_ZONE : chosen;
 }
 
 /** The wall clock of each zone asked about, kept: a formatter is slow to make. */

@@ -42,6 +42,7 @@ import {
   commandChoicesFor,
   commandLabel,
   defaultParams,
+  humanise,
   type CommandChoice,
   type CommandField,
 } from '@/lib/command-choices';
@@ -344,7 +345,7 @@ function CommandFields(props: {
   const hue = typeof action.params['hue'] === 'number' ? action.params['hue'] : 0;
   const saturation =
     typeof action.params['saturation'] === 'number' ? action.params['saturation'] : 0;
-  const takesColour =
+  const hasColorFields =
     fields.some((field) => field.key === 'hue') &&
     fields.some((field) => field.key === 'saturation');
   const groups = choicesByCapability(choices);
@@ -495,7 +496,7 @@ function CommandFields(props: {
               control
             );
           })}
-          {takesColour ? (
+          {hasColorFields ? (
             <HexField
               hue={hue}
               saturation={saturation}
@@ -524,7 +525,7 @@ function CommandFields(props: {
 function HexField(props: {
   readonly hue: number;
   readonly saturation: number;
-  readonly onChange: (colour: { hue: number; saturation: number }) => void;
+  readonly onChange: (color: { hue: number; saturation: number }) => void;
 }) {
   const { t } = useTranslation();
 
@@ -556,12 +557,12 @@ function HexField(props: {
             : undefined
         }
         onChange={(event) => {
-          const colour = hexToHs(written(event.target.value));
+          const color = hexToHs(written(event.target.value));
 
           setTyped(event.target.value);
 
-          if (colour !== null) {
-            onChange(colour);
+          if (color !== null) {
+            onChange(color);
           }
         }}
         onBlur={() => {
@@ -814,7 +815,7 @@ function CommandFieldControl(props: {
           <Segmented
             label={field.label}
             size="compact"
-            options={options.map((option) => ({ value: option, label: humaniseOption(option) }))}
+            options={options.map((option) => ({ value: option, label: humanise(option) }))}
             value={typeof value === 'string' ? value : (options[0] ?? '')}
             onChange={onChange}
           />
@@ -823,7 +824,7 @@ function CommandFieldControl(props: {
         <SelectField
           label={field.label}
           size="compact"
-          options={options.map((option) => ({ value: option, label: humaniseOption(option) }))}
+          options={options.map((option) => ({ value: option, label: humanise(option) }))}
           value={typeof value === 'string' ? value : (options[0] ?? '')}
           onChange={onChange}
         />
@@ -1080,18 +1081,6 @@ function NumberFieldControl(props: {
       }}
     />
   );
-}
-
-/**
- * An option of a command's choice, in words: `fan_only` reads "Fan only".
- *
- * @param option - The option.
- * @returns The words.
- */
-function humaniseOption(option: string): string {
-  const spaced = option.replaceAll('_', ' ');
-
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 /**

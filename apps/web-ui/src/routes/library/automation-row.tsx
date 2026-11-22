@@ -54,7 +54,7 @@ export type AutomationRowProps = {
   readonly onToggle: (isEnabled: boolean) => void;
 
   /** Called to delete it. */
-  readonly onDelete: () => void;
+  readonly onRemove: () => void;
 };
 
 /**
@@ -98,7 +98,7 @@ function lastRunOf(automation: AutomationView): {
 export function AutomationRow(props: AutomationRowProps) {
   const { t } = useTranslation();
 
-  const { automation, isBusy, canWrite = true, names, onEdit, onToggle, onDelete } = props;
+  const { automation, isBusy, canWrite = true, names, onEdit, onToggle, onRemove } = props;
   const summary = summaryOf(automation.definition, names);
   const lastRun = lastRunOf(automation);
 
@@ -169,7 +169,7 @@ export function AutomationRow(props: AutomationRowProps) {
                   icon: 'trash-2' as const,
                   tone: 'danger' as const,
                   disabled: isBusy,
-                  onSelect: onDelete,
+                  onSelect: onRemove,
                 },
               ]
             : []),

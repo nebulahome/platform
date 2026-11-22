@@ -44,6 +44,8 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { CODE_BUILTINS, type CodeProblem, type Trace } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
+
 /** What the editor needs. */
 export type AliasCodeEditorProps = {
   readonly value: string;
@@ -367,7 +369,7 @@ class RunMarker extends GutterMarker {
 
     if (this.kind === 'play') {
       element.className = 'cm-run';
-      element.title = 'Run this function';
+      element.title = translate('library.aliasCode.runThisFunction', 'Run this function');
       element.textContent = '▶';
     } else {
       element.className = `cm-ran${this.kind === 'error' ? ' cm-ran-error' : ''}`;

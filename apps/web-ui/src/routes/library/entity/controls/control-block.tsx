@@ -14,7 +14,7 @@ import type { EntityCommander } from '@/routes/library/entity/use-entity-command
 import type { PendingValue } from '@/routes/library/entity/use-pending-value';
 
 /** A light's colour, as a hue and how much of it. */
-export type LightColour = { readonly hue: number; readonly saturation: number };
+export type LightColor = { readonly hue: number; readonly saturation: number };
 
 /** What every capability's control is given. */
 export type ControlProps = {
@@ -37,7 +37,7 @@ export type ControlProps = {
    * A light's colour as the page shows it, shared by the blocks that change it: setting a white
    * turns the colour white at once, rather than when the lamp next reports.
    */
-  readonly colour?: PendingValue<LightColour>;
+  readonly color?: PendingValue<LightColor>;
 };
 
 /**

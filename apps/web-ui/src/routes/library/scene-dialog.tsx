@@ -676,7 +676,11 @@ export function SceneDialog(props: SceneDialogProps) {
   const confirm =
     isConfirming && existing !== undefined ? (
       <ConfirmRemoval
-        question={`Remove ${existing.name}? Applying it will no longer be possible.`}
+        question={t(
+          'library.sceneDialog.removeQuestion',
+          'Remove {{name}}? Applying it will no longer be possible.',
+          { name: existing.name },
+        )}
         isBusy={removing.isPending}
         onCancel={() => {
           setConfirming(false);

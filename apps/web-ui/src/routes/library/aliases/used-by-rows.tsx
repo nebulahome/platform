@@ -8,7 +8,7 @@ import { AppIcon, type UiIconId } from '@nebulahome/ui';
 import { defineMessage, text, type Message } from '@/i18n/messages';
 
 /** Each kind of user, as the Delete dialog and the Used by fold list them. */
-export const USE_KINDS: readonly {
+export const USED_BY_KINDS: readonly {
   readonly kind: keyof AliasUsedBy;
   readonly icon: UiIconId;
   readonly label: Message;
@@ -34,10 +34,10 @@ export const USE_KINDS: readonly {
  * @param props.usedBy - The users.
  * @returns The rows, or nothing when nothing uses it.
  */
-export function UseRows(props: { readonly usedBy: AliasUsedBy }) {
+export function UsedByRows(props: { readonly usedBy: AliasUsedBy }) {
   return (
     <>
-      {USE_KINDS.filter(({ kind }) => props.usedBy[kind].length > 0).map(
+      {USED_BY_KINDS.filter(({ kind }) => props.usedBy[kind].length > 0).map(
         ({ kind, icon, label }) => (
           <li
             key={kind}
@@ -68,5 +68,5 @@ export function UseRows(props: { readonly usedBy: AliasUsedBy }) {
  * @returns The count.
  */
 export function usedByCount(usedBy: AliasUsedBy): number {
-  return USE_KINDS.reduce((sum, { kind }) => sum + usedBy[kind].length, 0);
+  return USED_BY_KINDS.reduce((sum, { kind }) => sum + usedBy[kind].length, 0);
 }

@@ -73,6 +73,7 @@ import { toast, useClickOutside, useEscape, useNow } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { signalled } from '@/lib/signalled';
+import { useMediaQuery } from '@/lib/use-media-query';
 import { commandEntity, fetchEntities, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { useLive, type LiveReading } from '@/live/live-store';
 import { packageLive } from '@/live/package-live';
@@ -618,38 +619,13 @@ function usePackageStrings(): Translation {
 const DARK_SCHEME = '(prefers-color-scheme: dark)';
 
 /**
- * Follows the system's scheme.
- *
- * @param onChange - Called when it changes.
- * @returns What stops following it.
- */
-function subscribeScheme(onChange: () => void): () => void {
-  const query = globalThis.matchMedia(DARK_SCHEME);
-
-  query.addEventListener('change', onChange);
-
-  return () => {
-    query.removeEventListener('change', onChange);
-  };
-}
-
-/**
- * Whether the system draws dark.
- *
- * @returns True when it does.
- */
-function isSystemDark(): boolean {
-  return globalThis.matchMedia(DARK_SCHEME).matches;
-}
-
-/**
  * The theme the interface draws in: the viewer's choice, or the system's.
  *
  * @returns Light or dark.
  */
 function useTheme(): Theme {
   const choice = usePreferences((state) => state.theme);
-  const isDark = useSyncExternalStore(subscribeScheme, isSystemDark, () => false);
+  const isDark = useMediaQuery(DARK_SCHEME);
 
   return { scheme: choice === 'system' ? (isDark ? 'dark' : 'light') : choice };
 }

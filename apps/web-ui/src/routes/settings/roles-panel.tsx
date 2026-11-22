@@ -19,7 +19,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { IconView, RoleView, UserView } from '@nebulahome/contracts';
-import { AppIcon, Button, IconButton, cn, toast } from '@nebulahome/ui';
+import { AppIcon, Button, Collapse, IconButton, cn, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { Avatar } from '@/components/avatar';
@@ -61,7 +61,7 @@ type RoleRowProps = {
   readonly onToggle: () => void;
   readonly onDuplicate: () => void;
   readonly onEdit: () => void;
-  readonly onDelete: () => void;
+  readonly onRemove: () => void;
   readonly onEditPerson: (person: UserView) => void;
 };
 
@@ -244,194 +244,184 @@ function RoleRow(props: RoleRowProps) {
         />
       </button>
 
-      <div
-        className={cn(
-          'grid transition-[grid-template-rows,opacity] duration-250 ease-out',
-          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-        )}
-        inert={!isOpen}
+      <Collapse
+        isOpen={isOpen}
+        className="flex flex-col gap-4.5 bg-surface-raised/25 pt-1 pr-4.5 pb-5 pl-4.5 sm:pl-16.5"
       >
-        <div className="overflow-hidden">
-          <div className="flex flex-col gap-4.5 bg-surface-raised/25 pt-1 pr-4.5 pb-5 pl-4.5 sm:pl-16.5">
-            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5 rounded-tile border border-border bg-surface px-3.5 py-3">
-              <AppIcon
-                id={role.isBuiltin ? 'lock' : 'pencil'}
-                size={15}
-                className="text-foreground-subtle"
-              />
-              <span className="flex-[1_1_240px] text-ui-sm text-foreground-muted">
-                {role.isBuiltin
-                  ? t(
-                      'settings.roles.builtInNote',
-                      'Built in, so its permissions can’t be changed. Duplicate it to start a custom role.',
-                    )
-                  : t(
-                      'settings.roles.customNote',
-                      'Custom role. Click a permission to give it or take it away; changes apply at once.',
-                    )}
-              </span>
-              {canManage ? (
-                <span className="flex gap-2">
-                  {role.isBuiltin ? (
-                    <Button variant="ghost" size="compact" onClick={props.onDuplicate}>
-                      <AppIcon id="copy" size={14} />
-                      {t('settings.roles.duplicate', 'Duplicate')}
-                    </Button>
-                  ) : (
-                    <>
-                      <Button variant="ghost" size="compact" onClick={props.onEdit}>
-                        <AppIcon id="pencil" size={14} />
-                        {t('settings.roles.editDetails', 'Edit details')}
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="compact"
-                        className="bg-danger-soft"
-                        onClick={props.onDelete}
-                      >
-                        <AppIcon id="trash-2" size={14} />
-                        {t('common.delete', 'Delete')}
-                      </Button>
-                    </>
-                  )}
-                </span>
-              ) : null}
-            </div>
-
-            {people.length === 0 ? null : (
-              <div className="flex flex-col">
-                <h4 className="pt-1 pb-2 font-mono text-label text-foreground-subtle uppercase">
-                  {t('settings.roles.peopleCount', 'People · {{count}}', { count: people.length })}
-                </h4>
-                {people.map((person, index) => (
-                  <div
-                    key={person.id}
-                    className={cn(
-                      'flex items-center gap-3 py-3',
-                      index > 0 && 'border-t border-border',
-                    )}
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5 rounded-tile border border-border bg-surface px-3.5 py-3">
+          <AppIcon
+            id={role.isBuiltin ? 'lock' : 'pencil'}
+            size={15}
+            className="text-foreground-subtle"
+          />
+          <span className="flex-[1_1_240px] text-ui-sm text-foreground-muted">
+            {role.isBuiltin
+              ? t(
+                  'settings.roles.builtInNote',
+                  'Built in, so its permissions can’t be changed. Duplicate it to start a custom role.',
+                )
+              : t(
+                  'settings.roles.customNote',
+                  'Custom role. Click a permission to give it or take it away; changes apply at once.',
+                )}
+          </span>
+          {canManage ? (
+            <span className="flex gap-2">
+              {role.isBuiltin ? (
+                <Button variant="ghost" size="compact" onClick={props.onDuplicate}>
+                  <AppIcon id="copy" size={14} />
+                  {t('settings.roles.duplicate', 'Duplicate')}
+                </Button>
+              ) : (
+                <>
+                  <Button variant="ghost" size="compact" onClick={props.onEdit}>
+                    <AppIcon id="pencil" size={14} />
+                    {t('settings.roles.editDetails', 'Edit details')}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="compact"
+                    className="bg-danger-soft"
+                    onClick={props.onRemove}
                   >
-                    <Avatar
-                      displayName={person.displayName}
-                      avatarUrl={person.avatarUrl}
-                      isAccented={role.key === 'owner'}
-                    />
-                    <span className="flex min-w-0 grow flex-col gap-0.5">
-                      <span className="truncate text-ui text-foreground">{person.displayName}</span>
-                      <span className="truncate text-caption text-foreground-subtle">
-                        @{person.username} ·{' '}
-                        {person.lastLoginAt === null
-                          ? t('settings.people.neverSignedIn', 'never signed in')
-                          : relativeTime(person.lastLoginAt)}
-                      </span>
-                    </span>
-                    {canEditPeople ? (
-                      <IconButton
-                        variant="raised"
-                        label={t('settings.people.editPerson', 'Edit {{name}}', {
-                          name: person.displayName,
-                        })}
-                        onClick={() => {
-                          props.onEditPerson(person);
-                        }}
-                      >
-                        <AppIcon id="pencil" size={14} />
-                      </IconButton>
+                    <AppIcon id="trash-2" size={14} />
+                    {t('common.delete', 'Delete')}
+                  </Button>
+                </>
+              )}
+            </span>
+          ) : null}
+        </div>
+
+        {people.length === 0 ? null : (
+          <div className="flex flex-col">
+            <h4 className="pt-1 pb-2 font-mono text-label text-foreground-subtle uppercase">
+              {t('settings.roles.peopleCount', 'People · {{count}}', { count: people.length })}
+            </h4>
+            {people.map((person, index) => (
+              <div
+                key={person.id}
+                className={cn(
+                  'flex items-center gap-3 py-3',
+                  index > 0 && 'border-t border-border',
+                )}
+              >
+                <Avatar
+                  displayName={person.displayName}
+                  avatarUrl={person.avatarUrl}
+                  isAccented={role.key === 'owner'}
+                />
+                <span className="flex min-w-0 grow flex-col gap-0.5">
+                  <span className="truncate text-ui text-foreground">{person.displayName}</span>
+                  <span className="truncate text-caption text-foreground-subtle">
+                    @{person.username} ·{' '}
+                    {person.lastLoginAt === null
+                      ? t('settings.people.neverSignedIn', 'never signed in')
+                      : relativeTime(person.lastLoginAt)}
+                  </span>
+                </span>
+                {canEditPeople ? (
+                  <IconButton
+                    variant="raised"
+                    label={t('settings.people.editPerson', 'Edit {{name}}', {
+                      name: person.displayName,
+                    })}
+                    onClick={() => {
+                      props.onEditPerson(person);
+                    }}
+                  >
+                    <AppIcon id="pencil" size={14} />
+                  </IconButton>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-col">
+          <h4 className="pt-1 pb-2 font-mono text-label text-foreground-subtle uppercase">
+            {t('settings.roles.permissionsCount', 'Permissions · {{held}} of {{count}}', {
+              held: heldCount,
+              count: PERMISSION_COUNT,
+            })}
+          </h4>
+
+          {PERMISSION_GROUPS.map((group) => {
+            const inGroup = group.keys.filter((key) => isOwner || held.has(key)).length;
+
+            return (
+              <div key={group.id} className="flex flex-col pt-2.5">
+                <div className="flex items-center justify-between gap-3 pt-1 pb-2">
+                  <span className="font-mono text-label whitespace-nowrap text-foreground-subtle uppercase">
+                    {text(group.label)}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    {isEditable ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={inGroup === group.keys.length}
+                          className="text-caption text-primary transition-colors hover:text-primary-hover disabled:cursor-default disabled:text-foreground-disabled"
+                          onClick={() => {
+                            set(
+                              group.keys.filter((key) => can(key)),
+                              true,
+                            );
+                          }}
+                        >
+                          {t('settings.roles.selectAll', 'Select all')}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={inGroup === 0}
+                          className="text-caption text-primary transition-colors hover:text-primary-hover disabled:cursor-default disabled:text-foreground-disabled"
+                          onClick={() => {
+                            set(group.keys, false);
+                          }}
+                        >
+                          {t('settings.roles.clear', 'Clear')}
+                        </button>
+                      </>
                     ) : null}
-                  </div>
+                    <span className="font-mono text-caption text-foreground-subtle tabular">
+                      {t('settings.roles.xOfY', '{{held}} of {{count}}', {
+                        held: inGroup,
+                        count: group.keys.length,
+                      })}
+                    </span>
+                  </span>
+                </div>
+
+                {group.keys.map((key, index) => (
+                  <PermissionRow
+                    key={key}
+                    permission={key}
+                    isHeld={isOwner || held.has(key)}
+                    isFirst={index === 0}
+                    isEditable={isEditable && can(key)}
+                    lockedNote={
+                      role.isBuiltin
+                        ? t(
+                            'settings.roles.lockedBuiltIn',
+                            'Built in: duplicate the role to change it',
+                          )
+                        : canManage
+                          ? t(
+                              'settings.roles.lockedNotHeld',
+                              'Only someone who holds this permission can give it',
+                            )
+                          : t('settings.roles.lockedNoRight', 'Changing roles needs role:manage')
+                    }
+                    onToggle={() => {
+                      set([key], !held.has(key));
+                    }}
+                  />
                 ))}
               </div>
-            )}
-
-            <div className="flex flex-col">
-              <h4 className="pt-1 pb-2 font-mono text-label text-foreground-subtle uppercase">
-                {t('settings.roles.permissionsCount', 'Permissions · {{held}} of {{count}}', {
-                  held: heldCount,
-                  count: PERMISSION_COUNT,
-                })}
-              </h4>
-
-              {PERMISSION_GROUPS.map((group) => {
-                const inGroup = group.keys.filter((key) => isOwner || held.has(key)).length;
-
-                return (
-                  <div key={group.id} className="flex flex-col pt-2.5">
-                    <div className="flex items-center justify-between gap-3 pt-1 pb-2">
-                      <span className="font-mono text-label whitespace-nowrap text-foreground-subtle uppercase">
-                        {text(group.label)}
-                      </span>
-                      <span className="flex items-center gap-3">
-                        {isEditable ? (
-                          <>
-                            <button
-                              type="button"
-                              disabled={inGroup === group.keys.length}
-                              className="text-caption text-primary transition-colors hover:text-primary-hover disabled:cursor-default disabled:text-foreground-disabled"
-                              onClick={() => {
-                                set(
-                                  group.keys.filter((key) => can(key)),
-                                  true,
-                                );
-                              }}
-                            >
-                              {t('settings.roles.selectAll', 'Select all')}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={inGroup === 0}
-                              className="text-caption text-primary transition-colors hover:text-primary-hover disabled:cursor-default disabled:text-foreground-disabled"
-                              onClick={() => {
-                                set(group.keys, false);
-                              }}
-                            >
-                              {t('settings.roles.clear', 'Clear')}
-                            </button>
-                          </>
-                        ) : null}
-                        <span className="font-mono text-caption text-foreground-subtle tabular">
-                          {t('settings.roles.xOfY', '{{held}} of {{count}}', {
-                            held: inGroup,
-                            count: group.keys.length,
-                          })}
-                        </span>
-                      </span>
-                    </div>
-
-                    {group.keys.map((key, index) => (
-                      <PermissionRow
-                        key={key}
-                        permission={key}
-                        isHeld={isOwner || held.has(key)}
-                        isFirst={index === 0}
-                        isEditable={isEditable && can(key)}
-                        lockedNote={
-                          role.isBuiltin
-                            ? t(
-                                'settings.roles.lockedBuiltIn',
-                                'Built in: duplicate the role to change it',
-                              )
-                            : canManage
-                              ? t(
-                                  'settings.roles.lockedNotHeld',
-                                  'Only someone who holds this permission can give it',
-                                )
-                              : t(
-                                  'settings.roles.lockedNoRight',
-                                  'Changing roles needs role:manage',
-                                )
-                        }
-                        onToggle={() => {
-                          set([key], !held.has(key));
-                        }}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+            );
+          })}
         </div>
-      </div>
+      </Collapse>
     </div>
   );
 }
@@ -601,7 +591,7 @@ export function RolesPanel() {
               onEdit={() => {
                 setDialog({ kind: 'edit', role });
               }}
-              onDelete={() => {
+              onRemove={() => {
                 setDeleting(role);
               }}
               onEditPerson={setEditingPerson}

@@ -19,7 +19,7 @@
  * button with no word beside it is a button that looks broken.
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -29,7 +29,7 @@ import {
   type IntegrationVendorView,
   type JsonObject,
 } from '@nebulahome/contracts';
-import { AppIcon, Button, Panel } from '@nebulahome/ui';
+import { AppIcon, Button, Panel, useNow } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { toMessage } from '@/lib/error-message';
@@ -162,9 +162,15 @@ export function usePairing(
     pairing === null
       ? null
       : device === undefined
-        ? `${vendor?.name ?? t('library.vendorPairing.bridge', 'The bridge')} has not been added yet: it is, as soon as NebulaHome hears it`
+        ? t(
+            'library.vendorPairing.notAddedYet',
+            '{{name}} has not been added yet: it is, as soon as NebulaHome hears it',
+            { name: vendor?.name ?? t('library.vendorPairing.bridge', 'The bridge') },
+          )
         : !isAvailable
-          ? `${device.name} cannot be reached now`
+          ? t('library.vendorPairing.cannotBeReached', '{{name}} cannot be reached now', {
+              name: device.name,
+            })
           : !can('entity:control')
             ? t('library.vendorPairing.youMayNotControl', 'You may not control devices')
             : null;
@@ -191,39 +197,6 @@ export function usePairing(
 }
 
 /**
- * The time now, moved on every second while asked to.
- *
- * @param isTicking - Whether to keep it moving; off, it is left where it was.
- * @returns Milliseconds since the epoch.
- */
-function useSecondClock(isTicking: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-
-  // A timer is something outside React to synchronise with (RULES.md 15.2).
-  useEffect(() => {
-    if (!isTicking) {
-      return undefined;
-    }
-
-    // The first tick at once, from a timer like the rest: a clock that last moved when the page
-    // opened would count from then.
-    const first = setTimeout(() => {
-      setNow(Date.now());
-    }, 0);
-    const timer = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return (): void => {
-      clearTimeout(first);
-      clearInterval(timer);
-    };
-  }, [isTicking]);
-
-  return now;
-}
-
-/**
  * The time left, as a clock reads it.
  *
  * @param ms - Milliseconds left.
@@ -247,7 +220,8 @@ export function PairingButton(props: { readonly pairing: PairingState }) {
   const { t } = useTranslation();
 
   const { pairing } = props;
-  const now = useSecondClock(pairing.isOpen);
+  // Every second while pairing is open, and at once when it opens.
+  const now = useNow(1000, pairing.isOpen);
   const left = pairing.closesAt === null ? null : pairing.closesAt - now;
 
   if (pairing.isOpen) {
@@ -314,7 +288,8 @@ export function PairingPanel(props: PairingPanelProps) {
   const { t } = useTranslation();
 
   const { vendor, pairing, devices } = props;
-  const now = useSecondClock(pairing.isOpen);
+  // Every second while pairing is open, and at once when it opens.
+  const now = useNow(1000, pairing.isOpen);
 
   // The devices there when the page saw pairing open: the ones after them joined since. Set while
   // rendering, the way React has state follow a prop, rather than a render late in an effect.

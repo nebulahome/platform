@@ -5,7 +5,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { BlockPickerModal } from './block-picker-modal';
+import { BlockPickerDialog } from './block-picker-dialog';
 import { ACTION_CHOICE_GROUPS } from './editor-choices';
 
 /**
@@ -17,7 +17,7 @@ function renderPicker(): ReturnType<typeof vi.fn> {
   const onPick = vi.fn();
 
   render(
-    <BlockPickerModal
+    <BlockPickerDialog
       isOpen
       title="Add an action"
       groups={ACTION_CHOICE_GROUPS}
@@ -29,7 +29,7 @@ function renderPicker(): ReturnType<typeof vi.fn> {
   return onPick;
 }
 
-describe('BlockPickerModal', () => {
+describe('BlockPickerDialog', () => {
   it('offers actions and control blocks in two groups', () => {
     renderPicker();
 

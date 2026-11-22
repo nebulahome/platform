@@ -12,7 +12,6 @@ import { Link } from 'react-router';
 
 import { AppIcon, cn, HERO_BACK, PageHeader } from '@nebulahome/ui';
 
-import { ChevronLeftIcon } from '@/components/icons';
 import { toMessage } from '@/lib/error-message';
 
 /** One step of the way back. */
@@ -54,7 +53,7 @@ export function DetailHeader(props: DetailHeaderProps) {
               aria-label={t('library.detail.breadcrumb', 'Breadcrumb')}
               className="flex min-w-0 items-center gap-1.5"
             >
-              <ChevronLeftIcon width={14} height={14} className="shrink-0" />
+              <AppIcon id="chevron-left" size={14} className="shrink-0" />
               {crumbs.map((crumb, index) => (
                 <span key={crumb.to} className="flex min-w-0 items-center gap-1.5">
                   {index === 0 ? null : (
@@ -80,7 +79,10 @@ export function DetailHeader(props: DetailHeaderProps) {
 }
 
 /**
- * A line where the page's content would be, while it is read or when it cannot be.
+ * A line where the page's content would be, while it is read, when there is nothing to show, or
+ * when it cannot be read: a dashed outline standing in for the rows, the way every other "nothing
+ * here yet" is drawn. It is the same height whatever it says, so a page that turns out to be empty
+ * does not move when the answer arrives.
  *
  * @param props - What to say, and whether it is a failure.
  * @param props.children - The sentence.
@@ -88,7 +90,7 @@ export function DetailHeader(props: DetailHeaderProps) {
  * @returns The placeholder.
  */
 export function DetailPlaceholder(props: {
-  readonly children: string;
+  readonly children: ReactNode;
   readonly isProblem?: boolean;
 }) {
   const { children, isProblem = false } = props;

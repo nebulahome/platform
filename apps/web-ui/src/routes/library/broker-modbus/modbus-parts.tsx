@@ -8,6 +8,7 @@ import type { ModbusDevice } from '@nebulahome/contracts';
 import { AppIcon, cn, Pill } from '@nebulahome/ui';
 
 import { relativeTime } from '@/lib/format-time';
+import { CapabilityChip, CountTag } from '@/routes/library/broker-parts';
 
 /** One gateway: a server at an address, and the devices behind it. */
 export type Gateway = {
@@ -82,11 +83,7 @@ export function DeviceState(props: { readonly device: ModbusDevice }) {
 export function UnitTag(props: { readonly unitId: number }) {
   const { t } = useTranslation();
 
-  return (
-    <span className="rounded-pill bg-surface-raised px-1.75 py-px font-mono text-mono-caption whitespace-nowrap text-foreground-muted">
-      {t('brokers.modbus.unit', 'unit {{unit}}', { unit: props.unitId })}
-    </span>
-  );
+  return <CountTag>{t('brokers.modbus.unit', 'unit {{unit}}', { unit: props.unitId })}</CountTag>;
 }
 
 /**
@@ -100,11 +97,11 @@ export function FramingTag(props: { readonly framing: 'tcp' | 'rtu' }) {
   const { t } = useTranslation();
 
   return (
-    <span className="inline-flex h-5.5 items-center rounded-pill border border-border-strong px-2 text-caption whitespace-nowrap text-foreground-muted">
+    <CapabilityChip>
       {props.framing === 'rtu'
         ? t('brokers.modbus.rtuOverTcp', 'RTU over TCP')
         : t('brokers.modbus.tcp', 'TCP')}
-    </span>
+    </CapabilityChip>
   );
 }
 

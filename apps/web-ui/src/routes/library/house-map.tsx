@@ -109,7 +109,7 @@ function round(degrees: number): number {
  *
  * @returns The colour, as CSS has it.
  */
-function primaryColour(): string {
+function primaryColor(): string {
   return getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
 }
 
@@ -186,7 +186,7 @@ export function HouseMap(props: HouseMapProps) {
     if (mark.current === null) {
       mark.current = L.circleMarker(at, {
         radius: MARK_RADIUS,
-        color: primaryColour(),
+        color: primaryColor(),
         weight: 3,
         fillOpacity: 0.35,
       });

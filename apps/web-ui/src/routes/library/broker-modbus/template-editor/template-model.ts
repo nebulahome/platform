@@ -17,6 +17,8 @@ import {
   type ModbusTemplate,
 } from '@nebulahome/contracts';
 
+import { translate } from '@/i18n/messages';
+
 /** A read as the blocks hold it: every field as typed. */
 export type ReadDraft = {
   readonly function: number;
@@ -537,6 +539,21 @@ export function fileOf(draft: TemplateDraft): string {
   return `${block(documentOf(draft), '')}\n`;
 }
 
+/**
+ * The name a template's file is exported as.
+ *
+ * @param name - The template's name.
+ * @returns `waveshare-relay-8ch.json`.
+ */
+export function fileNameOf(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/gu, '-')
+    .replaceAll(/^-+|-+$/gu, '');
+
+  return `${slug === '' ? 'template' : slug}.json`;
+}
+
 /** What reading a file gave: the blocks it makes, or why it makes none. */
 export type ParsedFile =
   | { readonly draft: TemplateDraft; readonly error: null }
@@ -559,7 +576,9 @@ export function parseFile(text: string, keep?: TemplateDraft): ParsedFile {
   } catch (error: unknown) {
     return {
       draft: null,
-      error: `Not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      error: translate('brokers.modbus.templateFile.notJson', 'Not valid JSON: {{error}}', {
+        error: error instanceof Error ? error.message : String(error),
+      }),
     };
   }
 
@@ -582,12 +601,18 @@ export function parseFile(text: string, keep?: TemplateDraft): ParsedFile {
   const path = issue?.path ?? [];
   const where =
     path[0] === 'entities' && typeof path[1] === 'number'
-      ? `Entity ${String(path[1] + 1)}${nameAt(json, path[1])}: `
+      ? translate('brokers.modbus.templateFile.entityAt', 'Entity {{number}}{{name}}: ', {
+          number: path[1] + 1,
+          name: nameAt(json, path[1]),
+        })
       : path.length > 0
         ? `${path.map(String).join('.')}: `
         : '';
 
-  return { draft: null, error: `${where}${issue?.message ?? 'Not a template'}` };
+  return {
+    draft: null,
+    error: `${where}${issue?.message ?? translate('brokers.modbus.notTemplate', 'Not a template')}`,
+  };
 }
 
 /**

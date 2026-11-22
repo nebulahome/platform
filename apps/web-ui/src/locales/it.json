@@ -1161,6 +1161,10 @@
       "everyShort": "Ogni {{seconds}} s",
       "export": "Esporta",
       "failed": "Il client Modbus non è in funzione: {{error}}",
+      "templateFile": {
+        "entityAt": "Entità {{number}}{{name}}: ",
+        "notJson": "JSON non valido: {{error}}"
+      },
       "fc": {
         "1": "Coil: bit che si leggono e si scrivono · 0xxxx nei manuali",
         "15": "Più coil",
@@ -2636,9 +2640,6 @@
         "refresh": "Aggiorna",
         "fullScreen": "Schermo intero"
       },
-      "cardParts": {
-        "unavailable": "Non disponibile"
-      },
       "clockCard": {
         "clock": "Orologio",
         "week": "Settimana {{week}}",
@@ -2703,11 +2704,6 @@
         "today": "Oggi",
         "onFor": "Accesa {{time}}",
         "lastDay": "Le ultime 24 ore"
-      },
-      "lightColourButton": {
-        "chooseTheColourOf": "Scegli il colore di {{name}}",
-        "colour": "Colore",
-        "colourOfName": "Colore di {{name}}"
       },
       "lockCard": {
         "holdToUnlock": "Tieni premuto per sbloccare",
@@ -3184,6 +3180,9 @@
       "allFound_many": "{{count}} schede, tutte per cose che questa casa ha.",
       "allFound_one": "{{count}} scheda, per qualcosa che questa casa ha.",
       "allFound_other": "{{count}} schede, tutte per cose che questa casa ha.",
+      "removeQuestion_many": "Rimuovere {{name}} e le sue {{count}} schede, per tutti quelli a cui è mostrata?",
+      "removeQuestion_one": "Rimuovere {{name}} e la sua scheda, per tutti quelli a cui è mostrata?",
+      "removeQuestion_other": "Rimuovere {{name}} e le sue {{count}} schede, per tutti quelli a cui è mostrata?",
       "chooseAFile": "Scegli un file",
       "dashboard": "Dashboard",
       "dashboardExportedFromHere": "Una dashboard esportata da qui o da un'altra casa.",
@@ -3588,6 +3587,7 @@
       "matterBroker": "Broker Matter",
       "model": "Modello",
       "moreFor": "Altro per {{name}}",
+      "noDeviceWithId": "Non c'è nessun dispositivo con l'id {{deviceId}}.",
       "noEntitiesYetThey": "Ancora nessuna entità. Compaiono appena l'hub sente il dispositivo.",
       "node": "Nodo {{node}}",
       "nodeWord": "Nodo",
@@ -3739,7 +3739,9 @@
         "closed": "Chiusa",
         "closing": "In chiusura",
         "cover": "Copertura",
+        "isOpen": "Aperta",
         "open": "Apri",
+        "openAt": "Aperta al {{percent}}%",
         "opening": "In apertura",
         "position": "Posizione",
         "stop": "Ferma",
@@ -4342,14 +4344,6 @@
     "show": "Mostra {{label}}"
   },
   "history": {
-    "between": "Tra",
-    "choose": "Scegli l'intervallo",
-    "custom": {
-      "bothEnds": "Indica entrambi gli estremi: una data e un'ora per ciascuno.",
-      "future": "La fine non può essere nel futuro: lì non è ancora stato registrato nulla.",
-      "order": "L'inizio deve venire prima della fine."
-    },
-    "from": "Da",
     "ranges": {
       "1h": "Ultima ora",
       "24h": "Ultime 24 ore",
@@ -4363,11 +4357,7 @@
       "30d": "30g",
       "6h": "6h",
       "7d": "7g"
-    },
-    "show": "Mostra questo intervallo",
-    "to": "A",
-    "upToNow": "Fino ad ora",
-    "window": "Intervallo: {{choice}}"
+    }
   },
   "home": {
     "device": {
@@ -4668,6 +4658,7 @@
       "nameCannotBeBlank": "Il nome non può essere vuoto.",
       "nameIsAlreadyFloor": "{{name}} è già il piano {{level}}.",
       "newKind": "Nuovo {{kind}}",
+      "removeQuestion": "Rimuovere {{name}}? {{impact}}",
       "roomOn": "Una stanza al {{name}}.",
       "whichStoreyItIs": "Che piano è, comunque si chiami: 0 il piano terra, 1 quello sopra, -1 una cantina. I piani sono ordinati in base a questo."
     },
@@ -5119,6 +5110,7 @@
       "appliedAsYouChoose": "Si applicano mentre scegli",
       "filter": "Filtra",
       "filters": "Filtri",
+      "gone": "{{value}} (non c'è più)",
       "reset": "Azzera"
     },
     "floorSection": {
@@ -5149,6 +5141,7 @@
       "longitude": "Longitudine",
       "name": "Nome",
       "nameCannotBeBlank": "Il nome non può essere vuoto.",
+      "removeQuestion": "Rimuovere {{name}}? {{impact}}",
       "yourHouse": "La tua casa"
     },
     "houseMap": {
@@ -5265,6 +5258,7 @@
     },
     "nameIconField": {
       "changeIcon": "Cambia icona",
+      "name": "Nome",
       "none": "Nessuna"
     },
     "noMatches": {
@@ -5304,6 +5298,7 @@
       "newScene": "Nuova scena",
       "noneYetAddAn": "Ancora nessuno. Aggiungi un'entità per catturare come è in questo momento.",
       "onPartialFailure": "Se fallisce in parte",
+      "removeQuestion": "Rimuovere {{name}}? Non sarà più possibile applicarla.",
       "removeTitle": "Rimuovi {{title}}",
       "rollBack": "Annulla tutto",
       "rollBackWhenOne": "Annulla tutto: quando un'entità rifiuta, le altre tornano com'erano.",
@@ -5387,9 +5382,11 @@
       "waiting_other": "{{count}} membri aspettano un'entità"
     },
     "searchField": {
-      "clearTheSearch": "Svuota la ricerca"
+      "clearTheSearch": "Svuota la ricerca",
+      "search": "Cerca"
     },
     "setupForm": {
+      "belowIsNotAdvised": "Sotto {{limit}}{{unit}} è sconsigliato.",
       "inHours": "In ore.",
       "inMilliseconds": "In millisecondi.",
       "inMinutes": "In minuti.",
@@ -5405,6 +5402,7 @@
     "tagDialog": {
       "colour": "Colore",
       "configureName": "Configura {{name}}",
+      "deleteQuestion": "Eliminare {{name}}? Viene tolto da {{use}}.",
       "devices_many": "{{count}} dispositivi",
       "devices_one": "{{count}} dispositivo",
       "devices_other": "{{count}} dispositivi",
@@ -5423,7 +5421,8 @@
       "createName": "Crea {{name}}",
       "createTag": "Crea il tag <0>“{{name}}”</0>",
       "everyTagIsOn": "Ha già tutti i tag.",
-      "noTagsYet": "Ancora nessun tag."
+      "noTagsYet": "Ancora nessun tag.",
+      "tags": "Tag"
     },
     "tagFilter": {
       "anyColour": "Qualsiasi colore",
@@ -5519,6 +5518,9 @@
       "devices": "Dispositivi",
       "discoverDevices": "Scopri dispositivi",
       "found": "Trovati",
+      "foundNew_many": "Trovati {{count}} nuovi dispositivi {{vendorName}}.",
+      "foundNew_one": "Trovato {{count}} nuovo dispositivo {{vendorName}}.",
+      "foundNew_other": "Trovati {{count}} nuovi dispositivi {{vendorName}}.",
       "hubIsNotLooking": "L'hub non sta cercando dispositivi: la scoperta è disattivata.",
       "inDevelopment": "In sviluppo",
       "integrations": "Integrazioni",
@@ -5752,11 +5754,13 @@
     },
     "vendorPairing": {
       "bridge": "Il bridge",
+      "cannotBeReached": "{{name}} ora è irraggiungibile",
       "closePairingNow": "Chiudi l'associazione ora",
       "closesInLeft": "Si chiude tra {{left}}",
       "left": " · {{left}}",
       "letNewDevicesJoin": "Lascia entrare nuovi dispositivi per circa quattro minuti",
       "noDeviceHasJoined": "Non è ancora entrato nessun dispositivo.",
+      "notAddedYet": "{{name}} non è ancora stato aggiunto: lo sarà appena NebulaHome lo sente",
       "open": "Aperta",
       "pairDevices": "Associa dispositivi",
       "pairing": "Associazione",
@@ -5901,6 +5905,8 @@
       "driverDefault": "{{rate}} · il valore del driver"
     },
     "aliasPage": {
+      "imported": "Importato",
+      "linesChanged": "{{lines}} righe cambiate",
       "noValues": "Nessun valore",
       "code": "Codice",
       "errorAtLine": "{{message}} · riga {{line}}",
@@ -5913,6 +5919,7 @@
       "fileMissing": "{{id}} non è in questa casa",
       "fileName": "{{key}}.json",
       "pasted": "Modificato · non salvato",
+      "sourceChanged": "Sorgente {{before}} → {{after}}",
       "valid": "Valido",
       "importDots": "Importa…",
       "export": "Esporta",
@@ -6072,6 +6079,7 @@
       "cannotRun": "Non può girare",
       "caseName": "Caso {{count}}",
       "readOnly": "Questo alias continua a funzionare. Attiva la modalità sviluppatore in Impostazioni › Software per modificarne il codice.",
+      "runThisFunction": "Esegui questa funzione",
       "unsaved": "Non salvato",
       "subset": "Python · sottoinsieme",
       "format": "Formatta",
@@ -7352,7 +7360,8 @@
       "daysHours": "{{days}} g {{hours}} h",
       "hours": "{{hours}} h",
       "hoursMinutes": "{{hours}} h {{minutes}} min",
-      "minutes": "{{minutes}} min"
+      "minutes": "{{minutes}} min",
+      "seconds": "{{seconds}} s"
     },
     "underMinute": "meno di un minuto",
     "years_many": "{{count}} anni",

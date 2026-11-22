@@ -21,6 +21,7 @@ import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
 import { text } from '@/i18n/messages';
 import { shortTime } from '@/lib/format-time';
+import { clockText } from '@/lib/format-time';
 import { paramsOf } from '@/library/entity-control';
 import { BINARY_WORDS, describeState, ON_OFF_WORDS } from '@/library/entity-reading';
 import { stateSegments, type TimeWindow } from '@/library/history-series';
@@ -34,7 +35,7 @@ import {
   StretchChart,
   TotalBars,
 } from '@/routes/library/entity/sheet/charts';
-import { axisLabels, clockText, timesText } from '@/routes/library/entity/sheet/history';
+import { axisLabels, timesText } from '@/routes/library/entity/sheet/history';
 import { useSinceLine } from '@/routes/library/entity/sheet/parts/sheet-controls';
 import {
   MonoLabel,
@@ -120,7 +121,7 @@ export function RoundMark(props: { icon: UiIconId; tone: SheetTone; isStale: boo
 }
 
 /** The colours a value from a list is banded in, in turn; "off" and "idle" are greyed. */
-const BAND_COLOURS = [
+const BAND_COLORS = [
   'bg-cyan',
   'bg-violet',
   'bg-lamp',
@@ -412,12 +413,12 @@ export function SensorBody(props: SheetBodyProps) {
      * @param option - The value.
      * @returns Its colour, as a class.
      */
-    const colourOf = (option: string): string =>
+    const colorOf = (option: string): string =>
       RESTING.has(option.toLowerCase())
         ? 'bg-[#3a3f5c]'
-        : (BAND_COLOURS[
+        : (BAND_COLORS[
             options.filter((each) => !RESTING.has(each.toLowerCase())).indexOf(option) %
-              BAND_COLOURS.length
+              BAND_COLORS.length
           ] ?? 'bg-cyan');
     const totals = options
       .map((option) => ({
@@ -451,7 +452,7 @@ export function SensorBody(props: SheetBodyProps) {
               key={history.range}
               stretches={stretches}
               window={history.window}
-              colourOf={colourOf}
+              colorOf={colorOf}
               label={t('entity.sheet.sensor.byValue', 'Its values over the window')}
             />
           )}
@@ -461,7 +462,7 @@ export function SensorBody(props: SheetBodyProps) {
           <div className={cn('flex flex-col', history.isLoading === true && 'hidden')}>
             {totals.map((each) => (
               <div key={each.option} className="flex h-7 items-center gap-2">
-                <span className={cn('size-2.5 rounded-[3px]', colourOf(each.option))} />
+                <span className={cn('size-2.5 rounded-[3px]', colorOf(each.option))} />
                 <span className="grow text-ui-sm select-text">{each.option}</span>
                 <span className="font-mono text-mono-caption text-foreground-muted select-text">
                   {durationText(each.ms)}

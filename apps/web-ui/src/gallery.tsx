@@ -68,7 +68,6 @@ import { useSession } from '@/auth/session-store';
 import { CatalogueChip, CatalogueItem, CatalogueStat } from '@/components/catalogue/catalogue-item';
 import { CatalogueRow, Installs, Stars } from '@/components/catalogue/catalogue-row';
 import { ListingLogo } from '@/components/catalogue/listing-logo';
-import { CheckIcon, CopyIcon, WarningIcon } from '@/components/icons';
 import { LogViewer } from '@/components/log-viewer';
 import { PasswordField } from '@/components/password-field';
 import { Sidebar } from '@/components/sidebar';
@@ -1019,19 +1018,19 @@ function Gallery() {
 
         <Section title="Icon button" note="Named by what pressing it does. The label is required.">
           <IconButton label="Copy the token">
-            <CopyIcon width="16" height="16" />
+            <AppIcon id="copy" size={16} />
           </IconButton>
           <IconButton label="Copy the token" variant="raised">
-            <CopyIcon width="16" height="16" />
+            <AppIcon id="copy" size={16} />
           </IconButton>
           <IconButton label="Revoke the token" variant="danger">
-            <WarningIcon width="16" height="16" />
+            <AppIcon id="triangle-alert" size={16} />
           </IconButton>
           <IconButton label="Copy the token" size="small">
-            <CopyIcon width="14" height="14" />
+            <AppIcon id="copy" size={14} />
           </IconButton>
           <IconButton label="Copy the token" size="large">
-            <CopyIcon width="18" height="18" />
+            <AppIcon id="copy" size={18} />
           </IconButton>
         </Section>
 
@@ -1041,7 +1040,7 @@ function Gallery() {
               {tone}
             </Badge>
           ))}
-          <Badge tone="success" icon={<CheckIcon width="12" height="12" />}>
+          <Badge tone="success" icon={<AppIcon id="check" size={12} />}>
             On
           </Badge>
           <Badge tone="warning" size="small">

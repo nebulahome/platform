@@ -47,16 +47,6 @@ const BY_ID: ReadonlyMap<string, EntityView> = new Map(
   [...SAMPLE_ENTITIES, ...SAMPLE_VARIANTS].map((entity) => [entity.entityId, entity]),
 );
 
-/**
- * A sample entity by its address.
- *
- * @param entityId - Its address.
- * @returns The entity.
- */
-export function sampleEntityById(entityId: string): EntityView | undefined {
-  return BY_ID.get(entityId);
-}
-
 /** A day of a living room's temperature: cool before dawn, warm by the evening. */
 const TEMPERATURE_DAY: readonly number[] = [
   19.2, 19.0, 18.8, 18.7, 18.6, 18.6, 18.9, 19.6, 20.4, 20.9, 21.1, 21.2, 21.3, 21.5, 21.6, 21.7,

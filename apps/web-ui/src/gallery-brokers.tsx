@@ -440,7 +440,7 @@ export function BrokerGallery() {
           note="The house's Bluetooth: this server's Intel adapter, three Shelly proxies - one with an outdated script - six devices, two found and what is heard nearby."
         >
           <SamplePage cache={BLUETOOTH_CACHE} at={`/brokers/bluetooth?tab=${tab}`}>
-            <BluetoothBrokerPage holdsLease={false} openAddress="A4:C1:38:5E:91:0B" />
+            <BluetoothBrokerPage hasLease={false} openAddress="A4:C1:38:5E:91:0B" />
           </SamplePage>
         </Section>
       ))}
@@ -449,7 +449,7 @@ export function BrokerGallery() {
         note="Docker Desktop: no adapter and no proxy yet, the way to a proxy and the D-Bus to mount on Linux."
       >
         <SamplePage cache={BLUETOOTH_EMPTY_CACHE} at="/brokers/bluetooth">
-          <BluetoothBrokerPage holdsLease={false} />
+          <BluetoothBrokerPage hasLease={false} />
         </SamplePage>
       </Section>
       <Section

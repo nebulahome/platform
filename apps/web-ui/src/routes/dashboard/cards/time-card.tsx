@@ -6,11 +6,11 @@
  * the entity sheet does: the arrows change a draft, and one Set sends the whole value. The strip
  * of one it may only read lays the day, the time and how far away it is side by side.
  */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { secondsOfDay } from '@nebulahome/contracts';
-import { AppIcon, cn } from '@nebulahome/ui';
+import { AppIcon, cn, useNow } from '@nebulahome/ui';
 
 import { dateTimeFormat, relativeTimeFormat } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
@@ -48,27 +48,8 @@ const DAY_MS = DAY_SECONDS * 1000;
 /** How far a moment's time moves at a press, at the least: a quarter of an hour. */
 const MOMENT_NUDGE_SECONDS = 900;
 
-/**
- * The time now, moved on every minute: "in 16 h 43 min" counts down while the card is open.
- *
- * @returns Milliseconds since the epoch.
- */
-export function useMinute(): number {
-  const [now, setNow] = useState(() => Date.now());
-
-  // A timer is something outside React to synchronise with (RULES.md 15.2).
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(Date.now());
-    }, 60_000);
-
-    return (): void => {
-      clearInterval(timer);
-    };
-  }, []);
-
-  return now;
-}
+/** How often the card reads the time: "in 16 h 43 min" counts down while it is open. */
+export const MINUTE_MS = 60_000;
 
 /**
  * How many days a day is from today on a zone's calendar.
@@ -487,7 +468,7 @@ export function TimeCard(props: { readonly model: EntityCardModel }) {
 
   const { model } = props;
   const { entity, state, title } = model;
-  const now = useMinute();
+  const now = useNow(MINUTE_MS);
   const zone = shownZone();
   const capability = timeCapabilityOf(entity) ?? 'time_of_day';
   const value = state[capability]?.value ?? null;

@@ -12,7 +12,7 @@ import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { isUpdateOffered } from '@nebulahome/contracts';
-import { AppIcon, cn } from '@nebulahome/ui';
+import { AppIcon, cn, ProgressBar } from '@nebulahome/ui';
 
 import { numberFormat } from '@/i18n/formatters';
 import { paramsOf } from '@/library/entity-control';
@@ -174,6 +174,8 @@ export function SelectCard(props: { readonly model: EntityCardModel }) {
           ) : !model.canControl ? (
             value
           ) : isRow ? (
+            // Buttons rather than `Segmented`: a radio group takes an arrow key as a choice, and
+            // each choice here is a command sent to the device - arrowing across would send them all.
             <div
               role="radiogroup"
               aria-label={title}
@@ -525,25 +527,11 @@ export function UpdateCard(props: { readonly model: EntityCardModel }) {
     ) : null;
   const percent = progress === null ? '…' : `${String(Math.round(progress))}%`;
   const bar = (
-    <div
-      role="progressbar"
-      aria-label={t('entity.controls.updateControl.firmwareUpdate', 'Firmware update')}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      {...(progress === null ? {} : { 'aria-valuenow': Math.round(progress) })}
-      className="h-1.5 shrink-0 overflow-hidden rounded-pill bg-surface-high"
-    >
-      <div
-        className={
-          progress === null
-            ? 'h-full w-1/3 animate-pulse rounded-pill bg-cyan'
-            : 'h-full rounded-pill bg-cyan transition-[width] duration-500'
-        }
-        /* eslint-disable-next-line react/forbid-dom-props -- how far the install got is a live
-        value, not a token (RULES.md 15.3). */
-        style={progress === null ? undefined : { width: `${String(progress)}%` }}
-      />
-    </div>
+    <ProgressBar
+      percent={progress === null ? null : Math.round(progress)}
+      label={t('entity.controls.updateControl.firmwareUpdate', 'Firmware update')}
+      tone="cyan"
+    />
   );
   const sending = t('dashboard.cards.update.starting', 'Starting the install…');
   const question = (

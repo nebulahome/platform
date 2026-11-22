@@ -18,7 +18,6 @@ import { Link } from 'react-router';
 import type { DeviceView, IntegrationState, IntegrationVendorView } from '@nebulahome/contracts';
 import { AppIcon, Badge, cn, IconButton, Panel, Segmented, type BadgeTone } from '@nebulahome/ui';
 
-import { WrenchIcon } from '@/components/icons';
 import { defineMessage, type Message, text } from '@/i18n/messages';
 import { relativeTime } from '@/lib/format-time';
 import { matchesQuery } from '@/lib/search-text';
@@ -262,7 +261,7 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
               onConfigure(device);
             }}
           >
-            <WrenchIcon width="16" height="16" />
+            <AppIcon id="wrench" size={16} />
           </IconButton>
         )}
         {end}

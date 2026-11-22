@@ -483,18 +483,30 @@ export function CommandNote(props: {
 
 /**
  * Renders the row a card shows in place of its last one when a command went unanswered: what
- * happened, in the danger colour, and Try again. It leaves by itself (`NO_ANSWER_SHOWN_MS`).
+ * happened, in the danger colour, and Try again. It leaves by itself (`NO_ANSWER_SHOWN_MS`). A
+ * card of several members says how many did not answer, and Try again sends to those only.
  *
  * @param props - The command.
- * @param props.command - See {@link CardCommand}.
+ * @param props.command - How to try again, and how many members did not answer, for a card of
+ *   several (`TogetherCommand`).
  * @param props.what - What did not happen, when the card says more than "Did not answer".
  * @returns The row.
  */
-export function NoAnswer(props: { readonly command: CardCommand; readonly what?: string }) {
+export function NoAnswer(props: {
+  readonly command: Pick<CardCommand, 'retry'> & { readonly unanswered?: number };
+  readonly what?: string;
+}) {
   const { t } = useTranslation();
 
   const { command, what } = props;
-  const said = t('dashboard.cards.kit.didNotAnswer', 'Did not answer');
+  const said =
+    command.unanswered === undefined
+      ? t('dashboard.cards.kit.didNotAnswer', 'Did not answer')
+      : t('dashboard.cards.togetherCard.didNotAnswer', {
+          count: command.unanswered,
+          defaultValue_one: '{{count}} did not answer',
+          defaultValue_other: '{{count}} did not answer',
+        });
 
   return (
     <span className="flex min-w-0 animate-rise items-center justify-between gap-2.5">
@@ -508,7 +520,7 @@ export function NoAnswer(props: { readonly command: CardCommand; readonly what?:
       </span>
       <button
         type="button"
-        className="press-scale inline-flex h-7.5 shrink-0 items-center rounded-pill border border-border-strong bg-surface-raised px-3.5 text-ui-sm font-medium text-foreground hover:bg-surface-high"
+        className="press-scale relative z-10 inline-flex h-7.5 shrink-0 items-center rounded-pill border border-border-strong bg-surface-raised px-3.5 text-ui-sm font-medium text-foreground hover:bg-surface-high"
         onClick={command.retry}
       >
         {t('dashboard.cards.kit.tryAgain', 'Try again')}

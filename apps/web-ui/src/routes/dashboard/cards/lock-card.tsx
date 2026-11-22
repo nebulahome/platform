@@ -71,7 +71,7 @@ export function LockCard(props: { readonly model: EntityCardModel }) {
   const needsCode = paramsOf(entity, 'lock')?.hasCode === true;
   const disabled = !canUse(model, 'lock');
   const word = look === null ? '—' : text(look.label);
-  const colour = model.isOffline || look === null ? 'text-foreground-subtle' : look.text;
+  const color = model.isOffline || look === null ? 'text-foreground-subtle' : look.text;
   const since =
     model.changedAt === null
       ? ''
@@ -177,7 +177,7 @@ export function LockCard(props: { readonly model: EntityCardModel }) {
             <span
               className={cn(
                 'flex min-w-0 items-center gap-2 text-[20px] font-medium whitespace-nowrap transition-colors duration-200',
-                colour,
+                color,
               )}
             >
               <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-current" />
@@ -195,7 +195,7 @@ export function LockCard(props: { readonly model: EntityCardModel }) {
       {head}
       <div className="mt-3 flex min-w-0 items-center justify-between gap-2.5">
         <div className="flex min-w-0 flex-col gap-1.5">
-          <BigValue value={word} size={26} className={colour} />
+          <BigValue value={word} size={26} className={color} />
           <Caption>
             {model.isOffline && model.changedAt !== null
               ? t('dashboard.cards.kit.lastSeen', 'last seen {{time}}', {

@@ -382,7 +382,7 @@ export function AutomationsPage() {
                 onToggle={(isEnabled) => {
                   apply({ kind: 'toggle', id: automation.id, isEnabled });
                 }}
-                onDelete={() => {
+                onRemove={() => {
                   setDeleting(automation);
                 }}
               />

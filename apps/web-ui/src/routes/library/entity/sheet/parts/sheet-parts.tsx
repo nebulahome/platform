@@ -231,7 +231,7 @@ export type BigSwitchProps = {
   readonly isSending?: boolean;
 
   /** A colour of its own when on instead of the kind's: a lamp's, `hsl(…)`. */
-  readonly colour?: string;
+  readonly color?: string;
 };
 
 /**
@@ -249,10 +249,10 @@ export function BigSwitch(props: BigSwitchProps) {
     disabled = false,
     size = 'large',
     isSending = false,
-    colour,
+    color,
   } = props;
   // A colour of its own is painted, rather than the kind's class.
-  const isPainted = isOn && colour !== undefined;
+  const isPainted = isOn && color !== undefined;
 
   return (
     <button
@@ -272,7 +272,7 @@ export function BigSwitch(props: BigSwitchProps) {
         isOn ? !isPainted && TONE_FILL[tone] : 'bg-border-strong',
       )}
       // eslint-disable-next-line react/forbid-dom-props -- a lamp's switch takes the colour it shines in
-      style={isPainted ? { backgroundColor: colour } : undefined}
+      style={isPainted ? { backgroundColor: color } : undefined}
     >
       <span
         aria-hidden="true"
@@ -289,7 +289,7 @@ export function BigSwitch(props: BigSwitchProps) {
             : 'left-0.75 bg-foreground-muted text-canvas',
         )}
         // eslint-disable-next-line react/forbid-dom-props -- its spinner in the lamp's colour too
-        style={isPainted ? { color: colour } : undefined}
+        style={isPainted ? { color: color } : undefined}
       >
         {isSending ? (
           <span className="entity-spin flex">

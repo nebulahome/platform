@@ -13,14 +13,14 @@ import {
   type AliasDetail,
   type AliasFallbackPolicy,
 } from '@nebulahome/contracts';
-import { AppIcon, IconButton, SelectField, toast } from '@nebulahome/ui';
+import { AppIcon, Collapse, IconButton, SelectField, toast } from '@nebulahome/ui';
 
 import { defineMessage, text, type Message } from '@/i18n/messages';
 import { copyText } from '@/lib/clipboard';
 import { absoluteTime } from '@/lib/format-time';
 import { NO_READING, readingOf } from '@/library/entity-reading';
 import { Ent } from '@/routes/library/aliases/alias-text';
-import { USE_KINDS, usedByCount } from '@/routes/library/aliases/use-rows';
+import { USED_BY_KINDS, usedByCount } from '@/routes/library/aliases/used-by-rows';
 import { devicePath } from '@/routes/library/device/device-path';
 import { EntityPreview } from '@/routes/library/entity/entity-dialog';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
@@ -87,16 +87,9 @@ export function Fold(props: FoldProps) {
           <span className="min-w-0 truncate text-caption text-foreground-subtle">{props.meta}</span>
         )}
       </button>
-      <div
-        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
-          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-        }`}
-        inert={!isOpen}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="px-4 pb-4">{props.children}</div>
-        </div>
-      </div>
+      <Collapse isOpen={isOpen} className="px-4 pb-4">
+        {props.children}
+      </Collapse>
     </div>
   );
 }
@@ -242,7 +235,7 @@ export function UsedByBody(props: { readonly usedBy: AliasDetail['usedBy'] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {USE_KINDS.filter(({ kind }) => props.usedBy[kind].length > 0).map(
+      {USED_BY_KINDS.filter(({ kind }) => props.usedBy[kind].length > 0).map(
         ({ kind, icon, label }) => (
           <div key={kind} className="flex items-start gap-3 py-0.5">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-[8px] bg-surface-raised text-foreground-muted">

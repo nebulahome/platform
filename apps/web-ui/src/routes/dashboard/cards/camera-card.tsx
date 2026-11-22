@@ -114,16 +114,16 @@ export function CameraCard(props: { readonly model: EntityCardModel }) {
   const badge = model.isOffline
     ? {
         word: t('dashboard.cards.kit.offline', 'Offline'),
-        colour: 'text-foreground-muted',
+        color: 'text-foreground-muted',
         dot: false,
       }
     : camera?.isRecording === true
-      ? { word: t('dashboard.cards.cameraCard.rec', 'Rec'), colour: 'text-danger', dot: true }
+      ? { word: t('dashboard.cards.cameraCard.rec', 'Rec'), color: 'text-danger', dot: true }
       : isLive
-        ? { word: t('dashboard.cards.cameraCard.live', 'Live'), colour: 'text-success', dot: true }
+        ? { word: t('dashboard.cards.cameraCard.live', 'Live'), color: 'text-success', dot: true }
         : {
             word: t('dashboard.cards.cameraCard.snapshot', 'Snapshot'),
-            colour: 'text-foreground-muted',
+            color: 'text-foreground-muted',
             dot: false,
           };
   const time =
@@ -180,7 +180,7 @@ export function CameraCard(props: { readonly model: EntityCardModel }) {
             <span
               className={cn(
                 'inline-flex h-5.5 items-center gap-1.5 rounded-pill bg-canvas/60 px-2 font-mono text-label tracking-[0.06em] uppercase transition-colors duration-200',
-                badge.colour,
+                badge.color,
               )}
             >
               {badge.dot ? (

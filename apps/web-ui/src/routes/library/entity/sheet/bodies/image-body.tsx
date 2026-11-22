@@ -11,8 +11,8 @@ import { useTranslation } from 'react-i18next';
 
 import { AppIcon } from '@nebulahome/ui';
 
+import { clockText } from '@/lib/format-time';
 import { useEntityImage } from '@/library/use-entity-image';
-import { clockText } from '@/routes/library/entity/sheet/history';
 import type { SheetBodyProps } from '@/routes/library/entity/sheet/sheet-types';
 
 /**

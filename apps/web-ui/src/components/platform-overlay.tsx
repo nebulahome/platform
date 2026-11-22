@@ -22,6 +22,7 @@ import { AppIcon, Button, cn, Logo } from '@nebulahome/ui';
 import { useSession } from '@/auth/session-store';
 import { numberFormat } from '@/i18n/formatters';
 import { formatBytes } from '@/lib/format-bytes';
+import { saveTextFile } from '@/lib/save-text-file';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { useLive } from '@/live/live-store';
 import { releaseNotesUrl, runSystemUpdates } from '@/settings/updates-api';
@@ -597,13 +598,11 @@ export function PlatformOverlay() {
                 variant="bare"
                 className="h-11 px-5 text-foreground"
                 onClick={() => {
-                  const text = [outcome?.error ?? '', ...(outcome?.log ?? [])].join('\n');
-                  const link = document.createElement('a');
-
-                  link.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-                  link.download = `nebula-update-${toVersion ?? 'log'}.log`;
-                  link.click();
-                  URL.revokeObjectURL(link.href);
+                  saveTextFile(
+                    `nebula-update-${toVersion ?? 'log'}.log`,
+                    [outcome?.error ?? '', ...(outcome?.log ?? [])].join('\n'),
+                    'text/plain',
+                  );
                 }}
               >
                 {t('platform.failed.downloadLog', 'Download the log')}

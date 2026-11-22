@@ -161,8 +161,10 @@ export function IconPickButton(props: IconPickButtonProps) {
  * @returns The field, and the picker it opens.
  */
 export function NameIconField(props: NameIconFieldProps) {
+  const { t } = useTranslation();
+
   const {
-    label = 'Name',
+    label = t('library.nameIconField.name', 'Name'),
     value,
     onChange,
     icon,

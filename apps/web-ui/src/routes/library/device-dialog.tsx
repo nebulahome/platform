@@ -53,7 +53,6 @@ import {
 } from '@nebulahome/contracts';
 import { AppIcon, Button, Modal, Segmented, SelectField, TextField } from '@nebulahome/ui';
 
-import { CheckIcon, WarningIcon } from '@/components/icons';
 import { listFormat } from '@/i18n/formatters';
 import { roomChoices } from '@/lib/area-tree';
 import { toMessage } from '@/lib/error-message';
@@ -877,7 +876,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
 
           {verdict === null ? null : verdict.isReachable ? (
             <p role="status" className="flex items-start gap-2 text-ui text-success">
-              <CheckIcon width="16" height="16" className="mt-0.5 shrink-0" />
+              <AppIcon id="check" size={16} className="mt-0.5 shrink-0" />
               <span>
                 {verdict.detail}
                 {verdict.detected === undefined || existing !== undefined
@@ -891,7 +890,7 @@ export function DeviceDialog(props: DeviceDialogProps) {
             </p>
           ) : (
             <p role="alert" className="flex items-start gap-2 text-ui text-danger">
-              <WarningIcon width="16" height="16" className="mt-0.5 shrink-0" />
+              <AppIcon id="triangle-alert" size={16} className="mt-0.5 shrink-0" />
               <span>{verdict.detail}</span>
             </p>
           )}

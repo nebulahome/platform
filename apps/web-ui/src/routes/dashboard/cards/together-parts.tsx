@@ -15,6 +15,7 @@ import { AppIcon, cn, IconButton, type UiIconId } from '@nebulahome/ui';
 import { kindIcon, kindName } from '@/dashboard/card-options';
 import { translate } from '@/i18n/messages';
 import type { EntityKind, EntityTone } from '@/library/entity-kind';
+import { NoAnswer } from '@/routes/dashboard/cards/card-kit';
 import type { SizeKey } from '@/routes/dashboard/cards/entity-model';
 import type { TogetherCommand } from '@/routes/dashboard/cards/together-command';
 import { rowsOf, type TogetherMember } from '@/routes/dashboard/cards/together-members';
@@ -426,7 +427,7 @@ export function MemberList<TMember>(props: MemberListProps<TMember>) {
       {more === 0 ? null : <MoreRow count={more} height={height} />}
       {command.hasFailed ? (
         <div className="shrink-0 pt-2">
-          <Unanswered command={command} />
+          <NoAnswer command={command} />
         </div>
       ) : null}
     </>
@@ -474,42 +475,6 @@ export function OfflineNote(props: { readonly count: number }) {
     <span className="inline-flex shrink-0 items-center gap-1.25 text-caption whitespace-nowrap text-warning tabular-nums">
       <AppIcon id="wifi-off" size={12} />
       {t('dashboard.cards.togetherCard.offline', '{{count}} offline', { count: props.count })}
-    </span>
-  );
-}
-
-/**
- * Renders the row a card shows when some members did not answer: how many, in the danger colour,
- * and Try again, which sends to those only. It leaves by itself, as the kit's does.
- *
- * @param props - The command.
- * @param props.command - See {@link TogetherCommand}.
- * @returns The row.
- */
-export function Unanswered(props: { readonly command: TogetherCommand }) {
-  const { t } = useTranslation();
-
-  const { command } = props;
-
-  return (
-    <span className="flex min-w-0 animate-rise items-center justify-between gap-2.5">
-      <span className="inline-flex min-w-0 items-center gap-1.5 text-ui-sm text-danger">
-        <AppIcon id="triangle-alert" size={14} />
-        <span className="truncate">
-          {t('dashboard.cards.togetherCard.didNotAnswer', {
-            count: command.unanswered,
-            defaultValue_one: '{{count}} did not answer',
-            defaultValue_other: '{{count}} did not answer',
-          })}
-        </span>
-      </span>
-      <button
-        type="button"
-        className="press-scale relative z-10 inline-flex h-7.5 shrink-0 items-center rounded-pill border border-border-strong bg-surface-raised px-3.5 text-ui-sm font-medium text-foreground hover:bg-surface-high"
-        onClick={command.retry}
-      >
-        {t('dashboard.cards.kit.tryAgain', 'Try again')}
-      </button>
     </span>
   );
 }

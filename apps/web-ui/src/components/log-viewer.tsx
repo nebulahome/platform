@@ -26,8 +26,10 @@ import { AppIcon, IconButton, Segmented, SelectField, cn } from '@nebulahome/ui'
 
 import { dateTimeFormat } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
+import { copyText } from '@/lib/clipboard';
 import { toMessage } from '@/lib/error-message';
 import { readLine, type LogLevel, type LogTone, type ReadLine } from '@/lib/log-lines';
+import { saveTextFile } from '@/lib/save-text-file';
 import { SearchField } from '@/routes/library/search-field';
 
 /** How often the log is read again, in seconds; 0 is never. */
@@ -511,10 +513,7 @@ export function LogViewer(props: LogViewerProps) {
           <IconButton
             label={t('logs.copy', 'Copy the lines shown')}
             onClick={() => {
-              // Absent on a page served over plain HTTP from another machine: not a secure context.
-              const clipboard = navigator.clipboard as Clipboard | undefined;
-
-              void clipboard?.writeText(asText()).catch(() => undefined);
+              void copyText(asText());
             }}
           >
             <AppIcon id="copy" size={15} />
@@ -522,13 +521,7 @@ export function LogViewer(props: LogViewerProps) {
           <IconButton
             label={t('logs.download', 'Download the lines shown')}
             onClick={() => {
-              const url = URL.createObjectURL(new Blob([asText()], { type: 'text/plain' }));
-              const link = document.createElement('a');
-
-              link.href = url;
-              link.download = `${fileName}.log`;
-              link.click();
-              URL.revokeObjectURL(url);
+              saveTextFile(`${fileName}.log`, asText(), 'text/plain');
             }}
           >
             <AppIcon id="download" size={15} />

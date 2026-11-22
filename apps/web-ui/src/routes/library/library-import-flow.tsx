@@ -22,7 +22,7 @@ import {
   type ResolvedScene,
 } from '@/library/library-import';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
-import { ResolveEntitiesModal } from '@/routes/library/resolve-entities-modal';
+import { ResolveEntitiesDialog } from '@/routes/library/resolve-entities-dialog';
 
 /** What an import hands over once the entities are pointed. */
 export type ImportResult =
@@ -257,7 +257,7 @@ export function LibraryImportFlow(props: LibraryImportFlowProps) {
       ) : null}
 
       {step.at === 'resolve' ? (
-        <ResolveEntitiesModal
+        <ResolveEntitiesDialog
           isOpen
           missing={step.missing}
           notes={notes}

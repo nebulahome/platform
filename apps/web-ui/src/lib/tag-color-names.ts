@@ -27,9 +27,9 @@ const NAMES: Readonly<Record<TagColor, Message>> = {
 /**
  * Names a tag colour.
  *
- * @param colour - The colour.
+ * @param color - The colour.
  * @returns Its name, in the reader's language.
  */
-export function tagColourName(colour: TagColor): string {
-  return text(NAMES[colour]);
+export function tagColorName(color: TagColor): string {
+  return text(NAMES[color]);
 }

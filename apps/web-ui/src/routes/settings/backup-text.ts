@@ -9,6 +9,7 @@ import type {
 } from '@nebulahome/contracts';
 
 import { defineMessage, text, translate, type Message } from '@/i18n/messages';
+import { BROWSER_ZONE } from '@/lib/time-zones';
 
 /** Each part of a backup, as the page names it. */
 const SECTION_NAMES: Readonly<Record<BackupSection, Message>> = {
@@ -180,7 +181,7 @@ export function slotOfTime(time: string): number {
  * @returns An IANA zone, such as `Europe/Rome`.
  */
 export function browserTimeZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return BROWSER_ZONE;
 }
 
 /**

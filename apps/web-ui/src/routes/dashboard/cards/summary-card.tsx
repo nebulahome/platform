@@ -464,13 +464,13 @@ function FoundEnd(props: {
 
   if (what === 'batteries') {
     const value = Math.round(state.sensor_numeric?.value ?? 0);
-    const colour = value <= EMPTY_BATTERY ? 'danger' : 'warning';
+    const color = value <= EMPTY_BATTERY ? 'danger' : 'warning';
 
     return (
       <>
         <span className="h-1 w-11 shrink-0 overflow-hidden rounded-pill bg-surface-high">
           <span
-            className={cn('block h-full', colour === 'danger' ? 'bg-danger' : 'bg-warning')}
+            className={cn('block h-full', color === 'danger' ? 'bg-danger' : 'bg-warning')}
             /* eslint-disable-next-line react/forbid-dom-props -- the bar is as long as the level. */
             style={{ width: `${String(value)}%` }}
           />
@@ -478,7 +478,7 @@ function FoundEnd(props: {
         <span
           className={cn(
             'w-7 shrink-0 text-right text-caption tabular-nums',
-            colour === 'danger' ? 'text-danger' : 'text-warning',
+            color === 'danger' ? 'text-danger' : 'text-warning',
           )}
         >
           {`${String(value)}%`}
@@ -569,7 +569,7 @@ function GlanceFace(props: GlanceFaceProps) {
         }),
         offline: String(many),
       }[column.subject],
-      colour: many === 0 ? 'text-foreground-muted' : column.figure,
+      color: many === 0 ? 'text-foreground-muted' : column.figure,
     };
   });
   const head = (
@@ -596,7 +596,7 @@ function GlanceFace(props: GlanceFaceProps) {
                 <span
                   className={cn(
                     'truncate text-title font-medium tabular-nums transition-colors duration-200',
-                    column.colour,
+                    column.color,
                   )}
                 >
                   {column.value}
@@ -621,7 +621,7 @@ function GlanceFace(props: GlanceFaceProps) {
               title={`${column.label} · ${column.value}`}
               className={cn(
                 'inline-flex items-center gap-1.5 text-title font-medium tabular-nums transition-colors duration-200',
-                column.colour,
+                column.color,
               )}
             >
               <AppIcon id={column.icon} size={14} />
@@ -649,7 +649,7 @@ function GlanceFace(props: GlanceFaceProps) {
             <span className="min-w-0 grow truncate text-caption text-foreground-muted">
               {column.label}
             </span>
-            <span className={cn('shrink-0 text-ui-sm font-medium tabular-nums', column.colour)}>
+            <span className={cn('shrink-0 text-ui-sm font-medium tabular-nums', column.color)}>
               {column.value}
             </span>
           </div>

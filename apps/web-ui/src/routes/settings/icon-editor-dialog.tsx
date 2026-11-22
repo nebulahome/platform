@@ -35,6 +35,7 @@ import {
 } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
+import { formatBytes } from '@/lib/format-bytes';
 import { iconName } from '@/lib/icon-names';
 import { createIcon, deleteIcon, updateIcon } from '@/library/api';
 
@@ -43,7 +44,7 @@ export type IconEditorTarget =
   { readonly mode: 'create' } | { readonly mode: 'edit'; readonly icon: IconView };
 
 /** What the editor needs. */
-export type IconEditorModalProps = {
+export type IconEditorDialogProps = {
   /** What is being edited. Null when the editor is shut. */
   readonly target: IconEditorTarget | null;
 
@@ -189,16 +190,6 @@ function keywordsOf(text: string): string[] {
     .split(',')
     .map((keyword) => keyword.trim())
     .filter((keyword) => keyword !== '');
-}
-
-/**
- * A file's size as the card under the canvas says it.
- *
- * @param bytes - How large it is.
- * @returns `1.2 kB`, or `640 B`.
- */
-function fileSize(bytes: number): string {
-  return bytes < 1000 ? `${String(bytes)} B` : `${(bytes / 1000).toFixed(1)} kB`;
 }
 
 /**
@@ -439,10 +430,10 @@ function Canvas(props: CanvasProps) {
  * Mounted fresh each time it opens - the panel gives it a key - so every piece of state below
  * starts from the target.
  *
- * @param props - See {@link IconEditorModalProps}.
+ * @param props - See {@link IconEditorDialogProps}.
  * @returns The dialog.
  */
-export function IconEditorModal(props: IconEditorModalProps) {
+export function IconEditorDialog(props: IconEditorDialogProps) {
   const { t } = useTranslation();
   const { target, onClose, onSaved } = props;
   const existing = target?.mode === 'edit' ? target.icon : undefined;
@@ -756,7 +747,7 @@ export function IconEditorModal(props: IconEditorModalProps) {
                         )
                       : t('settings.icons.inCatalogue', 'In the catalogue')
                     : t('settings.icons.addedNow', '{{size}} · added just now', {
-                        size: fileSize(drawing.file.bytes),
+                        size: formatBytes(drawing.file.bytes),
                       })}
                 </span>
               </span>

@@ -22,6 +22,7 @@ import {
   Caption,
   CommandNote,
   forHowLong,
+  NoAnswer,
 } from '@/routes/dashboard/cards/card-kit';
 import { CardFrame } from '@/routes/dashboard/cards/card-parts';
 import { cardTime } from '@/routes/dashboard/cards/entity-model';
@@ -36,7 +37,6 @@ import {
   someOf,
   TogetherHead,
   togetherKind,
-  Unanswered,
   usableIn,
   type RowHeight,
   type TogetherView,
@@ -202,7 +202,7 @@ export function TogetherCovers(props: { readonly view: TogetherView }) {
    * @returns The figure.
    */
   const figure = (figureSize: 26 | 30 | 36) => {
-    const colour = cn(
+    const color = cn(
       figureSize === 26 && 'text-[24px]',
       view.isOffline ? 'text-foreground-subtle' : 'text-foreground',
     );
@@ -212,7 +212,7 @@ export function TogetherCovers(props: { readonly view: TogetherView }) {
     }
 
     return hasPositions && (figureSize !== 26 || isAlike) ? (
-      <BigValue value={String(position.shown)} unit="%" size={figureSize} className={colour} />
+      <BigValue value={String(position.shown)} unit="%" size={figureSize} className={color} />
     ) : (
       <BigValue
         value={String(open.length)}
@@ -220,7 +220,7 @@ export function TogetherCovers(props: { readonly view: TogetherView }) {
           count: counted.length,
         })}
         size={figureSize}
-        className={colour}
+        className={color}
       />
     );
   };
@@ -325,7 +325,7 @@ export function TogetherCovers(props: { readonly view: TogetherView }) {
         {head}
         <div className="grow" />
         {command.hasFailed ? (
-          <Unanswered command={command} />
+          <NoAnswer command={command} />
         ) : (
           <div className="flex min-w-0 items-center justify-between gap-2.5">
             <span className="flex min-w-0 items-baseline gap-2">
@@ -408,7 +408,7 @@ export function TogetherCovers(props: { readonly view: TogetherView }) {
       </div>
       <div className="grow" />
       {command.hasFailed ? (
-        <Unanswered command={command} />
+        <NoAnswer command={command} />
       ) : view.canControl ? (
         <div className="flex flex-col gap-2">
           {positionBar(false)}
@@ -481,7 +481,7 @@ export function TogetherLocks(props: { readonly view: TogetherView }) {
             defaultValue_one: '{{count}} unlocked',
             defaultValue_other: '{{count}} unlocked',
           });
-  const colour =
+  const color =
     view.isOffline || !hasValue
       ? 'text-foreground-subtle'
       : isAllLocked
@@ -605,13 +605,13 @@ export function TogetherLocks(props: { readonly view: TogetherView }) {
         {head}
         <div className="grow" />
         {command.hasFailed ? (
-          <Unanswered command={command} />
+          <NoAnswer command={command} />
         ) : (
           <div className="flex min-w-0 items-center justify-between gap-2.5">
             <span
               className={cn(
                 'flex min-w-0 items-center gap-2 text-[20px] font-medium whitespace-nowrap transition-colors duration-200',
-                colour,
+                color,
               )}
             >
               <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-current" />
@@ -632,7 +632,7 @@ export function TogetherLocks(props: { readonly view: TogetherView }) {
           width="w-[190px]"
           left={
             <>
-              <BigValue value={word} size={26} className={colour} />
+              <BigValue value={word} size={26} className={color} />
               {note}
               <div className="mt-auto flex">{button('pill')}</div>
             </>
@@ -657,7 +657,7 @@ export function TogetherLocks(props: { readonly view: TogetherView }) {
         {head}
         <div className="mt-3.5 flex min-w-0 items-end justify-between gap-2.5">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <BigValue value={word} size={30} className={colour} />
+            <BigValue value={word} size={30} className={color} />
             {note}
           </div>
           {button('pill')}
@@ -675,11 +675,11 @@ export function TogetherLocks(props: { readonly view: TogetherView }) {
     <CardFrame label={view.title} glow={glow}>
       {head}
       <div className="mt-3.5 flex flex-col gap-1.5">
-        <BigValue value={word} size={30} className={colour} />
+        <BigValue value={word} size={30} className={color} />
         {note}
       </div>
       <div className="grow" />
-      {command.hasFailed ? <Unanswered command={command} /> : button('wide')}
+      {command.hasFailed ? <NoAnswer command={command} /> : button('wide')}
     </CardFrame>
   );
 }
@@ -900,7 +900,7 @@ export function TogetherClimate(props: { readonly view: TogetherView }) {
   const control =
     view.canControl && settable.length > 0 ? (
       <div className="flex flex-col gap-1.5">
-        {command.hasFailed ? <Unanswered command={command} /> : targetLine}
+        {command.hasFailed ? <NoAnswer command={command} /> : targetLine}
         <GroupStepper value={target} disabled={!usableIn(view, 'thermostat')} onStep={nudge} />
       </div>
     ) : (
@@ -954,7 +954,7 @@ export function TogetherClimate(props: { readonly view: TogetherView }) {
         {head()}
         <div className="grow" />
         {command.hasFailed ? (
-          <Unanswered command={command} />
+          <NoAnswer command={command} />
         ) : (
           <div className="flex min-w-0 items-baseline justify-between gap-2.5">
             {figure(26)}

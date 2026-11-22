@@ -32,6 +32,7 @@ import {
 import { AppIcon, Button, Menu, Note, TextField, toast, type MenuItem } from '@nebulahome/ui';
 
 import { signalled } from '@/lib/signalled';
+import { BROWSER_ZONE } from '@/lib/time-zones';
 import { formatPartValue, PART_PREFIX, partValueOf } from '@/library/alias-model';
 import { fetchAutomationHouse, fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { NO_READING, readingOf } from '@/library/entity-reading';
@@ -313,7 +314,7 @@ export async function runCase(
        * @returns Milliseconds since the epoch.
        */
       now: () => entry.now?.getTime() ?? Date.now(),
-      house: { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, position: null },
+      house: { timeZone: BROWSER_ZONE, position: null },
     }),
     mem: Object.keys(entry.mem).length > 0 ? entry.mem : memory,
     trace: false,
@@ -369,9 +370,7 @@ function useTrialHouse(): TrialHouse {
     retry: false,
   });
 
-  return (
-    house.data ?? { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, position: null }
-  );
+  return house.data ?? { timeZone: BROWSER_ZONE, position: null };
 }
 
 /** What the tab needs. */

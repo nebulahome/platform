@@ -18,6 +18,7 @@ import {
 
 import { dateTimeFormat, listFormat } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
+import { startOfDay } from '@/lib/format-time';
 import { capabilityLabel } from '@/library/entity-kind';
 import { describeState } from '@/library/entity-reading';
 
@@ -293,15 +294,7 @@ export function activityLinesOf(
  * @returns "Today", "Yesterday", or the date.
  */
 export function dayOf(when: Date, now: Date = new Date()): string {
-  /**
-   * The start of a moment's day.
-   *
-   * @param date - The moment.
-   * @returns Its midnight, in milliseconds.
-   */
-  const midnight = (date: Date): number =>
-    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const days = Math.round((midnight(now) - midnight(when)) / 86_400_000);
+  const days = Math.round((startOfDay(now) - startOfDay(when)) / 86_400_000);
 
   if (days === 0) {
     return translate('library.deviceActivity.today', 'Today');

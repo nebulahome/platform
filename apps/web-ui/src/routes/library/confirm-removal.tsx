@@ -37,7 +37,13 @@ export type ConfirmRemovalProps = {
 export function ConfirmRemoval(props: ConfirmRemovalProps) {
   const { t } = useTranslation();
 
-  const { question, label = 'Remove', onConfirm, onCancel, isBusy = false } = props;
+  const {
+    question,
+    label = t('common.remove', 'Remove'),
+    onConfirm,
+    onCancel,
+    isBusy = false,
+  } = props;
 
   return (
     <>

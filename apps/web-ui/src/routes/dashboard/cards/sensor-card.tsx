@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '@nebulahome/ui';
 
 import { dateTimeFormat } from '@/i18n/formatters';
+import { clockText } from '@/lib/format-time';
 import { hasCapability } from '@/library/entity-control';
 import { NO_READING } from '@/library/entity-reading';
 import type { HistoryRange } from '@/library/history-series';
@@ -345,9 +346,7 @@ function NumberCard(props: { readonly model: EntityCardModel }) {
    * @returns "T", "Tue", "Tuesday", or "19:00".
    */
   const barName = (from: number, form: 'narrow' | 'short' | 'long'): string =>
-    isDays
-      ? dateTimeFormat({ weekday: form }).format(from)
-      : dateTimeFormat({ hour: '2-digit', minute: '2-digit' }).format(from);
+    isDays ? dateTimeFormat({ weekday: form }).format(from) : clockText(from);
 
   /**
    * The line under a bar chart's figure: the running hour or day against the one before.

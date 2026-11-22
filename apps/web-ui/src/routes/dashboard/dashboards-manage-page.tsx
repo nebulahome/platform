@@ -17,7 +17,6 @@ import type { DashboardAssignee, DashboardView } from '@nebulahome/contracts';
 import { AppIcon, Button, EmptyState, IconButton } from '@nebulahome/ui';
 
 import { Avatar } from '@/components/avatar';
-import { WrenchIcon } from '@/components/icons';
 import { DASHBOARD_QUERY_KEYS, fetchAssignees, fetchManagedDashboards } from '@/dashboard/api';
 import { allCards } from '@/dashboard/dashboard-layout';
 import { translate } from '@/i18n/messages';
@@ -319,7 +318,7 @@ export function DashboardsManagePage() {
                           configure(dashboard);
                         }}
                       >
-                        <WrenchIcon width="16" height="16" />
+                        <AppIcon id="wrench" size={16} />
                       </IconButton>
                     </span>
                   </li>

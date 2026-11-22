@@ -21,6 +21,7 @@ import {
 } from '@nebulahome/contracts';
 
 import { translate } from '@/i18n/messages';
+import { saveTextFile } from '@/lib/save-text-file';
 import type {
   ImportedAutomation,
   ImportedScene,
@@ -361,16 +362,5 @@ export function scenesFile(scenes: readonly SceneView[]): Record<string, unknown
  * @param fileName - What it is called.
  */
 export function saveJsonFile(value: unknown, fileName: string): void {
-  const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-
-  link.href = url;
-  link.download = fileName;
-  link.click();
-
-  // The download has started from the link; the address is not needed after this turn.
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, 0);
+  saveTextFile(fileName, `${JSON.stringify(value, null, 2)}\n`, 'application/json');
 }

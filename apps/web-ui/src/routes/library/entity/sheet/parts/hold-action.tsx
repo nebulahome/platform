@@ -50,7 +50,7 @@ export function HoldAction(props: HoldActionProps) {
     onConfirm,
     durationMs = 1000,
     fill,
-    progress: progressColour = 'bg-warning/25',
+    progress: progressColor = 'bg-warning/25',
     size = 'medium',
     disabled = false,
     isStacked = false,
@@ -148,7 +148,7 @@ export function HoldAction(props: HoldActionProps) {
         aria-hidden="true"
         className={cn(
           'absolute inset-y-0 left-0',
-          progressColour,
+          progressColor,
           // Filled frame by frame while held; let go, it drains back rather than vanishing.
           progress === 0 && 'transition-[width] duration-300 ease-out',
         )}
@@ -164,7 +164,7 @@ export function HoldAction(props: HoldActionProps) {
         <span
           key={confirmed}
           aria-hidden="true"
-          className={cn('entity-flash pointer-events-none absolute inset-0', progressColour)}
+          className={cn('entity-flash pointer-events-none absolute inset-0', progressColor)}
         />
       )}
       <span

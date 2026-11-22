@@ -7,6 +7,7 @@
  */
 import type { TelemetryPoint } from '@nebulahome/contracts';
 
+import { startOfDay } from '@/lib/format-time';
 import type { TimeWindow } from '@/library/history-series';
 
 /** An hour, in milliseconds. */
@@ -101,9 +102,7 @@ export function barsOf(
    * @returns Its start, in milliseconds since the epoch.
    */
   const startOf = (back: number): number =>
-    unit === 'hour'
-      ? current.getTime() - back * HOUR_MS
-      : new Date(current.getFullYear(), current.getMonth(), current.getDate() - back).getTime();
+    unit === 'hour' ? current.getTime() - back * HOUR_MS : startOfDay(current, back);
   const count = Math.max(
     1,
     Math.round((window.to - window.from) / (unit === 'hour' ? HOUR_MS : 24 * HOUR_MS)),

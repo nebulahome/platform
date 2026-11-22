@@ -22,6 +22,7 @@ import {
   type PowerFlows,
   type PowerReadings,
 } from '@/lib/energy-flow';
+import { startOfDay } from '@/lib/format-time';
 import { fetchTelemetry, LIBRARY_QUERY_KEYS } from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
 import type { DashboardData } from '@/routes/dashboard/use-dashboard-data';
@@ -81,16 +82,6 @@ function signOf(card: DashboardEnergyCard, field: MeterField): 1 | -1 {
   }
 
   return 1;
-}
-
-/**
- * The start of today, on this browser's clock.
- *
- * @param now - The time now.
- * @returns Midnight.
- */
-function midnight(now: Date): Date {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 /**
@@ -161,7 +152,7 @@ export function useEnergy(
   };
 
   const now = new Date();
-  const dayStart = midnight(now).getTime();
+  const dayStart = startOfDay(now);
   const readable = METERS.flatMap((field) => {
     const entity = entityOf(field);
 

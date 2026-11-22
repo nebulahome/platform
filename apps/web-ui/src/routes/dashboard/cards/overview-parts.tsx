@@ -71,7 +71,7 @@ export function OverviewHead(props: OverviewHeadProps) {
  * @param props.onPress - When pressed.
  * @returns The button.
  */
-export function RoundButton(props: {
+export function OverviewRoundButton(props: {
   readonly label: string;
   readonly icon: UiIconId;
   readonly disabled?: boolean;

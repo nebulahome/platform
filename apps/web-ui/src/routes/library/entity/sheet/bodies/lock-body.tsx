@@ -11,8 +11,8 @@ import { useTranslation } from 'react-i18next';
 import type { CapabilityState } from '@nebulahome/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
+import { clockText } from '@/lib/format-time';
 import { paramsOf } from '@/library/entity-control';
-import { clockText } from '@/routes/library/entity/sheet/history';
 import { HoldAction } from '@/routes/library/entity/sheet/parts/hold-action';
 import { useSinceLine } from '@/routes/library/entity/sheet/parts/sheet-controls';
 import type { SheetBodyProps } from '@/routes/library/entity/sheet/sheet-types';
@@ -82,7 +82,7 @@ export function LockBody(props: SheetBodyProps) {
   const standing = motion !== undefined ? 'moving' : lock.lockState;
   const look = LOOKS[standing];
   const digits = params?.codeLength ?? 4;
-  const needsCode =
+  const isCodeNeeded =
     params?.hasCode === true && lock.lockState !== 'unlocked' && motion === undefined;
   const isOpen = lock.isOpen === true;
   const word =
@@ -119,7 +119,7 @@ export function LockBody(props: SheetBodyProps) {
     setCode('');
   };
 
-  if (needsCode && lock.lockState === 'locked') {
+  if (isCodeNeeded && lock.lockState === 'locked') {
     return (
       <div className="flex grow flex-col justify-center gap-4">
         <div className="flex items-center gap-3.5">

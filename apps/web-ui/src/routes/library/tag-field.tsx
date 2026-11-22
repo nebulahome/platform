@@ -14,7 +14,7 @@
  * reasons; and because focus does enter it for the colour step, it shuts on a pointer press
  * outside both the field and the list rather than on blur alone.
  */
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -28,6 +28,7 @@ import {
   TAG_FILL_CLASSES,
   TagChip,
   useAnchoredPlacement,
+  useClickOutside,
 } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
@@ -97,7 +98,7 @@ export function TagField(props: TagFieldProps) {
   const { t } = useTranslation();
 
   const {
-    label = 'Tags',
+    label = t('library.tagField.tags', 'Tags'),
     value,
     onChange,
     tags,
@@ -133,35 +134,15 @@ export function TagField(props: TagFieldProps) {
     ...(creatable === null ? [] : [{ create: creatable }]),
   ];
 
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
-
-    /**
-     * Shuts the list on a press that lands outside both the field and the list.
-     *
-     * @param event - The press.
-     */
-    const onPointerDown = (event: PointerEvent): void => {
-      const target = event.target instanceof Node ? event.target : null;
-
-      if (
-        target !== null &&
-        !(root.current?.contains(target) ?? false) &&
-        !(list.current?.contains(target) ?? false)
-      ) {
-        close();
-        setDraft(null);
-      }
-    };
-
-    document.addEventListener('pointerdown', onPointerDown);
-
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-    };
-  }, [isOpen, close]);
+  // A press outside both the field and the list shuts it.
+  useClickOutside(
+    [root, list],
+    () => {
+      close();
+      setDraft(null);
+    },
+    isOpen,
+  );
 
   /** Shuts the list and forgets a tag being made. */
   const shut = (): void => {

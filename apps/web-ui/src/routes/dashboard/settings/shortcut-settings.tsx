@@ -6,11 +6,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { shortcutTargetSchema, type DashboardShortcutCard } from '@nebulahome/contracts';
-import { SelectField } from '@nebulahome/ui';
+import { Segmented, SelectField } from '@nebulahome/ui';
 
 import { NAV_PAGES } from '@/components/sidebar';
 import { text } from '@/i18n/messages';
-import { PillChoice, SettingsField } from '@/routes/dashboard/settings/settings-parts';
+import { SettingsField } from '@/routes/dashboard/settings/settings-parts';
 import type { TypeSettingsProps } from '@/routes/dashboard/settings/type-settings';
 
 /**
@@ -41,7 +41,8 @@ export function ShortcutSettings(props: TypeSettingsProps<DashboardShortcutCard>
   return (
     <>
       <SettingsField label={t('dashboard.shortcutSettings.goesTo', 'Goes to')}>
-        <PillChoice
+        <Segmented
+          isFilled
           label={t('dashboard.shortcutSettings.goesTo', 'Goes to')}
           options={[
             { value: 'page', label: t('dashboard.shortcutSettings.page', 'A page') },

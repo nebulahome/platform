@@ -92,7 +92,13 @@ function warningOf(
 
   const unit = field.unit === undefined ? '' : ` ${field.unit}`;
 
-  return field.warning ?? `Below ${String(field.warnBelow)}${unit} is not advised.`;
+  return (
+    field.warning ??
+    translate('library.setupForm.belowIsNotAdvised', 'Below {{limit}}{{unit}} is not advised.', {
+      limit: field.warnBelow,
+      unit,
+    })
+  );
 }
 
 /**

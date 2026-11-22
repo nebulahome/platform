@@ -4,17 +4,17 @@
  * its commander, its history over the window chosen, its device's battery - and saving what its
  * settings change.
  *
- * `EntityDialogHost` sits in the shell and opens it for `?entity=` in the address
- * (`entity-path.ts`), so a row, a card, a package or a bookmark opens it the same way, and
- * putting it away takes only that out of the address.
+ * `EntityDialogHost` (`entity-dialog-host.tsx`) sits in the shell and opens it for `?entity=` in
+ * the address (`entity-path.ts`), so a row, a card, a package or a bookmark opens it the same way,
+ * and putting it away takes only that out of the address.
  */
 import { useIsFetching, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import type { EntityUpdate } from '@nebulahome/contracts';
-import { Modal, toast } from '@nebulahome/ui';
+import { Modal, toast, useNow } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { LIBRARY_QUERY_KEYS, updateEntity } from '@/library/api';
@@ -23,11 +23,7 @@ import { telemetryResolutionFor, type HistoryRange } from '@/library/history-ser
 import { useStateChanges, useTelemetry } from '@/routes/dashboard/cards/use-card-history';
 import { devicePath } from '@/routes/library/device/device-path';
 import { LinkDialog, type LinkRequest } from '@/routes/library/device/link-dialog';
-import {
-  ENTITY_PARAM,
-  ENTITY_VIEW_PARAM,
-  type EntitySheetView,
-} from '@/routes/library/entity/entity-path';
+import type { EntitySheetView } from '@/routes/library/entity/entity-path';
 import type { Gap } from '@/routes/library/entity/sheet/charts';
 import { EntitySheet } from '@/routes/library/entity/sheet/entity-sheet';
 import { exactGap } from '@/routes/library/entity/sheet/gap-edges';
@@ -51,27 +47,6 @@ const SPAN_OF: Readonly<Record<SheetRange, HistoryRange>> = {
 
 /** How often the dialog's "since" and "for" words are worked out again. */
 const TICK_MS = 30_000;
-
-/**
- * The time now, moving on every half minute.
- *
- * @returns Milliseconds since the epoch.
- */
-function useNow(): number {
-  const [now, setNow] = useState(Date.now);
-
-  useEffect(() => {
-    const timer = globalThis.setInterval(() => {
-      setNow(Date.now());
-    }, TICK_MS);
-
-    return () => {
-      globalThis.clearInterval(timer);
-    };
-  }, []);
-
-  return now;
-}
 
 /** What the dialog needs. */
 type EntityDialogProps = {
@@ -107,11 +82,11 @@ function LoadedEntityDialog(props: EntityDialogProps & { readonly view: EntityDi
   const [range, setRange] = useState<SheetRange>('24h');
   const [unlinking, setUnlinking] = useState<LinkRequest | null>(null);
   const span = SPAN_OF[range];
-  const wantsStates = view.canReadHistory && sheetKindOf(entity, state).history !== 'none';
-  const wantsTelemetry = wantsStates && hasCapability(entity, 'sensor_numeric');
-  const states = useStateChanges(entityId, span, wantsStates);
-  const telemetry = useTelemetry(entityId, span, wantsTelemetry);
-  const now = useNow();
+  const shouldReadStates = view.canReadHistory && sheetKindOf(entity, state).history !== 'none';
+  const shouldReadTelemetry = shouldReadStates && hasCapability(entity, 'sensor_numeric');
+  const states = useStateChanges(entityId, span, shouldReadStates);
+  const telemetry = useTelemetry(entityId, span, shouldReadTelemetry);
+  const now = useNow(TICK_MS);
   const window = states?.window ?? telemetry?.window ?? { from: now, to: now };
   // Drawn again as the reads come and go, so a read that failed stops the charts waiting: they
   // are then drawn empty rather than waiting for ever. The keys are the history hooks' own.
@@ -126,8 +101,8 @@ function LoadedEntityDialog(props: EntityDialogProps & { readonly view: EntityDi
     queryClient.getQueryState([...LIBRARY_QUERY_KEYS.history, entityId, kind, span])?.status ===
     'error';
   const isLoading =
-    (wantsStates && states === undefined && !failed('state')) ||
-    (wantsTelemetry && telemetry === undefined && !failed('telemetry'));
+    (shouldReadStates && states === undefined && !failed('state')) ||
+    (shouldReadTelemetry && telemetry === undefined && !failed('telemetry'));
   const resolution = telemetryResolutionFor(window);
   const readGap = useCallback(
     async (gap: Gap, signal: AbortSignal) => exactGap(entityId, gap, resolution, signal),
@@ -295,45 +270,6 @@ export function EntityPreview(props: { readonly entityId: string; readonly isDis
       isInline
       isDisabled={props.isDisabled === true}
       onClose={() => undefined}
-    />
-  );
-}
-
-/**
- * Opens the dialog of the entity the address names, over whatever page is open.
- *
- * @returns The dialog, or nothing.
- */
-export function EntityDialogHost() {
-  const [params, setParams] = useSearchParams();
-  const entityId = params.get(ENTITY_PARAM);
-  const asked = params.get(ENTITY_VIEW_PARAM);
-
-  if (entityId === null || entityId === '') {
-    return null;
-  }
-
-  /** Puts the dialog away: only its own part of the address goes. */
-  const close = (): void => {
-    setParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-
-        next.delete(ENTITY_PARAM);
-        next.delete(ENTITY_VIEW_PARAM);
-
-        return next;
-      },
-      { replace: true },
-    );
-  };
-
-  return (
-    <EntityDialog
-      key={`${entityId}:${asked ?? ''}`}
-      entityId={entityId}
-      initialView={asked === 'settings' || asked === 'history' ? asked : undefined}
-      onClose={close}
     />
   );
 }

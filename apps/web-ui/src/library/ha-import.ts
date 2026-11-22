@@ -296,7 +296,7 @@ function hsOfXy(xy: unknown): { hue: number; saturation: number } | null {
  * @param data - The data or the scene's attributes.
  * @returns The colour, or null when none is given.
  */
-function colourOf(data: Raw): { hue: number; saturation: number } | null {
+function colorOf(data: Raw): { hue: number; saturation: number } | null {
   const hs = data['hs_color'];
 
   if (Array.isArray(hs) && typeof hs[0] === 'number' && typeof hs[1] === 'number') {
@@ -1524,7 +1524,7 @@ function commands(
  */
 function lightCommands(data: Raw): [string, JsonObject][] {
   const level = levelOf(data);
-  const colour = colourOf(data);
+  const color = colorOf(data);
   const mireds = miredsOf(data);
   const sent: [string, JsonObject][] = [];
 
@@ -1536,8 +1536,8 @@ function lightCommands(data: Raw): [string, JsonObject][] {
     sent.push(['level', { command: 'set_level', level }]);
   }
 
-  if (colour !== null) {
-    sent.push(['color_hs', { command: 'set_color', ...colour }]);
+  if (color !== null) {
+    sent.push(['color_hs', { command: 'set_color', ...color }]);
   } else if (mireds !== null) {
     sent.push(['color_temp', { command: 'set_color_temp', mireds }]);
   }
@@ -2248,15 +2248,15 @@ function targetStateOf(entityId: string, value: unknown): JsonObject {
       }
 
       const level = levelOf(attributes);
-      const colour = colourOf(attributes);
+      const color = colorOf(attributes);
       const mireds = miredsOf(attributes);
 
       if (level !== null) {
         target['level'] = { level };
       }
 
-      if (colour !== null) {
-        target['color_hs'] = colour;
+      if (color !== null) {
+        target['color_hs'] = color;
       } else if (mireds !== null) {
         target['color_temp'] = { mireds };
       }

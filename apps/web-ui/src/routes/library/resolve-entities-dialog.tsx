@@ -18,7 +18,7 @@ import type { MissingEntity } from '@/library/library-import';
 import { EntityField } from '@/routes/library/entity-field';
 
 /** What the modal needs. */
-export type ResolveEntitiesModalProps = {
+export type ResolveEntitiesDialogProps = {
   readonly isOpen: boolean;
 
   /** The addresses the house does not have. */
@@ -42,10 +42,10 @@ export type ResolveEntitiesModalProps = {
 /**
  * Renders the modal.
  *
- * @param props - See {@link ResolveEntitiesModalProps}.
+ * @param props - See {@link ResolveEntitiesDialogProps}.
  * @returns The modal.
  */
-export function ResolveEntitiesModal(props: ResolveEntitiesModalProps) {
+export function ResolveEntitiesDialog(props: ResolveEntitiesDialogProps) {
   const { t } = useTranslation();
 
   const { isOpen, missing, notes = [], confirmLabel, isBusy = false, onConfirm, onClose } = props;

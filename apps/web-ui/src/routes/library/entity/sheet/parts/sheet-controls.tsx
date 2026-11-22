@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import type { EntityView } from '@nebulahome/contracts';
 import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
 
-import { clockText } from '@/routes/library/entity/sheet/history';
+import { clockText } from '@/lib/format-time';
 import { usePicked } from '@/routes/library/entity/sheet/parts/option-list';
 import {
   TILE_LIT,
@@ -227,7 +227,7 @@ export type LevelBarProps = {
   readonly tone: SheetTone;
 
   /** A colour of its own instead, for a lamp showing one: `hsl(…)`. */
-  readonly colour?: string;
+  readonly color?: string;
 
   /** The glyph at its left. */
   readonly icon?: UiIconId;
@@ -245,7 +245,7 @@ export type LevelBarProps = {
  */
 export function LevelBar(props: LevelBarProps) {
   const { t } = useTranslation();
-  const { label, value, onChange, onCommit, isOn, tone, colour } = props;
+  const { label, value, onChange, onCommit, isOn, tone, color } = props;
 
   return (
     <div
@@ -256,13 +256,13 @@ export function LevelBar(props: LevelBarProps) {
       <div
         className={cn(
           'entity-track absolute inset-y-0 left-0 transition-[filter] group-hover:brightness-110',
-          isOn ? (colour === undefined ? TONE_BAR[tone] : '') : TONE_BAR.muted,
+          isOn ? (color === undefined ? TONE_BAR[tone] : '') : TONE_BAR.muted,
         )}
         // eslint-disable-next-line react/forbid-dom-props -- the fill is the level, and a lamp's colour its own
         style={{
           width: `${String(value)}%`,
-          ...(isOn && colour !== undefined
-            ? { backgroundColor: `color-mix(in oklab, ${colour} 82%, transparent)` }
+          ...(isOn && color !== undefined
+            ? { backgroundColor: `color-mix(in oklab, ${color} 82%, transparent)` }
             : {}),
         }}
       >

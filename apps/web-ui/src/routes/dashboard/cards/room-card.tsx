@@ -31,7 +31,7 @@ import {
 } from '@/routes/dashboard/cards/overview-counts';
 import {
   OverviewHead,
-  RoundButton,
+  OverviewRoundButton,
   toneText,
   WaitingFace,
 } from '@/routes/dashboard/cards/overview-parts';
@@ -275,7 +275,7 @@ function RoomFace(props: RoomCardProps) {
                   className={cn(
                     'flex size-6 items-center justify-center rounded-full border-2 border-surface bg-surface-raised transition-colors duration-200',
                     index > 0 && '-ml-1.5',
-                    mark.isLit ? mark.colour : 'text-foreground-subtle',
+                    mark.isLit ? mark.color : 'text-foreground-subtle',
                   )}
                 >
                   <AppIcon id={mark.icon} size={11} />
@@ -361,7 +361,7 @@ function RoomFace(props: RoomCardProps) {
 function markOf(
   row: RowKind,
   room: Room,
-): { readonly icon: UiIconId; readonly colour: string; readonly isLit: boolean } {
+): { readonly icon: UiIconId; readonly color: string; readonly isLit: boolean } {
   const first = {
     lights: room.lights[0],
     blinds: room.blinds[0],
@@ -371,7 +371,7 @@ function markOf(
 
   return {
     icon: ROW_ICONS[row],
-    colour: first === undefined ? '' : toneText(entityKindOf(first.entity)),
+    color: first === undefined ? '' : toneText(entityKindOf(first.entity)),
     isLit: {
       lights: room.lights.some((each) => each.state.on_off?.isOn === true),
       blinds: (averagePosition(room.blinds) ?? 0) > 0,
@@ -479,7 +479,7 @@ function RoomRow(props: RoomRowProps) {
           : `${String(position)}%`,
       control: (
         <div className="flex shrink-0 gap-1.5">
-          <RoundButton
+          <OverviewRoundButton
             label={t('dashboard.cards.roomCard.open', 'Open')}
             icon="chevron-up"
             disabled={disabled}
@@ -487,7 +487,7 @@ function RoomRow(props: RoomRowProps) {
               group.send(kind, ids, 'cover', { command: 'open' });
             }}
           />
-          <RoundButton
+          <OverviewRoundButton
             label={t('dashboard.cards.roomCard.close', 'Close')}
             icon="chevron-down"
             disabled={disabled}
@@ -502,7 +502,7 @@ function RoomRow(props: RoomRowProps) {
       label: t('dashboard.cards.roomCard.speaker', 'Speaker'),
       value: player?.mediaTitle ?? t('dashboard.cards.roomCard.nothingPlaying', 'Nothing playing'),
       control: (
-        <RoundButton
+        <OverviewRoundButton
           label={
             isPlaying
               ? t('dashboard.cards.roomCard.pause', 'Pause')
@@ -521,7 +521,7 @@ function RoomRow(props: RoomRowProps) {
       value: thermostat === undefined ? '' : `${degrees(target.shown)}°`,
       control: (
         <div className="flex shrink-0 gap-1.5">
-          <RoundButton
+          <OverviewRoundButton
             label={t('dashboard.cards.roomCard.lower', 'Lower')}
             icon="minus"
             disabled={disabled}
@@ -529,7 +529,7 @@ function RoomRow(props: RoomRowProps) {
               nudge(-1);
             }}
           />
-          <RoundButton
+          <OverviewRoundButton
             label={t('dashboard.cards.roomCard.raise', 'Raise')}
             icon="plus"
             disabled={disabled}
@@ -551,7 +551,7 @@ function RoomRow(props: RoomRowProps) {
       )}
     >
       <span
-        className={cn('inline-flex shrink-0', mark.isLit ? mark.colour : 'text-foreground-subtle')}
+        className={cn('inline-flex shrink-0', mark.isLit ? mark.color : 'text-foreground-subtle')}
       >
         <AppIcon id={mark.icon} size={16} />
       </span>

@@ -9,10 +9,10 @@
  * While it plays, the artwork glows, three bars dance beside the title and the progress moves on
  * by itself between reports, as the music does.
  */
-import { useContext, useEffect, useState, type ReactNode } from 'react';
+import { useContext, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AppIcon, cn, type UiIconId } from '@nebulahome/ui';
+import { AppIcon, cn, useNow, type UiIconId } from '@nebulahome/ui';
 
 import { hasCapability, paramsOf } from '@/library/entity-control';
 import { ListViewContext, OptionList } from '@/routes/library/entity/sheet/parts/option-list';
@@ -105,34 +105,6 @@ function PlayingBars() {
 }
 
 /**
- * The time now, ticking every second while something plays: the progress moves on between the
- * player's reports.
- *
- * @param isTicking - Whether to tick.
- * @returns The time, in milliseconds since the epoch.
- */
-function usePlayClock(isTicking: boolean): number {
-  const [now, setNow] = useState(() => Date.now());
-
-  // A timer is something outside React to synchronise with (RULES.md 15.2).
-  useEffect(() => {
-    if (!isTicking) {
-      return undefined;
-    }
-
-    const timer = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return (): void => {
-      clearInterval(timer);
-    };
-  }, [isTicking]);
-
-  return now;
-}
-
-/**
  * The body of a media player.
  *
  * @param props - See {@link SheetBodyProps}.
@@ -157,7 +129,8 @@ export function MediaBody(props: SheetBodyProps) {
   const player = state.media_player;
   // A picture that would not load is left for the drawn artwork, until the next one.
   const [brokenArt, setBrokenArt] = useState<string | null>(null);
-  const ticked = usePlayClock(player?.playback === 'playing');
+  // Every second while something plays: the progress moves on between the player's reports.
+  const ticked = useNow(1000, player?.playback === 'playing');
 
   if (player === undefined || params === null) {
     return null;

@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import type { BackupPhase, MaintenanceState } from '@nebulahome/contracts';
-import { Button } from '@nebulahome/ui';
+import { Button, ProgressBar } from '@nebulahome/ui';
 
 import { useMaintenance } from '@/auth/maintenance-store';
 import { useSession } from '@/auth/session-store';
@@ -173,21 +173,12 @@ export function MaintenanceOverlay() {
             <p className="text-ui text-foreground-muted">
               {t('maintenance.phase', '{{phase}}…', { phase: phaseWords(data) })}
             </p>
-            <div
-              className="h-1.5 overflow-hidden rounded-full bg-surface-high"
-              role="progressbar"
-              aria-label={t('maintenance.progress', 'How far the restore is')}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={percent ?? undefined}
-            >
-              <div
-                className="h-full rounded-full bg-primary transition-[width] duration-700"
-                /* eslint-disable-next-line react/forbid-dom-props -- the bar's length is the
-                   progress, which no class can hold. */
-                style={{ width: `${String(Math.max(4, Math.min(100, percent ?? 8)))}%` }}
-              />
-            </div>
+            {/* While nothing says how far it is the bar moves without a number, rather than
+                telling a screen reader a percentage nobody measured. */}
+            <ProgressBar
+              percent={percent === null ? null : Math.min(100, percent)}
+              label={t('maintenance.progress', 'How far the restore is')}
+            />
             <p className="text-caption text-foreground-subtle">
               {t(
                 'maintenance.runningNote',
@@ -210,10 +201,13 @@ export function MaintenanceOverlay() {
             )}
             <Button
               onClick={() => {
-                void signOut().finally(() => {
-                  leave();
-                  window.location.assign('/');
-                });
+                // The store has already cleared the session when the API cannot be reached.
+                void signOut()
+                  .catch(() => undefined)
+                  .finally(() => {
+                    leave();
+                    window.location.assign('/');
+                  });
               }}
             >
               {t('maintenance.signIn', 'Sign in')}
