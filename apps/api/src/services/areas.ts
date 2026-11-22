@@ -25,10 +25,10 @@ import {
   type AreaUpdate,
   type AreaView,
 } from '@nebulahome/contracts';
-import { schema, type Database } from '@nebulahome/db';
+import { isUniqueViolation, schema, type Database } from '@nebulahome/db';
 
 import { checkIcon, type IconLookup } from './icon-lookup.js';
-import { chooseFreeKey, isUniqueViolation, keyPrefixOf } from './keys.js';
+import { chooseFreeKey, keyPrefixOf } from './keys.js';
 
 /** The key a name gives when it gives nothing usable. */
 const FALLBACK_KEY = 'area';

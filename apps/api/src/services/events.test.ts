@@ -96,6 +96,46 @@ describe('EventFanout', () => {
     expect(elsewhere).toEqual([]);
   });
 
+  it('tells the sockets watching discovery, which takes device:read, that part of a broker changed', async () => {
+    const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
+    const transport = new FakeTransport();
+    const hub = new BusClient({ transport, source: 'hub', logger });
+    const fanout = new EventFanout(logger);
+    const watching: WsServerMessage[] = [];
+    const elsewhere: WsServerMessage[] = [];
+
+    fanout.start(new BusClient({ transport, source: 'api', logger }));
+    fanout.add({
+      canRead: () => false,
+      topics: new Set(['discovery']),
+      packageTopics: new Set(),
+      send: (message) => {
+        watching.push(message);
+      },
+    });
+    fanout.add({
+      canRead: () => true,
+      topics: new Set(['state', 'devices', 'library', 'system']),
+      packageTopics: new Set(),
+      send: (message) => {
+        elsewhere.push(message);
+      },
+    });
+
+    hub.publish(busSubjects.brokerEvent(), { broker: 'mqtt', part: 'clients' });
+    // A part another broker does not have is not forwarded.
+    hub.publish(busSubjects.brokerEvent(), { broker: 'serial', part: 'clients' });
+    hub.publish(busSubjects.brokerEvent(), { broker: 'matter', part: 'nodes' });
+    await until(() => watching.length === 2);
+    fanout.stop();
+
+    expect(watching).toEqual([
+      { type: 'broker_event', broker: 'mqtt', part: 'clients' },
+      { type: 'broker_event', broker: 'matter', part: 'nodes' },
+    ]);
+    expect(elsewhere).toEqual([]);
+  });
+
   it('tells every socket on the system topic that Nebula Home restarts, whatever it may read', async () => {
     const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
     const transport = new FakeTransport();

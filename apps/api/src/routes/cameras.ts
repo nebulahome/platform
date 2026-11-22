@@ -139,6 +139,32 @@ export function registerCameraRoutes(
       const params = cameraParamsSchema.safeParse(request.params);
       const cleanup: (() => void)[] = [];
       let isAuthenticated = false;
+      // Set by the close handler. The relay awaits the credential, the camera and the stream
+      // before it starts, and a socket closed meanwhile must not be left a listener or a timer.
+      let isClosed = false;
+
+      /**
+       * Says whether the socket has closed, read again after each await as a variable narrowed
+       * before it would not be.
+       *
+       * @returns True once the close handler has run.
+       */
+      const hasClosed = (): boolean => isClosed;
+
+      /**
+       * Has something undone when the socket closes, or at once when it already has.
+       *
+       * @param each - What undoes it.
+       */
+      const onClose = (each: () => void): void => {
+        if (isClosed) {
+          each();
+
+          return;
+        }
+
+        cleanup.push(each);
+      };
 
       /**
        * Says something to the viewer.
@@ -169,6 +195,7 @@ export function registerCameraRoutes(
       }, WS_AUTH_TIMEOUT_MS);
 
       socket.on('close', () => {
+        isClosed = true;
         clearTimeout(authTimer);
 
         for (const each of cleanup) {
@@ -202,8 +229,13 @@ export function registerCameraRoutes(
           try {
             const claims = await verifyAccessToken(auth.data.token, context.jwtSecret);
             const identity = await context.authenticator.authenticate(auth.data.token);
+            const mayRead = await mayReadCamera(context, identity, entityId);
 
-            if (!(await mayReadCamera(context, identity, entityId))) {
+            if (hasClosed()) {
+              return;
+            }
+
+            if (!mayRead) {
               refuse(WS_CLOSE_UNAVAILABLE, 'No camera has that id');
 
               return;
@@ -219,7 +251,7 @@ export function registerCameraRoutes(
               Math.max(0, claims.exp * 1000 - context.now().getTime()),
             );
 
-            cleanup.push(() => {
+            onClose(() => {
               clearTimeout(expiry);
             });
           } catch {
@@ -263,7 +295,7 @@ export function registerCameraRoutes(
             socket.send(data, { binary: true });
           });
 
-          cleanup.push(() => {
+          onClose(() => {
             frames.unsubscribe();
           });
 
@@ -297,6 +329,10 @@ export function registerCameraRoutes(
             return;
           }
 
+          if (hasClosed()) {
+            return;
+          }
+
           const keepalive = setInterval(() => {
             bus
               .request(
@@ -316,7 +352,7 @@ export function registerCameraRoutes(
               });
           }, CAMERA_KEEPALIVE_EVERY_MS);
 
-          cleanup.push(() => {
+          onClose(() => {
             clearInterval(keepalive);
           });
         })();

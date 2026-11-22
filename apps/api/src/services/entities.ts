@@ -44,7 +44,7 @@ import {
 import { schema, type Database } from '@nebulahome/db';
 
 import { entityScopes, isPermitted } from '../auth/permissions.js';
-import { decodeCursor, encodeCursor, toPage, type PageResult } from '../http/pagination.js';
+import { decodeCursor, toPage, type PageResult } from '../http/pagination.js';
 
 import { checkIcon, type IconLookup } from './icon-lookup.js';
 import { assertTagsExist, replaceEntityTags } from './tags.js';
@@ -1086,27 +1086,4 @@ export async function readableEntityIds(db: Database, identity: Identity): Promi
   }
 
   return allowed;
-}
-
-/**
- * Encodes where a page of entities ended.
- *
- * Exported so the route can build a cursor without knowing the encoding.
- *
- * @param entityId - The last entity on the page.
- * @returns The cursor for the next one.
- */
-export function entityCursor(entityId: string): string {
-  return encodeCursor({ key: entityId });
-}
-
-/**
- * Parses and brands an entity identifier from a path parameter.
- *
- * @param value - What arrived in the path.
- * @returns The branded identifier.
- * @throws {z.ZodError} When it is not `<domain>.<object_id>`.
- */
-export function toEntityId(value: string): ReturnType<typeof parseEntityId> {
-  return parseEntityId(value);
 }

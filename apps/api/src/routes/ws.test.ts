@@ -20,9 +20,12 @@ import { createLogger } from '@nebulahome/logging';
 import { EventFanout, liveKey } from '../services/events.js';
 
 import {
+  grantsKey,
   handlePackageLive,
   missingTopicPermission,
   narrowReadable,
+  serializeMessage,
+  sharedReads,
   singleFlight,
   spend,
   type PackageLiveSocket,
@@ -200,6 +203,8 @@ describe('the topics a socket may follow', () => {
 
     expect(missingTopicPermission(admin, 'containers')).toBeUndefined();
     expect(missingTopicPermission(admin, 'automations')).toBe('automation:read');
+    // What the broker pages are told travels on discovery: their reads take device:read too.
+    expect(missingTopicPermission(identityWith('device:read'), 'discovery')).toBeUndefined();
 
     for (const topic of ['state', 'devices', 'library', 'system'] as const) {
       expect(missingTopicPermission(guest, topic)).toBeUndefined();
@@ -259,5 +264,86 @@ describe('a socket’s budget', () => {
     expect(spend(budget, 20)).toBe(true);
     expect(spend(budget, 10_000)).toBe(true);
     expect(budget.tokens).toBe(WS_CLIENT_MESSAGES_PER_SECOND - 1);
+  });
+});
+
+describe('the entities sockets read again after a registry change', () => {
+  /**
+   * Someone signed in with grants of their own.
+   *
+   * @param grants - What they are allowed and denied, as `[effect, key, scope]`.
+   * @returns Their identity.
+   */
+  function identityGranted(...grants: (readonly ['allow' | 'deny', string, string])[]): Identity {
+    return {
+      ...identityWith(),
+      permissions: grants.map(([effect, key, scope]) => ({ key, scope, effect })),
+    };
+  }
+
+  it('are read once for sockets with the same grants, and apart for different ones', async () => {
+    const asked: Identity[] = [];
+    const read = sharedReads(async (identity) => {
+      asked.push(identity);
+
+      return Promise.resolve(new Set([identity.permissions.map((grant) => grant.scope).join()]));
+    });
+    const everything = identityGranted(['allow', 'entity:read', '*'], ['allow', 'area:read', '*']);
+    const sameInAnotherOrder = identityGranted(
+      ['allow', 'area:read', '*'],
+      ['allow', 'entity:read', '*'],
+    );
+    const oneRoom = identityGranted(['allow', 'entity:read', 'area.kitchen']);
+    const allButOneRoom = identityGranted(
+      ['allow', 'entity:read', '*'],
+      ['deny', 'entity:read', 'area.kitchen'],
+    );
+
+    const [first, second, kitchen, rest] = await Promise.all([
+      read(everything),
+      read(sameInAnotherOrder),
+      read(oneRoom),
+      read(allButOneRoom),
+    ]);
+
+    expect(asked).toEqual([everything, oneRoom, allButOneRoom]);
+    expect(second).toBe(first);
+    expect(kitchen).toEqual(new Set(['area.kitchen']));
+    expect(rest).toEqual(new Set(['*,area.kitchen']));
+  });
+
+  it('are read anew by a socket that asks once the turn they were asked in is over', async () => {
+    let reads = 0;
+    const read = sharedReads(async () => {
+      reads += 1;
+
+      return Promise.resolve(new Set<string>());
+    });
+    const identity = identityWith('entity:read');
+
+    await read(identity);
+    await read(identity);
+
+    expect(reads).toBe(2);
+  });
+
+  it('tell grants apart by their effect, key and scope, and not by their order', () => {
+    expect(grantsKey(identityWith('entity:read', 'area:read').permissions)).toBe(
+      grantsKey(identityWith('area:read', 'entity:read').permissions),
+    );
+    expect(grantsKey([{ key: 'entity:read', scope: 'area.kitchen', effect: 'allow' }])).not.toBe(
+      grantsKey([{ key: 'entity:read', scope: 'area.kitchen', effect: 'deny' }]),
+    );
+  });
+});
+
+describe('a message sent to many sockets', () => {
+  it('is written once, and each message as itself', () => {
+    const message: WsServerMessage = { type: 'library_event', kind: 'areas' };
+    const first = serializeMessage(message);
+
+    expect(serializeMessage(message)).toBe(first);
+    expect(JSON.parse(first)).toEqual(message);
+    expect(serializeMessage({ type: 'pong' })).toBe('{"type":"pong"}');
   });
 });

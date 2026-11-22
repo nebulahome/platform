@@ -115,6 +115,10 @@ export function registerMetaRoutes(
     },
   );
 
+  // Built on the first request and kept: every route is registered before the server can answer
+  // one - this is registered last - and none is added after.
+  let openApiDocument: Record<string, unknown> | undefined;
+
   server.get(
     '/api/v1/openapi.json',
 
@@ -126,7 +130,11 @@ export function registerMetaRoutes(
      *
      * @returns The OpenAPI 3.1 document.
      */
-    (): Record<string, unknown> => buildOpenApiDocument(registry, CURRENT_API_VERSION),
+    (): Record<string, unknown> => {
+      openApiDocument ??= buildOpenApiDocument(registry, CURRENT_API_VERSION);
+
+      return openApiDocument;
+    },
   );
 
   server.addHook(

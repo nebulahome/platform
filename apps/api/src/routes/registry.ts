@@ -35,7 +35,6 @@ import {
   automationUpdateSchema,
   automationViewSchema,
   ConflictError,
-  DeviceUnavailableError,
   pageQuerySchema,
   pageSchema,
   triggerAutomationReplySchema,
@@ -80,6 +79,7 @@ import {
   virtualDevices,
   type AliasesContext,
 } from '../services/aliases.js';
+import { requireBus } from '../services/ask-service.js';
 import { auditOrigin } from '../services/audit.js';
 import { sealSecrets } from '../services/automation-secrets.js';
 import {
@@ -316,14 +316,9 @@ export function registerRegistryRoutes(environment: RouteEnvironment, context: A
     async (route): Promise<SceneApplyResult> => {
       requirePermission(route.identity, 'scene:apply');
 
-      if (context.bus === undefined) {
-        throw new DeviceUnavailableError('The message bus is not reachable', {
-          details: { sceneId: route.params.sceneId },
-        });
-      }
-
+      const bus = requireBus(context, { sceneId: route.params.sceneId });
       const result = await applyScene(context.db, route.params.sceneId, {
-        client: context.bus,
+        client: bus,
         identity: route.identity,
         traceId: route.request.traceId,
         deadlineMs: context.config.API_SCENE_APPLY_TIMEOUT_MS,

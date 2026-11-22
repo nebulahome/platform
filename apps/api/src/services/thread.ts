@@ -7,10 +7,7 @@
  * (`apps/hub/src/thread/broker.ts`). The network key and the dataset are read from OTBR each time
  * and never kept here.
  */
-import type { z } from 'zod';
-
 import {
-  HUB_SERVICE,
   HUB_THREAD_BORDER_ROUTERS_METHOD,
   HUB_THREAD_DATASET_METHOD,
   HUB_THREAD_DEVICES_METHOD,
@@ -34,7 +31,7 @@ import {
   type ThreadStatus,
 } from '@nebulahome/contracts';
 
-import { askService } from './ask-service.js';
+import { askHub } from './ask-service.js';
 import type { IntegrationsContext } from './integrations.js';
 
 /** How long a question that reads OTBR, asks a radio or the supervisor may take. */
@@ -50,34 +47,13 @@ const SETTINGS_TIMEOUT_MS = 40_000;
 const SERVICE_TIMEOUT_MS = 35_000;
 
 /**
- * Asks the hub one of the broker's methods.
- *
- * @param context - The request's collaborators.
- * @param method - The method.
- * @param body - What it is asked.
- * @param schema - What the answer must be.
- * @param timeoutMs - How long the hub has.
- * @returns The answer.
- * @throws {DeviceUnavailableError} When the hub cannot be asked.
- */
-export async function askThread<TSchema extends z.ZodType>(
-  context: IntegrationsContext,
-  method: string,
-  body: object,
-  schema: TSchema,
-  timeoutMs: number,
-): Promise<z.output<TSchema>> {
-  return askService(context, HUB_SERVICE, method, body, schema, timeoutMs);
-}
-
-/**
  * Where the broker stands.
  *
  * @param context - The request's collaborators.
  * @returns Its state.
  */
 export async function threadStatus(context: IntegrationsContext): Promise<ThreadStatus> {
-  return askThread(context, HUB_THREAD_STATUS_METHOD, {}, threadStatusSchema, OTBR_TIMEOUT_MS);
+  return askHub(context, HUB_THREAD_STATUS_METHOD, {}, threadStatusSchema, OTBR_TIMEOUT_MS);
 }
 
 /**
@@ -87,7 +63,7 @@ export async function threadStatus(context: IntegrationsContext): Promise<Thread
  * @returns Them, the recognised radios first.
  */
 export async function threadRadios(context: IntegrationsContext) {
-  return askThread(context, HUB_THREAD_RADIOS_METHOD, {}, threadRadiosReplySchema, OTBR_TIMEOUT_MS);
+  return askHub(context, HUB_THREAD_RADIOS_METHOD, {}, threadRadiosReplySchema, OTBR_TIMEOUT_MS);
 }
 
 /**
@@ -99,7 +75,7 @@ export async function threadRadios(context: IntegrationsContext) {
  * @throws {ConflictError} While a setup runs, or when another holder has the port.
  */
 export async function checkThreadRadio(context: IntegrationsContext, portId: string) {
-  return askThread(
+  return askHub(
     context,
     HUB_THREAD_RADIO_CHECK_METHOD,
     { portId },
@@ -117,7 +93,7 @@ export async function checkThreadRadio(context: IntegrationsContext, portId: str
  * @throws {ConflictError} When a setup runs, or the server cannot run Thread.
  */
 export async function setUpThread(context: IntegrationsContext, request: object) {
-  return askThread(context, HUB_THREAD_SETUP_METHOD, request, threadStatusSchema, OTBR_TIMEOUT_MS);
+  return askHub(context, HUB_THREAD_SETUP_METHOD, request, threadStatusSchema, OTBR_TIMEOUT_MS);
 }
 
 /**
@@ -128,7 +104,7 @@ export async function setUpThread(context: IntegrationsContext, request: object)
  * @returns Where the broker stands then.
  */
 export async function saveThreadSettings(context: IntegrationsContext, request: object) {
-  return askThread(
+  return askHub(
     context,
     HUB_THREAD_SETTINGS_METHOD,
     request,
@@ -145,13 +121,7 @@ export async function saveThreadSettings(context: IntegrationsContext, request: 
  * @returns Where the broker stands then.
  */
 export async function joinThread(context: IntegrationsContext, request: object) {
-  return askThread(
-    context,
-    HUB_THREAD_JOIN_METHOD,
-    request,
-    threadStatusSchema,
-    SERVICE_TIMEOUT_MS,
-  );
+  return askHub(context, HUB_THREAD_JOIN_METHOD, request, threadStatusSchema, SERVICE_TIMEOUT_MS);
 }
 
 /**
@@ -162,7 +132,7 @@ export async function joinThread(context: IntegrationsContext, request: object) 
  * @throws {ConflictError} For an external border router.
  */
 export async function restartThread(context: IntegrationsContext) {
-  return askThread(context, HUB_THREAD_RESTART_METHOD, {}, threadStatusSchema, SERVICE_TIMEOUT_MS);
+  return askHub(context, HUB_THREAD_RESTART_METHOD, {}, threadStatusSchema, SERVICE_TIMEOUT_MS);
 }
 
 /**
@@ -172,13 +142,7 @@ export async function restartThread(context: IntegrationsContext) {
  * @returns Whether there was one.
  */
 export async function removeThread(context: IntegrationsContext) {
-  return askThread(
-    context,
-    HUB_THREAD_REMOVE_METHOD,
-    {},
-    threadRemoveReplySchema,
-    SERVICE_TIMEOUT_MS,
-  );
+  return askHub(context, HUB_THREAD_REMOVE_METHOD, {}, threadRemoveReplySchema, SERVICE_TIMEOUT_MS);
 }
 
 /**
@@ -188,7 +152,7 @@ export async function removeThread(context: IntegrationsContext) {
  * @returns It.
  */
 export async function threadNetworkKey(context: IntegrationsContext) {
-  return askThread(
+  return askHub(
     context,
     HUB_THREAD_NETWORK_KEY_METHOD,
     {},
@@ -204,7 +168,7 @@ export async function threadNetworkKey(context: IntegrationsContext) {
  * @returns It, as TLV hex.
  */
 export async function threadDataset(context: IntegrationsContext) {
-  return askThread(
+  return askHub(
     context,
     HUB_THREAD_DATASET_METHOD,
     {},
@@ -220,7 +184,7 @@ export async function threadDataset(context: IntegrationsContext) {
  * @returns Them, this server's first.
  */
 export async function threadBorderRouters(context: IntegrationsContext) {
-  return askThread(
+  return askHub(
     context,
     HUB_THREAD_BORDER_ROUTERS_METHOD,
     {},
@@ -236,7 +200,7 @@ export async function threadBorderRouters(context: IntegrationsContext) {
  * @returns Them, the house's devices first.
  */
 export async function threadDevices(context: IntegrationsContext) {
-  return askThread(
+  return askHub(
     context,
     HUB_THREAD_DEVICES_METHOD,
     {},

@@ -16,7 +16,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { entityViewSchema, tagViewSchema, type TagView } from '@nebulahome/contracts';
-import { createDatabase, schema } from '@nebulahome/db';
+import { createDatabase, isUniqueViolation, schema } from '@nebulahome/db';
 
 import { createIconStore } from '@/services/icons.js';
 import { bearer, buildTestServer, entitiesSynced, stopHub } from '@/testing/hub-harness.js';
@@ -155,6 +155,20 @@ describe('a tag, from creation to removal', () => {
 
     expect(twin.key).toBe(`${tag.key}_2`);
     expect((await call('DELETE', `/tags/${twin.id}`)).status).toBe(204);
+  });
+
+  it('is refused by the database as a duplicate in a way a conflict is told from', async () => {
+    // Two saves racing past the free-key lookup meet the unique index, and drizzle wraps what
+    // the driver throws: the check has to look through the wrapping, or the race is a 500.
+    const refused: unknown = await database.db
+      .insert(schema.registry.tags)
+      .values({ key: tag.key, name: 'Twin', color: 'red' })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+
+    expect(isUniqueViolation(refused)).toBe(true);
   });
 
   it('goes on a device through the device change, and the view lists it', async () => {

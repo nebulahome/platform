@@ -27,7 +27,6 @@ import {
   busSubjects,
   catalogueReplySchema,
   ConflictError,
-  DeviceUnavailableError,
   HUB_CATALOGUE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
@@ -58,6 +57,7 @@ import { maskSealed, schema, sealSecrets, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import { listAccountViews, requireVendorAccount } from './accounts.js';
+import { requireBus } from './ask-service.js';
 import { containerStatusesOf } from './containers.js';
 
 /** The two documents a configuration is made of. */
@@ -386,13 +386,7 @@ export function driverIdOf(kind: string): string {
  * without the hub: it holds the bundles, and the bundles hold the shape of what is being written.
  */
 export function busOf(context: IntegrationsContext): BusClient {
-  if (context.bus === undefined) {
-    throw new DeviceUnavailableError('The message bus is not reachable', {
-      details: { dependency: 'bus' },
-    });
-  }
-
-  return context.bus;
+  return requireBus(context, { dependency: 'bus' });
 }
 
 /**

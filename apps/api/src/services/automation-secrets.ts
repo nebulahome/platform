@@ -12,7 +12,7 @@
  */
 import { createHash } from 'node:crypto';
 
-import { ValidationError } from '@nebulahome/contracts';
+import { isRecord, ValidationError } from '@nebulahome/contracts';
 import { isSealed, schema, sealSecret, type Database, type SealedValue } from '@nebulahome/db';
 
 /**
@@ -23,16 +23,6 @@ import { isSealed, schema, sealSecret, type Database, type SealedValue } from '@
  */
 function refOf(sealed: string): string {
   return createHash('sha256').update(sealed).digest('hex').slice(0, 16);
-}
-
-/**
- * Whether a value is a JSON object.
- *
- * @param value - Anything.
- * @returns True for an object that is not an array.
- */
-function isObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 /**
@@ -47,7 +37,7 @@ function mapJson(node: unknown, visit: (object: Record<string, unknown>) => unkn
     return node.map((child) => mapJson(child, visit));
   }
 
-  if (!isObject(node)) {
+  if (!isRecord(node)) {
     return node;
   }
 
@@ -137,7 +127,7 @@ export async function sealSecrets<T>(db: Database, definition: T, key: Buffer): 
       return {
         ...object,
         headers: object['headers'].map((header: unknown) =>
-          isObject(header) &&
+          isRecord(header) &&
           typeof header['name'] === 'string' &&
           header['name'].toLowerCase() === 'authorization' &&
           typeof header['value'] === 'string' &&

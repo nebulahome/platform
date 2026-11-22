@@ -23,6 +23,7 @@ import {
   WS_MAX_CLIENT_MESSAGE_BYTES,
   WS_MAX_PACKAGE_TOPICS,
   wsClientMessageSchema,
+  type GrantedPermission,
   type Identity,
   type PackageLiveInbox,
   type WsClientMessage,
@@ -203,6 +204,86 @@ export function narrowReadable(
     : new Set([...permitted].filter((entityId) => requested.has(entityId)));
 }
 
+/** Each message's text, once it has been written for one socket. */
+const serialized = new WeakMap<WsServerMessage, string>();
+
+/**
+ * The text a message goes out as, written once however many sockets it goes to: one state change
+ * fanned out to a hundred sockets is one `JSON.stringify`, not a hundred. Nothing changes a
+ * message once it has been sent.
+ *
+ * @param message - The message.
+ * @returns Its JSON.
+ */
+export function serializeMessage(message: WsServerMessage): string {
+  const known = serialized.get(message);
+
+  if (known !== undefined) {
+    return known;
+  }
+
+  const text = JSON.stringify(message);
+
+  serialized.set(message, text);
+
+  return text;
+}
+
+/**
+ * The same text for two sets of grants that are the same grants in any order, and a different
+ * one for any two that are not: what decides which entities an identity may read.
+ *
+ * @param permissions - The grants.
+ * @returns The text.
+ */
+export function grantsKey(permissions: readonly GrantedPermission[]): string {
+  return JSON.stringify(
+    [
+      ...new Set(
+        permissions.map((grant) => JSON.stringify([grant.effect, grant.key, grant.scope])),
+      ),
+    ].sort(),
+  );
+}
+
+/**
+ * Shares one read of the entities a set of grants may read among the sockets that ask for it in
+ * the same turn of the event loop. A registry change tells every socket at once, and each would
+ * otherwise read every entity of the house again, the same rows for each socket with the same
+ * grants.
+ *
+ * Shared only until the microtasks of the turn it was asked in run. A query is sent once it is
+ * awaited, which is after that turn's synchronous work, so every socket that shares a read asked
+ * for it before its query left - after whatever change made it ask. One that asks later starts
+ * its own.
+ *
+ * @param read - Reads the entities one identity may read.
+ * @returns What reads them, sharing a read asked for with the same grants in the same turn.
+ */
+export function sharedReads(
+  read: (identity: Identity) => Promise<Set<string>>,
+): (identity: Identity) => Promise<Set<string>> {
+  const pending = new Map<string, Promise<Set<string>>>();
+
+  return (identity: Identity): Promise<Set<string>> => {
+    const key = grantsKey(identity.permissions);
+    const shared = pending.get(key);
+
+    if (shared !== undefined) {
+      return shared;
+    }
+
+    const started = read(identity);
+
+    pending.set(key, started);
+    queueMicrotask(() => {
+      pending.delete(key);
+    });
+
+    return started;
+  };
+}
+
 /**
  * Runs a task one at a time: asked again while it runs, it runs once more afterwards, however
  * many times it was asked, so the last run always starts after the last request.
@@ -290,6 +371,8 @@ export function registerWebSocket(
   context: ApiContext,
   basePath: string,
 ): void {
+  const readReadable = sharedReads(async (identity) => readableEntityIds(context.db, identity));
+
   server.get(
     `${basePath}/ws`,
     { websocket: true },
@@ -318,8 +401,23 @@ export function registerWebSocket(
        * @param message - What to send.
        */
       const send = (message: WsServerMessage): void => {
-        socket.send(JSON.stringify(message));
+        socket.send(serializeMessage(message));
       };
+
+      // Set by the close handler. Authenticating awaits more than once before the socket joins
+      // the fan-out, and a socket closed meanwhile must not join it: nothing would remove it.
+      let isClosed = false;
+
+      /**
+       * Says whether the socket has closed, read again after each await as a variable narrowed
+       * before it would not be.
+       *
+       * @returns True once the close handler has run.
+       */
+      const hasClosed = (): boolean => isClosed;
+      // Set before the first await of an authentication, so a second one sent meanwhile is
+      // refused rather than joining the fan-out a second time.
+      let isAuthenticating = false;
 
       /**
        * Decides again which entities this socket may hear about.
@@ -337,7 +435,7 @@ export function registerWebSocket(
           return;
         }
 
-        state.permitted = await readableEntityIds(context.db, state.identity);
+        state.permitted = await readReadable(state.identity);
         state.readable = narrowReadable(state.permitted, state.requested);
       };
 
@@ -363,6 +461,7 @@ export function registerWebSocket(
       let expiryTimer: NodeJS.Timeout | undefined;
 
       socket.on('close', () => {
+        isClosed = true;
         clearTimeout(authTimer);
         clearInterval(heartbeat);
 
@@ -411,18 +510,34 @@ export function registerWebSocket(
           }
 
           if (message.data.type === 'authenticate') {
-            if (state.identity !== undefined) {
+            if (state.identity !== undefined || isAuthenticating) {
               send({ type: 'error', code: 'CONFLICT', message: 'Already authenticated' });
 
               return;
             }
 
+            isAuthenticating = true;
+
             try {
               const claims = await verifyAccessToken(message.data.accessToken, context.jwtSecret);
+
+              if (hasClosed()) {
+                return;
+              }
+
               const identity = await context.authenticator.authenticate(message.data.accessToken);
 
+              if (hasClosed()) {
+                return;
+              }
+
               state.identity = identity;
-              state.permitted = await readableEntityIds(context.db, identity);
+              state.permitted = await readReadable(identity);
+
+              if (hasClosed()) {
+                return;
+              }
+
               state.readable = narrowReadable(state.permitted, state.requested);
               clearTimeout(authTimer);
 

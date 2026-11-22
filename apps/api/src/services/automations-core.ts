@@ -23,7 +23,6 @@ import {
   CORE_SYNC_HOUSE_METHOD,
   CORE_TEST_AUTOMATION_BLOCK_METHOD,
   CORE_TRIGGER_AUTOMATION_METHOD,
-  DeviceUnavailableError,
   removeAutomationReplySchema,
   syncAutomationReplySchema,
   syncHouseReplySchema,
@@ -34,6 +33,7 @@ import {
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
+import { requireBus } from './ask-service.js';
 import { askCore } from './core-retry.js';
 
 /** What a request to `core` needs. */
@@ -138,13 +138,7 @@ export async function triggerAutomationOnCore(
   automationId: string,
   userId: string,
 ): Promise<TriggerAutomationReply> {
-  if (link.bus === undefined) {
-    throw new DeviceUnavailableError('The message bus is not reachable', {
-      details: { automationId },
-    });
-  }
-
-  return link.bus.request(
+  return requireBus(link, { automationId }).request(
     busSubjects.service(CORE_SERVICE, CORE_TRIGGER_AUTOMATION_METHOD),
     { automationId, userId },
     triggerAutomationReplySchema,
@@ -198,13 +192,7 @@ export async function testBlockOnCore(
   request: AutomationTestRequest,
   userId: string,
 ): Promise<AutomationTestReply> {
-  if (link.bus === undefined) {
-    throw new DeviceUnavailableError('The message bus is not reachable', {
-      details: { testId: request.testId },
-    });
-  }
-
-  return link.bus.request(
+  return requireBus(link, { testId: request.testId }).request(
     busSubjects.service(CORE_SERVICE, CORE_TEST_AUTOMATION_BLOCK_METHOD),
     { ...request, userId },
     automationTestReplySchema,
@@ -221,13 +209,7 @@ export async function testBlockOnCore(
  * @throws {DeviceUnavailableError} When the bus is not reachable.
  */
 export async function cancelTestOnCore(link: CoreLink, testId: string): Promise<boolean> {
-  if (link.bus === undefined) {
-    throw new DeviceUnavailableError('The message bus is not reachable', {
-      details: { testId },
-    });
-  }
-
-  const reply = await link.bus.request(
+  const reply = await requireBus(link, { testId }).request(
     busSubjects.service(CORE_SERVICE, CORE_CANCEL_AUTOMATION_TEST_METHOD),
     { testId },
     cancelAutomationTestReplySchema,

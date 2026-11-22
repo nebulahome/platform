@@ -24,10 +24,10 @@ import {
   type TagUpdate,
   type TagView,
 } from '@nebulahome/contracts';
-import { schema, type Database } from '@nebulahome/db';
+import { isUniqueViolation, schema, type Database } from '@nebulahome/db';
 
 import { checkIcon, type IconLookup } from './icon-lookup.js';
-import { chooseFreeKey, isUniqueViolation, keyPrefixOf } from './keys.js';
+import { chooseFreeKey, keyPrefixOf } from './keys.js';
 
 /** What a database handle or a transaction inside one can do, as far as this file needs. */
 type Writer = Pick<Database, 'select' | 'insert' | 'delete' | 'update'>;
@@ -379,20 +379,37 @@ export async function tagIdsOfDevices(
 }
 
 /**
- * Reads the tags on one device by its row, for the one device no instance names: the system
- * device, which {@link tagIdsOfDevices} cannot find by an integration id it does not have.
+ * Reads the tags on some devices by their rows, for the devices no instance names: the system
+ * device, the containers', the packages' and the virtual ones, which {@link tagIdsOfDevices}
+ * cannot find by an integration id they do not have.
  *
  * @param db - The database.
- * @param deviceRowId - The device's row.
- * @returns Its tag ids, in key order.
+ * @param deviceRowIds - The devices' rows.
+ * @returns Each device's tag ids, in key order; a device with none is absent.
  */
-export async function tagIdsOfDeviceRow(db: Database, deviceRowId: string): Promise<string[]> {
+export async function tagIdsOfDeviceRows(
+  db: Database,
+  deviceRowIds: readonly string[],
+): Promise<Map<string, string[]>> {
+  const byDevice = new Map<string, string[]>();
+
+  if (deviceRowIds.length === 0) {
+    return byDevice;
+  }
+
   const rows = await db
-    .select({ tagId: schema.registry.deviceTags.tagId })
+    .select({
+      deviceId: schema.registry.deviceTags.deviceId,
+      tagId: schema.registry.deviceTags.tagId,
+    })
     .from(schema.registry.deviceTags)
     .innerJoin(schema.registry.tags, eq(schema.registry.tags.id, schema.registry.deviceTags.tagId))
-    .where(eq(schema.registry.deviceTags.deviceId, deviceRowId))
+    .where(inArray(schema.registry.deviceTags.deviceId, [...deviceRowIds]))
     .orderBy(asc(schema.registry.tags.key));
 
-  return rows.map((row) => row.tagId);
+  for (const row of rows) {
+    byDevice.set(row.deviceId, [...(byDevice.get(row.deviceId) ?? []), row.tagId]);
+  }
+
+  return byDevice;
 }

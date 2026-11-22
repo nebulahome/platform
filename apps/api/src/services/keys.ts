@@ -7,9 +7,6 @@
  * CHECK, so the one derivation and the one way of numbering serve both.
  */
 
-/** What Postgres says when a unique index refuses a row. */
-const UNIQUE_VIOLATION = '23505';
-
 /** How long a key may be: the CHECK on both tables. */
 const KEY_MAXIMUM_LENGTH = 64;
 
@@ -28,21 +25,6 @@ const SUFFIX_ROOM = 5;
  */
 export function keyPrefixOf(base: string): string {
   return base.slice(0, KEY_MAXIMUM_LENGTH - SUFFIX_ROOM);
-}
-
-/**
- * Whether an error is Postgres refusing a duplicate.
- *
- * @param error - What was thrown.
- * @returns True for a unique violation.
- */
-export function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    error.code === UNIQUE_VIOLATION
-  );
 }
 
 /**

@@ -10,7 +10,6 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 import {
-  DeviceUnavailableError,
   IDEMPOTENCY_KEY_HEADER,
   NotFoundError,
   ValidationError,
@@ -33,6 +32,7 @@ import { requirePermission } from '../auth/permissions.js';
 import type { ApiContext } from '../context.js';
 import { IdempotencyStore } from '../http/idempotency.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
+import { requireBus } from '../services/ask-service.js';
 import { auditOrigin } from '../services/audit.js';
 import { isAuditedCapability, sendCommand } from '../services/commands.js';
 import {
@@ -287,13 +287,7 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
         );
       }
 
-      const { bus } = context;
-
-      if (bus === undefined) {
-        throw new DeviceUnavailableError('The message bus is not reachable', {
-          details: { entityId: route.params.entityId },
-        });
-      }
+      const bus = requireBus(context, { entityId: route.params.entityId });
 
       const header = route.request.headers[IDEMPOTENCY_KEY_HEADER];
       const idempotencyKey = (Array.isArray(header) ? header[0] : header) ?? null;

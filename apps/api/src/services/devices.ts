@@ -67,7 +67,13 @@ import {
   type IntegrationVendor,
   type JsonObject,
 } from '@nebulahome/contracts';
-import { deviceWithIdentity, isSealed, lockDeviceIdentity, schema } from '@nebulahome/db';
+import {
+  deviceWithIdentity,
+  isSealed,
+  isUniqueViolation,
+  lockDeviceIdentity,
+  schema,
+} from '@nebulahome/db';
 
 import { checkRoom } from './areas.js';
 import { checkIcon, type IconLookup } from './icon-lookup.js';
@@ -91,9 +97,8 @@ import {
   type IntegrationsContext,
   type SetupValues,
 } from './integrations.js';
-import { isUniqueViolation } from './keys.js';
 import { suggestedLinksOf, syncLinksOnCore } from './links.js';
-import { assertTagsExist, replaceDeviceTags, tagIdsOfDeviceRow, tagIdsOfDevices } from './tags.js';
+import { assertTagsExist, replaceDeviceTags, tagIdsOfDeviceRows, tagIdsOfDevices } from './tags.js';
 
 /** What the device paths need. */
 export type DevicesContext = IntegrationsContext & {
@@ -246,16 +251,19 @@ export function toDeviceView(
   });
 }
 
+/** A device's two halves as they join, before the last time one of its entities reported. */
+type JoinedRow = Omit<DeviceRow, 'lastUpdatedAt'>;
+
 /**
- * Every device, both halves joined, with the last time one of its entities reported.
+ * Every device an integration reaches, both halves joined.
  *
  * @param context - The request's collaborators.
  * @returns The rows, by name.
  */
-async function deviceRows(context: DevicesContext): Promise<DeviceRow[]> {
-  const { integrations, devices, areas, entities, entityStates } = schema.registry;
+async function joinedRows(context: DevicesContext): Promise<JoinedRow[]> {
+  const { integrations, devices, areas } = schema.registry;
 
-  const rows = await context.db
+  return context.db
     .select({
       id: integrations.id,
       kind: integrations.kind,
@@ -290,9 +298,23 @@ async function deviceRows(context: DevicesContext): Promise<DeviceRow[]> {
     .leftJoin(devices, eq(devices.integrationId, integrations.id))
     .leftJoin(areas, eq(areas.id, devices.areaId))
     .orderBy(asc(devices.name), asc(integrations.id));
+}
 
-  if (rows.length === 0) {
-    return [];
+/**
+ * The last time one of each of some devices' entities reported.
+ *
+ * @param context - The request's collaborators.
+ * @param ids - Which devices.
+ * @returns Each device's last report; a device none of whose entities has reported is absent.
+ */
+async function lastUpdatedOf(
+  context: DevicesContext,
+  ids: readonly string[],
+): Promise<Map<string | null, Date | null>> {
+  const { entities, entityStates } = schema.registry;
+
+  if (ids.length === 0) {
+    return new Map();
   }
 
   const updated = await context.db
@@ -306,14 +328,25 @@ async function deviceRows(context: DevicesContext): Promise<DeviceRow[]> {
     })
     .from(entities)
     .innerJoin(entityStates, eq(entityStates.entityId, entities.id))
-    .where(
-      inArray(
-        entities.integrationId,
-        rows.map((row) => row.id),
-      ),
-    )
+    .where(inArray(entities.integrationId, [...ids]))
     .groupBy(entities.integrationId);
-  const updatedBy = new Map(updated.map((row) => [row.integrationId, row.lastUpdatedAt]));
+
+  return new Map(updated.map((row) => [row.integrationId, row.lastUpdatedAt]));
+}
+
+/**
+ * Every device an integration reaches, both halves joined, with the last time one of its
+ * entities reported.
+ *
+ * @param context - The request's collaborators.
+ * @returns The rows, by name.
+ */
+async function deviceRows(context: DevicesContext): Promise<DeviceRow[]> {
+  const rows = await joinedRows(context);
+  const updatedBy = await lastUpdatedOf(
+    context,
+    rows.map((row) => row.id),
+  );
 
   return rows.map((row) => ({ ...row, lastUpdatedAt: updatedBy.get(row.id) ?? null }));
 }
@@ -379,23 +412,17 @@ async function entityIdsOf(
 }
 
 /**
- * The devices the platform keeps for itself - the system device and one per container of the
- * host - and those a package keeps (PACKAGES.md 6), read from their rows and given their fixed
- * connection half.
- *
- * `running` because the view's state is the instance's, and there is no instance to be
- * anything else; whether the machine, the container or the package is being heard from is what
- * `lastUpdatedAt` and the entities' own availability say, the same as for any device.
+ * The rows of the devices the platform keeps for itself - the system device, one per container
+ * of the host, the virtual ones - and those a package keeps (PACKAGES.md 6).
  *
  * @param context - The request's collaborators.
- * @returns The views, the system device first, then the packages', then the containers'; none
- * of any before `core` has written them.
+ * @returns The rows, in no order; none before `core` has written them.
  */
-async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[]> {
-  const { devices, areas, entities, entityStates } = schema.registry;
+async function platformRows(context: DevicesContext) {
+  const { devices, areas } = schema.registry;
   const { packages } = schema.system;
 
-  const rows = await context.db
+  return context.db
     .select({
       rowId: devices.id,
       source: devices.source,
@@ -425,45 +452,80 @@ async function platformDeviceViews(context: DevicesContext): Promise<DeviceView[
         ),
       ),
     );
+}
 
-  const views = await Promise.all(
-    rows.map(async (row) => {
-      const [entityRows, [updated], tagIds] = await Promise.all([
-        context.db
-          .select({ entityId: entities.entityId })
-          .from(entities)
-          .where(eq(entities.deviceId, row.rowId))
-          .orderBy(asc(entities.entityId)),
-        context.db
-          .select({ lastUpdatedAt: max(entityStates.lastUpdated) })
-          .from(entities)
-          .innerJoin(entityStates, eq(entityStates.entityId, entities.id))
-          .where(eq(entities.deviceId, row.rowId)),
-        tagIdsOfDeviceRow(context.db, row.rowId),
-      ]);
+/** A device the platform or a package keeps, as its row reads. */
+type PlatformRow = Awaited<ReturnType<typeof platformRows>>[number];
 
-      return deviceViewSchema.parse({
-        ...platformHalfOf(row),
-        name: row.name,
-        icon: row.icon,
-        model: row.model,
-        transportConfig: {},
-        options: {},
-        isEnabled: true,
-        state: 'running',
-        lastError: null,
-        lastStartedAt: null,
-        lastUpdatedAt: updated?.lastUpdatedAt ?? null,
-        externalId: row.externalId,
-        manufacturer: row.manufacturer,
-        swVersion: row.swVersion,
-        hwVersion: row.hwVersion,
-        areaId: row.areaId,
-        areaKey: row.areaKey,
-        areaName: row.areaName,
-        entityIds: entityRows.map((entity) => entity.entityId),
-        tagIds,
-      });
+/**
+ * The devices the platform or a package keeps, given their fixed connection half, with their
+ * entities, tags and last report read for all of them at once.
+ *
+ * `running` because the view's state is the instance's, and there is no instance to be
+ * anything else; whether the machine, the container or the package is being heard from is what
+ * `lastUpdatedAt` and the entities' own availability say, the same as for any device.
+ *
+ * @param context - The request's collaborators.
+ * @param rows - Their rows.
+ * @returns The views, the system device first, then the packages', then the virtual ones, then
+ * the containers'.
+ */
+async function platformDeviceViews(
+  context: DevicesContext,
+  rows: readonly PlatformRow[],
+): Promise<DeviceView[]> {
+  const { entities, entityStates } = schema.registry;
+  const rowIds = rows.map((row) => row.rowId);
+
+  if (rowIds.length === 0) {
+    return [];
+  }
+
+  const [entityRows, updated, tagIds] = await Promise.all([
+    context.db
+      .select({ deviceId: entities.deviceId, entityId: entities.entityId })
+      .from(entities)
+      .where(inArray(entities.deviceId, rowIds))
+      .orderBy(asc(entities.entityId)),
+    context.db
+      .select({ deviceId: entities.deviceId, lastUpdatedAt: max(entityStates.lastUpdated) })
+      .from(entities)
+      .innerJoin(entityStates, eq(entityStates.entityId, entities.id))
+      .where(inArray(entities.deviceId, rowIds))
+      .groupBy(entities.deviceId),
+    tagIdsOfDeviceRows(context.db, rowIds),
+  ]);
+  const entityIds = new Map<string, string[]>();
+
+  for (const entity of entityRows) {
+    if (entity.deviceId !== null) {
+      entityIds.set(entity.deviceId, [...(entityIds.get(entity.deviceId) ?? []), entity.entityId]);
+    }
+  }
+
+  const updatedBy = new Map(updated.map((row) => [row.deviceId, row.lastUpdatedAt]));
+  const views = rows.map((row) =>
+    deviceViewSchema.parse({
+      ...platformHalfOf(row),
+      name: row.name,
+      icon: row.icon,
+      model: row.model,
+      transportConfig: {},
+      options: {},
+      isEnabled: true,
+      state: 'running',
+      lastError: null,
+      lastStartedAt: null,
+      lastUpdatedAt: updatedBy.get(row.rowId) ?? null,
+      externalId: row.externalId,
+      manufacturer: row.manufacturer,
+      swVersion: row.swVersion,
+      hwVersion: row.hwVersion,
+      areaId: row.areaId,
+      areaKey: row.areaKey,
+      areaName: row.areaName,
+      entityIds: entityIds.get(row.rowId) ?? [],
+      tagIds: tagIds.get(row.rowId) ?? [],
     }),
   );
   const order: Readonly<Record<string, number>> = {
@@ -598,7 +660,7 @@ export type DeviceFamily = {
  * @param rows - The devices, by name: the parts of each come in that order.
  * @returns Each listed device's parent and parts, by id; absent for one with neither.
  */
-export function familiesOf(rows: readonly DeviceRow[]): Map<string, DeviceFamily> {
+export function familiesOf(rows: readonly JoinedRow[]): Map<string, DeviceFamily> {
   const byRow = new Map(rows.flatMap((row) => (row.rowId === null ? [] : [[row.rowId, row]])));
   /**
    * The device the house lists a row as: the one it is linked to, for one way into another.
@@ -606,7 +668,7 @@ export function familiesOf(rows: readonly DeviceRow[]): Map<string, DeviceFamily
    * @param row - The row.
    * @returns The listed device's id.
    */
-  const listedAs = (row: DeviceRow): string =>
+  const listedAs = (row: JoinedRow): string =>
     row.linkedTo === null ? row.id : (byRow.get(row.linkedTo)?.id ?? row.id);
   const byIdentity = new Map(
     rows.flatMap((row) =>
@@ -661,20 +723,42 @@ export function familiesOf(rows: readonly DeviceRow[]): Map<string, DeviceFamily
  * host's containers.
  */
 export async function listDevices(context: DevicesContext): Promise<DeviceView[]> {
+  // The platform's own devices are read beside the rest, not after them: they need none of it.
   const [rows, catalogue, platform] = await Promise.all([
     deviceRows(context),
     catalogueIfUp(context),
-    platformDeviceViews(context),
+    platformRows(context).then(async (found) => platformDeviceViews(context, found)),
   ]);
   const ids = rows.map((row) => row.id);
   const [entityIds, tagIds] = await Promise.all([
     entityIdsOf(context, ids),
     tagIdsOfDevices(context.db, ids),
   ]);
-
-  // One more way into another device is listed as that device, and only as it.
-  const others = new Map<string, DeviceRow[]>();
+  const others = waysByRow(rows);
   const families = familiesOf(rows);
+
+  return [
+    ...platform.filter((device) => device.origin === 'system'),
+    ...rows
+      .filter((row) => row.linkedTo === null)
+      .map((row) =>
+        listedView(row, waysInto(others, row), { catalogue, entityIds, tagIds, families }),
+      ),
+    ...platform.filter((device) => device.origin === 'package'),
+    ...platform.filter((device) => device.origin === 'virtual'),
+    ...platform.filter((device) => device.origin === 'container'),
+  ];
+}
+
+/**
+ * The other ways into each device reached more than one way: one more way into another device is
+ * listed as that device, and only as it.
+ *
+ * @param rows - Every device an integration reaches, by name.
+ * @returns The ways into each, by the identity row they are linked to, in the order of the rows.
+ */
+function waysByRow<TRow extends JoinedRow>(rows: readonly TRow[]): Map<string, TRow[]> {
+  const others = new Map<string, TRow[]>();
 
   for (const row of rows) {
     if (row.linkedTo !== null) {
@@ -682,29 +766,118 @@ export async function listDevices(context: DevicesContext): Promise<DeviceView[]
     }
   }
 
-  return [
-    ...platform.filter((device) => device.origin === 'system'),
-    ...rows
-      .filter((row) => row.linkedTo === null)
-      .map((row) => {
-        const ways = row.rowId === null ? [] : (others.get(row.rowId) ?? []);
+  return others;
+}
 
-        return {
-          ...toDeviceView(
-            row,
-            catalogue,
-            [row, ...ways].flatMap((way) => entityIds.get(way.id) ?? []).sort(),
-            tagIds.get(row.id) ?? [],
-            ways,
-          ),
-          parentId: families.get(row.id)?.parentId ?? null,
-          childIds: [...(families.get(row.id)?.childIds ?? [])],
-        };
-      }),
-    ...platform.filter((device) => device.origin === 'package'),
-    ...platform.filter((device) => device.origin === 'virtual'),
-    ...platform.filter((device) => device.origin === 'container'),
-  ];
+/**
+ * The other ways into one device.
+ *
+ * @param others - The ways into each device, from {@link waysByRow}.
+ * @param row - The device.
+ * @returns Its other ways in; none for a device reached one way.
+ */
+function waysInto<TRow extends JoinedRow>(
+  others: ReadonlyMap<string, TRow[]>,
+  row: JoinedRow,
+): TRow[] {
+  return row.rowId === null ? [] : (others.get(row.rowId) ?? []);
+}
+
+/**
+ * One device an integration reaches, as the list shows it.
+ *
+ * @param row - Its row.
+ * @param ways - The other ways into it.
+ * @param read - What was read for it.
+ * @param read.catalogue - What the hub has loaded, for the driver's name; may be empty.
+ * @param read.entityIds - The entities of it and of each way into it, by device.
+ * @param read.tagIds - Its tags, by device.
+ * @param read.families - Where each device stands among the parts of one piece of hardware.
+ * @returns The view.
+ */
+function listedView(
+  row: DeviceRow,
+  ways: readonly DeviceRow[],
+  read: {
+    readonly catalogue: readonly IntegrationVendor[];
+    readonly entityIds: ReadonlyMap<string, readonly string[]>;
+    readonly tagIds: ReadonlyMap<string, readonly string[]>;
+    readonly families: ReadonlyMap<string, DeviceFamily>;
+  },
+): DeviceView {
+  const family = read.families.get(row.id);
+
+  return {
+    ...toDeviceView(
+      row,
+      read.catalogue,
+      [row, ...ways].flatMap((way) => read.entityIds.get(way.id) ?? []).sort(),
+      read.tagIds.get(row.id) ?? [],
+      ways,
+    ),
+    parentId: family?.parentId ?? null,
+    childIds: [...(family?.childIds ?? [])],
+  };
+}
+
+/**
+ * The device {@link listDevices} lists first under an id, or with a way into it under that id,
+ * without reading every other device's entities, tags and last report.
+ *
+ * Every integration's rows are still read, though none of their entities: which device another
+ * is part of goes by the vendor and the hardware's id across all of them ({@link familiesOf}).
+ *
+ * @param context - The request's collaborators.
+ * @param id - Which one.
+ * @returns The device, or undefined when none has that id.
+ */
+async function findDevice(context: DevicesContext, id: string): Promise<DeviceView | undefined> {
+  const [rows, platformFound] = await Promise.all([joinedRows(context), platformRows(context)]);
+  const named = platformFound.filter((row) => platformHalfOf(row).id === id);
+  // In the list's order: the system device before every other, the rest after the integrations'.
+  const [platform] = named.length === 0 ? [] : await platformDeviceViews(context, named);
+
+  if (platform?.origin === 'system') {
+    return platform;
+  }
+
+  const others = waysByRow(rows);
+  const listed = rows.find(
+    (row) =>
+      row.linkedTo === null &&
+      (row.id === id || waysInto(others, row).some((way) => way.id === id)),
+  );
+
+  if (listed === undefined) {
+    return platform;
+  }
+
+  const ways = waysInto(others, listed);
+  const ids = [listed, ...ways].map((row) => row.id);
+  const [updatedBy, catalogue, entityIds, tagIds] = await Promise.all([
+    lastUpdatedOf(context, ids),
+    catalogueIfUp(context),
+    entityIdsOf(context, ids),
+    tagIdsOfDevices(context.db, [listed.id]),
+  ]);
+
+  /**
+   * A row with its last report.
+   *
+   * @param row - The row.
+   * @returns The row the view is made from.
+   */
+  const reported = (row: JoinedRow): DeviceRow => ({
+    ...row,
+    lastUpdatedAt: updatedBy.get(row.id) ?? null,
+  });
+
+  return listedView(reported(listed), ways.map(reported), {
+    catalogue,
+    entityIds,
+    tagIds,
+    families: familiesOf(rows),
+  });
 }
 
 /**
@@ -717,9 +890,7 @@ export async function listDevices(context: DevicesContext): Promise<DeviceView[]
  * @throws {NotFoundError} When no device has that id.
  */
 export async function readDevice(context: DevicesContext, id: string): Promise<DeviceView> {
-  const found = (await listDevices(context)).find(
-    (one) => one.id === id || (one.linked?.ways.some((way) => way.deviceId === id) ?? false),
-  );
+  const found = await findDevice(context, id);
 
   if (found === undefined) {
     throw new NotFoundError('No device has that id', { details: { id } });

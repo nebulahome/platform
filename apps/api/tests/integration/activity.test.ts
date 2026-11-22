@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDatabase, schema } from '@nebulahome/db';
 
+import { scopedActivityEntities } from '@/services/activity.js';
 import { bearer, buildTestServer, stopHub } from '@/testing/hub-harness.js';
 
 const DATABASE_URL = 'postgres://nebula:nebula@localhost:5432/nebula';
@@ -251,5 +252,55 @@ describe('the activity of a device', () => {
     });
 
     expect(response.statusCode).toBe(404);
+  });
+});
+
+describe('the activity of an area', () => {
+  /** Two rooms of the run's: the device's, and one the meter is put in of its own. */
+  const rooms = [`${instanceId.replaceAll('-', '_')}_a`, `${instanceId.replaceAll('-', '_')}_b`];
+
+  beforeAll(async () => {
+    const { areas, devices, entities } = schema.registry;
+    const made = await database.db
+      .insert(areas)
+      .values(rooms.map((key) => ({ key, name: key, kind: 'room' })))
+      .returning({ id: areas.id, key: areas.key });
+    const idOf = (key: string | undefined): string =>
+      made.find((area) => area.key === key)?.id ?? '';
+
+    await database.db
+      .update(devices)
+      .set({ areaId: idOf(rooms[0]) })
+      .where(eq(devices.integrationId, instanceId));
+    await database.db
+      .update(entities)
+      .set({ areaId: idOf(rooms[1]) })
+      .where(eq(entities.entityId, meterId));
+  });
+
+  afterAll(async () => {
+    await database.db
+      .delete(schema.registry.areas)
+      .where(inArray(schema.registry.areas.key, rooms));
+  });
+
+  it('follows the entities each area holds as their views place them, theirs or their device’s', async () => {
+    const all = await scopedActivityEntities(database.db, {});
+    const keys = await database.db
+      .select({ key: schema.registry.areas.key })
+      .from(schema.registry.areas);
+
+    for (const { key } of keys) {
+      expect(await scopedActivityEntities(database.db, { areaKey: key }), key).toEqual(
+        all.filter((entity) => entity.view.areaKey === key),
+      );
+    }
+
+    expect(
+      (await scopedActivityEntities(database.db, { areaKey: rooms[0] ?? '' })).map(
+        (entity) => entity.view.entityId,
+      ),
+    ).toEqual([relayId]);
+    expect(await scopedActivityEntities(database.db, { areaKey: 'no_such_area' })).toEqual([]);
   });
 });

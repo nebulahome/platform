@@ -5,8 +5,6 @@
  * house: the device is removed the way any device is - `hub` lets go, `core` deletes the rows -
  * and the broker forgets it with its instance.
  */
-import type { z } from 'zod';
-
 import {
   bluetoothAddReplySchema,
   bluetoothDevicesReplySchema,
@@ -35,13 +33,12 @@ import {
   HUB_BLUETOOTH_SCANNERS_METHOD,
   HUB_BLUETOOTH_SETTINGS_METHOD,
   HUB_BLUETOOTH_STATUS_METHOD,
-  HUB_SERVICE,
   NotFoundError,
   type BluetoothDevice,
   type BluetoothStatus,
 } from '@nebulahome/contracts';
 
-import { askService } from './ask-service.js';
+import { askHub } from './ask-service.js';
 import { deleteDevice, type DevicesContext, type RemovedDevice } from './devices.js';
 import type { IntegrationsContext } from './integrations.js';
 
@@ -58,34 +55,13 @@ const ADD_TIMEOUT_MS = 20_000;
 const PROXY_OP_TIMEOUT_MS = 15_000;
 
 /**
- * Asks the hub one of the broker's methods.
- *
- * @param context - The request's collaborators.
- * @param method - The method.
- * @param body - What it is asked.
- * @param schema - What the answer must be.
- * @param timeoutMs - How long the hub has; the service's usual wait unless the method needs more.
- * @returns The answer.
- * @throws {DeviceUnavailableError} When the hub cannot be asked.
- */
-export async function askBluetooth<TSchema extends z.ZodType>(
-  context: IntegrationsContext,
-  method: string,
-  body: object,
-  schema: TSchema,
-  timeoutMs = context.timeoutMs,
-): Promise<z.output<TSchema>> {
-  return askService(context, HUB_SERVICE, method, body, schema, timeoutMs);
-}
-
-/**
  * Where the broker stands.
  *
  * @param context - The request's collaborators.
  * @returns Its state.
  */
 export async function bluetoothStatus(context: IntegrationsContext): Promise<BluetoothStatus> {
-  return askBluetooth(context, HUB_BLUETOOTH_STATUS_METHOD, {}, bluetoothStatusSchema);
+  return askHub(context, HUB_BLUETOOTH_STATUS_METHOD, {}, bluetoothStatusSchema);
 }
 
 /**
@@ -99,7 +75,7 @@ export async function saveBluetoothSettings(
   context: IntegrationsContext,
   settings: object,
 ): Promise<BluetoothStatus> {
-  return askBluetooth(context, HUB_BLUETOOTH_SETTINGS_METHOD, settings, bluetoothStatusSchema);
+  return askHub(context, HUB_BLUETOOTH_SETTINGS_METHOD, settings, bluetoothStatusSchema);
 }
 
 /**
@@ -109,9 +85,8 @@ export async function saveBluetoothSettings(
  * @returns Them.
  */
 export async function bluetoothDevices(context: IntegrationsContext): Promise<BluetoothDevice[]> {
-  return (
-    await askBluetooth(context, HUB_BLUETOOTH_DEVICES_METHOD, {}, bluetoothDevicesReplySchema)
-  ).items;
+  return (await askHub(context, HUB_BLUETOOTH_DEVICES_METHOD, {}, bluetoothDevicesReplySchema))
+    .items;
 }
 
 /**
@@ -142,7 +117,7 @@ export async function removeBluetoothDevice(
  * @returns The map.
  */
 export async function bluetoothMap(context: IntegrationsContext) {
-  return askBluetooth(context, HUB_BLUETOOTH_MAP_METHOD, {}, bluetoothMapSchema);
+  return askHub(context, HUB_BLUETOOTH_MAP_METHOD, {}, bluetoothMapSchema);
 }
 
 /**
@@ -152,7 +127,7 @@ export async function bluetoothMap(context: IntegrationsContext) {
  * @returns It, the loudest first.
  */
 export async function bluetoothNearby(context: IntegrationsContext) {
-  return askBluetooth(context, HUB_BLUETOOTH_NEARBY_METHOD, {}, bluetoothNearbyReplySchema);
+  return askHub(context, HUB_BLUETOOTH_NEARBY_METHOD, {}, bluetoothNearbyReplySchema);
 }
 
 /**
@@ -163,7 +138,7 @@ export async function bluetoothNearby(context: IntegrationsContext) {
  * @returns Whether proxies forward everything now, and until when the lease holds.
  */
 export async function leaseBluetoothNearby(context: IntegrationsContext, request: object) {
-  return askBluetooth(
+  return askHub(
     context,
     HUB_BLUETOOTH_NEARBY_LEASE_METHOD,
     request,
@@ -178,7 +153,7 @@ export async function leaseBluetoothNearby(context: IntegrationsContext, request
  * @returns Both.
  */
 export async function bluetoothFound(context: IntegrationsContext) {
-  return askBluetooth(context, HUB_BLUETOOTH_FOUND_METHOD, {}, bluetoothFoundReplySchema);
+  return askHub(context, HUB_BLUETOOTH_FOUND_METHOD, {}, bluetoothFoundReplySchema);
 }
 
 /**
@@ -189,7 +164,7 @@ export async function bluetoothFound(context: IntegrationsContext) {
  * @returns How many are ignored.
  */
 export async function ignoreBluetooth(context: IntegrationsContext, request: object) {
-  return askBluetooth(context, HUB_BLUETOOTH_IGNORE_METHOD, request, bluetoothIgnoreReplySchema);
+  return askHub(context, HUB_BLUETOOTH_IGNORE_METHOD, request, bluetoothIgnoreReplySchema);
 }
 
 /**
@@ -201,7 +176,7 @@ export async function ignoreBluetooth(context: IntegrationsContext, request: obj
  * @throws {ConflictError} When the house has it, or it was not added in time.
  */
 export async function addBluetoothDevice(context: IntegrationsContext, request: object) {
-  return askBluetooth(
+  return askHub(
     context,
     HUB_BLUETOOTH_ADD_METHOD,
     request,
@@ -217,7 +192,7 @@ export async function addBluetoothDevice(context: IntegrationsContext, request: 
  * @returns Them, the adapter first.
  */
 export async function bluetoothScanners(context: IntegrationsContext) {
-  return askBluetooth(context, HUB_BLUETOOTH_SCANNERS_METHOD, {}, bluetoothScannersReplySchema);
+  return askHub(context, HUB_BLUETOOTH_SCANNERS_METHOD, {}, bluetoothScannersReplySchema);
 }
 
 /**
@@ -228,7 +203,7 @@ export async function bluetoothScanners(context: IntegrationsContext) {
  * @returns The candidates, those that can first.
  */
 export async function bluetoothProxyCandidates(context: IntegrationsContext, request: object) {
-  return askBluetooth(
+  return askHub(
     context,
     HUB_BLUETOOTH_PROXY_CANDIDATES_METHOD,
     request,
@@ -245,7 +220,7 @@ export async function bluetoothProxyCandidates(context: IntegrationsContext, req
  * @returns The job, running.
  */
 export async function addBluetoothProxy(context: IntegrationsContext, request: object) {
-  return askBluetooth(context, HUB_BLUETOOTH_PROXY_ADD_METHOD, request, bluetoothProxyJobSchema);
+  return askHub(context, HUB_BLUETOOTH_PROXY_ADD_METHOD, request, bluetoothProxyJobSchema);
 }
 
 /**
@@ -256,7 +231,7 @@ export async function addBluetoothProxy(context: IntegrationsContext, request: o
  * @returns It.
  */
 export async function bluetoothProxyJob(context: IntegrationsContext, jobId: string) {
-  return askBluetooth(context, HUB_BLUETOOTH_PROXY_JOB_METHOD, { jobId }, bluetoothProxyJobSchema);
+  return askHub(context, HUB_BLUETOOTH_PROXY_JOB_METHOD, { jobId }, bluetoothProxyJobSchema);
 }
 
 /**
@@ -267,12 +242,7 @@ export async function bluetoothProxyJob(context: IntegrationsContext, jobId: str
  * @returns The job, running.
  */
 export async function updateBluetoothProxy(context: IntegrationsContext, deviceId: string) {
-  return askBluetooth(
-    context,
-    HUB_BLUETOOTH_PROXY_UPDATE_METHOD,
-    { deviceId },
-    bluetoothProxyJobSchema,
-  );
+  return askHub(context, HUB_BLUETOOTH_PROXY_UPDATE_METHOD, { deviceId }, bluetoothProxyJobSchema);
 }
 
 /**
@@ -287,7 +257,7 @@ export async function removeBluetoothProxy(
   context: IntegrationsContext,
   deviceId: string,
 ): Promise<void> {
-  const reply = await askBluetooth(
+  const reply = await askHub(
     context,
     HUB_BLUETOOTH_PROXY_REMOVE_METHOD,
     { deviceId },

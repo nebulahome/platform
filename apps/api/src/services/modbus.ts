@@ -5,8 +5,6 @@
  * house: the device is removed the way any device is - `hub` lets go, `core` deletes the rows -
  * and then the broker forgets it.
  */
-import type { z } from 'zod';
-
 import {
   HUB_MODBUS_DEVICE_REMOVE_METHOD,
   HUB_MODBUS_DEVICE_SAVE_METHOD,
@@ -23,7 +21,6 @@ import {
   HUB_MODBUS_TEST_READ_METHOD,
   HUB_MODBUS_TEST_TEMPLATE_METHOD,
   HUB_MODBUS_TEST_WRITE_METHOD,
-  HUB_SERVICE,
   modbusDeviceSchema,
   modbusDevicesReplySchema,
   modbusFoundReplySchema,
@@ -46,29 +43,10 @@ import {
   type ModbusTemplateSaveRequest,
 } from '@nebulahome/contracts';
 
-import { askService } from './ask-service.js';
+import { askHub } from './ask-service.js';
 import { deleteDevice, type DevicesContext, type RemovedDevice } from './devices.js';
 import type { IconLookup } from './icon-lookup.js';
 import type { IntegrationsContext } from './integrations.js';
-
-/**
- * Asks the hub one of the broker's methods.
- *
- * @param context - The request's collaborators.
- * @param method - The method.
- * @param body - What it is asked.
- * @param schema - What the answer must be.
- * @returns The answer.
- * @throws {DeviceUnavailableError} When the hub cannot be asked.
- */
-export async function askModbus<TSchema extends z.ZodType>(
-  context: IntegrationsContext,
-  method: string,
-  body: object,
-  schema: TSchema,
-): Promise<z.output<TSchema>> {
-  return askService(context, HUB_SERVICE, method, body, schema, context.timeoutMs);
-}
 
 /**
  * Where the broker stands.
@@ -77,7 +55,7 @@ export async function askModbus<TSchema extends z.ZodType>(
  * @returns Its state.
  */
 export async function modbusStatus(context: IntegrationsContext): Promise<ModbusStatus> {
-  return askModbus(context, HUB_MODBUS_STATUS_METHOD, {}, modbusStatusSchema);
+  return askHub(context, HUB_MODBUS_STATUS_METHOD, {}, modbusStatusSchema);
 }
 
 /**
@@ -87,7 +65,7 @@ export async function modbusStatus(context: IntegrationsContext): Promise<Modbus
  * @returns Each, with how it answers.
  */
 export async function modbusDevices(context: IntegrationsContext): Promise<ModbusDevice[]> {
-  return (await askModbus(context, HUB_MODBUS_DEVICES_METHOD, {}, modbusDevicesReplySchema)).items;
+  return (await askHub(context, HUB_MODBUS_DEVICES_METHOD, {}, modbusDevicesReplySchema)).items;
 }
 
 /**
@@ -101,7 +79,7 @@ export async function saveModbusDevice(
   context: IntegrationsContext,
   input: ModbusDeviceInput,
 ): Promise<ModbusDevice> {
-  const saved = await askModbus(
+  const saved = await askHub(
     context,
     HUB_MODBUS_DEVICE_SAVE_METHOD,
     input,
@@ -139,7 +117,7 @@ export async function removeModbusDevice(
   // a device never added.
   const removed = device.deviceId === null ? null : await deleteDevice(context, device.deviceId);
 
-  await askModbus(context, HUB_MODBUS_DEVICE_REMOVE_METHOD, { id }, modbusRemoveReplySchema);
+  await askHub(context, HUB_MODBUS_DEVICE_REMOVE_METHOD, { id }, modbusRemoveReplySchema);
 
   return removed;
 }
@@ -153,8 +131,7 @@ export async function removeModbusDevice(
 export async function modbusTemplates(
   context: IntegrationsContext,
 ): Promise<ModbusTemplateRecord[]> {
-  return (await askModbus(context, HUB_MODBUS_TEMPLATES_METHOD, {}, modbusTemplatesReplySchema))
-    .items;
+  return (await askHub(context, HUB_MODBUS_TEMPLATES_METHOD, {}, modbusTemplatesReplySchema)).items;
 }
 
 /**
@@ -186,7 +163,7 @@ export async function saveModbusTemplate(
     });
   }
 
-  return askModbus(context, HUB_MODBUS_TEMPLATE_SAVE_METHOD, request, modbusTemplateRecordSchema);
+  return askHub(context, HUB_MODBUS_TEMPLATE_SAVE_METHOD, request, modbusTemplateRecordSchema);
 }
 
 /**
@@ -201,7 +178,7 @@ export async function removeModbusTemplate(
   context: IntegrationsContext,
   id: string,
 ): Promise<void> {
-  const reply = await askModbus(
+  const reply = await askHub(
     context,
     HUB_MODBUS_TEMPLATE_REMOVE_METHOD,
     { id },
@@ -224,7 +201,7 @@ export async function saveModbusSettings(
   context: IntegrationsContext,
   settings: ModbusSettings,
 ): Promise<ModbusStatus> {
-  return askModbus(context, HUB_MODBUS_SETTINGS_METHOD, settings, modbusStatusSchema);
+  return askHub(context, HUB_MODBUS_SETTINGS_METHOD, settings, modbusStatusSchema);
 }
 
 /**
@@ -234,7 +211,7 @@ export async function saveModbusSettings(
  * @returns Where the broker stands, searching.
  */
 export async function searchModbus(context: IntegrationsContext): Promise<ModbusStatus> {
-  return askModbus(context, HUB_MODBUS_SEARCH_METHOD, {}, modbusStatusSchema);
+  return askHub(context, HUB_MODBUS_SEARCH_METHOD, {}, modbusStatusSchema);
 }
 
 /**
@@ -244,7 +221,7 @@ export async function searchModbus(context: IntegrationsContext): Promise<Modbus
  * @returns Both.
  */
 export async function modbusFound(context: IntegrationsContext) {
-  return askModbus(context, HUB_MODBUS_FOUND_METHOD, {}, modbusFoundReplySchema);
+  return askHub(context, HUB_MODBUS_FOUND_METHOD, {}, modbusFoundReplySchema);
 }
 
 /**
@@ -255,7 +232,7 @@ export async function modbusFound(context: IntegrationsContext) {
  * @returns How many are ignored.
  */
 export async function ignoreModbus(context: IntegrationsContext, request: object) {
-  return askModbus(context, HUB_MODBUS_IGNORE_METHOD, request, modbusIgnoreReplySchema);
+  return askHub(context, HUB_MODBUS_IGNORE_METHOD, request, modbusIgnoreReplySchema);
 }
 
 /**
@@ -266,7 +243,7 @@ export async function ignoreModbus(context: IntegrationsContext, request: object
  * @returns What it said.
  */
 export async function identifyModbus(context: IntegrationsContext, request: object) {
-  return askModbus(context, HUB_MODBUS_IDENTIFY_METHOD, request, modbusIdentifyReplySchema);
+  return askHub(context, HUB_MODBUS_IDENTIFY_METHOD, request, modbusIdentifyReplySchema);
 }
 
 /**
@@ -277,7 +254,7 @@ export async function identifyModbus(context: IntegrationsContext, request: obje
  * @returns What was sent and got back.
  */
 export async function testModbusRead(context: IntegrationsContext, request: object) {
-  return askModbus(context, HUB_MODBUS_TEST_READ_METHOD, request, modbusTestReadReplySchema);
+  return askHub(context, HUB_MODBUS_TEST_READ_METHOD, request, modbusTestReadReplySchema);
 }
 
 /**
@@ -288,7 +265,7 @@ export async function testModbusRead(context: IntegrationsContext, request: obje
  * @returns What was sent and got back.
  */
 export async function testModbusWrite(context: IntegrationsContext, request: object) {
-  return askModbus(context, HUB_MODBUS_TEST_WRITE_METHOD, request, modbusTestWriteReplySchema);
+  return askHub(context, HUB_MODBUS_TEST_WRITE_METHOD, request, modbusTestWriteReplySchema);
 }
 
 /**
@@ -299,10 +276,5 @@ export async function testModbusWrite(context: IntegrationsContext, request: obj
  * @returns Each value.
  */
 export async function testModbusTemplate(context: IntegrationsContext, request: object) {
-  return askModbus(
-    context,
-    HUB_MODBUS_TEST_TEMPLATE_METHOD,
-    request,
-    modbusTestTemplateReplySchema,
-  );
+  return askHub(context, HUB_MODBUS_TEST_TEMPLATE_METHOD, request, modbusTestTemplateReplySchema);
 }

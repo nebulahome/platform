@@ -40,12 +40,11 @@ import {
   type SceneUpdate,
   type SceneView,
 } from '@nebulahome/contracts';
-import { schema, type Database } from '@nebulahome/db';
+import { isUniqueViolation, schema, type Database } from '@nebulahome/db';
 
 import { decodeCursor, toPage, type PageResult } from '../http/pagination.js';
 
 import { maskSecrets } from './automation-secrets.js';
-import { isUniqueViolation } from './keys.js';
 
 /** Capabilities a scene may target: settable, with a stable resting state. */
 const SCENE_TARGET_CAPABILITIES = new Set<CapabilityName>([

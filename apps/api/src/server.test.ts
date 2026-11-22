@@ -14,12 +14,13 @@
 import { Socket } from 'node:net';
 
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   CURRENT_API_VERSION,
   TRACE_ID_HEADER,
   WS_CLOSE_UNAUTHENTICATED,
+  type WsServerMessage,
 } from '@nebulahome/contracts';
 import { secretsKeyFrom } from '@nebulahome/db';
 import { createLogger } from '@nebulahome/logging';
@@ -50,19 +51,15 @@ const ENVIRONMENT = {
 };
 
 /**
- * Builds the real server around a database that answers nothing.
+ * A database that answers nothing.
  *
  * A stub rather than a mock: no route asserted here reads a row, and the one that tries -
  * `/readyz` - is meant to discover that it cannot.
  *
- * @returns The server, ready to inject into.
+ * @returns The handle.
  */
-async function buildTestServer(): Promise<FastifyInstance> {
-  const config = apiEnvSchema.parse(ENVIRONMENT);
-  const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
-  const secret = new TextEncoder().encode(config.API_JWT_SECRET);
-
-  const db = {
+function absentDatabase(): ApiContext['db'] {
+  return {
     /**
      * Stands in for a database that is not there.
      *
@@ -70,6 +67,18 @@ async function buildTestServer(): Promise<FastifyInstance> {
      */
     execute: (): Promise<never> => Promise.reject(new Error('no database in this test')),
   } as unknown as ApiContext['db'];
+}
+
+/**
+ * The service context the real server is built around.
+ *
+ * @param db - The database it reads.
+ * @returns The context.
+ */
+async function testContext(db: ApiContext['db']): Promise<ApiContext> {
+  const config = apiEnvSchema.parse(ENVIRONMENT);
+  const logger = createLogger({ service: 'api', version: '0.0.0', level: 'fatal' });
+  const secret = new TextEncoder().encode(config.API_JWT_SECRET);
 
   const authenticator = new Authenticator({ db, secret });
   const context: ApiContext = {
@@ -97,7 +106,65 @@ async function buildTestServer(): Promise<FastifyInstance> {
     now: (): Date => new Date(),
   };
 
-  return buildServer(context);
+  return context;
+}
+
+/**
+ * Builds the real server around a database that answers nothing.
+ *
+ * @returns The server, ready to inject into.
+ */
+async function buildTestServer(): Promise<FastifyInstance> {
+  return buildServer(await testContext(absentDatabase()));
+}
+
+/**
+ * A database whose every query waits for the test to let it answer, and then finds no rows: the
+ * moment a socket's authentication waits on it is the moment to close the socket.
+ *
+ * @returns The handle, how many queries it was asked, and what lets them answer.
+ */
+function gatedDatabase(): { db: ApiContext['db']; asked: () => number; release: () => void } {
+  let release = (): void => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let asked = 0;
+  const query: Record<string, unknown> = {
+    /**
+     * Answers once the gate opens.
+     *
+     * @param resolve - Takes the rows.
+     * @param reject - Takes a failure.
+     * @returns What the answer settles.
+     */
+    then: async (
+      resolve: (rows: unknown[]) => unknown,
+      reject: (error: unknown) => unknown,
+    ): Promise<unknown> => gate.then(() => resolve([]), reject),
+  };
+
+  // Every step of a query hands back the same query.
+  for (const step of ['from', 'leftJoin', 'innerJoin', 'where', 'orderBy']) {
+    query[step] = (): Record<string, unknown> => query;
+  }
+
+  return {
+    db: {
+      /**
+       * Starts a query.
+       *
+       * @returns The query.
+       */
+      select: (): Record<string, unknown> => {
+        asked += 1;
+
+        return query;
+      },
+    } as unknown as ApiContext['db'],
+    asked: (): number => asked,
+    release,
+  };
 }
 
 /**
@@ -344,5 +411,105 @@ describe('the server', () => {
 
     // Refused for the credential before it ever reaches the bus, which is the right order.
     expect(response.statusCode).toBe(401);
+  });
+});
+
+describe('the live socket', () => {
+  /**
+   * Opens a socket on a server whose database waits, and keeps what the socket is told.
+   *
+   * @returns The context, the socket, what it was told, and the database's controls.
+   */
+  async function openSocket(): Promise<{
+    context: ApiContext;
+    server: FastifyInstance;
+    socket: Awaited<ReturnType<FastifyInstance['injectWS']>>;
+    told: WsServerMessage[];
+    database: ReturnType<typeof gatedDatabase>;
+  }> {
+    const database = gatedDatabase();
+    const context = await testContext(database.db);
+    const server = await buildServer(context);
+
+    // An upgrade finds its route only once the server is ready, which `inject` would have made it.
+    await server.ready();
+
+    // A socket stands in for the one a real upgrade arrives on: the rate limit reads its address.
+    const socket = await server.injectWS('/api/v1/ws', { socket: new Socket() });
+    const told: WsServerMessage[] = [];
+
+    socket.on('message', (raw: unknown) => {
+      told.push(JSON.parse(String(raw)) as WsServerMessage);
+    });
+
+    return { context, server, socket, told, database };
+  }
+
+  /**
+   * Drops a socket from the browser's side and waits until the server has closed its end.
+   *
+   * @param server - The server.
+   * @param socket - The socket.
+   */
+  async function closeSocket(
+    server: FastifyInstance,
+    socket: Awaited<ReturnType<FastifyInstance['injectWS']>>,
+  ): Promise<void> {
+    // Dropped rather than closed with a handshake, which the streams an injected socket runs
+    // over never finish: the server's end closes at once, as when a browser tab goes away.
+    socket.terminate();
+    // The server forgets a socket in the same close event its route's handler runs in.
+    await vi.waitFor(() => {
+      expect(server.websocketServer.clients.size).toBe(0);
+    });
+  }
+
+  it('does not join the fan-out when it closed while it was authenticating', async () => {
+    const { context, server, socket, database } = await openSocket();
+
+    try {
+      socket.send(
+        JSON.stringify({ type: 'authenticate', accessToken: await validToken('entity:read') }),
+      );
+      await vi.waitFor(() => {
+        expect(database.asked()).toBe(1);
+      });
+      await closeSocket(server, socket);
+      database.release();
+      // Everything the authentication still had to do is a microtask away.
+      await new Promise((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(context.events.size).toBe(0);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('refuses a second authentication sent while the first is under way', async () => {
+    const { context, server, socket, told, database } = await openSocket();
+
+    try {
+      const accessToken = await validToken('entity:read');
+
+      socket.send(JSON.stringify({ type: 'authenticate', accessToken }));
+      socket.send(JSON.stringify({ type: 'authenticate', accessToken }));
+      await vi.waitFor(() => {
+        expect(told).toContainEqual(expect.objectContaining({ type: 'error', code: 'CONFLICT' }));
+      });
+      database.release();
+      await vi.waitFor(() => {
+        expect(told).toContainEqual(expect.objectContaining({ type: 'welcome' }));
+      });
+
+      expect(context.events.size).toBe(1);
+
+      await closeSocket(server, socket);
+
+      expect(context.events.size).toBe(0);
+    } finally {
+      await server.close();
+    }
   });
 });

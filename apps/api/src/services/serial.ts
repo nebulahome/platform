@@ -5,8 +5,6 @@
  * twice. A device reached through a port is added and removed as any device is; what it keeps of
  * its port is `transportConfig.serial`, checked where devices are written (`devices.ts`).
  */
-import type { z } from 'zod';
-
 import {
   HUB_SERIAL_CONSOLE_CLOSE_METHOD,
   HUB_SERIAL_CONSOLE_OPEN_METHOD,
@@ -21,7 +19,6 @@ import {
   HUB_SERIAL_RELEASE_METHOD,
   HUB_SERIAL_SETTINGS_METHOD,
   HUB_SERIAL_STATUS_METHOD,
-  HUB_SERVICE,
   NotFoundError,
   serialConsoleCloseReplySchema,
   serialConsoleReadReplySchema,
@@ -36,7 +33,7 @@ import {
   type SerialStatus,
 } from '@nebulahome/contracts';
 
-import { askService } from './ask-service.js';
+import { askHub } from './ask-service.js';
 import type { IntegrationsContext } from './integrations.js';
 
 /**
@@ -46,34 +43,13 @@ import type { IntegrationsContext } from './integrations.js';
 const OPENING_TIMEOUT_MS = 10_000;
 
 /**
- * Asks the hub one of the broker's methods.
- *
- * @param context - The request's collaborators.
- * @param method - The method.
- * @param body - What it is asked.
- * @param schema - What the answer must be.
- * @param timeoutMs - How long the hub has; the service's usual wait unless the method needs more.
- * @returns The answer.
- * @throws {DeviceUnavailableError} When the hub cannot be asked.
- */
-export async function askSerial<TSchema extends z.ZodType>(
-  context: IntegrationsContext,
-  method: string,
-  body: object,
-  schema: TSchema,
-  timeoutMs = context.timeoutMs,
-): Promise<z.output<TSchema>> {
-  return askService(context, HUB_SERVICE, method, body, schema, timeoutMs);
-}
-
-/**
  * Where the broker stands.
  *
  * @param context - The request's collaborators.
  * @returns Its state.
  */
 export async function serialStatus(context: IntegrationsContext): Promise<SerialStatus> {
-  return askSerial(context, HUB_SERIAL_STATUS_METHOD, {}, serialStatusSchema);
+  return askHub(context, HUB_SERIAL_STATUS_METHOD, {}, serialStatusSchema);
 }
 
 /**
@@ -83,7 +59,7 @@ export async function serialStatus(context: IntegrationsContext): Promise<Serial
  * @returns The ports, the plugged-in ones first.
  */
 export async function serialPorts(context: IntegrationsContext) {
-  return askSerial(context, HUB_SERIAL_PORTS_METHOD, {}, serialPortsReplySchema);
+  return askHub(context, HUB_SERIAL_PORTS_METHOD, {}, serialPortsReplySchema);
 }
 
 /**
@@ -93,7 +69,7 @@ export async function serialPorts(context: IntegrationsContext) {
  * @returns Them.
  */
 export async function serialDevices(context: IntegrationsContext) {
-  return askSerial(context, HUB_SERIAL_DEVICES_METHOD, {}, serialDevicesReplySchema);
+  return askHub(context, HUB_SERIAL_DEVICES_METHOD, {}, serialDevicesReplySchema);
 }
 
 /**
@@ -107,7 +83,7 @@ export async function saveSerialSettings(
   context: IntegrationsContext,
   settings: object,
 ): Promise<SerialStatus> {
-  return askSerial(context, HUB_SERIAL_SETTINGS_METHOD, settings, serialStatusSchema);
+  return askHub(context, HUB_SERIAL_SETTINGS_METHOD, settings, serialStatusSchema);
 }
 
 /**
@@ -118,7 +94,7 @@ export async function saveSerialSettings(
  * @returns The port.
  */
 export async function ignoreSerialPort(context: IntegrationsContext, request: object) {
-  return askSerial(context, HUB_SERIAL_IGNORE_METHOD, request, serialPortSchema);
+  return askHub(context, HUB_SERIAL_IGNORE_METHOD, request, serialPortSchema);
 }
 
 /**
@@ -130,7 +106,7 @@ export async function ignoreSerialPort(context: IntegrationsContext, request: ob
  * @throws {ConflictError} When another port is at that address.
  */
 export async function saveSerialNetworkPort(context: IntegrationsContext, request: object) {
-  return askSerial(
+  return askHub(
     context,
     HUB_SERIAL_NETWORK_PORT_SAVE_METHOD,
     request,
@@ -147,7 +123,7 @@ export async function saveSerialNetworkPort(context: IntegrationsContext, reques
  * @returns Whether it answered, how fast, or why not.
  */
 export async function testSerialNetworkPort(context: IntegrationsContext, address: object) {
-  return askSerial(
+  return askHub(
     context,
     HUB_SERIAL_NETWORK_PORT_TEST_METHOD,
     address,
@@ -165,7 +141,7 @@ export async function testSerialNetworkPort(context: IntegrationsContext, addres
  * @throws {ConflictError} When a managed container holds it.
  */
 export async function releaseSerialPort(context: IntegrationsContext, portId: string) {
-  return askSerial(context, HUB_SERIAL_RELEASE_METHOD, { portId }, serialPortSchema);
+  return askHub(context, HUB_SERIAL_RELEASE_METHOD, { portId }, serialPortSchema);
 }
 
 /**
@@ -177,7 +153,7 @@ export async function releaseSerialPort(context: IntegrationsContext, portId: st
  * @throws {ConflictError} When it is plugged in.
  */
 export async function forgetSerialPort(context: IntegrationsContext, portId: string) {
-  const reply = await askSerial(
+  const reply = await askHub(
     context,
     HUB_SERIAL_FORGET_METHOD,
     { portId },
@@ -198,7 +174,7 @@ export async function forgetSerialPort(context: IntegrationsContext, portId: str
  * @throws {ConflictError} When the port is held.
  */
 export async function openSerialConsole(context: IntegrationsContext, request: object) {
-  return askSerial(
+  return askHub(
     context,
     HUB_SERIAL_CONSOLE_OPEN_METHOD,
     request,
@@ -215,7 +191,7 @@ export async function openSerialConsole(context: IntegrationsContext, request: o
  * @returns The chunks, oldest first.
  */
 export async function readSerialConsole(context: IntegrationsContext, request: object) {
-  return askSerial(context, HUB_SERIAL_CONSOLE_READ_METHOD, request, serialConsoleReadReplySchema);
+  return askHub(context, HUB_SERIAL_CONSOLE_READ_METHOD, request, serialConsoleReadReplySchema);
 }
 
 /**
@@ -226,12 +202,7 @@ export async function readSerialConsole(context: IntegrationsContext, request: o
  * @returns How many bytes went out.
  */
 export async function writeSerialConsole(context: IntegrationsContext, request: object) {
-  return askSerial(
-    context,
-    HUB_SERIAL_CONSOLE_WRITE_METHOD,
-    request,
-    serialConsoleWriteReplySchema,
-  );
+  return askHub(context, HUB_SERIAL_CONSOLE_WRITE_METHOD, request, serialConsoleWriteReplySchema);
 }
 
 /**
@@ -242,7 +213,7 @@ export async function writeSerialConsole(context: IntegrationsContext, request: 
  * @returns Whether there was one.
  */
 export async function closeSerialConsole(context: IntegrationsContext, consoleId: string) {
-  return askSerial(
+  return askHub(
     context,
     HUB_SERIAL_CONSOLE_CLOSE_METHOD,
     { consoleId },

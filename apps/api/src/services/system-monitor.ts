@@ -10,10 +10,11 @@ import {
   busSubjects,
   CORE_SERVICE,
   CORE_SYSTEM_MONITOR_METHOD,
-  DeviceUnavailableError,
   systemMonitorSnapshotSchema,
   type SystemMonitorSnapshot,
 } from '@nebulahome/contracts';
+
+import { requireBus } from './ask-service.js';
 
 /** What reading the system monitor needs. */
 export type SystemMonitorContext = {
@@ -37,13 +38,7 @@ export type SystemMonitorContext = {
 export async function readSystemMonitor(
   context: SystemMonitorContext,
 ): Promise<SystemMonitorSnapshot> {
-  if (context.bus === undefined) {
-    throw new DeviceUnavailableError('The message bus is not reachable', {
-      details: { dependency: 'bus' },
-    });
-  }
-
-  return context.bus.request(
+  return requireBus(context, { dependency: 'bus' }).request(
     busSubjects.service(CORE_SERVICE, CORE_SYSTEM_MONITOR_METHOD),
     {},
     systemMonitorSnapshotSchema,

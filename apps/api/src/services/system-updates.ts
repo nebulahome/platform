@@ -25,6 +25,7 @@ import {
   SUPERVISOR_SERVICE,
   supervisorAcknowledgementSchema,
   channelIn,
+  errorMessage,
   updateChannelSchema,
   updateStatusReplySchema,
   ValidationError,
@@ -85,16 +86,6 @@ async function ask<TReply>(
 }
 
 /**
- * Says what an error says.
- *
- * @param error - What was thrown.
- * @returns Its message.
- */
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-/**
  * Gathers everything that can update.
  *
  * @param context - The request's collaborators.
@@ -112,7 +103,7 @@ export async function systemUpdates(context: SystemUpdatesContext): Promise<Syst
    */
   const partOf = async <T>(what: string, read: () => Promise<T>): Promise<T | null> =>
     read().catch((error: unknown) => {
-      problems.push(`${what}: ${messageOf(error)}`);
+      problems.push(`${what}: ${errorMessage(error)}`);
 
       return null;
     });

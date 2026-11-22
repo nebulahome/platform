@@ -13,6 +13,7 @@ import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   automationEventSchema,
   backupEventSchema,
+  brokerEventSchema,
   BUS_PATTERNS,
   busSubjects,
   containerEventSchema,
@@ -204,6 +205,27 @@ export class EventFanout {
 
     this.#subscriptions.push(
       client.subscribe(
+        busSubjects.brokerEvent(),
+        brokerEventSchema,
+
+        /**
+         * Tells the sockets watching discovery that part of what a broker's page shows changed:
+         * Matter's nodes, the MQTT broker's clients, a serial port plugged in.
+         *
+         * On the discovery topic, which takes `device:read` - what every broker read the page
+         * makes takes - and which the page already watches. Only the part travels: the page
+         * reads it again with the permission that takes.
+         *
+         * @param payload - Which broker, and which part.
+         */
+        (payload): void => {
+          this.#dispatch('discovery', null, { type: 'broker_event', ...payload });
+        },
+      ),
+    );
+
+    this.#subscriptions.push(
+      client.subscribe(
         busSubjects.libraryEvent(),
         libraryEventSchema,
 
@@ -317,8 +339,7 @@ export class EventFanout {
         (payload, context): void => {
           const event = context.subject.split('.').pop() ?? '';
 
-          // `routes` also arrives on this pattern and is for `proxy`, not for a browser. It is
-          // dropped rather than forwarded as an unknown event.
+          // Anything else on this pattern is dropped rather than forwarded as an unknown event.
           if (
             event === 'installed' ||
             event === 'removed' ||

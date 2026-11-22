@@ -27,12 +27,12 @@ import {
   type RoleUpdate,
   type RoleView,
 } from '@nebulahome/contracts';
-import { schema, type Database } from '@nebulahome/db';
+import { isUniqueViolation, schema, type Database } from '@nebulahome/db';
 
 import { isPermitted } from '../auth/permissions.js';
 
 import { checkIcon, type IconLookup } from './icon-lookup.js';
-import { chooseFreeKey, isUniqueViolation } from './keys.js';
+import { chooseFreeKey } from './keys.js';
 
 /** What a database handle or a transaction inside one can do, as far as this file needs. */
 type Writer = Pick<Database, 'select' | 'insert' | 'delete' | 'update'>;

@@ -7,8 +7,6 @@
  * the way any device is removed, then the broker forgets the remote. Icons are checked against
  * the catalogue here, as for a Modbus template.
  */
-import type { z } from 'zod';
-
 import {
   HUB_INFRARED_BLASTERS_METHOD,
   HUB_INFRARED_BUTTON_MOVE_METHOD,
@@ -27,7 +25,6 @@ import {
   HUB_INFRARED_REMOTES_METHOD,
   HUB_INFRARED_STATUS_METHOD,
   HUB_INFRARED_TEST_METHOD,
-  HUB_SERVICE,
   infraredBlastersReplySchema,
   infraredButtonPressReplySchema,
   infraredButtonSchema,
@@ -48,7 +45,7 @@ import {
 } from '@nebulahome/contracts';
 
 import { checkRoom } from './areas.js';
-import { askService } from './ask-service.js';
+import { askHub } from './ask-service.js';
 import { deleteDevice, updateDevice, type DevicesContext, type RemovedDevice } from './devices.js';
 import type { IconLookup } from './icon-lookup.js';
 import type { IntegrationsContext } from './integrations.js';
@@ -61,27 +58,6 @@ const REMOTE_SAVE_TIMEOUT_MS = 20_000;
 
 /** How long sending through a blaster may take: the hub gives it 10 s. */
 const BLASTER_TIMEOUT_MS = 15_000;
-
-/**
- * Asks the hub one of the broker's methods.
- *
- * @param context - The request's collaborators.
- * @param method - The method.
- * @param body - What it is asked.
- * @param schema - What the answer must be.
- * @param timeoutMs - How long the hub has; the service's usual wait unless the method needs more.
- * @returns The answer.
- * @throws {DeviceUnavailableError} When the hub cannot be asked.
- */
-export async function askInfrared<TSchema extends z.ZodType>(
-  context: IntegrationsContext,
-  method: string,
-  body: object,
-  schema: TSchema,
-  timeoutMs = context.timeoutMs,
-): Promise<z.output<TSchema>> {
-  return askService(context, HUB_SERVICE, method, body, schema, timeoutMs);
-}
 
 /**
  * Checks icons a request names against the catalogue.
@@ -110,7 +86,7 @@ function checkIcons(
  * @returns Its state.
  */
 export async function infraredStatus(context: IntegrationsContext): Promise<InfraredStatus> {
-  return askInfrared(context, HUB_INFRARED_STATUS_METHOD, {}, infraredStatusSchema);
+  return askHub(context, HUB_INFRARED_STATUS_METHOD, {}, infraredStatusSchema);
 }
 
 /**
@@ -120,7 +96,7 @@ export async function infraredStatus(context: IntegrationsContext): Promise<Infr
  * @returns Them, by name.
  */
 export async function infraredBlasters(context: IntegrationsContext) {
-  return askInfrared(context, HUB_INFRARED_BLASTERS_METHOD, {}, infraredBlastersReplySchema);
+  return askHub(context, HUB_INFRARED_BLASTERS_METHOD, {}, infraredBlastersReplySchema);
 }
 
 /**
@@ -130,7 +106,7 @@ export async function infraredBlasters(context: IntegrationsContext) {
  * @returns Them, by name.
  */
 export async function infraredRemotes(context: IntegrationsContext) {
-  return askInfrared(context, HUB_INFRARED_REMOTES_METHOD, {}, infraredRemotesReplySchema);
+  return askHub(context, HUB_INFRARED_REMOTES_METHOD, {}, infraredRemotesReplySchema);
 }
 
 /**
@@ -141,7 +117,7 @@ export async function infraredRemotes(context: IntegrationsContext) {
  * @returns It, its buttons by cell.
  */
 export async function infraredRemote(context: IntegrationsContext, id: string) {
-  return askInfrared(context, HUB_INFRARED_REMOTE_METHOD, { id }, infraredRemoteDetailSchema);
+  return askHub(context, HUB_INFRARED_REMOTE_METHOD, { id }, infraredRemoteDetailSchema);
 }
 
 /**
@@ -166,7 +142,7 @@ export async function saveInfraredRemote(
     await checkRoom(context.db, areaId);
   }
 
-  const saved = await askInfrared(
+  const saved = await askHub(
     context,
     HUB_INFRARED_REMOTE_SAVE_METHOD,
     request,
@@ -207,7 +183,7 @@ export async function removeInfraredRemote(
   // it is for a remote never added.
   const removed = remote.deviceId === null ? null : await deleteDevice(context, remote.deviceId);
 
-  await askInfrared(context, HUB_INFRARED_REMOTE_REMOVE_METHOD, { id }, infraredRemoveReplySchema);
+  await askHub(context, HUB_INFRARED_REMOTE_REMOVE_METHOD, { id }, infraredRemoveReplySchema);
 
   return { name: remote.name, removed };
 }
@@ -227,7 +203,7 @@ export async function saveInfraredButton(
 ) {
   checkIcons(context.icons, [{ path: 'icon', icon: request.icon }]);
 
-  return askInfrared(context, HUB_INFRARED_BUTTON_SAVE_METHOD, request, infraredButtonSchema);
+  return askHub(context, HUB_INFRARED_BUTTON_SAVE_METHOD, request, infraredButtonSchema);
 }
 
 /**
@@ -239,7 +215,7 @@ export async function saveInfraredButton(
  * @throws {ConflictError} When the cell is held.
  */
 export async function moveInfraredButton(context: IntegrationsContext, request: object) {
-  return askInfrared(context, HUB_INFRARED_BUTTON_MOVE_METHOD, request, infraredButtonSchema);
+  return askHub(context, HUB_INFRARED_BUTTON_MOVE_METHOD, request, infraredButtonSchema);
 }
 
 /**
@@ -250,7 +226,7 @@ export async function moveInfraredButton(context: IntegrationsContext, request: 
  * @throws {NotFoundError} When there is no such button.
  */
 export async function removeInfraredButton(context: IntegrationsContext, id: string) {
-  const reply = await askInfrared(
+  const reply = await askHub(
     context,
     HUB_INFRARED_BUTTON_REMOVE_METHOD,
     { id },
@@ -271,7 +247,7 @@ export async function removeInfraredButton(context: IntegrationsContext, id: str
  * @throws {ConflictError} When the remote has no blaster, or it is offline or refused.
  */
 export async function pressInfraredButton(context: IntegrationsContext, id: string) {
-  return askInfrared(
+  return askHub(
     context,
     HUB_INFRARED_BUTTON_PRESS_METHOD,
     { id },
@@ -288,7 +264,7 @@ export async function pressInfraredButton(context: IntegrationsContext, id: stri
  * @returns When it was sent.
  */
 export async function testInfrared(context: IntegrationsContext, request: object) {
-  return askInfrared(
+  return askHub(
     context,
     HUB_INFRARED_TEST_METHOD,
     request,
@@ -305,7 +281,7 @@ export async function testInfrared(context: IntegrationsContext, request: object
  * @returns The job, listening.
  */
 export async function learnInfrared(context: IntegrationsContext, request: object) {
-  return askInfrared(context, HUB_INFRARED_LEARN_METHOD, request, infraredLearnJobSchema);
+  return askHub(context, HUB_INFRARED_LEARN_METHOD, request, infraredLearnJobSchema);
 }
 
 /**
@@ -316,7 +292,7 @@ export async function learnInfrared(context: IntegrationsContext, request: objec
  * @returns It.
  */
 export async function infraredLearnJob(context: IntegrationsContext, jobId: string) {
-  return askInfrared(context, HUB_INFRARED_LEARN_JOB_METHOD, { jobId }, infraredLearnJobSchema);
+  return askHub(context, HUB_INFRARED_LEARN_JOB_METHOD, { jobId }, infraredLearnJobSchema);
 }
 
 /**
@@ -327,7 +303,7 @@ export async function infraredLearnJob(context: IntegrationsContext, jobId: stri
  * @returns It, cancelled.
  */
 export async function cancelInfraredLearn(context: IntegrationsContext, jobId: string) {
-  return askInfrared(
+  return askHub(
     context,
     HUB_INFRARED_LEARN_CANCEL_METHOD,
     { jobId },
@@ -344,12 +320,7 @@ export async function cancelInfraredLearn(context: IntegrationsContext, jobId: s
  * @returns The codes found, and what was not understood.
  */
 export async function parseInfraredImport(context: IntegrationsContext, request: object) {
-  return askInfrared(
-    context,
-    HUB_INFRARED_IMPORT_PARSE_METHOD,
-    request,
-    infraredImportParseReplySchema,
-  );
+  return askHub(context, HUB_INFRARED_IMPORT_PARSE_METHOD, request, infraredImportParseReplySchema);
 }
 
 /**
@@ -375,7 +346,7 @@ export async function importInfrared(
     request.items.map((item, index) => ({ path: `items.${String(index)}.icon`, icon: item.icon })),
   );
 
-  return askInfrared(context, HUB_INFRARED_IMPORT_METHOD, request, infraredRemoteDetailSchema);
+  return askHub(context, HUB_INFRARED_IMPORT_METHOD, request, infraredRemoteDetailSchema);
 }
 
 /**
@@ -386,10 +357,5 @@ export async function importInfrared(
  * @returns The formats, and what the code reads as.
  */
 export async function infraredCodeFormats(context: IntegrationsContext, request: object) {
-  return askInfrared(
-    context,
-    HUB_INFRARED_CODE_FORMATS_METHOD,
-    request,
-    infraredCodeFormatsReplySchema,
-  );
+  return askHub(context, HUB_INFRARED_CODE_FORMATS_METHOD, request, infraredCodeFormatsReplySchema);
 }
