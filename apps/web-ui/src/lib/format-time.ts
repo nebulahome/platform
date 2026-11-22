@@ -173,6 +173,47 @@ export function durationText(ms: number): string {
 }
 
 /**
+ * Says how long, in its largest whole unit alone: `40 s`, `12 min`, `5 h`, `3 d`. For a row that
+ * says when something was last heard from, or how long something has been up.
+ *
+ * @param ms - How long, in milliseconds.
+ * @param options - How it is said.
+ * @param options.hasSeconds - Under a minute in seconds (`40 s`); otherwise never less than
+ *   `1 min`.
+ * @param options.isDaysSpelledOut - Days as words (`3 days`) rather than `3 d`.
+ * @returns The phrase.
+ */
+export function largestUnitText(
+  ms: number,
+  options: { readonly hasSeconds?: boolean; readonly isDaysSpelledOut?: boolean } = {},
+): string {
+  const { hasSeconds = false, isDaysSpelledOut = false } = options;
+  const seconds = Math.max(0, Math.round(ms / 1000));
+
+  if (hasSeconds && seconds < 60) {
+    return translate('time.short.seconds', '{{seconds}} s', { seconds });
+  }
+
+  const minutes = hasSeconds ? Math.floor(seconds / 60) : Math.max(1, Math.floor(ms / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    return isDaysSpelledOut
+      ? translate('time.days', {
+          count: days,
+          defaultValue_one: '{{count}} day',
+          defaultValue_other: '{{count}} days',
+        })
+      : translate('time.short.days', '{{days}} d', { days });
+  }
+
+  return hours > 0
+    ? translate('time.short.hours', '{{hours}} h', { hours })
+    : translate('time.short.minutes', '{{minutes}} min', { minutes });
+}
+
+/**
  * Names the moment a run happened, as briefly as the list can: the time today, "yesterday", the
  * weekday within the week, the date before that.
  *

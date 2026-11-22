@@ -13,6 +13,7 @@ import {
   absoluteTime,
   durationText,
   formatUptime,
+  largestUnitText,
   readDateTimeLocal,
   relativeTime,
   startOfDay,
@@ -75,6 +76,32 @@ describe('durationText', () => {
     expect(durationText(200 * 60_000)).toBe('3 h 20 min');
     expect(durationText(3 * 3_600_000)).toBe('3 h');
     expect(durationText(52 * 3_600_000)).toBe('2 d 4 h');
+  });
+});
+
+describe('largestUnitText', () => {
+  it('says when something was last heard from, seconds included, as a device row does', () => {
+    const seen = (ms: number): string => largestUnitText(ms, { hasSeconds: true });
+
+    expect(seen(-5_000)).toBe('0 s');
+    expect(seen(40_000)).toBe('40 s');
+    expect(seen(59_400)).toBe('59 s');
+    expect(seen(59_600)).toBe('1 min');
+    expect(seen(3_599_000)).toBe('59 min');
+    expect(seen(3_600_000)).toBe('1 h');
+    expect(seen(86_399_000)).toBe('23 h');
+    expect(seen(3 * 86_400_000)).toBe('3 d');
+  });
+
+  it('says how long something has lasted, a minute at least and days in words, as Matter does', () => {
+    const lasted = (ms: number): string => largestUnitText(ms, { isDaysSpelledOut: true });
+
+    expect(lasted(-60_000)).toBe('1 min');
+    expect(lasted(30_000)).toBe('1 min');
+    expect(lasted(59 * 60_000)).toBe('59 min');
+    expect(lasted(3 * 3_600_000)).toBe('3 h');
+    expect(lasted(24 * 3_600_000)).toBe('1 day');
+    expect(lasted(73 * 3_600_000)).toBe('3 days');
   });
 });
 

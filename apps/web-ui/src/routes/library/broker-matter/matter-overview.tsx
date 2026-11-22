@@ -18,7 +18,7 @@ import {
 import { AppIcon, FactGrid, HealthCard, HealthStrip, RowList, Section } from '@nebulahome/ui';
 
 import { dateTimeFormat } from '@/i18n/formatters';
-import { relativeTime } from '@/lib/format-time';
+import { largestUnitText, relativeTime } from '@/lib/format-time';
 import {
   everyRow,
   MatterDeviceRow,
@@ -47,22 +47,10 @@ export type MatterOverviewProps = {
  * @returns What says it, from when it began until now.
  */
 export function useLasted(): (since: Date) => string {
-  const { t } = useTranslation();
+  // Read so the words follow a change of language: the phrase itself is the shared one.
+  useTranslation();
 
-  return (since) => {
-    const minutes = Math.max(1, Math.floor((Date.now() - since.getTime()) / 60_000));
-    const hours = Math.floor(minutes / 60);
-
-    return hours >= 24
-      ? t('brokers.matter.days', {
-          count: Math.floor(hours / 24),
-          defaultValue_one: '{{count}} day',
-          defaultValue_other: '{{count}} days',
-        })
-      : hours >= 1
-        ? t('brokers.matter.hours', '{{count}} h', { count: hours })
-        : t('brokers.matter.minutes', '{{count}} min', { count: minutes });
-  };
+  return (since) => largestUnitText(Date.now() - since.getTime(), { isDaysSpelledOut: true });
 }
 
 /**

@@ -13,7 +13,7 @@ import { Link } from 'react-router';
 import type { DeviceView, IconView } from '@nebulahome/contracts';
 import { Pill } from '@nebulahome/ui';
 
-import { translate } from '@/i18n/messages';
+import { largestUnitText } from '@/lib/format-time';
 import type { DeviceStatus } from '@/library/device-status';
 import { type DeviceStanding } from '@/library/entity-reading';
 import { devicePath } from '@/routes/library/device/device-path';
@@ -64,15 +64,7 @@ export type DeviceRowProps = {
  * @returns The words.
  */
 function seenText(at: Date, now: Date): string {
-  const seconds = Math.max(0, Math.round((now.getTime() - at.getTime()) / 1000));
-
-  return seconds < 60
-    ? translate('time.short.seconds', '{{seconds}} s', { seconds })
-    : seconds < 3600
-      ? translate('time.short.minutes', '{{minutes}} min', { minutes: Math.floor(seconds / 60) })
-      : seconds < 86_400
-        ? translate('time.short.hours', '{{hours}} h', { hours: Math.floor(seconds / 3600) })
-        : translate('time.short.days', '{{days}} d', { days: Math.floor(seconds / 86_400) });
+  return largestUnitText(now.getTime() - at.getTime(), { hasSeconds: true });
 }
 
 /**
