@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import { automationEventSchema } from './automation-bus.js';
 import { backupEventSchema } from './backup.js';
+import { brokerEventSchemaOf } from './brokers.js';
 import { DISCOVERY_EVENTS } from './discovery.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema } from './entity-state.js';
@@ -198,6 +199,20 @@ export const wsServerMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('backup_event'),
     payload: backupEventSchema,
   }),
+
+  /**
+   * Part of what a broker's page shows changed: the page reads that part again. One shape per
+   * broker, so a part is always one of that broker's own.
+   */
+  z.discriminatedUnion('broker', [
+    brokerEventSchemaOf('matter').extend({ type: z.literal('broker_event') }),
+    brokerEventSchemaOf('thread').extend({ type: z.literal('broker_event') }),
+    brokerEventSchemaOf('bluetooth').extend({ type: z.literal('broker_event') }),
+    brokerEventSchemaOf('mqtt').extend({ type: z.literal('broker_event') }),
+    brokerEventSchemaOf('modbus').extend({ type: z.literal('broker_event') }),
+    brokerEventSchemaOf('serial').extend({ type: z.literal('broker_event') }),
+    brokerEventSchemaOf('infrared').extend({ type: z.literal('broker_event') }),
+  ]),
 
   /** Part of the library changed that an owner edits: the pages listing it read it again. */
   z.object({

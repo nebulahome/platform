@@ -20,6 +20,7 @@
 import { z } from 'zod';
 
 import { DEPENDENCY_ID_PATTERN } from './container-dependencies.js';
+import { isRecord } from './json.js';
 import { packageIdSchema } from './package-id.js';
 
 /** The largest compose file a package carries. */
@@ -59,16 +60,6 @@ export const packageComposeProjectSchema = z.strictObject({
 
 /** One package's compose project. */
 export type PackageComposeProject = z.output<typeof packageComposeProjectSchema>;
-
-/**
- * Says whether a value is a record.
- *
- * @param value - The value.
- * @returns True for a non-null, non-array object.
- */
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /** One volume of a service, as written or as normalized. */
 type Mount = { readonly type: string; readonly source: string | undefined };

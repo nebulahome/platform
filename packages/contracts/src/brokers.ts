@@ -38,6 +38,53 @@ export const BROKER_IDS = [
 /** One broker of the platform. */
 export type BrokerId = (typeof BROKER_IDS)[number];
 
+/**
+ * What each broker's page shows that changes on its own or by another browser's hand, as
+ * `nebula.v1.event.broker.changed` names it. The figures that move all the time - signal
+ * strengths, message rates, a console's output, a job's progress - are not among them: a page
+ * reads those for as long as it shows them.
+ */
+export const BROKER_EVENT_PARTS = {
+  matter: ['status', 'nodes', 'network', 'networks'],
+  thread: ['status', 'devices', 'border-routers'],
+  bluetooth: ['status', 'devices', 'found', 'scanners'],
+  mqtt: ['status', 'devices', 'clients', 'mappings'],
+  modbus: ['status', 'devices', 'found', 'templates'],
+  serial: ['status', 'ports', 'devices'],
+  infrared: ['status', 'remotes', 'blasters'],
+} as const satisfies Readonly<Record<BrokerId, readonly string[]>>;
+
+/** One part of what a broker's page shows. */
+export type BrokerEventPart<TBroker extends BrokerId> =
+  (typeof BROKER_EVENT_PARTS)[TBroker][number];
+
+/**
+ * One broker's shape of a broker event: its id, and one of its own parts.
+ *
+ * @param broker - The broker.
+ * @returns The schema.
+ */
+export function brokerEventSchemaOf<TBroker extends BrokerId>(broker: TBroker) {
+  return z.object({ broker: z.literal(broker), part: z.enum(BROKER_EVENT_PARTS[broker]) });
+}
+
+/**
+ * What `nebula.v1.event.broker.changed` carries: which broker, and which part of what its page
+ * shows changed. Only that travels: the page reads the part again with the permission it takes.
+ */
+export const brokerEventSchema = z.discriminatedUnion('broker', [
+  brokerEventSchemaOf('matter'),
+  brokerEventSchemaOf('thread'),
+  brokerEventSchemaOf('bluetooth'),
+  brokerEventSchemaOf('mqtt'),
+  brokerEventSchemaOf('modbus'),
+  brokerEventSchemaOf('serial'),
+  brokerEventSchemaOf('infrared'),
+]);
+
+/** What `nebula.v1.event.broker.changed` carries. */
+export type BrokerEvent = z.output<typeof brokerEventSchema>;
+
 /** One broker, for its card. */
 export const brokerSummarySchema = z.object({
   id: z.enum(BROKER_IDS),

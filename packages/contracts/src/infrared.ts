@@ -225,9 +225,6 @@ export const infraredSweepResultSchema = z.object({
 /** What `infrared.sweep` resolves with. */
 export type InfraredSweepResult = z.output<typeof infraredSweepResultSchema>;
 
-/** Arguments of `infrared.cancel`. */
-export const infraredCancelArgsSchema = z.object({});
-
 /** A blaster: an IR-capable device an integration provides. */
 export const infraredBlasterSchema = z.object({
   deviceId: integrationIdSchema,

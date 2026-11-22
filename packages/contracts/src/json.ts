@@ -39,3 +39,19 @@ export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 
 /** Validates a JSON object. */
 export const jsonObjectSchema: z.ZodType<JsonObject> = z.record(z.string(), jsonValueSchema);
+
+/**
+ * Validates an object with no fields: what a request that asks nothing carries. Not strict, so a
+ * field it does not know is dropped rather than refused, as an inline `z.object({})` does.
+ */
+export const emptyRequestSchema = z.object({});
+
+/**
+ * Says whether a value is a record: an object that is not null and not an array.
+ *
+ * @param value - The value.
+ * @returns True for a non-null, non-array object.
+ */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}

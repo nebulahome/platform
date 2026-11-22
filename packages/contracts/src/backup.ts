@@ -32,9 +32,6 @@ export const BACKUP_SECTIONS = ['configuration', 'history', 'packages', 'contain
 /** One part of a backup. */
 export type BackupSection = (typeof BACKUP_SECTIONS)[number];
 
-/** The parts the owner may leave out. */
-export const OPTIONAL_BACKUP_SECTIONS = ['history', 'packages', 'containers'] as const;
-
 /** The value of `backup.sections`: which of the optional parts are taken. */
 export const backupSectionsSchema = z.strictObject({
   history: z.boolean(),
@@ -103,9 +100,6 @@ export const backupScheduleSchema = z.strictObject({
 
 /** When in the day a backup runs. */
 export type BackupSchedule = z.output<typeof backupScheduleSchema>;
-
-/** How often: every day, one day a week, or the days the owner picked. */
-export const BACKUP_FREQUENCY_MODES = ['daily', 'weekly', 'custom'] as const;
 
 /** The value of `backup.frequency`. */
 export const backupFrequencySchema = z.discriminatedUnion('mode', [

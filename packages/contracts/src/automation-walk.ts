@@ -7,11 +7,7 @@
  * the same paths, so a run's trace points at the card each step came from.
  */
 import type { AutomationAction } from './automation-actions.js';
-import {
-  isConditionGroup,
-  type ConditionLeaf,
-  type ConditionNode,
-} from './automation-conditions.js';
+import { isConditionGroup, type ConditionNode } from './automation-conditions.js';
 import type { AutomationDefinition } from './automation-definition.js';
 import type { AutomationTrigger } from './automation-triggers.js';
 
@@ -180,24 +176,6 @@ export function entityIdsOfDefinition(definition: AutomationDefinition): string[
   });
 
   return [...found];
-}
-
-/**
- * Every condition leaf an automation checks, wherever it is.
- *
- * @param definition - The document.
- * @returns The leaves, in document order.
- */
-export function conditionLeavesOfDefinition(definition: AutomationDefinition): ConditionLeaf[] {
-  const leaves: ConditionLeaf[] = [];
-
-  forEachBlock(definition, (visited) => {
-    if (visited.family === 'condition' && !isConditionGroup(visited.block)) {
-      leaves.push(visited.block);
-    }
-  });
-
-  return leaves;
 }
 
 /**

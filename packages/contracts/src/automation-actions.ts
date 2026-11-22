@@ -23,12 +23,6 @@ import { entityIdSchema } from './entity-id.js';
 import { jsonObjectSchema } from './json.js';
 import { isPackageServiceAllowed, packageIdSchema } from './package-id.js';
 
-/**
- * Action kinds the format holds but the engine cannot run yet: there is no notification service.
- * A run that reaches one records it as a failed step.
- */
-export const UNAVAILABLE_ACTION_TYPES = ['notify'] as const;
-
 /** The kinds of thing an automation can do. */
 export const ACTION_TYPES = [
   'command',
@@ -79,17 +73,6 @@ export type HttpHeader = {
   readonly name: string;
   readonly value: string | SecretHeaderValue;
 };
-
-/** Action kinds that hold other actions (or branches of them). */
-export const NESTED_ACTION_TYPES = [
-  'parallel',
-  'sequence',
-  'switch',
-  'while',
-  'do_while',
-  'if',
-  'for',
-] as const;
 
 /** How a `for` block repeats. */
 export type ForRepeat =

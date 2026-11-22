@@ -144,6 +144,14 @@ export const busSubjects = {
   integrationEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.integration.changed`,
 
   /**
+   * Announcing that part of what a broker's page shows changed: Matter's nodes, the MQTT
+   * broker's clients, a serial port plugged in (`brokers.ts`).
+   *
+   * @returns The fan-out subject the hub publishes on, `api` forwards.
+   */
+  brokerEvent: (): string => `${BUS_SUBJECT_PREFIX}.event.broker.changed`,
+
+  /**
    * Announcing that part of the library changed that an owner edits: a room, a scene, a role.
    *
    * @returns The fan-out subject `api` and `core` publish on.
@@ -184,12 +192,11 @@ export const busSubjects = {
    * Announcing a package lifecycle event.
    *
    * @param event - What happened to the package - `configured` for settings changed while it
-   *   runs - or `routes` for a new routing table.
+   *   runs.
    * @returns The fan-out subject to publish the event on.
    */
-  packageEvent: (
-    event: 'installed' | 'removed' | 'started' | 'stopped' | 'configured' | 'routes',
-  ): string => `${BUS_SUBJECT_PREFIX}.pkg.${event}`,
+  packageEvent: (event: 'installed' | 'removed' | 'started' | 'stopped' | 'configured'): string =>
+    `${BUS_SUBJECT_PREFIX}.pkg.${event}`,
 
   /**
    * A package's live messages to its open interfaces (`ctx.live.publish`), which `api` fans out.
@@ -252,7 +259,7 @@ export const BUS_PATTERNS = {
   /** Every log record from every service, at every level. */
   allLogs: `${BUS_SUBJECT_PREFIX}.log.>`,
 
-  /** Every package lifecycle event, including routing table updates. */
+  /** Every package lifecycle event. */
   allPackageEvents: `${BUS_SUBJECT_PREFIX}.pkg.*`,
 
   /** Every package's live messages to its interfaces. A package id is one token. */
@@ -261,16 +268,6 @@ export const BUS_PATTERNS = {
   /** Every telemetry reading. The JetStream stream is configured on this pattern. */
   allTelemetry: `${BUS_SUBJECT_PREFIX}.telemetry.>`,
 } as const;
-
-/**
- * Builds the subscription pattern for every method one service exposes.
- *
- * @param service - The service whose methods to subscribe to.
- * @returns A pattern matching each of that service's method subjects.
- */
-export function serviceMethodPattern(service: string): string {
-  return `${BUS_SUBJECT_PREFIX}.svc.${service}.*`;
-}
 
 /**
  * Builds the subscription pattern for every command targeting one entity.

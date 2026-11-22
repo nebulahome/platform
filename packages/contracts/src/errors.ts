@@ -106,6 +106,19 @@ export function isNebulaError(value: unknown): value is NebulaError {
   return value instanceof NebulaError;
 }
 
+/**
+ * Says what a caught value says: an error's message, or anything else written as text.
+ *
+ * @param error - The caught value, of unknown shape.
+ * @param maxLength - The longest the text may be; cut to it when longer, whole when left out.
+ * @returns The text.
+ */
+export function errorMessage(error: unknown, maxLength?: number): string {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return maxLength === undefined ? message : message.slice(0, maxLength);
+}
+
 /** Input failed schema validation at a trust boundary. */
 export class ValidationError extends NebulaError {
   /** @inheritDoc */

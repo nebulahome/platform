@@ -4,6 +4,7 @@ import {
   AdapterError,
   ConfigurationError,
   ERROR_CODES,
+  errorMessage,
   isNebulaError,
   NotFoundError,
   PermissionError,
@@ -77,5 +78,14 @@ describe('isNebulaError', () => {
   it('rejects non-error values, which a catch clause can also receive', () => {
     expect(isNebulaError('boom')).toBe(false);
     expect(isNebulaError(undefined)).toBe(false);
+  });
+});
+
+describe('errorMessage', () => {
+  it('says an error’s message, anything else as text, cut to a length when asked', () => {
+    expect(errorMessage(new NotFoundError('No entity'))).toBe('No entity');
+    expect(errorMessage('refused')).toBe('refused');
+    expect(errorMessage(undefined)).toBe('undefined');
+    expect(errorMessage(new Error('a long reason'), 6)).toBe('a long');
   });
 });

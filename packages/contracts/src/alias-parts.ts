@@ -226,24 +226,6 @@ export function defaultAliasParts(
 }
 
 /**
- * The parts a part is added and removed with: itself, or every part of its group.
- *
- * @param type - The type.
- * @param def - The part.
- * @param customFields - For a custom type, its fields.
- * @returns The parts of the group, in the type's order.
- */
-export function aliasPartGroup(
-  type: AliasTypeDef,
-  def: AliasPartDef,
-  customFields?: readonly AliasCustomField[],
-): AliasPartDef[] {
-  return def.group === undefined
-    ? [def]
-    : aliasTypeParts(type, customFields).filter((candidate) => candidate.group === def.group);
-}
-
-/**
  * The names an enum part may take: the capability's own list, or the alias's offered list.
  *
  * @param def - The part.

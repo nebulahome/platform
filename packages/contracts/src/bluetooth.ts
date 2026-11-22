@@ -185,9 +185,6 @@ export type BluetoothAdvertInput = z.input<typeof bluetoothAdvertSchema>;
 /** One advertisement heard. */
 export type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
 
-/** What a scanner reports at once. */
-export const bluetoothAdvertBatchSchema = z.array(bluetoothAdvertSchema).max(1024);
-
 /**
  * What a device that can be a proxy declares in its profile: the scan modes its radio can run.
  */
@@ -201,12 +198,6 @@ export const bluetoothProxyProfileSchema = z.strictObject({
 
 /** What a device that can be a proxy declares. */
 export type BluetoothProxyProfile = z.output<typeof bluetoothProxyProfileSchema>;
-
-/**
- * Arguments of `bluetooth-proxy.state` and `bluetooth-proxy.remove` ({@link BLUETOOTH_PROXY_OPS},
- * in `reserved-ops.ts`).
- */
-export const bluetoothProxyEmptyArgsSchema = z.object({});
 
 /** Arguments of `bluetooth-proxy.install`. */
 export const bluetoothProxyInstallArgsSchema = z.object({ mode: z.enum(BLUETOOTH_SCAN_MODES) });
