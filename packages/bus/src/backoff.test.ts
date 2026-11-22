@@ -66,4 +66,22 @@ describe('delay', () => {
   it('returns immediately when the signal has already aborted', async () => {
     await expect(delay(30_000, AbortSignal.abort())).resolves.toBeUndefined();
   });
+
+  it('lets the process exit meanwhile only when asked to', async () => {
+    const timers = vi.spyOn(globalThis, 'setTimeout');
+    const controller = new AbortController();
+
+    try {
+      const unreferenced = delay(30_000, controller.signal, { shouldUnref: true });
+      const held = delay(30_000, controller.signal);
+      const [first, second] = timers.mock.results.map((result) => result.value as NodeJS.Timeout);
+
+      expect(first?.hasRef()).toBe(false);
+      expect(second?.hasRef()).toBe(true);
+      controller.abort();
+      await Promise.all([unreferenced, held]);
+    } finally {
+      timers.mockRestore();
+    }
+  });
 });

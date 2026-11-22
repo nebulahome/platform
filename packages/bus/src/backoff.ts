@@ -65,9 +65,15 @@ export function backoffDelayMs(
  *
  * @param delayMs - How long to wait.
  * @param signal - Cancels the wait. Required, per RULES.md 9.
+ * @param options - How the wait holds the process.
+ * @param options.shouldUnref - Lets the process exit while the wait is pending; off by default.
  * @returns A promise that settles after the delay, or as soon as the signal aborts.
  */
-export async function delay(delayMs: number, signal: AbortSignal): Promise<void> {
+export async function delay(
+  delayMs: number,
+  signal: AbortSignal,
+  options: { readonly shouldUnref?: boolean } = {},
+): Promise<void> {
   if (signal.aborted) {
     return;
   }
@@ -81,6 +87,10 @@ export async function delay(delayMs: number, signal: AbortSignal): Promise<void>
     };
 
     const timer = setTimeout(settle, delayMs);
+
+    if (options.shouldUnref === true) {
+      timer.unref();
+    }
 
     signal.addEventListener('abort', settle, { once: true });
   });
