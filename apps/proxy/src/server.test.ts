@@ -4,6 +4,7 @@
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
+import http2 from 'node:http2';
 import https from 'node:https';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -264,20 +265,73 @@ function get(url: string): Promise<{ status: number; location: string | undefine
   });
 }
 
+/**
+ * Sends one GET over HTTP/2.
+ *
+ * @param origin - The server.
+ * @param target - The path asked for.
+ * @param headers - Headers to send besides.
+ * @returns The protocol the two agreed on and the status.
+ */
+async function getOverHttp2(
+  origin: string,
+  target: string,
+  headers: Record<string, string> = {},
+): Promise<{ protocol: string | undefined; status: number | undefined }> {
+  const session = http2.connect(origin, { rejectUnauthorized: false });
+
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = session.request({ ':path': target, ...headers });
+      let status: number | undefined;
+
+      request.on('response', (response) => {
+        status = response[':status'];
+      });
+      request.on('end', () => {
+        resolve({ protocol: session.alpnProtocol, status });
+      });
+      request.on('error', reject);
+      request.resume();
+      request.end();
+    });
+  } finally {
+    session.close();
+  }
+}
+
 describe('buildProxyServer over TLS', () => {
   let webRoot = '';
+  let upstream: http.Server;
   let proxy: FastifyInstance;
   let port = 0;
+  const forwardedFor: (string | undefined)[] = [];
 
   beforeAll(async () => {
     webRoot = mkdtempSync(path.join(tmpdir(), 'nebula-proxy-tls-'));
     writeFileSync(path.join(webRoot, 'index.html'), '<!doctype html><title>Nebula Home</title>');
 
+    // Records who `api` is told called, on a request and an upgrade alike; refuses the upgrade.
+    upstream = http.createServer((request, response) => {
+      forwardedFor.push(request.headers['x-forwarded-for'] as string | undefined);
+      response.end('{}');
+    });
+    upstream.on('upgrade', (request, socket) => {
+      forwardedFor.push(request.headers['x-forwarded-for'] as string | undefined);
+      socket.end('HTTP/1.1 403 Forbidden\r\nconnection: close\r\n\r\n');
+    });
+    await new Promise<void>((resolve) => {
+      upstream.listen(0, '127.0.0.1', resolve);
+    });
+
+    const upstreamAddress = upstream.address();
+    const upstreamPort =
+      typeof upstreamAddress === 'object' && upstreamAddress !== null ? upstreamAddress.port : 0;
     const fixtures = path.join(import.meta.dirname, 'fixtures');
 
     proxy = await buildProxyServer({
       webRoot,
-      upstream: 'http://127.0.0.1:9',
+      upstream: `http://127.0.0.1:${String(upstreamPort)}`,
       https: {
         cert: readFileSync(path.join(fixtures, 'localhost.crt')),
         key: readFileSync(path.join(fixtures, 'localhost.key')),
@@ -291,11 +345,63 @@ describe('buildProxyServer over TLS', () => {
 
   afterAll(async () => {
     await proxy.close();
+    await new Promise((resolve) => upstream.close(resolve));
     rmSync(webRoot, { recursive: true, force: true });
   });
 
-  it('serves the page over TLS', async () => {
+  it('serves the page over TLS to a client that speaks only HTTP/1.1', async () => {
     expect((await get(`https://127.0.0.1:${String(port)}/`)).status).toBe(200);
+  });
+
+  it('speaks HTTP/2 to a client that offers it: the whole page on one connection', async () => {
+    expect(await getOverHttp2(`https://127.0.0.1:${String(port)}`, '/')).toEqual({
+      protocol: 'h2',
+      status: 200,
+    });
+  });
+
+  it('passes the API on over HTTP/2, telling api the address on the socket', async () => {
+    forwardedFor.length = 0;
+
+    const response = await getOverHttp2(`https://127.0.0.1:${String(port)}`, '/api/v1/meta', {
+      'x-forwarded-for': '192.168.1.10',
+    });
+
+    expect(response.status).toBe(200);
+    expect(forwardedFor).toEqual(['127.0.0.1']);
+  });
+
+  it('passes a WebSocket upgrade on to api over TLS', async () => {
+    forwardedFor.length = 0;
+
+    const request = https.request({
+      host: '127.0.0.1',
+      port,
+      path: '/api/v1/ws',
+      rejectUnauthorized: false,
+      headers: {
+        connection: 'Upgrade',
+        upgrade: 'websocket',
+        'sec-websocket-key': Buffer.from('a sixteen bytes!').toString('base64'),
+        'sec-websocket-version': '13',
+      },
+    });
+
+    request.on('upgrade', (response, socket) => {
+      socket.destroy();
+    });
+    request.on('error', () => undefined);
+    request.end();
+
+    const deadline = Date.now() + 5000;
+
+    while (forwardedFor.length === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    request.destroy();
+
+    expect(forwardedFor).toEqual(['127.0.0.1']);
   });
 
   it('redirects plain HTTP on its port to HTTPS on the same host and port', async () => {

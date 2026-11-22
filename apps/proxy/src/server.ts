@@ -9,8 +9,9 @@
  * included, uncompressed: `api` answers JSON, camera frames and streams, and compressing a stream
  * of frames only delays them.
  *
- * TLS, when it is on, is the same server listening a second time (main.ts). Plain HTTP sent to that
- * port is redirected to HTTPS on it, instead of the connection being dropped unanswered.
+ * TLS, when it is on, is the same server listening a second time (main.ts), in HTTP/2 as well. Plain
+ * HTTP sent to that port is redirected to HTTPS on it, instead of the connection being dropped
+ * unanswered.
  */
 import http from 'node:http';
 import type { Server, Socket } from 'node:net';
@@ -142,13 +143,18 @@ export type ProxyServerOptions = {
  */
 export async function buildProxyServer(options: ProxyServerOptions): Promise<FastifyInstance> {
   const { webRoot, upstream, https } = options;
-  // The HTTPS server is the same server over TLS; its instance type differs only in the socket.
+  // The HTTPS server is the same server over TLS, in HTTP/2 to a browser that offers it and HTTP/1.1
+  // to anything else; its instance type differs only in the socket. HTTP/2 carries the whole page
+  // on one connection. Over HTTP/1.1 a browser opens several, and on a certificate it does not trust
+  // each new one fails its check and sends every request waiting back to the queue: a stylesheet
+  // sent back 32 times is given up (ERR_TOO_MANY_RETRIES), and the page is drawn unstyled.
   const server =
     https === undefined
       ? Fastify({ logger: false })
       : (Fastify({
           logger: false,
-          https: { cert: https.cert, key: https.key },
+          http2: true,
+          https: { allowHTTP1: true, cert: https.cert, key: https.key },
         }) as unknown as FastifyInstance);
 
   if (https !== undefined) {
