@@ -5,7 +5,7 @@
  * Problems that stop it (a wrong shape, a part the type has not got, an entity this house has
  * not got). A file without problems goes into the page's draft, and Save keeps it.
  */
-import { lazy, Suspense, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useId, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -23,7 +23,7 @@ import {
   type AliasTypeDef,
   type AliasView,
 } from '@nebulahome/contracts';
-import { AppIcon, Button, toast } from '@nebulahome/ui';
+import { AppIcon, Button, TabPanel, Tabs, toast } from '@nebulahome/ui';
 
 import { copyText } from '@/lib/clipboard';
 import { relativeTime } from '@/lib/format-time';
@@ -112,6 +112,7 @@ export function AliasFileTab(props: AliasFileTabProps) {
   const savedEntry = entryOf(alias, saved);
   const [text, setText] = useState(() => textOf(entryOf(alias, draft)));
   const [panel, setPanel] = useState<'changes' | 'problems'>('changes');
+  const tabsId = useId();
   const known = new Set(entities.map((entity) => entity.entityId as string));
   const isPasted = text !== textOf(savedEntry);
 
@@ -334,46 +335,33 @@ export function AliasFileTab(props: AliasFileTabProps) {
           )}
         </p>
       ) : null}
-      <div className="flex items-center gap-1 border-t border-border px-2">
-        {(['changes', 'problems'] as const).map((each) => {
-          const count = each === 'changes' ? changes.length : problems.length;
-
-          return (
-            <button
-              key={each}
-              type="button"
-              aria-pressed={panel === each}
-              className={`relative flex items-center gap-1.5 px-2.5 py-2 text-ui-sm transition-colors ${
-                panel === each ? 'text-foreground' : 'text-foreground-subtle hover:text-foreground'
-              }`}
-              onClick={() => {
-                setPanel(each);
-              }}
-            >
-              {each === 'changes'
-                ? t('library.aliasPage.changes', 'Changes')
-                : t('library.aliasPage.problems', 'Problems')}
-              <span
-                className={`rounded-pill px-1.5 text-caption ${
-                  each === 'problems' && count > 0
-                    ? 'bg-danger/15 text-danger'
-                    : 'bg-foreground/6 text-foreground-muted'
-                }`}
-              >
-                {count}
-              </span>
-              {panel === each ? (
-                <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-primary" />
-              ) : null}
-            </button>
-          );
-        })}
-        <span className="grow" />
-        <span className="pr-2 text-caption text-foreground-subtle">
-          {t('library.aliasPage.comparedWithSaved', 'Compared with the saved setup')}
-        </span>
-      </div>
-      <div className="flex flex-col border-t border-border py-2">
+      <Tabs
+        size="compact"
+        label={t('library.aliasPage.fileCheck', 'What changed, and what is wrong')}
+        idPrefix={tabsId}
+        items={[
+          {
+            id: 'changes',
+            label: t('library.aliasPage.changes', 'Changes'),
+            count: changes.length,
+          },
+          {
+            id: 'problems',
+            label: t('library.aliasPage.problems', 'Problems'),
+            count: problems.length,
+            countTone: problems.length > 0 ? 'danger' : 'neutral',
+          },
+        ]}
+        value={panel}
+        onChange={setPanel}
+        aside={
+          <span className="pr-2 text-caption text-foreground-subtle">
+            {t('library.aliasPage.comparedWithSaved', 'Compared with the saved setup')}
+          </span>
+        }
+        className="border-t border-b-0 px-2"
+      />
+      <TabPanel idPrefix={tabsId} id={panel} className="flex flex-col border-t border-border py-2">
         {panel === 'problems' ? (
           problems.length === 0 ? (
             <Empty>{t('library.aliasPage.noProblems', 'No problems')}</Empty>
@@ -462,7 +450,7 @@ export function AliasFileTab(props: AliasFileTabProps) {
             );
           })
         )}
-      </div>
+      </TabPanel>
       <div className="flex items-center gap-4 border-t border-border bg-canvas px-3 py-1.5 font-mono text-label text-foreground-subtle">
         {problems.length === 0 ? (
           <span className="flex items-center gap-1.5 text-success">

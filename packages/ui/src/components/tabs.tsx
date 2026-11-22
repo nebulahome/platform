@@ -23,6 +23,9 @@ export type TabItem<TId extends string> = {
 
   /** A count beside the label, when the tab holds a list. */
   readonly count?: number | string;
+
+  /** `danger` for a count of things that are wrong, which should catch the eye. */
+  readonly countTone?: 'neutral' | 'danger';
 };
 
 /** What the tabs need. */
@@ -44,6 +47,12 @@ export type TabsProps<TId extends string> = {
 
   /** On the right of the row: what acts on every tab. */
   readonly aside?: ReactNode;
+
+  /**
+   * `page`, the default: the tabs of a page. `compact`: a small row inside a card or an editor's
+   * foot, in the card's own type size.
+   */
+  readonly size?: 'page' | 'compact';
 
   /** Anything extra for the outer element. */
   readonly className?: string;
@@ -78,8 +87,9 @@ function panelElementId(prefix: string, id: string): string {
  * @returns The tab list.
  */
 export function Tabs<TId extends string>(props: TabsProps<TId>) {
-  const { items, value, onChange, label, idPrefix, aside, className } = props;
+  const { items, value, onChange, label, idPrefix, aside, size = 'page', className } = props;
   const row = useRef<HTMLDivElement>(null);
+  const isCompact = size === 'compact';
 
   /**
    * Moves to a tab by the keyboard, and chooses it.
@@ -138,16 +148,32 @@ export function Tabs<TId extends string>(props: TabsProps<TId>) {
                 move(event, index);
               }}
               className={cn(
-                'mr-5.5 flex h-10.5 shrink-0 items-center gap-2 border-b-2 px-0.5 text-ui whitespace-nowrap transition-colors',
+                'flex shrink-0 items-center border-b-2 whitespace-nowrap transition-colors',
                 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary',
+                isCompact ? 'gap-1.5 px-2.5 py-2 text-ui-sm' : 'mr-5.5 h-10.5 gap-2 px-0.5 text-ui',
                 isCurrent
-                  ? 'border-primary font-medium text-foreground'
-                  : 'border-transparent text-foreground-muted hover:text-foreground',
+                  ? cn('border-primary text-foreground', !isCompact && 'font-medium')
+                  : cn(
+                      'border-transparent hover:text-foreground',
+                      isCompact ? 'text-foreground-subtle' : 'text-foreground-muted',
+                    ),
               )}
             >
               {item.label}
               {item.count === undefined ? null : (
-                <span className="rounded-pill bg-surface-raised px-1.75 font-mono text-mono-caption font-normal text-foreground-subtle tabular">
+                <span
+                  className={cn(
+                    'rounded-pill tabular',
+                    isCompact
+                      ? 'px-1.5 text-caption'
+                      : 'px-1.75 font-mono text-mono-caption font-normal',
+                    item.countTone === 'danger'
+                      ? 'bg-danger/15 text-danger'
+                      : isCompact
+                        ? 'bg-foreground/6 text-foreground-muted'
+                        : 'bg-surface-raised text-foreground-subtle',
+                  )}
+                >
                   {item.count}
                 </span>
               )}
