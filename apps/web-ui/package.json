@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build": "tsc -p tsconfig.json --noEmit && vite build && tsx scripts/precompress.ts",
     "dev": "vite --host",
     "preview:entity": "vite --open /entity-lab.html",
     "preview:dashboard": "vite --open /dashboard-lab.html",

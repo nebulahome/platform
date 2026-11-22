@@ -226,6 +226,12 @@ export async function buildProxyServer(options: ProxyServerOptions): Promise<Fas
     // validators: a browser resuming a download it had kept compressed would splice the two. The
     // page's files are small enough to be sent whole.
     acceptRanges: false,
+    // The build writes each asset compressed beside it (`web-ui`'s `scripts/precompress.ts`): sent
+    // as it is, with `Vary: accept-encoding`, rather than compressed again on every load - a hub
+    // behind a certificate the browser does not trust is a browser that keeps nothing. The
+    // compression plugin leaves alone a reply that already says its encoding; a file without a
+    // compressed twin is compressed by it as before.
+    preCompressed: true,
     /**
      * Sets how long a file may be kept.
      *

@@ -7,6 +7,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { brotliCompressSync, gunzipSync } from 'node:zlib';
 
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -15,6 +16,9 @@ import { buildProxyServer } from './server.js';
 
 /** A script large enough to be worth compressing. */
 const SCRIPT = `console.log(${JSON.stringify('x'.repeat(4096))});`;
+
+/** The same script as the build compresses it beside the file. */
+const BROTLI = brotliCompressSync(SCRIPT);
 
 describe('buildProxyServer', () => {
   let webRoot = '';
@@ -26,6 +30,8 @@ describe('buildProxyServer', () => {
     mkdirSync(path.join(webRoot, 'assets'));
     writeFileSync(path.join(webRoot, 'index.html'), '<!doctype html><title>Nebula Home</title>');
     writeFileSync(path.join(webRoot, 'assets', 'index-abc123.js'), SCRIPT);
+    writeFileSync(path.join(webRoot, 'assets', 'x.js'), SCRIPT);
+    writeFileSync(path.join(webRoot, 'assets', 'x.js.br'), BROTLI);
 
     upstream = Fastify();
     upstream.get('/api/v1/meta', (request) => ({
@@ -79,6 +85,39 @@ describe('buildProxyServer', () => {
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-range']).toBeUndefined();
     expect(response.headers['content-encoding']).toBe('gzip');
+  });
+
+  it('sends the compressed twin the build wrote as it is, to a browser that takes it', async () => {
+    const response = await proxy.inject({
+      method: 'GET',
+      url: '/assets/x.js',
+      headers: { 'accept-encoding': 'gzip, deflate, br' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-encoding']).toBe('br');
+    expect(response.headers['content-type']).toContain('javascript');
+    expect(response.headers['cache-control']).toContain('immutable');
+    expect(response.headers.vary).toContain('accept-encoding');
+    expect(response.rawPayload.equals(BROTLI)).toBe(true);
+  });
+
+  it('compresses the file itself for a browser without brotli, and sends it bare to one without either', async () => {
+    const gzipped = await proxy.inject({
+      method: 'GET',
+      url: '/assets/x.js',
+      headers: { 'accept-encoding': 'gzip' },
+    });
+    const bare = await proxy.inject({
+      method: 'GET',
+      url: '/assets/x.js',
+      headers: { 'accept-encoding': 'identity' },
+    });
+
+    expect(gzipped.headers['content-encoding']).toBe('gzip');
+    expect(gunzipSync(gzipped.rawPayload).toString()).toBe(SCRIPT);
+    expect(bare.headers['content-encoding']).toBeUndefined();
+    expect(bare.body).toBe(SCRIPT);
   });
 
   it('says a build’s file is gone, rather than answering with the page', async () => {
