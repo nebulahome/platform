@@ -35,6 +35,7 @@ export type CapabilityName =
   | 'time_of_day'
   | 'date'
   | 'datetime'
+  | 'calendar'
   | 'vacuum'
   | 'fan'
   | 'location'
@@ -90,6 +91,33 @@ export type SelectOption = { readonly value: string; readonly label: string };
 
 /** The pictures an image entity may be. */
 export type ImageContentType = 'image/svg+xml' | 'image/png' | 'image/jpeg';
+
+/** A colour of the tag palette, which a calendar is drawn in too. */
+export type CalendarColor =
+  | 'red'
+  | 'orange'
+  | 'amber'
+  | 'yellow'
+  | 'lime'
+  | 'green'
+  | 'teal'
+  | 'cyan'
+  | 'blue'
+  | 'indigo'
+  | 'violet'
+  | 'pink';
+
+/** One event as a calendar entity tells it: all day it has days, timed it has moments. */
+export type CalendarEventSummary = {
+  readonly title: string;
+  readonly icon: string | null;
+  readonly modelId: string | null;
+  readonly isAllDay: boolean;
+  readonly startsOn: string | null;
+  readonly endsOn: string | null;
+  readonly startsAt: string | null;
+  readonly endsAt: string | null;
+};
 
 /** A value of a custom entity's field: a scalar, or nothing yet. */
 export type CustomValue = string | number | boolean | null;
@@ -173,6 +201,13 @@ export type CapabilityStates = {
   readonly date: { readonly value: string | null };
   /** A moment, ISO 8601 with its offset: `2026-11-24T07:30:00+01:00`. */
   readonly datetime: { readonly value: string | null };
+  /** A calendar of the house, which the platform makes: on while one of its events is. */
+  readonly calendar: {
+    readonly isActive: boolean;
+    readonly current: CalendarEventSummary | null;
+    readonly next: CalendarEventSummary | null;
+    readonly isStale: boolean;
+  };
   readonly vacuum: {
     readonly activity: VacuumActivity;
     readonly rooms: readonly VacuumRoom[];
@@ -219,6 +254,7 @@ export type ReportedStates = Omit<
   | 'time_of_day'
   | 'date'
   | 'datetime'
+  | 'calendar'
   | 'vacuum'
   | 'location'
 > & {
@@ -236,6 +272,8 @@ export type ReportedStates = Omit<
   readonly time_of_day: Partial<CapabilityStates['time_of_day']>;
   readonly date: Partial<CapabilityStates['date']>;
   readonly datetime: Partial<CapabilityStates['datetime']>;
+  readonly calendar: Pick<CapabilityStates['calendar'], 'isActive'> &
+    Partial<Omit<CapabilityStates['calendar'], 'isActive'>>;
   readonly vacuum: Pick<CapabilityStates['vacuum'], 'activity'> &
     Partial<Omit<CapabilityStates['vacuum'], 'activity'>>;
 };
@@ -324,6 +362,8 @@ export type CapabilityParams = {
     readonly min?: string;
     readonly max?: string;
   };
+  /** Which calendar it is and its colour; null on an alias. */
+  readonly calendar: { readonly calendarId?: string | null; readonly color?: CalendarColor | null };
   readonly vacuum: {
     readonly canPause?: boolean;
     readonly canStop?: boolean;

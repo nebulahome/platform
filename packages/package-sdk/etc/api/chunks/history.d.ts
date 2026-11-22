@@ -1,4 +1,4 @@
-import { Y as CapabilityState, pt as EntityId, t as JsonObject } from "./json.js";
+import { Z as CapabilityState, ht as EntityId, t as JsonObject } from "./json.js";
 //#region src/history.d.ts
 /** How finely readings are read: every one, or a bucket of a minute, an hour or a day. */
 type TelemetryResolution = 'raw' | '1m' | '1h' | '1d';

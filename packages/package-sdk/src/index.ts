@@ -11,6 +11,8 @@ export type {
   CapabilityName,
   CapabilityParams,
   CapabilityState,
+  CalendarColor,
+  CalendarEventSummary,
   CapabilityStates,
   CommandableCapability,
   CustomValue,

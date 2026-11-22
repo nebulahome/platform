@@ -35,6 +35,7 @@ import {
   iconIdSchema,
   infraredProfileSchema,
   jsonObjectSchema,
+  PLATFORM_ENTITY_DOMAINS,
   type CapabilityName,
   IMAGE_CONTENT_TYPES,
 } from '@nebulahome/contracts';
@@ -295,7 +296,8 @@ export type DiscoveryProfile = z.output<typeof discoveryProfileSchema>;
 /** One entity the device exposes, known before the device is ever contacted. */
 export const entityProfileSchema = z
   .strictObject({
-    domain: z.enum(ENTITY_DOMAINS),
+    // The platform's own domains (the calendar's) are not an integration's to declare.
+    domain: z.enum(ENTITY_DOMAINS).exclude([...PLATFORM_ENTITY_DOMAINS]),
 
     /**
      * Distinguishes this entity from the device's others.

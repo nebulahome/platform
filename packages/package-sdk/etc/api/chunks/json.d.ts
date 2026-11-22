@@ -5,7 +5,7 @@
  * `ctx.entityId` does, and these read one back.
  */
 /** The kinds of thing an entity is. */
-declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "time", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
+declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "time", "calendar", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
 /** The kind of thing an entity is. */
 type EntityDomain = (typeof ENTITY_DOMAINS)[number];
 /** An entity's identifier: `sensor.weather_temperature`. */
@@ -32,7 +32,7 @@ declare function isEntityId(value: unknown): value is EntityId;
 //#endregion
 //#region src/capabilities.d.ts
 /** Every capability an entity may declare. */
-type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'effect' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'vacuum' | 'fan' | 'location' | 'image' | 'custom';
+type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'effect' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'calendar' | 'vacuum' | 'fan' | 'location' | 'image' | 'custom';
 /** How a sensor's readings add up, for statistics: a reading, a running total, or a meter. */
 type EntityStateClass = 'measurement' | 'total' | 'total_increasing';
 /** The modes a thermostat may be set to. */
@@ -71,6 +71,19 @@ type SelectOption = {
 };
 /** The pictures an image entity may be. */
 type ImageContentType = 'image/svg+xml' | 'image/png' | 'image/jpeg';
+/** A colour of the tag palette, which a calendar is drawn in too. */
+type CalendarColor = 'red' | 'orange' | 'amber' | 'yellow' | 'lime' | 'green' | 'teal' | 'cyan' | 'blue' | 'indigo' | 'violet' | 'pink';
+/** One event as a calendar entity tells it: all day it has days, timed it has moments. */
+type CalendarEventSummary = {
+  readonly title: string;
+  readonly icon: string | null;
+  readonly modelId: string | null;
+  readonly isAllDay: boolean;
+  readonly startsOn: string | null;
+  readonly endsOn: string | null;
+  readonly startsAt: string | null;
+  readonly endsAt: string | null;
+};
 /** A value of a custom entity's field: a scalar, or nothing yet. */
 type CustomValue = string | number | boolean | null;
 /** Each capability's state, as the house reads it back: every field there. */
@@ -180,6 +193,13 @@ type CapabilityStates = {
   readonly datetime: {
     readonly value: string | null;
   };
+  /** A calendar of the house, which the platform makes: on while one of its events is. */
+  readonly calendar: {
+    readonly isActive: boolean;
+    readonly current: CalendarEventSummary | null;
+    readonly next: CalendarEventSummary | null;
+    readonly isStale: boolean;
+  };
   readonly vacuum: {
     readonly activity: VacuumActivity;
     readonly rooms: readonly VacuumRoom[];
@@ -216,7 +236,7 @@ type CapabilityStates = {
   };
 };
 /** Each capability's state, as a package reports it: what has a default may be left out. */
-type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'vacuum' | 'location'> & {
+type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'calendar' | 'vacuum' | 'location'> & {
   readonly effect: Partial<CapabilityStates['effect']>;
   readonly location: Partial<CapabilityStates['location']>;
   readonly camera: Omit<CapabilityStates['camera'], 'isRecording'> & {
@@ -231,6 +251,7 @@ type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'l
   readonly time_of_day: Partial<CapabilityStates['time_of_day']>;
   readonly date: Partial<CapabilityStates['date']>;
   readonly datetime: Partial<CapabilityStates['datetime']>;
+  readonly calendar: Pick<CapabilityStates['calendar'], 'isActive'> & Partial<Omit<CapabilityStates['calendar'], 'isActive'>>;
   readonly vacuum: Pick<CapabilityStates['vacuum'], 'activity'> & Partial<Omit<CapabilityStates['vacuum'], 'activity'>>;
 };
 /** An entity's state, read back: one entry per capability it declares. */
@@ -335,6 +356,11 @@ type CapabilityParams = {
     readonly step?: number;
     readonly min?: string;
     readonly max?: string;
+  };
+  /** Which calendar it is and its colour; null on an alias. */
+  readonly calendar: {
+    readonly calendarId?: string | null;
+    readonly color?: CalendarColor | null;
   };
   readonly vacuum: {
     readonly canPause?: boolean;
@@ -884,4 +910,4 @@ type JsonObject = {
   readonly [key: string]: JsonValue;
 };
 //#endregion
-export { DeclaredCapabilities as $, NumberField as A, TimestampField as B, Fields as C, ListField as D, IconOptions as E, SettingField as F, CapabilityCommand as G, ValueField as H, ShownWhen as I, CapabilityParams as J, CapabilityCommands as K, Simplify as L, OptionField as M, SecretField as N, ListOptions as O, SecretOptions as P, CustomValue as Q, TextField as R, Field as S, IconField as T, ValueOfField as U, TimestampOptions as V, field as W, CapabilityStates as X, CapabilityState as Y, CommandableCapability as Z, ChoiceOption as _, SettingsOf as a, ReportedStates as at, EntityOptions as b, CommandDeclaration as c, ThermostatMode as ct, EntityTypeDefinition as d, ENTITY_DOMAINS as dt, EntityStateClass as et, ValuesOf as f, EntityDomain as ft, ChoiceField as g, parseEntityId as gt, BooleanOptions as h, isEntityId as ht, SettingsDefinition as i, ReportedCapabilityState as it, NumberOptions as j, NoFields as k, CommandDeclarations as l, VacuumActivity as lt, BooleanField as m, ParsedEntityId as mt, JsonPrimitive as n, LawnMowerActivity as nt, defineSettings as o, SelectOption as ot, defineEntityType as p, EntityId as pt, CapabilityName as q, JsonValue as r, PlaybackState as rt, ArgsOf as s, ThermostatAction as st, JsonObject as t, ImageContentType as tt, CommandsOf as u, VacuumRoom as ut, ChoiceOptions as v, FormValues as w, EntityValues as x, EntityField as y, TextOptions as z };
+export { CommandableCapability as $, NumberField as A, TimestampField as B, Fields as C, ListField as D, IconOptions as E, SettingField as F, CalendarColor as G, ValueField as H, ShownWhen as I, CapabilityCommands as J, CalendarEventSummary as K, Simplify as L, OptionField as M, SecretField as N, ListOptions as O, SecretOptions as P, CapabilityStates as Q, TextField as R, Field as S, IconField as T, ValueOfField as U, TimestampOptions as V, field as W, CapabilityParams as X, CapabilityName as Y, CapabilityState as Z, ChoiceOption as _, isEntityId as _t, SettingsOf as a, PlaybackState as at, EntityOptions as b, CommandDeclaration as c, SelectOption as ct, EntityTypeDefinition as d, VacuumActivity as dt, CustomValue as et, ValuesOf as f, VacuumRoom as ft, ChoiceField as g, ParsedEntityId as gt, BooleanOptions as h, EntityId as ht, SettingsDefinition as i, LawnMowerActivity as it, NumberOptions as j, NoFields as k, CommandDeclarations as l, ThermostatAction as lt, BooleanField as m, EntityDomain as mt, JsonPrimitive as n, EntityStateClass as nt, defineSettings as o, ReportedCapabilityState as ot, defineEntityType as p, ENTITY_DOMAINS as pt, CapabilityCommand as q, JsonValue as r, ImageContentType as rt, ArgsOf as s, ReportedStates as st, JsonObject as t, DeclaredCapabilities as tt, CommandsOf as u, ThermostatMode as ut, ChoiceOptions as v, parseEntityId as vt, FormValues as w, EntityValues as x, EntityField as y, TextOptions as z };

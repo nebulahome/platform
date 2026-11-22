@@ -1,4 +1,4 @@
-import { ft as EntityDomain, pt as EntityId } from "./chunks/json.js";
+import { ht as EntityId, mt as EntityDomain } from "./chunks/json.js";
 import { l as EntityView } from "./chunks/types.js";
 import { ButtonHTMLAttributes, ComponentType, InputHTMLAttributes, ReactElement, ReactNode, SVGProps } from "react";
 //#region src/components/types.d.ts

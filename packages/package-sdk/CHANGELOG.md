@@ -3,6 +3,13 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.15.0 (unreleased)
+
+- **The house's calendars:** the `calendar` domain in `ENTITY_DOMAINS` and the read-only `calendar`
+  capability in `CapabilityName`, `CapabilityStates` (`isActive`, the `current` and `next` event as a
+  `CalendarEventSummary`, `isStale`) and `CapabilityParams` (`calendarId`, `color` as a `CalendarColor`).
+  The platform makes these entities, one per calendar; a package reads them and declares none.
+
 ## 1.14.0
 
 - **Cards drawn in the Add card catalogue:** `defineCard({ preview: { options } })` asks the

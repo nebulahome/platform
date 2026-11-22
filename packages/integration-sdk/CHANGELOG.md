@@ -3,6 +3,13 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.13.0 (unreleased)
+
+- **The house's calendars:** the read-only `calendar` capability in `CAPABILITIES` and the state
+  schemas (on while one of its events is, the current and the next event, whether its source is
+  stale), and the `calendar` domain in `ENTITY_DOMAINS`. The platform makes these entities, one per
+  calendar: a profile's entity and a setup's entity field do not take the domain.
+
 ## 1.12.0
 
 - **A device part of another:** a profile's `identity` takes `parent`, the path to the `externalId`

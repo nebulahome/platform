@@ -1,4 +1,4 @@
-import { $ as DeclaredCapabilities, K as CapabilityCommands, U as ValueOfField, Y as CapabilityState, Z as CommandableCapability, d as EntityTypeDefinition, f as ValuesOf, ft as EntityDomain, i as SettingsDefinition, pt as EntityId, r as JsonValue, s as ArgsOf, t as JsonObject, u as CommandsOf, w as FormValues } from "./json.js";
+import { $ as CommandableCapability, J as CapabilityCommands, U as ValueOfField, Z as CapabilityState, d as EntityTypeDefinition, f as ValuesOf, ht as EntityId, i as SettingsDefinition, mt as EntityDomain, r as JsonValue, s as ArgsOf, t as JsonObject, tt as DeclaredCapabilities, u as CommandsOf, w as FormValues } from "./json.js";
 import { a as TelemetryResolution, i as TelemetryPoint, n as HistorySeries, r as StateHistoryPoint } from "./history.js";
 import { AnchorHTMLAttributes, ComponentType, ReactNode, RefObject } from "react";
 //#region src/ui/types.d.ts

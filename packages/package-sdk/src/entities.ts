@@ -21,6 +21,7 @@ export const ENTITY_DOMAINS = [
   'select',
   'number',
   'time',
+  'calendar',
   'vacuum',
   'fan',
   'device_tracker',

@@ -1,4 +1,4 @@
-import { $ as DeclaredCapabilities, G as CapabilityCommand, Y as CapabilityState, a as SettingsOf, d as EntityTypeDefinition, et as EntityStateClass, f as ValuesOf, ft as EntityDomain, i as SettingsDefinition, it as ReportedCapabilityState, pt as EntityId, q as CapabilityName, r as JsonValue, s as ArgsOf, t as JsonObject, u as CommandsOf } from "./json.js";
+import { Y as CapabilityName, Z as CapabilityState, a as SettingsOf, d as EntityTypeDefinition, f as ValuesOf, ht as EntityId, i as SettingsDefinition, mt as EntityDomain, nt as EntityStateClass, ot as ReportedCapabilityState, q as CapabilityCommand, r as JsonValue, s as ArgsOf, t as JsonObject, tt as DeclaredCapabilities, u as CommandsOf } from "./json.js";
 import { a as TelemetryResolution, i as TelemetryPoint, n as HistorySeries, r as StateHistoryPoint } from "./history.js";
 //#region src/schema.d.ts
 /**
