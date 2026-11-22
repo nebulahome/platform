@@ -31,6 +31,7 @@ import { satisfies } from 'semver';
 import type { z } from 'zod';
 
 import {
+  errorMessage,
   integrationSetupSchema,
   modbusTemplateSchema,
   TRANSPORT_WIRES,
@@ -395,16 +396,6 @@ export type LoadBundleDirectoryOptions = Omit<
   };
 
 /**
- * The message of something thrown.
- *
- * @param error - What was thrown.
- * @returns Its message.
- */
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-/**
  * Reads and parses one JSON file of a bundle. A `$schema` at its top - which an editor reads, and
  * which a bundle's sources carry for one - is not the bundle's and is dropped.
  *
@@ -466,7 +457,7 @@ async function readBundleFile<TSchema extends z.ZodType>(
     throw new Error(
       code === 'ENOENT'
         ? `${nameOf(file)} is missing`
-        : `${nameOf(file)} could not be read: ${messageOf(error)}`,
+        : `${nameOf(file)} could not be read: ${errorMessage(error)}`,
       { cause: error },
     );
   }
@@ -744,7 +735,7 @@ async function readIfDriver(
   try {
     return await readDriver(vendor, directory, resolve);
   } catch (error: unknown) {
-    return { directory, message: messageOf(error), vendorId: vendor.id };
+    return { directory, message: errorMessage(error), vendorId: vendor.id };
   }
 }
 
@@ -935,7 +926,7 @@ export async function readVendorDirectory(
     } catch (error: unknown) {
       failures.push({
         directory: path.join(directory, DISCOVERY_FILE),
-        message: messageOf(error),
+        message: errorMessage(error),
         vendorId: expectedId,
       });
     }
@@ -1201,7 +1192,7 @@ export async function instantiateVendor(
       } catch (error: unknown) {
         return {
           directory: driver.directory,
-          message: messageOf(error),
+          message: errorMessage(error),
           vendorId: declaration.vendorId,
         };
       }
@@ -1238,7 +1229,7 @@ export async function instantiateVendor(
     } catch (error: unknown) {
       failures.push({
         directory: path.join(directory, DISCOVERY_FILE),
-        message: messageOf(error),
+        message: errorMessage(error),
         vendorId: declaration.vendorId,
       });
     }
@@ -1345,7 +1336,7 @@ export async function loadVendorFolder(
   } catch (error: unknown) {
     return {
       vendor: null,
-      failures: [{ directory: path.join(root, vendorId), message: messageOf(error), vendorId }],
+      failures: [{ directory: path.join(root, vendorId), message: errorMessage(error), vendorId }],
     };
   }
 
@@ -1376,7 +1367,7 @@ export async function loadVendorFolder(
       throw error;
     }
   } catch (error: unknown) {
-    return { vendor: null, failures: [{ directory, message: messageOf(error), vendorId }] };
+    return { vendor: null, failures: [{ directory, message: errorMessage(error), vendorId }] };
   }
 }
 

@@ -22,12 +22,7 @@
  */
 import { z } from 'zod';
 
-import {
-  setupFieldSchema,
-  setupGroupSchema,
-  type JsonObject,
-  type SetupField,
-} from '@nebulahome/contracts';
+import { setupGroupSchema, type JsonObject, type SetupField } from '@nebulahome/contracts';
 
 import { bundlePathSchema } from './bundle.js';
 import type { BundleSdk } from './sdk.js';
@@ -193,6 +188,3 @@ export type AccountHandle = {
    */
   readonly needsSignIn: (message: string) => Promise<void>;
 };
-
-/** The fields a question may ask: the setup grammar's, a handful at most. */
-export const accountQuestionFieldsSchema = z.array(setupFieldSchema).min(1).max(8);

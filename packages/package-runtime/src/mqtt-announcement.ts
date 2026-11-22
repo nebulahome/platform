@@ -20,6 +20,7 @@
 import { z } from 'zod';
 
 import {
+  isRecord,
   MQTT_COMPONENTS,
   mqttIdentitySchema,
   normalizeMac,
@@ -270,16 +271,6 @@ function expand(
   }
 
   return expanded;
-}
-
-/**
- * Whether a value is a plain object.
- *
- * @param value - The value.
- * @returns True for one.
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
