@@ -28,6 +28,7 @@ import {
   backupStatusSchema,
   busSubjects,
   ConflictError,
+  errorMessage,
   SUPERVISOR_METHODS,
   SUPERVISOR_SERVICE,
   supervisorAcknowledgementSchema,
@@ -36,7 +37,7 @@ import {
   type UpdateItem,
   type UpdateRound,
 } from '@nebulahome/contracts';
-import type { Database } from '@nebulahome/db';
+import { readQuietTime, type Database } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import { isBackupSucceeded, isRecentBackupEnough } from '../domain/backup-first.js';
@@ -48,7 +49,6 @@ import {
   type AutomaticRuns,
 } from '../persistence/automatic-runs.js';
 import {
-  readQuietTime,
   readUpdateSettings,
   type AutoKind,
   type UpdateSettings,
@@ -106,16 +106,6 @@ const REPLAN_TIME = '00:10';
 
 /** The order a round goes in: Nebula Home last, as it restarts everything. */
 const ORDER: Readonly<Record<UpdateItem['kind'], number>> = { package: 0, integration: 1, core: 2 };
-
-/**
- * Says what an error says.
- *
- * @param error - What was thrown.
- * @returns Its message, cut to fit a round.
- */
-function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 1024);
-}
 
 /** Does nothing: the wait's end until the wait is set up. */
 function noop(): void {
@@ -532,7 +522,7 @@ export class UpdateRunner {
             entry.status = 'done';
           } catch (error: unknown) {
             entry.status = 'failed';
-            entry.error = messageOf(error);
+            entry.error = errorMessage(error, 1024);
             logger.warn({ err: error, item: entry.item }, 'An update failed');
           }
 
@@ -546,7 +536,7 @@ export class UpdateRunner {
       for (const entry of round.items) {
         if (entry.status === 'pending') {
           entry.status = 'skipped';
-          entry.error = `The round stopped: ${messageOf(error)}`.slice(0, 1024);
+          entry.error = `The round stopped: ${errorMessage(error, 1024)}`.slice(0, 1024);
         }
       }
     } finally {

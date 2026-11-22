@@ -1,20 +1,17 @@
 /**
  * What a round of updates reads (docs/releases-and-updates.md 4): the update settings, the parts
- * a backup takes, the house's zone, and the quietest time core learned.
+ * a backup takes, and the house's zone.
  */
-import { inArray, sql } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
   backupSectionsSchema,
   channelIn,
-  QUIET_TIME_ENTITY_ID,
-  quietTimeFromState,
   timeZoneSchema,
   updateChannelSchema,
   updateWindowSchema,
   type BackupSection,
-  type QuietTime,
   type UpdateChannel,
   type UpdateItem,
   type UpdateWindow,
@@ -131,21 +128,4 @@ export async function readChannel(
     updateChannelSchema.catch('stable').parse(value.get(`updates.channel.${kind}`)),
     value.get('system.developer_mode') === true,
   );
-}
-
-/**
- * Reads the quietest time core learned, `sensor.system_quiet_time`.
- *
- * @param db - The service's connection.
- * @returns What was learned, or null while the entity has no state.
- */
-export async function readQuietTime(db: Database): Promise<QuietTime | null> {
-  const rows = await db.execute<{ state: unknown; attributes: unknown }>(sql`
-    SELECT s.state, s.attributes
-    FROM registry.entity_states s
-    JOIN registry.entities e ON e.id = s.entity_id
-    WHERE e.entity_id = ${QUIET_TIME_ENTITY_ID}`);
-  const row = rows[0];
-
-  return row === undefined ? null : quietTimeFromState(row.state, row.attributes);
 }

@@ -2,6 +2,7 @@
  * What the package and the integration managers share to list and install releases: where a
  * release comes from, and how a sentence is cut to fit a reply.
  */
+import { errorMessage } from '@nebulahome/contracts';
 
 /**
  * How old a read of an index may be before a search reads it again for an item the Hub lists and
@@ -40,5 +41,5 @@ export function clipped(text: string, length: number): string {
  * @returns Its message.
  */
 export function messageOf(error: unknown): string {
-  return clipped(error instanceof Error ? error.message : String(error), 1024);
+  return clipped(errorMessage(error), 1024);
 }
