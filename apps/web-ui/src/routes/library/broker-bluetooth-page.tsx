@@ -104,6 +104,9 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
   const [isTurningOff, setTurningOff] = useState(false);
   const vendors = useVendorsById();
 
+  // The status heads every tab. The lists carry live signal and timing, so they are read again
+  // every few seconds - but only while a tab that shows them is open: what is added or removed
+  // the hub announces whatever the tab, and the live channel refreshes it.
   const status = useQuery({
     queryKey: BLUETOOTH_QUERY_KEYS.status,
     refetchInterval: BROKER_REFRESH_MS,
@@ -111,17 +114,18 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
   });
   const devices = useQuery({
     queryKey: BLUETOOTH_QUERY_KEYS.devices,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval:
+      tab === 'overview' || tab === 'devices' || tab === 'map' ? BROKER_REFRESH_MS : false,
     queryFn: signalled(fetchBluetoothDevices),
   });
   const found = useQuery({
     queryKey: BLUETOOTH_QUERY_KEYS.found,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: tab === 'overview' ? BROKER_REFRESH_MS : false,
     queryFn: signalled(fetchBluetoothFound),
   });
   const scanners = useQuery({
     queryKey: BLUETOOTH_QUERY_KEYS.scanners,
-    refetchInterval: BROKER_REFRESH_MS,
+    refetchInterval: tab === 'nearby' || tab === 'scanners' ? BROKER_REFRESH_MS : false,
     queryFn: signalled(fetchBluetoothScanners),
   });
   const map = useQuery({
