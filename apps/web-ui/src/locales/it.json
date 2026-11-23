@@ -8098,7 +8098,8 @@
     "month": {
       "more": "+{{count}} altri",
       "newOn": "Nuovo evento il {{day}}",
-      "pickups": "Raccolte di {{day}}"
+      "pickups": "Raccolte di {{day}}",
+      "showWeek": "Settimana di {{day}}"
     },
     "new": {
       "create": "Crea calendario",

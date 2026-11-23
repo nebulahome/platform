@@ -416,6 +416,12 @@ export function CalendarPage() {
         occurrences={shown}
         daysOff={daysOff}
         isPanelOpen={panel === 'open'}
+        onShowMonth={(each) => {
+          go({ view: 'month', date: each });
+        }}
+        onShowWeek={(each) => {
+          go({ view: 'week', date: each });
+        }}
       />
     );
   } else if (view === 'agenda') {
@@ -440,6 +446,9 @@ export function CalendarPage() {
         onOpenDay={showDay}
         onNewEvent={(each) => {
           setSeed({ mode: 'new', day: each });
+        }}
+        onShowWeek={(each) => {
+          go({ view: 'week', date: each });
         }}
       />
     );

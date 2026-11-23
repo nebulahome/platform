@@ -34,6 +34,12 @@ export type YearViewProps = {
 
   /** Whether the panel beside the months is open: the toolbar's button. */
   readonly isPanelOpen: boolean;
+
+  /** Called with a month's first day when its name is pressed: the month opens. */
+  readonly onShowMonth: (day: string) => void;
+
+  /** Called with a day pressed: its week opens. */
+  readonly onShowWeek: (day: string) => void;
 };
 
 /**
@@ -54,7 +60,7 @@ function noonOf(day: string): number {
  */
 export function YearView(props: YearViewProps) {
   const { t } = useTranslation();
-  const { book, day, occurrences, daysOff, isPanelOpen } = props;
+  const { book, day, occurrences, daysOff, isPanelOpen, onShowMonth, onShowWeek } = props;
   const year = day.slice(0, 4);
   const marks = longWeekendsOf(
     `${year}-01-01`,
@@ -138,6 +144,10 @@ export function YearView(props: YearViewProps) {
               value={null}
               onChange={() => undefined}
               renderDay={lookOfDay}
+              onMonthPress={() => {
+                onShowMonth(`${month}-01`);
+              }}
+              onDayPress={onShowWeek}
             />
           </div>
         ))}

@@ -50,6 +50,9 @@ export type MonthViewProps = {
   readonly onOpenDay: (day: string, anchor: HTMLElement) => void;
   readonly onOpenPickups: (day: string, anchor: HTMLElement) => void;
   readonly onNewEvent: (day: string) => void;
+
+  /** Called with a day whose number is pressed: its week opens. */
+  readonly onShowWeek: (day: string) => void;
 };
 
 /** A bar of a week: an occurrence over several days, where it starts and ends in the row. */
@@ -207,12 +210,21 @@ export function MonthView(props: MonthViewProps) {
                       !isInMonth && 'opacity-60',
                     )}
                   >
-                    <span
+                    {/* The number opens its week; the rest of the cell still makes an event. */}
+                    <button
+                      type="button"
+                      aria-label={t('calendar.month.showWeek', 'Week of {{day}}', {
+                        day: dayWords(each),
+                      })}
+                      onClick={() => {
+                        props.onShowWeek(each);
+                      }}
                       className={cn(
-                        'inline-flex h-6.5 items-center text-ui-sm tabular',
+                        'pointer-events-auto inline-flex h-6.5 cursor-pointer items-center rounded-pill text-ui-sm tabular transition-colors',
+                        'focus-visible:shadow-focus focus-visible:outline-none',
                         isToday
-                          ? 'w-6.5 justify-center rounded-full bg-primary font-semibold text-primary-foreground'
-                          : 'px-1',
+                          ? 'w-6.5 justify-center bg-primary font-semibold text-primary-foreground hover:bg-primary-hover'
+                          : 'px-1.5 hover:bg-surface-high',
                         !isToday &&
                           (!isInMonth
                             ? 'text-foreground-disabled'
@@ -226,7 +238,7 @@ export function MonthView(props: MonthViewProps) {
                       {each.endsWith('-01')
                         ? `${String(Number(each.slice(8)))} ${monthShort(each)}`
                         : Number(each.slice(8))}
-                    </span>
+                    </button>
                     {holiday === undefined ? null : (
                       <span className="min-w-0 truncate text-label text-tag-red">{holiday}</span>
                     )}
