@@ -115,7 +115,7 @@ export function CalendarSettingsPage() {
         />
       }
     >
-      <div className="flex max-w-270 flex-col gap-5">
+      <div className="flex flex-col gap-5">
         {tab === 'calendars' ? (
           <TabPanel idPrefix="calendar-settings" id="calendars">
             <CalendarsTab calendars={list} />
