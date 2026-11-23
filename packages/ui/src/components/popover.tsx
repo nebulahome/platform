@@ -8,9 +8,9 @@
  * the enclosing `<dialog>` for the reason `anchored-list.ts` gives, and follows the control while
  * anything scrolls.
  *
- * It closes on a press outside it and its control, and on Escape - which it keeps from reaching
- * the document, where a dialog underneath listens for it too, so one press closes the popover
- * alone. Where the focus goes is the content's business: a picker moves it into its own search,
+ * It closes on a press outside it and its control (a select's options, portalled out of it, count
+ * as in it), and on Escape - which it keeps from reaching the document, where a dialog underneath
+ * listens for it too, so one press closes the popover alone. Where the focus goes is the content's business: a picker moves it into its own search,
  * the settings search keeps it in the field that opened it.
  */
 import {
@@ -102,7 +102,31 @@ export function Popover(props: PopoverProps) {
     };
 
     /**
-     * Closes on a press outside the panel and the control.
+     * Whether a press is in a list a control of the panel opened: a select's options are portalled
+     * out of it, to the page or the dialog, and named by the select's `aria-controls`.
+     *
+     * @param target - What was pressed.
+     * @returns True inside such a list.
+     */
+    const isInOwnedList = (target: Node): boolean => {
+      for (
+        let node = target instanceof Element ? target : target.parentElement;
+        node !== null;
+        node = node.parentElement
+      ) {
+        if (
+          node.id !== '' &&
+          panel.current?.querySelector(`[aria-controls="${CSS.escape(node.id)}"]`) != null
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    /**
+     * Closes on a press outside the panel, the control and the lists the panel opened.
      *
      * @param event - The press.
      */
@@ -111,7 +135,8 @@ export function Popover(props: PopoverProps) {
 
       if (
         !(panel.current?.contains(target) ?? false) &&
-        !(anchor.current?.contains(target) ?? false)
+        !(anchor.current?.contains(target) ?? false) &&
+        !isInOwnedList(target)
       ) {
         close();
       }
