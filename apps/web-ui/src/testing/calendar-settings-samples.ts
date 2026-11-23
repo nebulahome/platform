@@ -235,6 +235,10 @@ export function settingsAnswer(path: string, query: URLSearchParams): unknown {
     };
   }
 
+  if (at === '/calendar/feeds' && query.get('feeds') === 'none') {
+    return { items: [] };
+  }
+
   if (at === '/calendar/feeds') {
     const ids = calendars(query).map((calendar) => calendar.id);
     /**

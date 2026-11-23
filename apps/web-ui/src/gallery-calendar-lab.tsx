@@ -2,7 +2,8 @@
  * The calendar lab (`pnpm preview:calendar`): the Calendar page on the boards' sample house -
  * Milan, Thursday 3 December 2026 at 18:42 - answered from memory, so it can be laid beside the
  * CAL-* boards without a hub. `?view=week|month|year|agenda`, `?date=2027-01-01`, `?lang=it`,
- * `?theme=light`, `?panel=closed`, `?role=guest` (nothing editable).
+ * `?theme=light`, `?panel=closed`, `?role=guest` (nothing editable); the settings with
+ * `?page=settings&tab=share`, `&feeds=none` for no share links.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';

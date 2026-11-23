@@ -101,7 +101,7 @@ export type CalendarMarkProps = {
   /** Whether it is a person's: a round with the initial. */
   readonly isPerson: boolean;
 
-  /** False draws it pale and a shade smaller: a calendar switched off. */
+  /** False draws it pale: a calendar switched off. */
   readonly isOn?: boolean;
   readonly size?: keyof typeof MARK_SIZES;
 };
@@ -122,13 +122,13 @@ export function CalendarMark(props: CalendarMarkProps) {
       aria-hidden="true"
       className={cn(
         'inline-flex shrink-0 items-center justify-center font-bold',
-        // Switched on it springs back to size and fills; off it pales into its colour's tint.
-        'transition-[background-color,color,scale] duration-220 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
+        // Off it pales into its colour's tint, and fills again when switched back on.
+        'transition-[background-color,color] duration-220 ease-out',
         look.box,
         isPerson ? 'rounded-full' : look.square,
         isOn
           ? 'bg-[var(--lane)] text-canvas'
-          : 'scale-90 bg-[color-mix(in_srgb,var(--lane)_18%,transparent)] text-[color-mix(in_srgb,var(--lane)_75%,transparent)]',
+          : 'bg-[color-mix(in_srgb,var(--lane)_18%,transparent)] text-[color-mix(in_srgb,var(--lane)_75%,transparent)]',
         LANE_CLASSES[color],
       )}
     >

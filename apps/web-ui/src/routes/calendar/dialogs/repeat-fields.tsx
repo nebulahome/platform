@@ -2,13 +2,23 @@
  * Repeat, always custom (CAL-Repeat): one switch, and when it is on the rule - every N days,
  * weeks, months or years; the days of the week for weeks; the same date or the same weekday for
  * months; ending never, on a day or after a number of times - and the next times it gives, the
- * holidays among them marked.
+ * holidays among them marked. The rule slides open under the switch and folds away again.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { addDays, occurrencesOf, weekdayOf, type CalendarRepeat } from '@nebulahome/contracts';
-import { AppIcon, cn, DateField, RadioGroup, SelectField, Switch, TextField } from '@nebulahome/ui';
+import {
+  AppIcon,
+  cn,
+  Collapse,
+  DateField,
+  RadioGroup,
+  SelectField,
+  Switch,
+  TextField,
+} from '@nebulahome/ui';
 
 import { WeekdayPicker } from '@/components/weekday-picker';
 import { signalled } from '@/lib/signalled';
@@ -92,9 +102,59 @@ export function RepeatFields(props: RepeatFieldsProps) {
     </div>
   );
 
-  if (rule === null) {
-    return <div className="rounded-inner border border-border bg-well px-4 py-3.25">{head}</div>;
+  // The rule stays drawn while the block slides shut, so switching it off folds it away.
+  const [kept, setKept] = useState(rule);
+
+  if (rule !== null && rule !== kept) {
+    setKept(rule);
   }
+
+  const shown = rule ?? kept;
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col border bg-well px-4',
+        'transition-[border-color,border-radius,padding] duration-250 ease-out motion-reduce:transition-none',
+        isOn ? 'rounded-card border-primary/45 pt-3.5 pb-4' : 'rounded-inner border-border py-3.25',
+      )}
+    >
+      {head}
+      <Collapse isOpen={isOn} className="flex flex-col gap-3.5 pt-3.5">
+        {shown === null ? null : (
+          <RuleFields
+            rule={shown}
+            start={start}
+            onChange={onChange}
+            thisYear={thisYear}
+            nextYear={nextYear}
+          />
+        )}
+      </Collapse>
+    </div>
+  );
+}
+
+/** What the rule's fields need. */
+type RuleFieldsProps = {
+  readonly rule: CalendarRepeat;
+  readonly onChange: (rule: CalendarRepeat) => void;
+  readonly start: string;
+
+  /** The holidays of the start's year and the next, by day, to mark the next times with. */
+  readonly thisYear: ReadonlyMap<string, string>;
+  readonly nextYear: ReadonlyMap<string, string>;
+};
+
+/**
+ * Renders the rule: every how many of what, on which days, when it ends, and the next times.
+ *
+ * @param props - See {@link RuleFieldsProps}.
+ * @returns The fields.
+ */
+function RuleFields(props: RuleFieldsProps) {
+  const { t } = useTranslation();
+  const { rule, onChange, start, thisYear, nextYear } = props;
 
   /**
    * Hands on the rule with some of it changed.
@@ -157,9 +217,7 @@ export function RepeatFields(props: RepeatFieldsProps) {
   const weekdayKind = nthOfMonth(start) === 5 ? 'last_weekday' : 'weekday';
 
   return (
-    <div className="flex flex-col gap-3.5 rounded-card border border-primary/45 bg-well px-4 pt-3.5 pb-4">
-      {head}
-
+    <>
       <div className="flex items-center gap-2.5 text-ui text-foreground-muted">
         <span>{t('calendar.repeat.every', 'Every')}</span>
         <TextField
@@ -276,7 +334,7 @@ export function RepeatFields(props: RepeatFieldsProps) {
                 type="number"
                 min={1}
                 max={999}
-                className="w-30 font-mono"
+                className="w-34 font-mono"
                 trail={t('calendar.repeat.timesWord', 'times')}
                 disabled={rule.ends.kind !== 'after'}
                 value={String(rule.ends.kind === 'after' ? rule.ends.count : 10)}
@@ -321,7 +379,7 @@ export function RepeatFields(props: RepeatFieldsProps) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

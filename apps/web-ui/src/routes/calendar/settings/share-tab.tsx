@@ -12,7 +12,6 @@ import {
   AppIcon,
   Button,
   cn,
-  EmptyState,
   IconButton,
   OverflowMenu,
   TAG_FILL_CLASSES,
@@ -32,7 +31,7 @@ import {
   LinkReadyDialog,
   RevokeLinkDialog,
 } from '@/routes/calendar/settings/share-dialogs';
-import { CopyButton } from '@/routes/library/broker-parts';
+import { BrokerEmpty, CopyButton } from '@/routes/library/broker-parts';
 
 /** What the tab needs. */
 export type ShareTabProps = {
@@ -127,26 +126,27 @@ export function ShareTab(props: ShareTabProps) {
   return (
     <>
       {feeds.length === 0 ? (
-        <div className="relative min-h-80 overflow-hidden rounded-card border border-dashed border-border-strong">
-          <EmptyState
-            icon={<AppIcon id="link" size={32} />}
-            title={t('calendar.share.none', 'No links yet')}
-            description={t(
-              'calendar.share.noneLine',
-              'A link lets a phone or a computer at home subscribe to some of the calendars, in its own calendar app.',
-            )}
-            action={
-              <Button
-                onClick={() => {
-                  onLink(true);
-                }}
-              >
-                <AppIcon id="plus" size={15} />
-                {t('calendar.settings.newLink', 'New link')}
-              </Button>
-            }
-          />
-        </div>
+        // Small and in place, as CAL-Share draws it: the house's large animated empty state is for
+        // a whole page.
+        <BrokerEmpty
+          mark={<AppIcon id="link" size={22} className="text-foreground-muted" />}
+          title={t('calendar.share.none', 'No links yet')}
+          action={
+            <Button
+              onClick={() => {
+                onLink(true);
+              }}
+            >
+              <AppIcon id="plus" size={15} />
+              {t('calendar.settings.newLink', 'New link')}
+            </Button>
+          }
+        >
+          {t(
+            'calendar.share.noneLine',
+            'A link lets a phone or a computer at home subscribe to some of the calendars, in its own calendar app.',
+          )}
+        </BrokerEmpty>
       ) : (
         <section className="rounded-card border border-border bg-surface shadow-edge">
           <div className={cn(GRID, 'border-b border-border py-3 pr-4 pl-5')} aria-hidden="true">

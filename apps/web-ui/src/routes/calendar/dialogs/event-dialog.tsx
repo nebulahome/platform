@@ -323,7 +323,6 @@ export function EventDialog(props: EventDialogProps) {
       isOpen
       size="form"
       layout="card"
-      closesOnBackdrop={false}
       onClose={onClose}
       lead={
         <span className="flex size-11 shrink-0 items-center justify-center rounded-tile border border-border-strong bg-surface-raised text-primary">

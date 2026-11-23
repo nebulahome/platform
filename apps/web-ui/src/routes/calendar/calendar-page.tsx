@@ -432,131 +432,135 @@ export function CalendarPage() {
     );
   }
 
+  // The page arrives in a stagger; its dialogs and popovers stay out of it, or a dialog opened later
+  // would wait for its place in the stagger before its own entrance.
   return (
-    <div className="entity-stagger flex min-h-0 min-w-0 grow flex-col gap-5 overflow-y-auto px-8 pt-6 pb-10">
-      <PageHeader
-        title={t('calendar.page.title', 'Calendar')}
-        meta={
-          view === 'year' || view === 'agenda'
-            ? undefined
-            : t('calendar.page.count', {
-                count: book.calendars.length,
-                defaultValue_one: '{{count}} calendar',
-                defaultValue_other: '{{count}} calendars',
-              })
-        }
-        actions={
-          <>
-            <div
-              ref={searchBox}
-              onFocusCapture={() => {
-                setSearching(true);
-              }}
-            >
-              <SearchField
-                label={t('calendar.page.search', 'Search events')}
-                placeholder={t('calendar.page.search', 'Search events')}
-                value={words}
-                className="w-44 lg:w-56"
-                onChange={(next) => {
-                  setWords(next);
+    <>
+      <div className="entity-stagger flex min-h-0 min-w-0 grow flex-col gap-5 overflow-y-auto px-8 pt-6 pb-10">
+        <PageHeader
+          title={t('calendar.page.title', 'Calendar')}
+          meta={
+            view === 'year' || view === 'agenda'
+              ? undefined
+              : t('calendar.page.count', {
+                  count: book.calendars.length,
+                  defaultValue_one: '{{count}} calendar',
+                  defaultValue_other: '{{count}} calendars',
+                })
+          }
+          actions={
+            <>
+              <div
+                ref={searchBox}
+                onFocusCapture={() => {
                   setSearching(true);
                 }}
-              />
-            </div>
-            <Link
-              to="/calendar/settings"
-              aria-label={t('calendar.page.settings', 'Calendar settings')}
-              title={t('calendar.page.settings', 'Calendar settings')}
-              className="press-scale inline-flex size-control shrink-0 items-center justify-center rounded-pill border border-border-strong bg-surface-raised text-foreground-muted hover:bg-surface-high hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
-            >
-              <AppIcon id="settings" size={16} />
-            </Link>
-            {canAdd ? (
-              <Button
-                onClick={() => {
-                  setSeed({
-                    mode: 'new',
-                    day: day < book.today && view !== 'week' ? book.today : day,
-                  });
-                }}
               >
-                <AppIcon id="plus" size={16} />
-                {t('calendar.page.newEvent', 'New event')}
-              </Button>
-            ) : null}
-          </>
-        }
-      />
+                <SearchField
+                  label={t('calendar.page.search', 'Search events')}
+                  placeholder={t('calendar.page.search', 'Search events')}
+                  value={words}
+                  className="w-44 lg:w-56"
+                  onChange={(next) => {
+                    setWords(next);
+                    setSearching(true);
+                  }}
+                />
+              </div>
+              <Link
+                to="/calendar/settings"
+                aria-label={t('calendar.page.settings', 'Calendar settings')}
+                title={t('calendar.page.settings', 'Calendar settings')}
+                className="press-scale inline-flex size-control shrink-0 items-center justify-center rounded-pill border border-border-strong bg-surface-raised text-foreground-muted hover:bg-surface-high hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
+              >
+                <AppIcon id="settings" size={16} />
+              </Link>
+              {canAdd ? (
+                <Button
+                  onClick={() => {
+                    setSeed({
+                      mode: 'new',
+                      day: day < book.today && view !== 'week' ? book.today : day,
+                    });
+                  }}
+                >
+                  <AppIcon id="plus" size={16} />
+                  {t('calendar.page.newEvent', 'New event')}
+                </Button>
+              ) : null}
+            </>
+          }
+        />
 
-      <CalendarToolbar
-        view={view}
-        title={titleOf(view, day)}
-        isNarrow={isNarrow}
-        onStep={(by) => {
-          go({ date: stepDay(view, day, by) });
-        }}
-        onToday={() => {
-          go({ date: book.today });
-        }}
-        onViewChange={(next) => {
-          go({ view: next });
-        }}
-        isPanelOpen={isNarrow ? undefined : panel === 'open'}
-        onPanelToggle={() => {
-          setPreferences({ calendarPanel: panel === 'open' ? 'closed' : 'open' });
-        }}
-      />
+        <CalendarToolbar
+          view={view}
+          title={titleOf(view, day)}
+          isNarrow={isNarrow}
+          onStep={(by) => {
+            go({ date: stepDay(view, day, by) });
+          }}
+          onToday={() => {
+            go({ date: book.today });
+          }}
+          onViewChange={(next) => {
+            go({ view: next });
+          }}
+          isPanelOpen={isNarrow ? undefined : panel === 'open'}
+          onPanelToggle={() => {
+            setPreferences({ calendarPanel: panel === 'open' ? 'closed' : 'open' });
+          }}
+        />
 
-      {error === null ? null : (
-        <p
-          role="alert"
-          className="rounded-inner border border-danger/40 bg-danger-soft px-4 py-3 text-ui-sm text-danger"
-        >
-          {toMessage(error)}
-        </p>
-      )}
-
-      {allOff ? (
-        <div className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3.5">
-          <span className="flex items-center gap-2.5 text-ui-sm text-foreground-muted">
-            <AppIcon id="eye-off" size={16} className="text-foreground-subtle" />
-            {t('calendar.page.allOff', {
-              count: book.calendars.length,
-              defaultValue_one: 'The calendar is off',
-              defaultValue_other: 'All {{count}} calendars are off',
-            })}
-          </span>
-          <Button
-            variant="ghost"
-            size="compact"
-            onClick={() => {
-              setHidden([]);
-            }}
+        {error === null ? null : (
+          <p
+            role="alert"
+            className="rounded-inner border border-danger/40 bg-danger-soft px-4 py-3 text-ui-sm text-danger"
           >
-            {t('calendar.list.showAll', 'Show all')}
-          </Button>
-        </div>
-      ) : null}
-
-      <div className="flex min-w-0 items-start gap-5">
-        {/* Keyed by the view, so a view switched to fades up into place. */}
-        <div key={view} className="calendar-view-in flex min-w-0 grow">
-          {body}
-        </div>
-        {isNarrow || view === 'year' ? null : (
-          <PanelSlot isOpen={isPanelOpen}>
-            <SidePanel
-              book={book}
-              ahead={ahead.data ?? []}
-              onOpen={open}
-              onShowDay={(each) => {
-                go({ date: each });
-              }}
-              onHiddenChange={setHidden}
-            />
-          </PanelSlot>
+            {toMessage(error)}
+          </p>
         )}
+
+        {allOff ? (
+          <div className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3.5">
+            <span className="flex items-center gap-2.5 text-ui-sm text-foreground-muted">
+              <AppIcon id="eye-off" size={16} className="text-foreground-subtle" />
+              {t('calendar.page.allOff', {
+                count: book.calendars.length,
+                defaultValue_one: 'The calendar is off',
+                defaultValue_other: 'All {{count}} calendars are off',
+              })}
+            </span>
+            <Button
+              variant="ghost"
+              size="compact"
+              onClick={() => {
+                setHidden([]);
+              }}
+            >
+              {t('calendar.list.showAll', 'Show all')}
+            </Button>
+          </div>
+        ) : null}
+
+        <div className="flex min-w-0 items-start gap-5">
+          {/* Keyed by the view, so a view switched to fades up into place. */}
+          <div key={view} className="calendar-view-in flex min-w-0 grow">
+            {body}
+          </div>
+          {isNarrow || view === 'year' ? null : (
+            <PanelSlot isOpen={isPanelOpen}>
+              <SidePanel
+                book={book}
+                ahead={ahead.data ?? []}
+                onOpen={open}
+                onShowDay={(each) => {
+                  go({ date: each });
+                }}
+                onHiddenChange={setHidden}
+              />
+            </PanelSlot>
+          )}
+        </div>
       </div>
 
       <SearchResults
@@ -709,7 +713,7 @@ export function CalendarPage() {
           onConfirm={deletion.confirm}
         />
       )}
-    </div>
+    </>
   );
 }
 

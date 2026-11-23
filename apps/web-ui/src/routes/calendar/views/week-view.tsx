@@ -983,7 +983,6 @@ export function QuickAdd(props: QuickAddProps) {
             <SelectField
               label={t('calendar.dialog.calendar', 'Calendar')}
               isLabelHidden
-              size="compact"
               value={calendarId}
               onChange={setCalendarId}
               options={writable.map((each) => ({
