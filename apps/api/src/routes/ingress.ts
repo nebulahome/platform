@@ -51,7 +51,7 @@ const REQUIRED = {
 /** How long the supervisor's answer is kept: an address changes only with the container. */
 const TARGET_TTL_MS = 30_000;
 
-/** Lets the page be framed by the platform's own: added to whatever policy the page sends. */
+/** Lets the page be framed by the platform's own and no other: on every answer given here. */
 const FRAME_POLICY = "frame-ancestors 'self'";
 
 /** The close codes a WebSocket may send on: what arrived as "no code" or "dropped" goes on as 1000. */
@@ -115,6 +115,28 @@ function upstreamHeaders(
     'x-forwarded-prefix': prefix,
     'x-ingress-path': prefix,
   };
+}
+
+/**
+ * A container's policies without their `frame-ancestors`, the one directive that decides who may
+ * frame the page.
+ *
+ * @param policy - The container's `Content-Security-Policy`, one header or several, of policies.
+ * @returns The policies left, each without the directive; none that held nothing else.
+ */
+function withoutFrameAncestors(policy: string | string[] | undefined): string[] {
+  // A comma separates two policies in one header, as the browser reads it.
+  return [policy ?? []]
+    .flat()
+    .flatMap((header) => header.split(','))
+    .map((each) =>
+      each
+        .split(';')
+        .map((directive) => directive.trim())
+        .filter((directive) => directive !== '' && !/^frame-ancestors(?:\s|$)/iu.test(directive))
+        .join('; '),
+    )
+    .filter((each) => each !== '');
 }
 
 /**
@@ -263,18 +285,22 @@ export async function registerIngressRoutes(
       rewriteRequestHeaders: (unused, headers) => upstreamHeaders(headers, target.prefix),
 
       /**
-       * Lets the platform's own page frame the answer, beside whatever policy it has.
+       * Lets the platform's own page frame the answer, and only it, beside the rest of the
+       * container's policy.
        *
        * @param headers - The container's headers.
        * @returns What the browser receives.
        */
       rewriteHeaders: (headers) => {
-        const policy = headers['content-security-policy'];
+        const { 'content-security-policy': policy, ...kept } = headers;
+
+        // The platform's window frames the page, so the container's own refusals to be framed go;
+        // FRAME_POLICY still keeps every other site from framing it.
+        delete kept['x-frame-options'];
 
         return {
-          ...headers,
-          'content-security-policy':
-            policy === undefined ? FRAME_POLICY : [policy, FRAME_POLICY].flat(),
+          ...kept,
+          'content-security-policy': [...withoutFrameAncestors(policy), FRAME_POLICY].join(', '),
         };
       },
       /**
@@ -372,6 +398,27 @@ export async function registerIngressRoutes(
     });
     await scope.register(replyFrom);
     scope.addHook('onRequest', admit);
+    scope.addHook(
+      'onSend',
+
+      /**
+       * Lets the platform's own page frame what is answered here without the container - the
+       * redirect, a refusal, a page that does not answer - which the front door would otherwise
+       * keep out of every frame.
+       *
+       * @param request - The request.
+       * @param reply - Its answer, holding the container's policy when the container gave it.
+       * @param payload - The body, passed on as it is.
+       * @param done - Called with the body.
+       */
+      (request, reply, payload, done) => {
+        if (!reply.hasHeader('content-security-policy')) {
+          void reply.header('content-security-policy', FRAME_POLICY);
+        }
+
+        done(null, payload);
+      },
+    );
 
     const options = { config: { rateLimit: false } } as const;
 

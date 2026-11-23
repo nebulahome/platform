@@ -28,6 +28,19 @@ type Asked = {
 
 const PAGE = '/api/ingress/nebulahome-zigbee2mqtt';
 
+/** The policy that lets the platform's own page, and only it, frame an answer. */
+const FRAMED_BY_PLATFORM = "frame-ancestors 'self'";
+
+/** What the page sends besides its body, by path: its own policy for any path not listed. */
+const PAGE_HEADERS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  '/bare': {},
+  '/unframeable': {
+    'x-frame-options': 'DENY',
+    'content-security-policy': "default-src 'self'; frame-ancestors 'none'",
+  },
+  '/two-policies': { 'content-security-policy': "img-src 'self', FRAME-ANCESTORS 'none'" },
+};
+
 let server: FastifyInstance;
 let page: Server;
 let asked: Asked | undefined;
@@ -60,7 +73,7 @@ beforeAll(async () => {
       };
       response.writeHead(200, {
         'content-type': 'text/html',
-        'content-security-policy': "script-src 'self'",
+        ...(PAGE_HEADERS[request.url ?? ''] ?? { 'content-security-policy': "script-src 'self'" }),
       });
       response.end('<p>Zigbee2MQTT</p>');
     });
@@ -110,6 +123,8 @@ describe('the cookie a page is opened with', () => {
     expect(response.headers['set-cookie']).toBe(
       `nebula_ingress=${authorization.replace('Bearer ', '')}; Path=/api/ingress/; HttpOnly; SameSite=Strict; Max-Age=900`,
     );
+    // An answer of the API's, outside the pages' paths: the front door's policy stays on it.
+    expect(response.headers['content-security-policy']).toBeUndefined();
   });
 });
 
@@ -125,6 +140,9 @@ describe('a container’s page', () => {
     expect(without.statusCode).toBe(401);
     expect(member.statusCode).toBe(403);
     expect(asked).toBeUndefined();
+    // Shown in the platform's window, a refusal is framed like the page.
+    expect(without.headers['content-security-policy']).toBe(FRAMED_BY_PLATFORM);
+    expect(member.headers['content-security-policy']).toBe(FRAMED_BY_PLATFORM);
   });
 
   it('is not found for a container without one', async () => {
@@ -135,6 +153,7 @@ describe('a container’s page', () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.headers['content-security-policy']).toBe(FRAMED_BY_PLATFORM);
   });
 
   it('reaches the container under its own path, without the platform’s credentials', async () => {
@@ -146,10 +165,9 @@ describe('a container’s page', () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.body).toBe('<p>Zigbee2MQTT</p>');
-    expect(response.headers['content-security-policy']).toEqual([
-      "script-src 'self'",
-      "frame-ancestors 'self'",
-    ]);
+    expect(response.headers['content-security-policy']).toBe(
+      `script-src 'self', ${FRAMED_BY_PLATFORM}`,
+    );
     expect(asked).toMatchObject({
       method: 'GET',
       url: '/assets/index.js?v=2',
@@ -182,6 +200,46 @@ describe('a container’s page', () => {
 
     expect(response.statusCode).toBe(302);
     expect(response.headers.location).toBe(`${PAGE}/?tab=map`);
+    expect(response.headers['content-security-policy']).toBe(FRAMED_BY_PLATFORM);
+  });
+
+  it('may be framed by the platform’s own page even when the container refuses every frame', async () => {
+    const response = await server.inject({
+      method: 'GET',
+      url: `${PAGE}/unframeable`,
+      headers: { cookie: await cookieWith('integration:read', 'integration:configure') },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // The container's DENY is gone; what is left is the platform's own, which lets its page in.
+    expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+    expect(response.headers['content-security-policy']).toBe(
+      `default-src 'self', ${FRAMED_BY_PLATFORM}`,
+    );
+    expect(response.headers['content-security-policy']).not.toContain("'none'");
+  });
+
+  it('drops a policy of the container’s that only refused frames, keeping the others', async () => {
+    const response = await server.inject({
+      method: 'GET',
+      url: `${PAGE}/two-policies`,
+      headers: { cookie: await cookieWith('integration:read', 'integration:configure') },
+    });
+
+    expect(response.headers['content-security-policy']).toBe(
+      `img-src 'self', ${FRAMED_BY_PLATFORM}`,
+    );
+  });
+
+  it('may be framed by the platform’s own page only, when the container sends no policy', async () => {
+    const response = await server.inject({
+      method: 'GET',
+      url: `${PAGE}/bare`,
+      headers: { cookie: await cookieWith('integration:read', 'integration:configure') },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-security-policy']).toBe(FRAMED_BY_PLATFORM);
   });
 
   it('joins its WebSocket to the container’s, both ways', async () => {
@@ -211,5 +269,6 @@ describe('a container’s page', () => {
     });
 
     expect(response.statusCode).toBe(503);
+    expect(response.headers['content-security-policy']).toBe(FRAMED_BY_PLATFORM);
   });
 });

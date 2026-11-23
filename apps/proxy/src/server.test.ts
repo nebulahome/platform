@@ -47,6 +47,15 @@ describe('buildProxyServer', () => {
         .type('text/html')
         .send('<p>Zigbee2MQTT</p>'),
     );
+    // api's own refusal on a page's path, under the policy api gives every answer there.
+    upstream.get('/api/ingress/nebulahome-gone/', (request, reply) =>
+      reply
+        .code(503)
+        .header('content-security-policy', "frame-ancestors 'self'")
+        .send({
+          error: { code: 'DEVICE_UNAVAILABLE', message: "The container's page does not answer" },
+        }),
+    );
     await upstream.listen({ host: '127.0.0.1', port: 0 });
 
     const address = upstream.server.address();
@@ -175,6 +184,16 @@ describe('buildProxyServer', () => {
     expect(response.body).toBe('<p>Zigbee2MQTT</p>');
     expect(response.headers['content-security-policy']).toBe("frame-ancestors 'self'");
     expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
+  });
+
+  it("keeps api's policy on its own error under a page's path, so the page's frame shows it", async () => {
+    const response = await proxy.inject({
+      method: 'GET',
+      url: '/api/ingress/nebulahome-gone/',
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.headers['content-security-policy']).toBe("frame-ancestors 'self'");
   });
 
   it('does not answer an unknown API path with the page', async () => {
