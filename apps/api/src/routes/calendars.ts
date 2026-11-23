@@ -22,6 +22,7 @@ import {
   calendarModelCreateSchema,
   calendarModelSchema,
   calendarModelUpdateSchema,
+  calendarPersonSchema,
   calendarUpdateSchema,
   calendarUsageSchema,
   calendarViewSchema,
@@ -29,6 +30,7 @@ import {
   type CalendarIcsState,
   type CalendarIcsTestResult,
   type CalendarModel,
+  type CalendarPerson,
   type CalendarUsage,
   type CalendarView,
 } from '@nebulahome/contracts';
@@ -47,6 +49,7 @@ import {
   deleteCalendar,
   deleteCalendarModel,
   dropIcsFile,
+  listCalendarPeople,
   listCalendars,
   readCalendarUsage,
   readCalendarView,
@@ -140,6 +143,30 @@ export function registerCalendarRoutes(environment: RouteEnvironment, context: A
       requirePermission(route.identity, 'calendar:read');
 
       return { items: await listCalendars(context.db, route.identity) };
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/calendar/people',
+      summary: 'List the people a calendar can have as editors',
+      tag: 'Calendar',
+      permission: 'calendar:read',
+      response: collectionSchema(calendarPersonSchema),
+    },
+
+    /**
+     * Lists the house's people, for every calendar reader.
+     *
+     * @param route - Who is asking.
+     * @returns The people, by name.
+     */
+    async (route): Promise<{ items: CalendarPerson[] }> => {
+      requirePermission(route.identity, 'calendar:read');
+
+      return { items: await listCalendarPeople(context.db) };
     },
   );
 

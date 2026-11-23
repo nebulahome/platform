@@ -13,6 +13,7 @@ import {
   CALENDAR_KINDS,
   calendarIcsStateSchema,
   calendarModelSchema,
+  calendarPersonSchema,
   calendarViewSchema,
   ConflictError,
   NotFoundError,
@@ -23,6 +24,7 @@ import {
   type CalendarModel,
   type CalendarModelCreate,
   type CalendarModelUpdate,
+  type CalendarPerson as CalendarPersonView,
   type CalendarUpdate,
   type CalendarUsage,
   type CalendarView,
@@ -30,6 +32,7 @@ import {
 } from '@nebulahome/contracts';
 import { schema, type Database } from '@nebulahome/db';
 
+import { readAvatarUrls } from './avatars.js';
 import {
   canChangeCalendar,
   canEditCalendar,
@@ -901,4 +904,35 @@ export async function removePersonalCalendar(db: Database, userId: string): Prom
 
     return deleted[0]?.id ?? null;
   });
+}
+
+/**
+ * Lists the people a calendar's Editors list shows: the active accounts that are not services.
+ * Served to whoever reads calendars, unlike the users list, so a member sees who edits what.
+ *
+ * @param db - The database.
+ * @returns The people, by name.
+ */
+export async function listCalendarPeople(db: Database): Promise<CalendarPersonView[]> {
+  const { roles, users } = schema.auth;
+  const rows = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      displayName: users.displayName,
+      role: roles.key,
+    })
+    .from(users)
+    .innerJoin(roles, eq(roles.id, users.roleId))
+    .where(and(isNull(users.deletedAt), eq(users.isActive, true)))
+    .orderBy(asc(users.displayName), asc(users.username));
+  const people = rows.filter((row) => row.role !== 'service');
+  const avatars = await readAvatarUrls(
+    db,
+    people.map((row) => row.id),
+  );
+
+  return people.map((row) =>
+    calendarPersonSchema.parse({ ...row, avatarUrl: avatars.get(row.id) ?? null }),
+  );
 }

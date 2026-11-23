@@ -459,7 +459,12 @@ export type CalendarEventWrite = z.output<typeof calendarEventWriteSchema>;
  * ({@link calendarEventTimeProblem}): a change may move only the end.
  */
 export const calendarEventPatchSchema = z
-  .object(eventWriteShape)
+  .object({
+    ...eventWriteShape,
+
+    /** The times deleted one by one: the Undo of an "only this one" delete puts them back. */
+    skippedOn: z.array(calendarDaySchema).max(1_000),
+  })
   .partial()
   .refine(isNotEmpty, { message: 'Nothing to change' });
 
@@ -696,6 +701,23 @@ export const calendarPlaceSuggestionSchema = z.object({ place: calendarPlaceSche
 
 /** The place the house's position suggests. */
 export type CalendarPlaceSuggestion = z.output<typeof calendarPlaceSuggestionSchema>;
+
+/**
+ * Someone of the house, as a calendar's Editors list shows them: everyone who reads calendars
+ * sees the list, so it carries no more than a name, a picture and the role's key.
+ */
+export const calendarPersonSchema = z.object({
+  id: z.uuid(),
+  username: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+
+  /** The key of their role: `owner`, `admin`, `member`, `guest`, a custom role's. */
+  role: z.string(),
+});
+
+/** Someone of the house, for the Editors list. */
+export type CalendarPerson = z.output<typeof calendarPersonSchema>;
 
 // --- share links -------------------------------------------------------------------------
 

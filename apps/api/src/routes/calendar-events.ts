@@ -37,6 +37,7 @@ import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import {
   createCalendarEvent,
   deleteCalendarEvent,
+  readCalendarEvent,
   updateCalendarEvent,
 } from '../services/calendar-events.js';
 import {
@@ -156,6 +157,31 @@ export function registerCalendarEventRoutes(
       });
 
       return event;
+    },
+  );
+
+  defineRoute(
+    environment,
+    {
+      method: 'GET',
+      url: '/calendar/events/:eventId',
+      summary: 'Read an event, with its repeat rule',
+      tag: 'Calendar',
+      permission: 'calendar:read',
+      params: eventParamsSchema,
+      response: calendarEventSchema,
+    },
+
+    /**
+     * Reads one event.
+     *
+     * @param route - The id and who is asking.
+     * @returns The event.
+     */
+    async (route): Promise<CalendarEvent> => {
+      requirePermission(route.identity, 'calendar:read');
+
+      return readCalendarEvent(context.db, route.params.eventId);
     },
   );
 

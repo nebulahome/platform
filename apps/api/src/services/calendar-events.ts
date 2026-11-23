@@ -101,6 +101,24 @@ function toEvent(row: EventRow): CalendarEvent {
 }
 
 /**
+ * Reads an event, for whoever reads calendars: what an occurrence does not carry, its rule.
+ *
+ * @param db - The database.
+ * @param eventId - Which.
+ * @returns The event.
+ * @throws {NotFoundError} When no event has that id.
+ */
+export async function readCalendarEvent(db: Database, eventId: string): Promise<CalendarEvent> {
+  const [row] = await db.select().from(events).where(eq(events.id, eventId));
+
+  if (row === undefined) {
+    throw new NotFoundError('No event has that id', { details: { eventId } });
+  }
+
+  return toEvent(row);
+}
+
+/**
  * Reads an event someone may change: typed in the house, in a calendar they edit.
  *
  * @param db - The database.
@@ -204,6 +222,7 @@ function merged(base: EventFields, body: CalendarEventPatch): EventFields {
     ...(body.icon === undefined ? {} : { icon: body.icon }),
     ...(body.notes === undefined ? {} : { notes: body.notes }),
     ...(body.repeat === undefined ? {} : { repeat: body.repeat }),
+    ...(body.skippedOn === undefined ? {} : { skippedOn: [...body.skippedOn] }),
     isAllDay,
     startsOn: isAllDay ? (body.startsOn === undefined ? base.startsOn : body.startsOn) : null,
     endsOn: isAllDay ? (body.endsOn === undefined ? base.endsOn : body.endsOn) : null,
