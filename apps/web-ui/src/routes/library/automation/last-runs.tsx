@@ -160,6 +160,13 @@ function triggerLine(run: AutomationRun): string {
     case 'quiet': {
       return translate('automation.lastRuns.quietTimeCame', 'The quietest time came');
     }
+    case 'calendar': {
+      return run.trigger.eventTitle === undefined
+        ? translate('automation.lastRuns.calendarEvent', 'An event of its calendar')
+        : translate('automation.lastRuns.calendarEventNamed', 'The event {{title}}', {
+            title: run.trigger.eventTitle,
+          });
+    }
     case 'webhook': {
       return translate('automation.lastRuns.itsWebhookWasCalled', 'Its webhook was called');
     }

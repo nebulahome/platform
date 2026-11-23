@@ -43,6 +43,12 @@ export type BlockNames = {
 
   /** A state of an entity in its own words: a motion sensor's `on` is "Detected". */
   readonly stateWord?: (entityId: string, token: string) => string | undefined;
+
+  /** A calendar's name, by its id. */
+  readonly calendar?: (calendarId: string) => string | undefined;
+
+  /** A calendar model's name, by its id. */
+  readonly model?: (modelId: string) => string | undefined;
 };
 
 /** Names when there is no house to read them from: the addresses, spelled out. */
@@ -492,6 +498,41 @@ function triggerSaid(trigger: AutomationTrigger, names: BlockNames): Said {
         ),
         isNamed: false,
       };
+    }
+    case 'calendar': {
+      const calendar =
+        names.calendar?.(trigger.calendarId) ??
+        translate('automations.summary.aCalendar', 'a calendar');
+      const models = (trigger.modelIds ?? []).flatMap((id) => names.model?.(id) ?? []);
+      const isStart = trigger.edge === 'start';
+      const said =
+        models.length === 0
+          ? isStart
+            ? translate('automations.summary.anyEventStarts', 'Any event starts in {{calendar}}', {
+                calendar,
+              })
+            : translate('automations.summary.anyEventEnds', 'Any event ends in {{calendar}}', {
+                calendar,
+              })
+          : isStart
+            ? translate(
+                'automations.summary.modelEventStarts',
+                'A {{models}} event starts in {{calendar}}',
+                {
+                  models: listFormat({ style: 'long', type: 'disjunction' }).format(models),
+                  calendar,
+                },
+              )
+            : translate(
+                'automations.summary.modelEventEnds',
+                'A {{models}} event ends in {{calendar}}',
+                {
+                  models: listFormat({ style: 'long', type: 'disjunction' }).format(models),
+                  calendar,
+                },
+              );
+
+      return { text: withOffset(said, trigger.offsetMinutes), isNamed: false };
     }
     case 'sun': {
       if (trigger.event === 'elevation_crossed') {

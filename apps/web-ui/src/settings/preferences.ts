@@ -55,6 +55,12 @@ export const SIDEBAR_SECTIONS = ['automate', 'house', 'system', 'packages'] as c
 /** One of {@link SIDEBAR_SECTIONS}. */
 export type SidebarSection = (typeof SIDEBAR_SECTIONS)[number];
 
+/** Whether the calendar's side panel is shown. */
+export const CALENDAR_PANEL_CHOICES = ['open', 'closed'] as const;
+
+/** Whether the calendar's side panel is shown. */
+export type CalendarPanelChoice = (typeof CALENDAR_PANEL_CHOICES)[number];
+
 /** Where signing in leaves you. */
 export const START_PAGES = [
   '/dashboards',
@@ -85,6 +91,12 @@ export type Preferences = {
 
   /** The sections of the sidebar folded on the open card. */
   readonly foldedSections: readonly SidebarSection[];
+
+  /** Whether the calendar's side panel is shown. */
+  readonly calendarPanel: CalendarPanelChoice;
+
+  /** The calendars switched off on the calendar page, by id. */
+  readonly hiddenCalendars: readonly string[];
 };
 
 /** What a browser that has never been told anything uses. */
@@ -94,6 +106,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   startPage: '/dashboards',
   sidebar: 'expanded',
   foldedSections: [],
+  calendarPanel: 'open',
+  hiddenCalendars: [],
 };
 
 /** The key the whole set is filed under. One key, so a read is one parse and one guard. */
@@ -151,6 +165,16 @@ export function readPreferences(): Preferences {
       (section) =>
         Array.isArray(record['foldedSections']) && record['foldedSections'].includes(section),
     ),
+    calendarPanel: oneOf(
+      CALENDAR_PANEL_CHOICES,
+      record['calendarPanel'],
+      DEFAULT_PREFERENCES.calendarPanel,
+    ),
+    hiddenCalendars: Array.isArray(record['hiddenCalendars'])
+      ? record['hiddenCalendars']
+          .filter((id): id is string => typeof id === 'string' && id.length <= 64)
+          .slice(0, 200)
+      : DEFAULT_PREFERENCES.hiddenCalendars,
   };
 }
 
@@ -222,8 +246,19 @@ export const usePreferences = create<PreferencesState>((set, get) => ({
    * @param changes - What to change.
    */
   set: (changes: Partial<Preferences>): void => {
-    const { theme, motion, startPage, sidebar, foldedSections } = { ...get(), ...changes };
-    const next: Preferences = { theme, motion, startPage, sidebar, foldedSections };
+    const { theme, motion, startPage, sidebar, foldedSections, calendarPanel, hiddenCalendars } = {
+      ...get(),
+      ...changes,
+    };
+    const next: Preferences = {
+      theme,
+      motion,
+      startPage,
+      sidebar,
+      foldedSections,
+      calendarPanel,
+      hiddenCalendars,
+    };
 
     set(next);
     writePreferences(next);

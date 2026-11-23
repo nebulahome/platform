@@ -194,6 +194,9 @@ export function blankTrigger(type: string): AutomationTrigger {
     case 'quiet': {
       return { type: 'quiet' };
     }
+    case 'calendar': {
+      return { type: 'calendar', calendarId: '', edge: 'start', offsetMinutes: 0 };
+    }
     case 'event': {
       return { type: 'event', event: '' };
     }

@@ -10,6 +10,7 @@
     "preview:dashboard": "vite --open /dashboard-lab.html",
     "preview:sdk": "vite --open /sdk-preview.html",
     "preview:palette": "vite --open /palette.html",
+    "preview:calendar": "vite --open /calendar-lab.html",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint . && tsx scripts/check-translations.ts",

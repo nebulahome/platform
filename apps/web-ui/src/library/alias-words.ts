@@ -31,6 +31,7 @@ export const TYPE_LABELS: Readonly<Record<AliasTypeId, Message>> = {
   vacuum: defineMessage('library.aliasTypes.vacuum', 'Vacuum'),
   lawn_mower: defineMessage('library.aliasTypes.lawn_mower', 'Lawn mower'),
   update: defineMessage('library.aliasTypes.update', 'Update'),
+  calendar: defineMessage('library.aliasTypes.calendar', 'Calendar'),
   custom: defineMessage('library.aliasTypes.custom', 'Custom'),
 };
 
@@ -59,6 +60,7 @@ export const TYPE_PLURALS: Readonly<Record<AliasTypeId, Message>> = {
   vacuum: defineMessage('library.aliasTypePlurals.vacuum', 'Vacuums'),
   lawn_mower: defineMessage('library.aliasTypePlurals.lawn_mower', 'Lawn mowers'),
   update: defineMessage('library.aliasTypePlurals.update', 'Updates'),
+  calendar: defineMessage('library.aliasTypePlurals.calendar', 'Calendars'),
   custom: defineMessage('library.aliasTypePlurals.custom', 'Custom'),
 };
 
@@ -138,6 +140,10 @@ export const PART_LABELS: Readonly<Record<string, Message>> = {
   installed_version: defineMessage('library.aliasParts.installed_version', 'Installed version'),
   latest_version: defineMessage('library.aliasParts.latest_version', 'Latest version'),
   installing: defineMessage('library.aliasParts.installing', 'Installing'),
+  active: defineMessage('library.aliasParts.active', 'On now'),
+  current: defineMessage('library.aliasParts.current', 'Current event'),
+  next: defineMessage('library.aliasParts.next', 'Next event'),
+  stale: defineMessage('library.aliasParts.stale', 'Out of date'),
   progress: defineMessage('library.aliasParts.progress', 'Progress'),
   title: defineMessage('library.aliasParts.title', 'Title'),
   release_summary: defineMessage('library.aliasParts.release_summary', 'Release summary'),

@@ -17,6 +17,7 @@ import {
   type PackageCard,
   type DashboardActionsCard,
   type DashboardActivityCard,
+  type DashboardAgendaCard,
   type DashboardAutomationCard,
   type DashboardCompareCard,
   type DashboardListCard,
@@ -289,6 +290,15 @@ export function compareCard(): DashboardCompareCard {
  */
 export function activityCard(): DashboardActivityCard {
   return { ...startOf('activity'), type: 'activity', scope: { kind: 'house' }, title: null };
+}
+
+/**
+ * The coming events of every calendar.
+ *
+ * @returns The card.
+ */
+export function agendaCard(): DashboardAgendaCard {
+  return { ...startOf('agenda'), type: 'agenda', calendarIds: [], title: null };
 }
 
 /** The automation a new automation card points at until one is chosen. */

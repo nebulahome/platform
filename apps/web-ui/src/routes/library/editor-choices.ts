@@ -71,6 +71,11 @@ const KINDS: Readonly<Record<BlockFamily, Readonly<Record<string, Kind>>>> = {
     },
     sun: { label: 'Time', description: 'Sunrise, sunset, the golden hour…', glyph: 'sunset' },
     quiet: { label: 'Time', description: 'The quietest time of the day', glyph: 'moon' },
+    calendar: {
+      label: 'Calendar',
+      description: 'An event of a calendar starts or ends',
+      glyph: 'calendar',
+    },
     event: {
       label: 'Event',
       description: 'A device event, such as a button press',
@@ -321,6 +326,7 @@ export const TRIGGER_CHOICE_GROUPS: readonly EditorChoiceGroup[] = [
       'entity',
       'entity_numeric',
       'time',
+      'calendar',
       'event',
       'manual',
       'webhook',

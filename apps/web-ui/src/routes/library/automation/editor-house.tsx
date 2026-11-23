@@ -12,6 +12,7 @@ import type {
   ApiPackage,
   AreaView,
   AutomationView,
+  CalendarView,
   CapabilityState,
   EntityView,
   GeoPosition,
@@ -28,6 +29,7 @@ import {
 } from '@/library/api';
 import { capabilityStateOf } from '@/library/entity-control';
 import { fetchPackages, PACKAGE_QUERY_KEYS } from '@/packages/api';
+import { CALENDAR_QUERY_KEYS, fetchCalendars } from '@/routes/calendar/api';
 import { stateLabel } from '@/routes/library/automation/state-choices';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
 
@@ -47,6 +49,7 @@ export type EditorHouse = {
   readonly scenes: readonly SceneView[];
   readonly automations: readonly AutomationView[];
   readonly packages: readonly ApiPackage[];
+  readonly calendars: readonly CalendarView[];
 
   /** Whether the house has a position, without which the sun has no time. */
   readonly hasPosition: boolean;
@@ -80,6 +83,7 @@ const EMPTY: EditorHouse = {
   scenes: [],
   automations: [],
   packages: [],
+  calendars: [],
   hasPosition: true,
   timeZone: 'UTC',
   position: null,
@@ -114,12 +118,20 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
     queryKey: PACKAGE_QUERY_KEYS.list,
     queryFn: signalled(fetchPackages),
   });
+  const calendars = useQuery({
+    queryKey: CALENDAR_QUERY_KEYS.calendars,
+    queryFn: signalled(fetchCalendars),
+  });
 
   const value = useMemo<EditorHouse>(() => {
     const byId = new Map(directory.entities.map((entity) => [String(entity.entityId), entity]));
     const sceneByKey = new Map((scenes.data ?? []).map((scene) => [scene.key, scene.name]));
     const automationByKey = new Map(
       (automations.data ?? []).map((automation) => [automation.key, automation.name]),
+    );
+    const calendarById = new Map((calendars.data ?? []).map((one) => [one.id, one.name]));
+    const modelById = new Map(
+      (calendars.data ?? []).flatMap((one) => one.models.map((model) => [model.id, model.name])),
     );
 
     return {
@@ -177,12 +189,27 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
 
           return entity === undefined ? undefined : stateLabel(token, entity);
         },
+        /**
+         * A calendar's name.
+         *
+         * @param calendarId - Its id.
+         * @returns Its name, or undefined.
+         */
+        calendar: (calendarId) => calendarById.get(calendarId),
+        /**
+         * A calendar model's name.
+         *
+         * @param modelId - Its id.
+         * @returns Its name, or undefined.
+         */
+        model: (modelId) => modelById.get(modelId),
       },
       entities: directory.entities,
       areas: directory.areas,
       scenes: scenes.data ?? [],
       automations: automations.data ?? [],
       packages: packages.data ?? [],
+      calendars: calendars.data ?? [],
       // Said only once the house has been read: a warning that flashes while it loads is noise.
       hasPosition: house.data?.position !== null,
       timeZone: house.data?.timeZone ?? 'UTC',
@@ -191,6 +218,7 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
     };
   }, [
     automations.data,
+    calendars.data,
     directory.areas,
     directory.entities,
     directory.isPending,

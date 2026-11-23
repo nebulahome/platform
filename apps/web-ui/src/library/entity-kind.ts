@@ -241,6 +241,14 @@ export function entityKindOf(
     };
   }
 
+  if (has.has('calendar')) {
+    return {
+      label: translate('library.entityKind.calendar', 'Calendar'),
+      icon: 'calendar',
+      tone: 'sensor',
+    };
+  }
+
   if (has.has('time_of_day')) {
     return { label: translate('library.entityKind.time', 'Time'), icon: 'clock', tone: 'power' };
   }
@@ -337,6 +345,8 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return translate('library.entityKind.picture', 'Picture');
     case 'custom':
       return translate('library.entityKind.details', 'Details');
+    case 'calendar':
+      return translate('library.entityKind.events', 'Events');
   }
 }
 

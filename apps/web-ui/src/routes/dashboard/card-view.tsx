@@ -7,6 +7,7 @@ import { kindName } from '@/dashboard/card-options';
 import { translate } from '@/i18n/messages';
 import { ActionsCard } from '@/routes/dashboard/cards/actions-card';
 import { ActivityCard } from '@/routes/dashboard/cards/activity-card';
+import { AgendaCard } from '@/routes/dashboard/cards/agenda-card';
 import { AutomationCard } from '@/routes/dashboard/cards/automation-card';
 import { ClockCard } from '@/routes/dashboard/cards/clock-card';
 import { CompareCard } from '@/routes/dashboard/cards/compare-card';
@@ -68,6 +69,8 @@ export function CardView(props: CardViewProps) {
       return <AutomationCard card={card} data={data} />;
     case 'shortcut':
       return <ShortcutCard card={card} data={data} />;
+    case 'agenda':
+      return <AgendaCard card={card} />;
   }
 }
 
@@ -114,6 +117,7 @@ export function cardTitle(card: DashboardCard, data: DashboardData): string {
     case 'activity':
     case 'automation':
     case 'shortcut':
+    case 'agenda':
       return card.title ?? kindName(card.type);
     case 'container':
       return card.title;

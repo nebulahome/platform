@@ -12,6 +12,7 @@
 import { useTranslation } from 'react-i18next';
 
 import {
+  CALENDAR_TRIGGER_OFFSET_MAXIMUM_MINUTES,
   clockAtToCron,
   MONTHS,
   nextSunEvent,
@@ -22,7 +23,16 @@ import {
   type Month,
   type SunEvent,
 } from '@nebulahome/contracts';
-import { Note, Segmented, SelectField, TextField } from '@nebulahome/ui';
+import {
+  CatalogueIcon,
+  cn,
+  Note,
+  Segmented,
+  SelectField,
+  TAG_FILL_CLASSES,
+  TAG_TINT_CLASSES,
+  TextField,
+} from '@nebulahome/ui';
 
 import { ChoiceChips } from '@/components/choice-chips';
 import { WeekdayPicker } from '@/components/weekday-picker';
@@ -32,6 +42,7 @@ import { partialEntityId, withoutKey } from '@/library/automation-draft';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import { EntityTriggerFields } from '@/routes/library/automation/entity-match-fields';
 import { WebhookFields } from '@/routes/library/automation/webhook-fields';
+import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { EntityField } from '@/routes/library/entity-field';
 
 export { operatorOptions, StateField } from '@/routes/library/automation/entity-match-fields';
@@ -77,6 +88,9 @@ export function TriggerFields(props: TriggerFieldsProps) {
     case 'sun':
     case 'quiet': {
       return <TimeTriggerFields trigger={trigger} onChange={onChange} />;
+    }
+    case 'calendar': {
+      return <CalendarTriggerFields trigger={trigger} onChange={onChange} />;
     }
     case 'event': {
       return (
@@ -635,6 +649,146 @@ function SunTriggerFields(props: {
                 next: shortMoment(next, house.timeZone),
               })}
       </p>
+    </>
+  );
+}
+
+/** A calendar trigger. */
+type CalendarTrigger = Extract<AutomationTrigger, { type: 'calendar' }>;
+
+/**
+ * Renders the fields of a Calendar trigger (CAL-Automation): the calendar, its events' start or
+ * end, an offset, and - only for a calendar that has models - which models.
+ *
+ * @param props - The trigger and its change handler.
+ * @param props.trigger - The calendar trigger.
+ * @param props.onChange - Called with it as it now stands.
+ * @returns The fields.
+ */
+function CalendarTriggerFields(props: {
+  readonly trigger: CalendarTrigger;
+  readonly onChange: (trigger: AutomationTrigger) => void;
+}) {
+  const { t } = useTranslation();
+
+  const { trigger, onChange } = props;
+  const { calendars } = useEditorHouse();
+  const calendar = calendars.find((one) => one.id === trigger.calendarId);
+  const models = calendar?.models ?? [];
+  const icons = useCatalogueIcons(models.map((model) => model.icon));
+  const limit = CALENDAR_TRIGGER_OFFSET_MAXIMUM_MINUTES;
+
+  return (
+    <>
+      <SelectField
+        label={t('library.triggerFields.calendar', 'Calendar')}
+        size="compact"
+        options={[
+          ...(calendar === undefined
+            ? [{ value: '', label: t('library.triggerFields.pickACalendar', 'Pick a calendar') }]
+            : []),
+          ...calendars.map((one) => ({
+            value: one.id,
+            label: one.name,
+            leading: <span className={cn('size-2.5 rounded-full', TAG_FILL_CLASSES[one.color])} />,
+          })),
+        ]}
+        value={trigger.calendarId}
+        onChange={(calendarId) => {
+          // Models belong to their calendar: another calendar starts with none picked.
+          const rest = withoutKey(trigger, 'modelIds');
+
+          onChange({ ...rest, calendarId });
+        }}
+      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-caption font-medium text-foreground-muted">
+            {t('library.triggerFields.when', 'When')}
+          </span>
+          <Segmented
+            label={t('library.triggerFields.when', 'When')}
+            size="compact"
+            className="self-start"
+            options={[
+              { value: 'start', label: t('library.triggerFields.starts', 'Starts') },
+              { value: 'end', label: t('library.triggerFields.ends', 'Ends') },
+            ]}
+            value={trigger.edge}
+            onChange={(edge) => {
+              onChange({ ...trigger, edge });
+            }}
+          />
+        </div>
+        <TextField
+          label={t('library.triggerFields.offsetMin', 'Offset (min)')}
+          size="compact"
+          type="number"
+          className="font-mono"
+          min={-limit}
+          max={limit}
+          hint={t(
+            'library.triggerFields.calendarOffsetHint',
+            'Negative is before. An all-day event starts at midnight: -240 is 20:00 the day before.',
+          )}
+          value={String(trigger.offsetMinutes)}
+          onChange={(event) => {
+            const minutes = Math.round(Number(event.target.value));
+
+            onChange({
+              ...trigger,
+              offsetMinutes: Number.isFinite(minutes)
+                ? Math.max(-limit, Math.min(limit, minutes))
+                : 0,
+            });
+          }}
+        />
+      </div>
+      {calendar === undefined ? null : models.length === 0 ? (
+        <span className="text-caption text-foreground-subtle">
+          {t('library.triggerFields.noModels', '{{calendar}} has no models: no model filter.', {
+            calendar: calendar.name,
+          })}
+        </span>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-caption font-medium text-foreground-muted">
+            {t('library.triggerFields.onlyTheseModels', 'Only these models')}
+          </span>
+          <ChoiceChips
+            label={t('library.triggerFields.onlyTheseModels', 'Only these models')}
+            options={models.map((model) => {
+              const icon = icons.get(model.icon);
+
+              return {
+                value: model.id,
+                label: model.name,
+                leading: (
+                  <span
+                    className={cn(
+                      'flex size-5 items-center justify-center rounded-full border',
+                      TAG_TINT_CLASSES[model.color],
+                    )}
+                  >
+                    {icon === undefined ? null : (
+                      <CatalogueIcon node={icon.node} frame={icon.frame} size={12} />
+                    )}
+                  </span>
+                ),
+              };
+            })}
+            value={trigger.modelIds ?? []}
+            onChange={(modelIds) => {
+              const rest = withoutKey(trigger, 'modelIds');
+
+              onChange(modelIds.length === 0 ? rest : { ...rest, modelIds });
+            }}
+          />
+          <span className="text-caption text-foreground-subtle">
+            {t('library.triggerFields.noModelPicked', 'None picked: any event of the calendar.')}
+          </span>
+        </div>
+      )}
     </>
   );
 }

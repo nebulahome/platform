@@ -23,6 +23,7 @@ import { capabilityStateOf, hasCapability, powerCommand } from '@/library/entity
 import { entityKindOf } from '@/library/entity-kind';
 import { readingOf } from '@/library/entity-reading';
 import { BinaryCard } from '@/routes/dashboard/cards/binary-card';
+import { CalendarCard } from '@/routes/dashboard/cards/calendar-card';
 import { CameraCard } from '@/routes/dashboard/cards/camera-card';
 import { Caption } from '@/routes/dashboard/cards/card-kit';
 import { CardFrame, CardTapContext, type CardTap } from '@/routes/dashboard/cards/card-parts';
@@ -76,6 +77,7 @@ const KINDS: Readonly<
   fan: FanCard,
   time: TimeCard,
   person: PersonCard,
+  calendar: CalendarCard,
 };
 
 /** What an entity card needs. */

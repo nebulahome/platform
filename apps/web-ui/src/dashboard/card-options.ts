@@ -438,6 +438,22 @@ const KIND_LOOKS: Readonly<
       'A time or a date, and how far away it is.',
     ),
   },
+  agenda: {
+    name: defineMessage('dashboard.cardKinds.agenda', 'Agenda'),
+    icon: 'calendar',
+    description: defineMessage(
+      'dashboard.cardKinds.agendaDescription',
+      'The coming events of the calendars you pick.',
+    ),
+  },
+  calendar: {
+    name: defineMessage('dashboard.cardKinds.calendar', 'Calendar'),
+    icon: 'calendar',
+    description: defineMessage(
+      'dashboard.cardKinds.calendarDescription',
+      'What is on now and what comes next.',
+    ),
+  },
   person: {
     name: defineMessage('dashboard.cardKinds.person', 'Person'),
     icon: 'user-round',

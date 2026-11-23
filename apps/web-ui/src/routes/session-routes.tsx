@@ -70,6 +70,11 @@ const DashboardEditorPage = lazy(async () =>
 const DashboardPage = lazy(async () =>
   import('@/routes/dashboard/dashboard-page').then((module) => ({ default: module.DashboardPage })),
 );
+const CalendarSettingsPage = lazy(async () =>
+  import('@/routes/calendar/settings/calendar-settings-page').then((module) => ({
+    default: module.CalendarSettingsPage,
+  })),
+);
 const DashboardsManagePage = lazy(async () =>
   import('@/routes/dashboard/dashboards-manage-page').then((module) => ({
     default: module.DashboardsManagePage,
@@ -421,6 +426,14 @@ export function SessionRoutes() {
         <Route index element={<Navigate to={startPage} replace />} />
         <Route path="/dashboards" element={<DashboardPage />} />
         <Route path="/dashboards/:dashboardId" element={<DashboardPage />} />
+        <Route
+          path="/calendar/settings"
+          element={
+            <RequiresPermission permission="calendar:read" section={t('nav.calendar', 'Calendar')}>
+              <CalendarSettingsPage />
+            </RequiresPermission>
+          }
+        />
         <Route
           path="/configuration/dashboards"
           element={

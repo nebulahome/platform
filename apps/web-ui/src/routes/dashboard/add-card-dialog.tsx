@@ -33,6 +33,7 @@ import {
 import {
   actionsCard,
   activityCard,
+  agendaCard,
   automationCard,
   clockCard,
   compareCard,
@@ -287,6 +288,7 @@ type TypeTileKind =
   | 'actions'
   | 'compare'
   | 'activity'
+  | 'agenda'
   | 'automation'
   | 'shortcut';
 
@@ -412,6 +414,19 @@ function newTypeTiles(): Tile[] {
        * @returns The card.
        */
       make: () => ({ card: activityCard(), pendingKind: null }),
+    },
+    {
+      type: 'agenda',
+      category: 'summing',
+      id: 'agenda',
+      name: kindName('agenda'),
+      description: kindDescription('agenda'),
+      /**
+       * The coming events of every calendar.
+       *
+       * @returns The card.
+       */
+      make: () => ({ card: agendaCard(), pendingKind: null }),
     },
     {
       type: 'automation',

@@ -11,6 +11,8 @@ import { createContext, useContext } from 'react';
 import type {
   ActivityEntry,
   AutomationView,
+  CalendarOccurrence,
+  CalendarView,
   StateHistoryPoint,
   TelemetryPoint,
 } from '@nebulahome/contracts';
@@ -33,6 +35,10 @@ export type CardSampleSource = {
 
   /** The latest changes an activity card lists, newest first. */
   readonly activity?: readonly ActivityEntry[];
+
+  /** The calendars, and the coming times of their events, an agenda card lists. */
+  readonly calendars?: readonly CalendarView[];
+  readonly occurrences?: readonly CalendarOccurrence[];
 };
 
 /** The sample source of the cards under it; null on a real dashboard. */

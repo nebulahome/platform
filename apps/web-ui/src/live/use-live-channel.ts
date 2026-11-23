@@ -54,6 +54,7 @@ import { LiveClient, type LiveStatus } from '@/live/live-client';
 import { useLive } from '@/live/live-store';
 import { packageLive } from '@/live/package-live';
 import { PACKAGE_QUERY_KEYS } from '@/packages/api';
+import { CALENDAR_QUERY_KEYS } from '@/routes/calendar/api';
 import { devicePath } from '@/routes/library/device/device-path';
 import { SETTINGS_QUERY_KEYS } from '@/settings/api';
 import { fetchPlatformState, UPDATES_QUERY_KEY } from '@/settings/updates-api';
@@ -108,7 +109,13 @@ const LIBRARY_LISTS: Readonly<Record<LibraryKind, readonly Stale[]>> = {
     LIBRARY_QUERY_KEYS.entities,
   ],
   tags: [LIBRARY_QUERY_KEYS.tags, LIBRARY_QUERY_KEYS.devices, LIBRARY_QUERY_KEYS.entities],
-  entities: [LIBRARY_QUERY_KEYS.entities, LIBRARY_QUERY_KEYS.devices, LIBRARY_QUERY_KEYS.tags],
+  // An entity shown in a calendar is an occurrence of it.
+  entities: [
+    LIBRARY_QUERY_KEYS.entities,
+    LIBRARY_QUERY_KEYS.devices,
+    LIBRARY_QUERY_KEYS.tags,
+    CALENDAR_QUERY_KEYS.occurrences,
+  ],
 
   // A device linked to another, or unlinked, is offered no longer, or again; the brokers' cards
   // count the devices linked.
@@ -125,8 +132,10 @@ const LIBRARY_LISTS: Readonly<Record<LibraryKind, readonly Stale[]>> = {
   // A webhook is an automation's trigger.
   automations: [LIBRARY_QUERY_KEYS.automations, LIBRARY_QUERY_KEYS.webhooks],
   dashboards: [DASHBOARD_QUERY_KEYS.dashboards],
+  calendar: [CALENDAR_QUERY_KEYS.all],
   people: [SETTINGS_QUERY_KEYS.users, SETTINGS_QUERY_KEYS.roles, DASHBOARD_QUERY_KEYS.assignees],
-  settings: [SETTINGS_QUERY_KEYS.server],
+  // The holidays' place, the weekend and the hidden holidays are settings.
+  settings: [SETTINGS_QUERY_KEYS.server, CALENDAR_QUERY_KEYS.all],
   icons: [LIBRARY_QUERY_KEYS.icons],
   backups: [BACKUP_QUERY_KEYS.locations, BACKUP_QUERY_KEYS.status],
   vendors: [LIBRARY_QUERY_KEYS.vendors, LIBRARY_QUERY_KEYS.devices],

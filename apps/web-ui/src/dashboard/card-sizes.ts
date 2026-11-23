@@ -38,6 +38,7 @@ export const ENTITY_CARD_KINDS = [
   'time',
   'person',
   'text',
+  'calendar',
 ] as const;
 
 /** The kind of card an entity is drawn as. */
@@ -59,6 +60,7 @@ export type LeafCardKind =
   | 'activity'
   | 'automation'
   | 'shortcut'
+  | 'agenda'
   | 'missing';
 
 /** The sizes a kind of card is drawn for, and the one it starts at. */
@@ -121,11 +123,15 @@ export const CARD_SIZES: Readonly<Record<LeafCardKind, SizeRule>> = {
   automation: { sizes: [TILE, STRIP], preferred: TILE },
   shortcut: { sizes: [TILE], preferred: TILE },
 
+  // The coming events, by day: a column, both days side by side, or the week in a large card.
+  agenda: { sizes: [CARD, SQUARE, LARGE], preferred: CARD },
+
   // A fan as a light is drawn: switch and speed on the tile, presets and speed on the tall card,
   // swing and direction beside them on the square. A time reads on the tile, is set on the strip;
   // a person is home, away or where on the tile, and on the square beside a map.
   fan: { sizes: [TILE, CARD, SQUARE], preferred: CARD },
   time: { sizes: [TILE, STRIP], preferred: TILE },
+  calendar: { sizes: [TILE, STRIP], preferred: TILE },
   person: { sizes: [TILE, CARD, SQUARE], preferred: TILE },
 
   // An entity that is not there may keep whatever size it had, and take any other.
@@ -250,6 +256,7 @@ const RICHEST_FIRST: readonly (readonly [CapabilityName, EntityCardKind])[] = [
   ['time_of_day', 'time'],
   ['date', 'time'],
   ['datetime', 'time'],
+  ['calendar', 'calendar'],
   ['sensor_numeric', 'sensor'],
   ['sensor_binary', 'binary'],
   ['select', 'select'],

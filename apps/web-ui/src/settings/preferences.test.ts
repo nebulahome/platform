@@ -41,6 +41,8 @@ describe('readPreferences', () => {
         startPage: '/devices',
         sidebar: 'collapsed',
         foldedSections: ['system'],
+        calendarPanel: 'closed',
+        hiddenCalendars: ['a-calendar', 7],
       }),
     );
 
@@ -50,6 +52,8 @@ describe('readPreferences', () => {
       startPage: '/devices',
       sidebar: 'collapsed',
       foldedSections: ['system'],
+      calendarPanel: 'closed',
+      hiddenCalendars: ['a-calendar'],
     });
   });
 
@@ -75,6 +79,8 @@ describe('readPreferences', () => {
       startPage: '/scenes',
       sidebar: 'expanded',
       foldedSections: [],
+      calendarPanel: 'open',
+      hiddenCalendars: [],
     });
   });
 

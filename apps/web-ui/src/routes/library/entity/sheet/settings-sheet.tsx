@@ -24,6 +24,9 @@ import {
 import { AppIcon, Button, Segmented, SelectField, Switch } from '@nebulahome/ui';
 
 import { entityKindOf } from '@/library/entity-kind';
+import { timeCapabilityOf } from '@/library/time-values';
+import { CalendarMark } from '@/routes/calendar/model-token';
+import { useCalendars } from '@/routes/calendar/use-calendars';
 import { CopyButton } from '@/routes/library/broker-parts';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { useEntityWays } from '@/routes/library/entity/entity-ways';
@@ -149,6 +152,10 @@ export function SettingsSheet(props: SettingsSheetProps) {
   const [tagIds, setTagIds] = useState<readonly string[]>(entity.tagIds);
   const [transport, setTransport] = useState<string | null>(entity.linked?.transport ?? null);
   const [isEnabled, setIsEnabled] = useState(entity.isEnabled);
+  const [calendarId, setCalendarId] = useState<string | null>(entity.calendarId ?? null);
+  const calendars = useCalendars();
+  const shownCalendars = (calendars.data ?? []).filter((calendar) => calendar.kind !== 'holidays');
+  const calendarIcons = useCatalogueIcons(shownCalendars.map((calendar) => calendar.icon));
 
   // What it may be shown as, besides what its integration says: never an alias.
   const original = entity.original ?? { domain: entity.domain, deviceClass: entity.deviceClass };
@@ -165,8 +172,11 @@ export function SettingsSheet(props: SettingsSheetProps) {
 
   /** Hands what changed over, and puts the sheet away. */
   const save = (): void => {
+    const update = diffOf(entity, name, icon, tagIds, transport, shown, choices);
+
     onSave({
-      update: diffOf(entity, name, icon, tagIds, transport, shown, choices),
+      // Show in calendar travels with the rest of the entity's change.
+      update: calendarId === (entity.calendarId ?? null) ? update : { ...update, calendarId },
       ...(isEnabled === entity.isEnabled ? {} : { isEnabled }),
     });
     onClose();
@@ -259,26 +269,78 @@ export function SettingsSheet(props: SettingsSheetProps) {
             onCreate={create}
           />
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-inner border border-border bg-well px-4 py-3.5">
-            <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.75">
-              <span className="text-ui">{t('entity.sheet.settings.enabled', 'Enabled')}</span>
-              <span className="text-caption leading-[1.45] text-foreground-subtle">
-                {isEnabled
-                  ? t(
-                      'entity.sheet.settings.enabledHint',
-                      'Shows up when you pick entities, and its states are recorded.',
-                    )
-                  : t(
-                      'entity.sheet.settings.disabledHint',
-                      'Hidden when you pick entities, and its states are no longer recorded.',
-                    )}
-              </span>
+          <div className="flex flex-col rounded-inner border border-border bg-well">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 px-4 py-3.5">
+              <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.75">
+                <span className="text-ui">{t('entity.sheet.settings.enabled', 'Enabled')}</span>
+                <span className="text-caption leading-[1.45] text-foreground-subtle">
+                  {isEnabled
+                    ? t(
+                        'entity.sheet.settings.enabledHint',
+                        'Shows up when you pick entities, and its states are recorded.',
+                      )
+                    : t(
+                        'entity.sheet.settings.disabledHint',
+                        'Hidden when you pick entities, and its states are no longer recorded.',
+                      )}
+                </span>
+              </div>
+              <Switch
+                label={t('entity.sheet.settings.enabled', 'Enabled')}
+                isOn={isEnabled}
+                onChange={setIsEnabled}
+              />
             </div>
-            <Switch
-              label={t('entity.sheet.settings.enabled', 'Enabled')}
-              isOn={isEnabled}
-              onChange={setIsEnabled}
-            />
+            {timeCapabilityOf(entity) === null ? null : (
+              <div className="flex flex-col gap-3 border-t border-border px-4 py-3.5">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
+                  <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.75">
+                    <span className="text-ui">
+                      {t('entity.sheet.settings.showInCalendar', 'Show in calendar')}
+                    </span>
+                    <span className="text-caption leading-[1.45] text-foreground-subtle">
+                      {t(
+                        'entity.sheet.settings.showInCalendarHint',
+                        'The value becomes an event to look at, not to edit.',
+                      )}
+                    </span>
+                  </div>
+                  <Switch
+                    label={t('entity.sheet.settings.showInCalendar', 'Show in calendar')}
+                    isOn={calendarId !== null}
+                    onChange={(isOn) => {
+                      setCalendarId(
+                        isOn
+                          ? (shownCalendars.find((calendar) => calendar.kind === 'house')?.id ??
+                              shownCalendars[0]?.id ??
+                              null)
+                          : null,
+                      );
+                    }}
+                  />
+                </div>
+                {calendarId === null ? null : (
+                  <SelectField
+                    label={t('entity.sheet.settings.calendar', 'Calendar')}
+                    isLabelHidden
+                    options={shownCalendars.map((calendar) => ({
+                      value: calendar.id,
+                      label: calendar.name,
+                      leading: (
+                        <CalendarMark
+                          name={calendar.name}
+                          color={calendar.color}
+                          icon={calendarIcons.get(calendar.icon ?? '')}
+                          isPerson={calendar.kind === 'personal'}
+                        />
+                      ),
+                    }))}
+                    value={calendarId}
+                    onChange={setCalendarId}
+                  />
+                )}
+              </div>
+            )}
           </div>
         </fieldset>
 

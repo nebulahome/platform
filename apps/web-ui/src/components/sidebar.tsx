@@ -215,6 +215,14 @@ const DASHBOARDS: Entry = {
   icon: 'layout-dashboard',
 };
 
+/** The calendar's row, under the dashboards. */
+const CALENDAR: Entry = {
+  to: '/calendar',
+  label: defineMessage('nav.calendar', 'Calendar'),
+  icon: 'calendar-days',
+  permission: 'calendar:read',
+};
+
 /** The settings row, at the foot. */
 const SETTINGS: Entry = {
   to: '/settings',
@@ -225,6 +233,7 @@ const SETTINGS: Entry = {
 /** Every page the sidebar leads to, with its name and icon: where a dashboard shortcut may go. */
 export const NAV_PAGES: readonly Pick<Entry, 'to' | 'label' | 'icon'>[] = [
   DASHBOARDS,
+  CALENDAR,
   ...GROUPS.flatMap((group) => group.entries),
   SETTINGS,
 ];
@@ -1304,6 +1313,7 @@ export function Sidebar() {
           >
             <div ref={content} className="flex shrink-0 flex-col gap-0.5">
               <Row entry={DASHBOARDS} />
+              {can('calendar:read') ? <Row entry={CALENDAR} /> : null}
 
               {groups.map((group) => {
                 const isFolded = group.id !== openId;

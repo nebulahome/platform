@@ -23,6 +23,7 @@ import { entityKindOf } from '@/library/entity-kind';
 import { BINARY_WORDS } from '@/library/entity-reading';
 import { TIME_CAPABILITIES, timeCapabilityOf } from '@/library/time-values';
 import { ENTITY_CONTROLS } from '@/routes/library/entity/controls/entity-controls';
+import { CalendarBody } from '@/routes/library/entity/sheet/bodies/calendar-body';
 import { ClimateBody, climateLookOf } from '@/routes/library/entity/sheet/bodies/climate-body';
 import { CoverBody } from '@/routes/library/entity/sheet/bodies/cover-body';
 import { FanBody } from '@/routes/library/entity/sheet/bodies/fan-body';
@@ -69,7 +70,8 @@ type KindId =
   | 'button'
   | 'image'
   | 'binary'
-  | 'sensor';
+  | 'sensor'
+  | 'calendar';
 
 /** How a kind is picked: any of its capabilities, and a domain when only that domain's will do. */
 type KindRule = {
@@ -83,6 +85,7 @@ type KindRule = {
 /** The kinds, strongest capability first: the first that matches is the one drawn. */
 const KINDS: readonly KindRule[] = [
   { id: 'camera', anyOf: ['camera'], history: 'drawer', Body: CameraBody },
+  { id: 'calendar', anyOf: ['calendar'], history: 'none', Body: CalendarBody },
   { id: 'location', anyOf: ['location'], history: 'drawer', Body: LocationBody },
   { id: 'media', anyOf: ['media_player'], history: 'drawer', Body: MediaBody },
   { id: 'mower', anyOf: ['lawn_mower'], history: 'drawer', Body: MowerBody },
@@ -147,7 +150,8 @@ function toneOf(id: KindId, entity: EntityView, state: CapabilityState): SheetTo
     case 'cover':
     case 'switch':
     case 'number':
-    case 'time': {
+    case 'time':
+    case 'calendar': {
       return 'primary';
     }
     case 'location':
@@ -194,6 +198,7 @@ function iconOf(id: KindId, entity: EntityView): UiIconId {
           ? 'scan-eye'
           : 'circle-dot',
     binary: binaryLookOf(entity.deviceClass).on,
+    calendar: 'calendar',
     sensor:
       deviceClass === 'temperature'
         ? 'thermometer'
@@ -307,6 +312,9 @@ function wordsOf(id: KindId, entity: EntityView): string {
     case 'sensor': {
       return sensorClassLabel(deviceClass) ?? translate('entity.sheet.kind.sensor', 'Sensor');
     }
+    case 'calendar': {
+      return translate('entity.sheet.kind.calendar', 'Calendar');
+    }
   }
 }
 
@@ -341,6 +349,18 @@ function isLitOf(id: KindId, state: CapabilityState): boolean {
       return true;
     }
   }
+}
+
+/**
+ * A calendar's own colour, for its tile: the tag colour it was given.
+ *
+ * @param entity - The calendar's entity.
+ * @returns The colour as a CSS value, or undefined when it has none.
+ */
+function calendarColorOf(entity: EntityView): string | undefined {
+  const color = paramsOf(entity, 'calendar')?.color ?? null;
+
+  return color === null ? undefined : `var(--color-tag-${color})`;
 }
 
 /**
@@ -389,7 +409,12 @@ export function sheetKindOf(entity: EntityView, state: CapabilityState): SheetKi
     };
   }
 
-  const color = rule.id === 'light' ? lampColorOf(entity, state) : undefined;
+  const color =
+    rule.id === 'light'
+      ? lampColorOf(entity, state)
+      : rule.id === 'calendar'
+        ? calendarColorOf(entity)
+        : undefined;
 
   return {
     ...(color === undefined ? {} : { color }),

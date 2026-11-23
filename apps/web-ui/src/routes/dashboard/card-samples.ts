@@ -16,6 +16,7 @@ import {
 import { allowedSizes, CARD_SIZES } from '@/dashboard/card-sizes';
 import { capabilityStateOf } from '@/library/entity-control';
 import type { CardSampleSource } from '@/routes/dashboard/cards/card-sample';
+import { CALENDAR_SOURCE } from '@/routes/dashboard/samples/calendar-cards';
 import { CARD_ENTITIES } from '@/routes/dashboard/samples/cards';
 import { CONTROL_SAMPLES, CONTROL_VARIANTS } from '@/routes/dashboard/samples/controls';
 import { LIGHT, LIGHT_VARIANTS } from '@/routes/dashboard/samples/lights';
@@ -161,6 +162,8 @@ export const SAMPLE_SOURCE: CardSampleSource = {
   still: () => GARDEN_STILL,
   automations: TIMELINE_SOURCE.automations,
   activity: TIMELINE_SOURCE.activity,
+  calendars: CALENDAR_SOURCE.calendars,
+  occurrences: CALENDAR_SOURCE.occurrences,
 };
 
 /**
