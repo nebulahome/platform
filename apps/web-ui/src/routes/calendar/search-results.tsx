@@ -219,12 +219,13 @@ export function SearchResults(props: SearchResultsProps) {
       onClose={onClose}
       width={440}
       label={t('calendar.search.results', 'Search results')}
-      className="rounded-panel"
+      // A little clear of the search's pill, which is lit while the results are open.
+      className="mt-1.5 rounded-panel"
     >
       <div
         role="listbox"
         aria-label={t('calendar.search.results', 'Search results')}
-        className="flex flex-col gap-0.5 overflow-y-auto p-2"
+        className="flex flex-col gap-0.5 overflow-y-auto p-2.5"
       >
         {found.isPending ? (
           <span className="px-3.5 py-4 text-ui-sm text-foreground-subtle">
@@ -251,7 +252,7 @@ export function SearchResults(props: SearchResultsProps) {
             {past.map((match, index) => row(match, comingUp.length + index, true))}
           </>
         )}
-        <div className="mt-1 flex items-center justify-between gap-3 border-t border-border px-3.5 pt-2 pb-1 text-caption text-foreground-subtle">
+        <div className="mt-1 flex items-center justify-between gap-3 border-t border-border px-3.5 pt-2.5 pb-1.5 text-caption text-foreground-subtle">
           <span>{t('calendar.search.everywhere', 'In every calendar, hidden ones too')}</span>
           <span className="whitespace-nowrap">
             {t('calendar.search.keys', '↑↓ to move · Enter to open')}

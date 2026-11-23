@@ -188,6 +188,9 @@ export function LinkDialog(props: LinkDialogProps) {
             {calendars.map((calendar) => (
               <li key={calendar.id} className="border-t border-border px-3 py-2 first:border-t-0">
                 <Checkbox
+                  // Level with the mark beside it, not with a line of text: the box in the row's
+                  // middle, without the pixel it drops to sit on a text's first line.
+                  className="items-center [&>span:first-of-type]:mt-0"
                   label={
                     <span className="flex items-center gap-3">
                       <CalendarMark
