@@ -496,6 +496,14 @@ export function describeState(
     parts.push(formatMoment(value.datetime.value, Date.now(), shownZone()));
   }
 
+  if (value.event !== undefined) {
+    parts.push(
+      value.event.eventType === null
+        ? translate('library.entityReading.nothingYet', 'Nothing yet')
+        : capitalised(value.event.eventType),
+    );
+  }
+
   if (value.button !== undefined && parts.length === 0) {
     // Nothing to read on a button but that it can be pressed.
     parts.push(translate('library.entityReading.ready', 'Ready'));

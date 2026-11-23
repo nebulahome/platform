@@ -9,6 +9,7 @@ import { stateTokenChoices, STATE_TOKEN_UNAVAILABLE, type EntityView } from '@ne
 
 import { text, translate } from '@/i18n/messages';
 import { humanise } from '@/lib/command-choices';
+import { paramsOf } from '@/library/entity-control';
 import { BINARY_WORDS, ON_OFF_WORDS } from '@/library/entity-reading';
 
 /** One state a dropdown offers. */
@@ -53,7 +54,7 @@ export function stateChoices(entity: EntityView | undefined): StateChoice[] | nu
   const select = entity.capabilities.find((entry) => entry.capability === 'select');
   const options =
     select === undefined
-      ? []
+      ? (paramsOf(entity, 'event')?.eventTypes ?? [])
       : ((select.params['options'] as readonly { value?: unknown }[] | undefined) ?? [])
           .map((option) => option.value)
           .filter((value): value is string => typeof value === 'string');

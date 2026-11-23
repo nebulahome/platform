@@ -26,6 +26,7 @@ import { ENTITY_CONTROLS } from '@/routes/library/entity/controls/entity-control
 import { CalendarBody } from '@/routes/library/entity/sheet/bodies/calendar-body';
 import { ClimateBody, climateLookOf } from '@/routes/library/entity/sheet/bodies/climate-body';
 import { CoverBody } from '@/routes/library/entity/sheet/bodies/cover-body';
+import { EventBody, eventGlyphOf } from '@/routes/library/entity/sheet/bodies/event-body';
 import { FanBody } from '@/routes/library/entity/sheet/bodies/fan-body';
 import { ImageBody } from '@/routes/library/entity/sheet/bodies/image-body';
 import { LightBody, lampColorOf } from '@/routes/library/entity/sheet/bodies/light-body';
@@ -70,6 +71,7 @@ type KindId =
   | 'time'
   | 'text'
   | 'button'
+  | 'event'
   | 'image'
   | 'binary'
   | 'sensor'
@@ -108,6 +110,7 @@ const KINDS: readonly KindRule[] = [
   { id: 'number', anyOf: ['number'], history: 'drawer', Body: NumberBody },
   { id: 'time', anyOf: TIME_CAPABILITIES, history: 'drawer', Body: TimeBody },
   { id: 'button', anyOf: ['button'], history: 'none', Body: ButtonBody },
+  { id: 'event', anyOf: ['event'], history: 'body', Body: EventBody },
   { id: 'image', anyOf: ['image'], history: 'none', Body: ImageBody },
   { id: 'binary', anyOf: ['sensor_binary'], history: 'body', Body: BinaryBody },
   // A text the house may write; one it may only read stays a sensor, drawn as it always was.
@@ -146,7 +149,8 @@ function toneOf(id: KindId, entity: EntityView, state: CapabilityState): SheetTo
       return 'lamp';
     }
     case 'update':
-    case 'select': {
+    case 'select':
+    case 'event': {
       return 'violet';
     }
     case 'button': {
@@ -207,6 +211,7 @@ function iconOf(id: KindId, entity: EntityView): UiIconId {
         : deviceClass === 'identify'
           ? 'scan-eye'
           : 'circle-dot',
+    event: eventGlyphOf(entity.deviceClass),
     binary: binaryLookOf(entity.deviceClass).on,
     calendar: 'calendar',
     sensor:
@@ -313,6 +318,11 @@ function wordsOf(id: KindId, entity: EntityView): string {
     }
     case 'button': {
       return translate('entity.sheet.kind.button', 'Button');
+    }
+    case 'event': {
+      return deviceClass === 'doorbell'
+        ? translate('entity.sheet.kind.doorbell', 'Doorbell')
+        : translate('entity.sheet.kind.event', 'Event');
     }
     case 'image': {
       return translate('entity.sheet.kind.picture', 'Picture');

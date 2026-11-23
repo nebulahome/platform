@@ -26,7 +26,7 @@ import {
 import { dateTimeFormat, listFormat } from '@/i18n/formatters';
 import { currentLocale } from '@/i18n/language';
 import { defineMessage, text, translate, type Message } from '@/i18n/messages';
-import { commandLabel } from '@/lib/command-choices';
+import { commandLabel, humanise } from '@/lib/command-choices';
 import { cronWords } from '@/lib/cron-words';
 import { formatDuration } from '@/lib/duration';
 import { hsToHex, miredsToKelvin } from '@/library/entity-control';
@@ -581,17 +581,20 @@ function triggerSaid(trigger: AutomationTrigger, names: BlockNames): Said {
       return { text: withOffset(said, trigger.offsetMinutes), isNamed: false };
     }
     case 'event': {
+      const event = humanise(trigger.event);
+
       return {
         text:
           trigger.event === ''
-            ? translate('automations.summary.eventUnavailable', 'An event - not available yet')
-            : translate(
-                'automations.summary.namedEventUnavailable',
-                '{{event}} - not available yet',
-                {
-                  event: trigger.event,
-                },
-              ),
+            ? translate('automations.summary.anEvent', 'A device event')
+            : typeof trigger.entityId === 'string'
+              ? translate('automations.summary.eventFrom', '{{event}} from {{name}}', {
+                  event,
+                  name: entityName(names, trigger.entityId),
+                })
+              : translate('automations.summary.eventFromAny', '{{event}} from any entity', {
+                  event,
+                }),
         isNamed: trigger.event !== '',
       };
     }

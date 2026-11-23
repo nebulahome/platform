@@ -225,14 +225,12 @@ function TriggerBlock(props: TriggerBlockProps) {
             'automation.triggerBlocks.manualTriggerHasNothing',
             'A manual trigger has nothing to test: it fires from Run',
           )
-        : trigger.type === 'event'
-          ? t('automation.triggerBlocks.deviceEventsAreNot', 'Device events are not available yet')
-          : trigger.type === 'webhook'
-            ? t(
-                'automation.triggerBlocks.webhookHasNothing',
-                'A webhook has nothing to test: call its address',
-              )
-            : undefined,
+        : trigger.type === 'webhook'
+          ? t(
+              'automation.triggerBlocks.webhookHasNothing',
+              'A webhook has nothing to test: call its address',
+            )
+          : undefined,
   });
   const isGone =
     trigger.type === 'entity' &&

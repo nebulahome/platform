@@ -47,6 +47,10 @@ describe('the sentence a closed block reads', () => {
     expect(triggerSummary({ type: 'sun', event: 'sunrise', offsetMinutes: 20 })).toBe(
       'Sunrise, 20 min after',
     );
+    expect(triggerSummary({ type: 'event', event: 'double_press', entityId: lux }, NAMES)).toBe(
+      'Double press from Living room lux',
+    );
+    expect(triggerSummary({ type: 'event', event: 'ring' })).toBe('Ring from any entity');
     expect(triggerSummary({ type: 'sun', event: 'golden_hour_start', period: 'evening' })).toBe(
       'Golden hour started (evening)',
     );

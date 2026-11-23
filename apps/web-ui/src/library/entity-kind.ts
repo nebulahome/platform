@@ -273,6 +273,10 @@ export function entityKindOf(
     };
   }
 
+  if (has.has('event')) {
+    return { label: translate('library.entityKind.event', 'Event'), icon: 'zap', tone: 'sensor' };
+  }
+
   if (has.has('custom')) {
     return {
       label: spoken(entity.domain === 'custom' ? 'item' : entity.domain),
@@ -347,6 +351,8 @@ export function capabilityLabel(capability: CapabilityName, domain = ''): string
       return translate('library.entityKind.details', 'Details');
     case 'calendar':
       return translate('library.entityKind.events', 'Events');
+    case 'event':
+      return translate('library.entityKind.event', 'Event');
   }
 }
 

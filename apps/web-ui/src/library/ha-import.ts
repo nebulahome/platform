@@ -10,7 +10,12 @@
  *
  * The conversion is pure: it does not look at the house. The import flow does that next.
  */
-import type { AutomationMode, JsonObject, JsonValue } from '@nebulahome/contracts';
+import {
+  EVENT_TYPE_MAXIMUM_LENGTH,
+  type AutomationMode,
+  type JsonObject,
+  type JsonValue,
+} from '@nebulahome/contracts';
 
 import { translate } from '@/i18n/messages';
 import { toKey } from '@/library/automation-draft';
@@ -1211,12 +1216,12 @@ function convertTrigger(raw: unknown, notes: Notebook): JsonObject[] {
       notes.add(
         translate(
           'haImport.eventTrigger',
-          'An event trigger was kept, but event triggers cannot fire here yet.',
+          'An event trigger was kept: here it waits for an event entity to report a type of that name.',
         ),
       );
 
       return listOf(raw['event_type']).flatMap((event) =>
-        typeof event === 'string' && event !== ''
+        typeof event === 'string' && event !== '' && event.length <= EVENT_TYPE_MAXIMUM_LENGTH
           ? [
               {
                 ...meta,

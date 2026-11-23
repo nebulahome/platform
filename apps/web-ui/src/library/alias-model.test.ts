@@ -154,7 +154,7 @@ describe('the type search', () => {
     const byWord = searchTypes('heating').find((match) => match.type.id === 'thermostat');
 
     expect(byWord?.word).toBe('heating');
-    expect(searchTypes('').length).toBe(25);
+    expect(searchTypes('').length).toBe(26);
   });
 
   it('lists the thermostat’s required parts first', () => {

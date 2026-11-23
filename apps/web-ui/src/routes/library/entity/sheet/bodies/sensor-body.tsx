@@ -58,7 +58,7 @@ import {
 } from '@/routes/library/entity/sheet/tones';
 
 /** What the history card needs. */
-type HistoryCardProps = {
+export type HistoryCardProps = {
   readonly range: SheetRange;
   readonly ranges: readonly SheetRange[];
   readonly onRange: (range: SheetRange) => void;
@@ -71,7 +71,7 @@ type HistoryCardProps = {
  * @param props - See {@link HistoryCardProps}.
  * @returns The card.
  */
-function HistoryCard(props: HistoryCardProps) {
+export function HistoryCard(props: HistoryCardProps) {
   const { t } = useTranslation();
   const labels: Readonly<Record<SheetRange, string>> = {
     '6h': '6h',

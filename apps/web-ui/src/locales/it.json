@@ -194,7 +194,6 @@
     },
     "triggerBlocks": {
       "addATrigger": "Aggiungi un'attivazione",
-      "deviceEventsAreNot": "Gli eventi dei dispositivi non sono ancora disponibili",
       "manualTriggerHasNothing": "Un'attivazione manuale non ha niente da provare: scatta da Esegui",
       "whatWakesTheAutomation": "Cosa sveglia l'automazione.",
       "when": "Quando",
@@ -310,7 +309,9 @@
         "weekends": "Fine settimana"
       },
       "elseCount": "{{count}} altrimenti",
-      "eventUnavailable": "Un evento - non ancora disponibile",
+      "anEvent": "Un evento di un dispositivo",
+      "eventFrom": "{{event}} da {{name}}",
+      "eventFromAny": "{{event}} da qualsiasi entità",
       "forEachUnavailable": "Per ciascuno - non ancora disponibile",
       "from": "Dalle {{from}}",
       "goesFromTo": "{{name}} passa da {{from}} a {{to}}",
@@ -336,7 +337,6 @@
       "isNotCompared": "{{name}} non {{comparison}} {{value}}",
       "leaves": "{{name}} smette di essere {{from}}",
       "manual": "Solo quando qualcuno lo chiede",
-      "namedEventUnavailable": "{{event}} - non ancora disponibile",
       "noActions": "nessuna azione",
       "noElse": "nessun altrimenti",
       "noTrigger": "nessuna attivazione",
@@ -4064,7 +4064,9 @@
         "date": "Data",
         "dateTime": "Data e ora",
         "text": "Testo",
-        "calendar": "Calendario"
+        "calendar": "Calendario",
+        "event": "Evento",
+        "doorbell": "Campanello"
       },
       "levelNumber": "{{n}}",
       "light": {
@@ -4313,6 +4315,17 @@
         "tooLong": "Al massimo {{max}} caratteri",
         "tooShort": "Almeno {{min}} caratteri",
         "writeAgain": "Scrivilo di nuovo"
+      },
+      "event": {
+        "agoAt": "{{ago}} fa · {{time}}",
+        "inWindow": "{{count}} eventi nelle ultime {{range}}",
+        "justNow": "Proprio ora",
+        "none": "Nessuno",
+        "noneInWindow": "Nessun evento nelle ultime {{range}}",
+        "noneSinceAdded": "Nessun evento da quando è stato aggiunto",
+        "nothingYet": "Ancora niente",
+        "once": "Una volta",
+        "waitsFor": "In attesa di"
       },
       "calendar": {
         "dayOf": "Giorno {{day}} di {{of}}",
@@ -5203,7 +5216,8 @@
       "defrosting": "Sbrina",
       "playing": "In riproduzione",
       "stopped": "Fermo",
-      "buffering": "Caricamento"
+      "buffering": "Caricamento",
+      "nothingYet": "Ancora niente"
     },
     "entityRow": {
       "configureName": "Configura {{name}}",
@@ -5573,7 +5587,6 @@
       "aboveTheHorizonNegative": "Sopra l'orizzonte; negativo vuol dire sotto.",
       "anyEntityWhenNone": "Qualsiasi entità, quando non ne è scelta nessuna.",
       "both": "Entrambi",
-      "buttonPressed": "button.pressed",
       "eitherWay": "In entrambi i sensi",
       "elevation": "Elevazione (°)",
       "evening": "Sera",
@@ -5591,7 +5604,6 @@
       "noneChosenEveryDay": "Nessuno scelto: tutti i giorni.",
       "noneChosenEveryMonth": "Nessuno scelto: tutti i mesi.",
       "notAScheduleCron": "Non è una pianificazione che cron sappia leggere",
-      "notAvailableYetNothing": "Non ancora disponibile: niente riferisce eventi dei dispositivi alla piattaforma, quindi questa attivazione resta com'è scritta e non scatta mai.",
       "offsetMin": "Scostamento (min)",
       "onTheHouseS": "Secondo l'orologio della casa.",
       "rising": "In salita",
@@ -6273,6 +6285,7 @@
       "lawn_mower": "Tosaerba",
       "update": "Aggiornamento",
       "custom": "Personalizzato",
+      "event": "Evento",
       "time_of_day": "Ora",
       "date": "Data",
       "datetime": "Data e ora",
@@ -6300,6 +6313,7 @@
       "lawn_mower": "Tosaerba",
       "update": "Aggiornamenti",
       "custom": "Personalizzati",
+      "event": "Eventi",
       "time_of_day": "Orari",
       "date": "Date",
       "datetime": "Date e ore",
@@ -7597,7 +7611,7 @@
     "numericWindow": "Un trigger tra {{above}} e {{below}} tiene solo \"sopra {{above}}\".",
     "numericEntity": "Un trigger numerico confronta con un'altra entità; è stato tralasciato.",
     "timeEntity": "Un trigger orario alle {{at}} (un'entità o un template) è stato tralasciato.",
-    "eventTrigger": "Un trigger a evento è stato tenuto, ma qui i trigger a evento non possono ancora scattare.",
+    "eventTrigger": "Un trigger a evento è stato tenuto: qui aspetta che un'entità evento riferisca un tipo con quel nome.",
     "triggerKind": "Un trigger \"{{kind}}\" qui non ha equivalente ed è stato tralasciato.",
     "templateCondition": "Una condizione template è stata tralasciata.",
     "attributeCondition": "Una condizione su un attributo o un template è stata tralasciata.",

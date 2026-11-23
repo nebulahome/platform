@@ -80,7 +80,6 @@ const KINDS: Readonly<Record<BlockFamily, Readonly<Record<string, Kind>>>> = {
       label: 'Event',
       description: 'A device event, such as a button press',
       glyph: 'radio',
-      unavailable: 'Not available yet: nothing reports device events',
     },
     manual: {
       label: 'Manual',

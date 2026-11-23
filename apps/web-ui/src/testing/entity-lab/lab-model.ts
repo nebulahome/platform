@@ -92,7 +92,7 @@ export function initialValues(capability: CapabilityName): {
 
 /**
  * The classes a domain's entity may have, from the contracts' catalogues: the binary classes,
- * the sensor classes; none for a domain whose class is free text.
+ * the sensor classes, an event's three; none for a domain whose class is free text.
  *
  * @param domain - The domain.
  * @returns The classes, or null when any text goes.
@@ -104,6 +104,11 @@ export function deviceClassesOf(domain: EntityDomain): readonly string[] | null 
 
   if (domain === 'sensor') {
     return SENSOR_CLASS_LIST.map((entry) => entry.id);
+  }
+
+  // The classes an event's board draws: a press, a bell, a footprint.
+  if (domain === 'event') {
+    return ['button', 'doorbell', 'motion'];
   }
 
   return null;

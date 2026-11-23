@@ -6,8 +6,9 @@
  * time of day, the days of the week and the months it fires on - or Advanced, a cron expression
  * said back in words with its next runs. The sun is one of its moments - sunrise, the golden
  * hour, the sun crossing an elevation - worked out where the house stands, with when it next
- * comes. `manual` has no fields and says how it runs; `event` is kept as written and says that
- * nothing reports device events yet; a webhook is its address (`automation/webhook-fields.tsx`).
+ * comes. `manual` has no fields and says how it runs; `event` is an event entity and one of the
+ * types it reports, typed when it names none; a webhook is its address
+ * (`automation/webhook-fields.tsx`).
  */
 import { useTranslation } from 'react-i18next';
 
@@ -37,8 +38,10 @@ import {
 import { ChoiceChips } from '@/components/choice-chips';
 import { WeekdayPicker } from '@/components/weekday-picker';
 import { sunEventWord } from '@/lib/block-summary';
+import { humanise } from '@/lib/command-choices';
 import { cronWords, nextCronRuns, shortMoment } from '@/lib/cron-words';
 import { partialEntityId, withoutKey } from '@/library/automation-draft';
+import { hasCapability, paramsOf } from '@/library/entity-control';
 import { useEditorHouse } from '@/routes/library/automation/editor-house';
 import { EntityTriggerFields } from '@/routes/library/automation/entity-match-fields';
 import { WebhookFields } from '@/routes/library/automation/webhook-fields';
@@ -93,44 +96,83 @@ export function TriggerFields(props: TriggerFieldsProps) {
       return <CalendarTriggerFields trigger={trigger} onChange={onChange} />;
     }
     case 'event': {
-      return (
-        <>
-          <Note tone="warning">
-            {t(
-              'library.triggerFields.notAvailableYetNothing',
-              'Not available yet: nothing reports device events to the platform, so this trigger is kept as written and never fires.',
-            )}
-          </Note>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <TextField
-              label={t('library.triggerFields.event', 'Event')}
-              size="compact"
-              placeholder={t('library.triggerFields.buttonPressed', 'button.pressed')}
-              value={trigger.event}
-              onChange={(event) => {
-                onChange({ ...trigger, event: event.target.value });
-              }}
-            />
-            <EntityField
-              label={t('library.triggerFields.from', 'From')}
-              isOptional
-              hint={t(
-                'library.triggerFields.anyEntityWhenNone',
-                'Any entity, when none is chosen.',
-              )}
-              value={trigger.entityId ?? ''}
-              onChange={(entityId) => {
-                onChange({
-                  ...trigger,
-                  entityId: entityId === '' ? null : partialEntityId(entityId),
-                });
-              }}
-            />
-          </div>
-        </>
-      );
+      return <EventTriggerFields trigger={trigger} onChange={onChange} />;
     }
   }
+}
+
+/** A device event trigger. */
+type EventTrigger = Extract<AutomationTrigger, { type: 'event' }>;
+
+/**
+ * A device event trigger: the event entity it comes from, then one of the types that entity
+ * reports. With no entity, or one that lists no types, the type is typed.
+ *
+ * @param props - The trigger and its change.
+ * @param props.trigger - The trigger.
+ * @param props.onChange - Called with the trigger as it now stands.
+ * @returns The fields.
+ */
+function EventTriggerFields(props: {
+  trigger: EventTrigger;
+  onChange: (trigger: AutomationTrigger) => void;
+}) {
+  const { t } = useTranslation();
+  const { trigger, onChange } = props;
+  const house = useEditorHouse();
+  const entity =
+    typeof trigger.entityId === 'string' ? house.entityOf(trigger.entityId) : undefined;
+  const types = entity === undefined ? [] : (paramsOf(entity, 'event')?.eventTypes ?? []);
+  // A type no longer listed stays offered, so the trigger is shown as it is.
+  const offered =
+    trigger.event === '' || types.includes(trigger.event) ? types : [trigger.event, ...types];
+  const label = t('library.triggerFields.event', 'Event');
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <EntityField
+        label={t('library.triggerFields.from', 'From')}
+        isOptional
+        hint={t('library.triggerFields.anyEntityWhenNone', 'Any entity, when none is chosen.')}
+        accept={(candidate) => hasCapability(candidate, 'event')}
+        value={trigger.entityId ?? ''}
+        onChange={(entityId, chosen) => {
+          const chosenTypes =
+            chosen === undefined ? [] : (paramsOf(chosen, 'event')?.eventTypes ?? []);
+
+          onChange({
+            ...trigger,
+            entityId: entityId === '' ? null : partialEntityId(entityId),
+            // A new entity starts on its first type, unless it reports the one chosen.
+            event:
+              chosenTypes.length === 0 || chosenTypes.includes(trigger.event)
+                ? trigger.event
+                : (chosenTypes[0] ?? ''),
+          });
+        }}
+      />
+      {types.length === 0 ? (
+        <TextField
+          label={label}
+          size="compact"
+          value={trigger.event}
+          onChange={(event) => {
+            onChange({ ...trigger, event: event.target.value });
+          }}
+        />
+      ) : (
+        <SelectField
+          label={label}
+          size="compact"
+          options={offered.map((value) => ({ value, label: humanise(value) }))}
+          value={trigger.event}
+          onChange={(value) => {
+            onChange({ ...trigger, event: value });
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
 /** A time trigger. */

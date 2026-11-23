@@ -114,6 +114,9 @@ function wander(
       next[field.key] = kind.isInt ? Math.round(moved) : Math.min(high, Math.max(low, moved));
     } else if (kind.type === 'enum' && random() < 0.5) {
       next[field.key] = kind.values[Math.floor(random() * kind.values.length)];
+    } else if (kind.type === 'string' && kind.format === 'date-time' && typeof value === 'string') {
+      // A moment moves back an hour or a few: an event before the last is another event.
+      next[field.key] = new Date(Date.parse(value) - (1 + random() * 4) * 3_600_000).toISOString();
     }
   }
 

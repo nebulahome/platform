@@ -12,6 +12,7 @@ const READING_CAPABILITIES: ReadonlySet<CapabilityName> = new Set([
   'sensor_numeric',
   'sensor_binary',
   'sensor_text',
+  'event',
 ]);
 
 /** One group of a device's entities. */

@@ -823,6 +823,97 @@ export function StretchChart(props: StretchChartProps) {
   );
 }
 
+/** One event on a track of marks: when it came, its colour and what it was. */
+export type Mark = {
+  readonly at: number;
+
+  /** Its colour, as a class: `bg-…`. */
+  readonly color: string;
+
+  readonly title: string;
+};
+
+/** What the track of marks needs. */
+export type MarkChartProps = {
+  /** The marks, oldest first. */
+  readonly marks: readonly Mark[];
+
+  /** The window they fall in. */
+  readonly window: TimeWindow;
+
+  /** What it shows, to a screen reader. */
+  readonly label: string;
+
+  /** What an empty track says. */
+  readonly empty: string;
+
+  /** Whether the newest mark is ringed: it has just come. */
+  readonly isNewestRinged?: boolean;
+};
+
+/**
+ * A track of instants: a mark where each event came, in its colour, the newest ringed while it is
+ * new; under the pointer, what the nearest was and when.
+ *
+ * @param props - See {@link MarkChartProps}.
+ * @returns The track.
+ */
+export function MarkChart(props: MarkChartProps) {
+  const { marks, window, label } = props;
+  const pointer = usePointer();
+  const hovered =
+    pointer.at === null
+      ? undefined
+      : marks.findLast((mark) => Math.abs(across(mark.at, window) - (pointer.at ?? 0)) < 0.02);
+
+  return (
+    <div className="relative">
+      <div
+        role="img"
+        aria-label={label}
+        onPointerMove={pointer.onPointerMove}
+        onPointerLeave={pointer.onPointerLeave}
+        className="relative h-10 cursor-crosshair overflow-hidden rounded-tile bg-surface-raised"
+      >
+        {marks.length === 0 ? (
+          <span className="absolute inset-0 flex items-center justify-center text-[12px] text-foreground-subtle">
+            {props.empty}
+          </span>
+        ) : (
+          <Guides at={pointer.at} />
+        )}
+        {marks.map((mark, index) => (
+          <span
+            key={mark.at}
+            aria-hidden="true"
+            className={cn(
+              'entity-grow-y absolute inset-y-2.25 w-1 -translate-x-1/2 rounded-[2px]',
+              mark.color,
+              props.isNewestRinged === true &&
+                index === marks.length - 1 &&
+                'shadow-[0_0_0_3px_var(--color-surface-raised),0_0_0_5px_rgb(167_139_250/0.55),0_0_14px_2px_rgb(167_139_250/0.6)]',
+            )}
+            // eslint-disable-next-line react/forbid-dom-props -- where the event falls in the window
+            style={{
+              left: `${(across(mark.at, window) * 100).toFixed(2)}%`,
+              ['--i' as string]: index,
+            }}
+          />
+        ))}
+      </div>
+      {pointer.at === null || hovered === undefined ? null : (
+        <ChartTip
+          at={across(hovered.at, window)}
+          tone="muted"
+          dot={hovered.color}
+          title={hovered.title}
+          sub={momentText(hovered.at, window)}
+        />
+      )}
+    </div>
+  );
+}
+
 /** What the row of times needs. */
 export type AxisRowProps = {
   /** The four labels, left to right. */

@@ -69,6 +69,9 @@ const HINTS: Readonly<Record<string, unknown>> = {
   minLength: 1,
   maxLength: 64,
   pattern: '[A-Za-z0-9 ,.!?]+',
+  // A button's events, the last of them one of its types.
+  eventType: 'double_press',
+  eventTypes: ['single_press', 'double_press', 'long_press'],
 };
 
 /**
@@ -184,6 +187,10 @@ export function sampleValue(field: SchemaField, listLength = 4): unknown {
       return field.hasDefault ? field.fallback : [...kind.values];
     }
     case 'list': {
+      if (Array.isArray(hint)) {
+        return hint;
+      }
+
       if (field.hasDefault) {
         return field.fallback;
       }
