@@ -171,6 +171,15 @@ export async function controlContainer(
 }
 
 /**
+ * Lets this browser open the containers' own pages: the API puts the access token in the cookie
+ * `/api/ingress/` reads, which the page's own requests carry where no header can go.
+ */
+export async function openIngressSession(): Promise<void> {
+  // `204`: nothing to validate.
+  await apiRequest('/ingress/session', z.undefined(), { method: 'POST' });
+}
+
+/**
  * Starts updating a container to the newest image on offer.
  *
  * @param name - Its name.
