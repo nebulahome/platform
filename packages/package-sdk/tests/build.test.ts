@@ -19,6 +19,10 @@ import { buildPackage } from '../src/vite/build.js';
 
 const root = fileURLToPath(new URL('fixture/', import.meta.url));
 const dist = path.join(root, 'dist');
+// The build stamps the SDK's own version range, so follow package.json across bumps.
+const { version: sdkVersion } = JSON.parse(
+  await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+) as { version: string };
 
 /**
  * Reads a JSON file of the release.
@@ -51,7 +55,7 @@ describe('building a package', () => {
     expect(await json('nebula.package.json')).toMatchObject({
       id: 'weather',
       version: '0.2.0',
-      sdk: '^1.14.0',
+      sdk: `^${sdkVersion}`,
       runtime: 'node',
       repository: 'nebulahome/pkg-weather',
       logo: { path: './logo.svg' },
@@ -150,7 +154,7 @@ describe('building a package', () => {
     expect(JSON.parse(await readFile(packed.indexEntry, 'utf8'))).toEqual({
       version: '0.2.0',
       platform: '^1.0.0',
-      sdk: '^1.14.0',
+      sdk: `^${sdkVersion}`,
       requires: { packages: {}, services: [] },
       provides: [],
       artifact: {
