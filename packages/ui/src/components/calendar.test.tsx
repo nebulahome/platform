@@ -24,6 +24,32 @@ describe('a day’s key', () => {
 });
 
 describe('Calendar', () => {
+  it('as a month of a year, hands on its name and a day pressed, the days out of the tab order', () => {
+    const onMonthPress = vi.fn();
+    const onDayPress = vi.fn();
+
+    render(
+      <Calendar
+        size="mini"
+        isReadOnly
+        month="2027-03"
+        value={null}
+        onChange={() => undefined}
+        onMonthPress={onMonthPress}
+        onDayPress={onDayPress}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'March 2027' }));
+    expect(onMonthPress).toHaveBeenCalledOnce();
+
+    const day = screen.getByRole('button', { name: 'Wednesday, March 10, 2027' });
+
+    expect(day).toHaveAttribute('tabindex', '-1');
+    fireEvent.click(day);
+    expect(onDayPress).toHaveBeenCalledWith('2027-03-10');
+  });
+
   it('hands back the day pressed, and keeps days outside its bounds from being picked', () => {
     const onChange = vi.fn();
 

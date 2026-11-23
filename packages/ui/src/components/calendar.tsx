@@ -195,6 +195,19 @@ export type CalendarProps = DayPick & {
   /** What each day is marked with; nothing when left out. */
   readonly renderDay?: ((day: string) => CalendarDayLook) | undefined;
 
+  /**
+   * One month of a year (`mini`): its name is a button, which hands this on - the calendar's year
+   * opens the month.
+   */
+  readonly onMonthPress?: (() => void) | undefined;
+
+  /**
+   * Read only: each day is pressed for the mouse, which hands its day on - the calendar's year opens
+   * its week. Out of the keyboard's way: a year's 365 days would be as many stops; the month's
+   * name is the keyboard's way in.
+   */
+  readonly onDayPress?: ((day: string) => void) | undefined;
+
   /** Anything extra for the outer element. */
   readonly className?: string;
 };
@@ -207,7 +220,7 @@ export type CalendarProps = DayPick & {
  */
 export function Calendar(props: CalendarProps) {
   const { min, max, takesFocus = false, isRoomy = false, className } = props;
-  const { size = 'medium', isReadOnly = false, renderDay } = props;
+  const { size = 'medium', isReadOnly = false, renderDay, onMonthPress, onDayPress } = props;
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const today = todayKey();
@@ -329,7 +342,16 @@ export function Calendar(props: CalendarProps) {
         className,
       )}
     >
-      {isMini ? (
+      {isMini && onMonthPress !== undefined ? (
+        <button
+          type="button"
+          aria-label={title}
+          onClick={onMonthPress}
+          className="cursor-pointer self-start rounded-chip px-1.5 text-ui font-medium text-foreground transition-colors first-letter:uppercase hover:text-primary focus-visible:shadow-focus focus-visible:outline-none"
+        >
+          {name}
+        </button>
+      ) : isMini ? (
         <span className="pl-1.5 text-ui font-medium text-foreground first-letter:uppercase">
           {name}
         </span>
@@ -406,21 +428,22 @@ export function Calendar(props: CalendarProps) {
 
           if (isReadOnly) {
             const look = renderDay?.(day) ?? {};
-
-            return (
-              <span
-                key={day}
-                title={look.note}
-                className={cn(
-                  'relative flex items-center justify-center',
-                  isMini ? 'h-7.5' : 'h-8',
-                  look.band,
-                )}
-              >
+            const box = cn(
+              'relative flex items-center justify-center',
+              isMini ? 'h-7.5' : 'h-8',
+              onDayPress !== undefined && 'group cursor-pointer',
+              look.band,
+            );
+            const face = (
+              <>
                 <span
                   className={cn(
-                    'flex items-center justify-center rounded-full tabular',
+                    'flex items-center justify-center rounded-full tabular transition-colors',
                     isMini ? 'size-6.5' : 'size-8',
+                    onDayPress !== undefined &&
+                      (look.tone === 'holiday'
+                        ? 'group-hover:bg-tag-red/30'
+                        : 'group-hover:bg-surface-high'),
                     look.tone === 'holiday'
                       ? 'bg-tag-red/18 font-semibold text-tag-red'
                       : look.tone === 'weekend'
@@ -441,7 +464,27 @@ export function Calendar(props: CalendarProps) {
                     )}
                   />
                 )}
+              </>
+            );
+
+            return onDayPress === undefined ? (
+              <span key={day} title={look.note} className={box}>
+                {face}
               </span>
+            ) : (
+              <button
+                key={day}
+                type="button"
+                tabIndex={-1}
+                title={look.note}
+                aria-label={formatDay(day, locale, 'full')}
+                onClick={() => {
+                  onDayPress(day);
+                }}
+                className={box}
+              >
+                {face}
+              </button>
             );
           }
 
