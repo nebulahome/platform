@@ -19,6 +19,7 @@ import {
   ArrowDownToLine,
   ArrowRight,
   ArrowRightLeft,
+  ArrowRightToLine,
   ArrowUp,
   ArrowUpDown,
   ArrowUpToLine,
@@ -159,6 +160,7 @@ import {
   Repeat1,
   Rocket,
   RotateCcw,
+  RotateCw,
   RotateCcwClock,
   Router,
   Rss,
@@ -278,6 +280,7 @@ export const BUILTIN_UI_NODES = {
   'trash-2': drawing(Trash2),
   upload: drawing(Upload),
   'rotate-ccw': drawing(RotateCcw),
+  'rotate-cw': drawing(RotateCw),
   'refresh-cw': drawing(RefreshCw),
   'text-wrap': drawing(TextWrap),
   maximize: drawing(Maximize),
@@ -394,6 +397,7 @@ export const BUILTIN_UI_NODES = {
   plug: drawing(Plug),
   'loader-circle': drawing(LoaderCircle),
   'arrow-right-left': drawing(ArrowRightLeft),
+  'arrow-right-to-line': drawing(ArrowRightToLine),
 
   // A Wi-Fi access point, on the Matter network map.
   wifi: drawing(Wifi),

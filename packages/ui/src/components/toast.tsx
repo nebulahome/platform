@@ -232,6 +232,75 @@ export function useToastsShown(): boolean {
   return useSyncExternalStore(subscribe, isAnyShown, () => false);
 }
 
+/** Where the stack's top edge is on the screen while it shows toasts; null while it shows none. */
+let stackTop: number | null = null;
+
+/** Who hears about the stack's top edge. */
+const topListeners = new Set<() => void>();
+
+/**
+ * Keeps the stack's top edge and tells whoever listens.
+ *
+ * @param next - The edge, or null.
+ */
+function setStackTop(next: number | null): void {
+  if (next !== stackTop) {
+    stackTop = next;
+
+    for (const listener of topListeners) {
+      listener();
+    }
+  }
+}
+
+/**
+ * Watches the stack's size, as the browser lays it out, for its top edge.
+ *
+ * @param viewport - The stack's element; null when it goes.
+ * @returns Stops watching.
+ */
+function watchStack(viewport: HTMLOListElement | null): (() => void) | undefined {
+  if (viewport === null || typeof ResizeObserver === 'undefined') {
+    return undefined;
+  }
+
+  /** Reads the stack's top edge, none while it is empty. */
+  const measure = (): void => {
+    const box = viewport.getBoundingClientRect();
+
+    setStackTop(box.height > 0 ? box.top : null);
+  };
+  const observer = new ResizeObserver(measure);
+
+  measure();
+  observer.observe(viewport);
+
+  return (): void => {
+    observer.disconnect();
+    setStackTop(null);
+  };
+}
+
+/**
+ * Where the stack's top edge is on the screen, from the top of the window: for what shares the
+ * stack's side and keeps clear of it, as the app windows' tabs do.
+ *
+ * @returns The edge in pixels; null while no toast shows.
+ */
+export function useToastsTop(): number | null {
+  return useSyncExternalStore(
+    (listener) => {
+      topListeners.add(listener);
+
+      return () => {
+        topListeners.delete(listener);
+      };
+    },
+    () => stackTop,
+    () => null,
+  );
+}
+
 /**
  * Subscribes to the state.
  *
@@ -409,7 +478,10 @@ export function Toaster() {
       {shown.map((entry) => (
         <ToastItem key={entry.id} entry={entry} />
       ))}
-      <Toast.Viewport className="pointer-events-none fixed inset-x-4 bottom-4 z-50 m-0 flex list-none flex-col p-0 outline-none sm:inset-x-auto sm:right-6 sm:bottom-6" />
+      <Toast.Viewport
+        ref={watchStack}
+        className="pointer-events-none fixed inset-x-4 bottom-4 z-50 m-0 flex list-none flex-col p-0 outline-none sm:inset-x-auto sm:right-6 sm:bottom-6"
+      />
     </Toast.Provider>
   );
 }

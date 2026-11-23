@@ -182,6 +182,7 @@ export {
   Toaster,
   TOAST_DURATIONS,
   useToastsShown,
+  useToastsTop,
   type ToastKind,
   type ToastMessage,
 } from './components/toast.js';
