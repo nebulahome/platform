@@ -7,7 +7,8 @@
  * list and any one of them wakes the automation; a trigger turned off reacts to nothing.
  *
  * **Coming back is not a change.** A device that drops off the network and returns did not turn
- * on; an entity going to or from `unavailable` fires only a trigger that names `unavailable`.
+ * on; an entity going to or from `unavailable` fires only a trigger that names `unavailable`. An
+ * event entity's last event, repeated as it was when its hub reconnects, is not a new one.
  *
  * Pure: the state of the house and the clock come in through the context.
  */
@@ -88,6 +89,9 @@ export type TriggerReaction = {
 /** An entity trigger, waiting for a state. */
 type EntityTrigger = Extract<AutomationTrigger, { type: 'entity' }>;
 
+/** A device event trigger. */
+type EventTrigger = Extract<AutomationTrigger, { type: 'event' }>;
+
 /**
  * Lists the triggers that are on, with their paths.
  *
@@ -122,12 +126,26 @@ export function entitiesOfTriggers(triggers: readonly AutomationTrigger[]): stri
   for (const { leaf } of triggerLeaves(triggers)) {
     if (leaf.type === 'entity') {
       found.add(leaf.entityId);
+    } else if (leaf.type === 'event' && typeof leaf.entityId === 'string') {
+      found.add(leaf.entityId);
     } else if (leaf.type === 'sun' && leaf.event === 'elevation_changed') {
       found.add(SUN_ELEVATION_ENTITY_ID);
     }
   }
 
   return [...found];
+}
+
+/**
+ * Whether a list of triggers waits for a device event from any entity, so hears every event entity.
+ *
+ * @param triggers - The triggers.
+ * @returns True when one names no entity.
+ */
+export function watchesAnyEvent(triggers: readonly AutomationTrigger[]): boolean {
+  return triggerLeaves(triggers).some(
+    ({ leaf }) => leaf.type === 'event' && (leaf.entityId ?? null) === null,
+  );
 }
 
 /**
@@ -382,6 +400,67 @@ function reactNumeric(
 }
 
 /**
+ * How a device event trigger reacts to a change of an event entity: it fires on a new event of its
+ * type. An event is new when its moment is: the same type twice is two events, the last one
+ * repeated as it was (a hub reconnecting) none.
+ *
+ * @param ref - The trigger and its path.
+ * @param leaf - The trigger.
+ * @param event - The change.
+ * @returns Its reaction.
+ */
+function reactEvent(
+  ref: TriggerLeafRef,
+  leaf: EventTrigger,
+  event: Extract<TriggerEvent, { kind: 'state' }>,
+): LeafReaction {
+  const happened: Record<string, unknown> = event.current.state.event ?? {};
+  const at = happened['at'] ?? null;
+
+  if (
+    at === null ||
+    at === event.previous?.state.event?.at ||
+    happened['eventType'] !== leaf.event ||
+    !Object.entries(leaf.match ?? {}).every(([key, value]) => happened[key] === value)
+  ) {
+    return NOTHING;
+  }
+
+  return { fires: { kind: 'event', path: ref.path, entityId: event.entityId, event: leaf.event } };
+}
+
+/**
+ * What a device event trigger says when tested from the editor. An event is an instant, never
+ * something that holds, so it tells the last one of its type that came.
+ *
+ * @param leaf - The trigger.
+ * @param state - Its entity's state, or undefined when it names none or it never reported.
+ * @returns What to say, or the problem.
+ */
+export function eventTriggerDetail(
+  leaf: EventTrigger,
+  state: EntityState | undefined,
+): { readonly detail: string } | { readonly problem: string } {
+  if ((leaf.entityId ?? null) === null) {
+    return { detail: `Fires each time any entity reports ${leaf.event}` };
+  }
+
+  if (state === undefined) {
+    return { detail: 'The entity has not reported yet' };
+  }
+
+  const last = state.state.event;
+
+  if (last === undefined) {
+    return { problem: 'The entity reports no events' };
+  }
+
+  return last.at === null
+    ? { detail: 'No event has come from it yet' }
+    : { detail: `Its last event: ${last.eventType ?? 'unknown'} at ${last.at}` };
+}
+
+/**
  * How a trigger whose hold ran its course reacts: it fires if it is still satisfied.
  *
  * @param ref - The trigger and its path.
@@ -445,6 +524,10 @@ function react(ref: TriggerLeafRef, event: TriggerEvent, context: TriggerContext
         return leaf.change.kind === 'state'
           ? reactState(ref, leaf, leaf.change, event)
           : reactNumeric(ref, leaf, leaf.change, event);
+      }
+
+      if (leaf.type === 'event' && (leaf.entityId ?? event.entityId) === event.entityId) {
+        return reactEvent(ref, leaf, event);
       }
 
       if (

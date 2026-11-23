@@ -38,7 +38,6 @@ import {
   isNebulaError,
   numericReadingOf,
   stateTokenOf,
-  UNAVAILABLE_TRIGGER_TYPES,
   type AutomationAction,
   type AutomationEvent,
   type AutomationRunResult,
@@ -85,10 +84,12 @@ import { nextFire, type House, type ScheduledTrigger } from '../domain/automatio
 import { TraceRecorder } from '../domain/automation/trace.js';
 import {
   entitiesOfTriggers,
+  eventTriggerDetail,
   timeEntitiesOfTriggers,
   reactTriggers,
   triggerHoldsNow,
   triggerLeaves,
+  watchesAnyEvent,
   type TriggerEvent,
 } from '../domain/automation/trigger-match.js';
 import { CallCounter, decideWebhook, webhookTargets } from '../domain/automation/webhook.js';
@@ -339,6 +340,9 @@ function triggerDetail(trigger: AutomationRunTrigger): string {
     case 'calendar': {
       return `the calendar: ${trigger.eventTitle ?? 'an event'}`;
     }
+    case 'event': {
+      return `the event ${trigger.event ?? 'came'}`;
+    }
     case 'manual': {
       return trigger.userId === undefined ? 'run by hand' : 'run from its Run button';
     }
@@ -360,6 +364,9 @@ export class AutomationEngine {
   readonly #now: () => Date;
   readonly #slots = new Map<string, Slot>();
   readonly #byEntity = new Map<string, Set<string>>();
+
+  /** The automations waiting for a device event from any entity: they hear every event entity. */
+  readonly #byAnyEvent = new Set<string>();
 
   /** The automations whose time triggers read their time from each entity: re-armed when it changes. */
   readonly #byTimeEntity = new Map<string, Set<string>>();
@@ -868,7 +875,12 @@ export class AutomationEngine {
         };
       }
       case 'event': {
-        return { ...nothing, detail: '', problem: 'Device events are not available yet' };
+        const said = eventTriggerDetail(
+          trigger,
+          typeof trigger.entityId === 'string' ? this.#stateOf(trigger.entityId) : undefined,
+        );
+
+        return 'problem' in said ? { ...nothing, detail: '', ...said } : { ...nothing, ...said };
       }
       case 'webhook': {
         return {
@@ -965,6 +977,10 @@ export class AutomationEngine {
       watching.add(record.id);
     }
 
+    if (watchesAnyEvent(record.definition.triggers)) {
+      this.#byAnyEvent.add(record.id);
+    }
+
     for (const entityId of timeEntitiesOfTriggers(record.definition.triggers)) {
       let timed = this.#byTimeEntity.get(entityId);
 
@@ -1010,6 +1026,8 @@ export class AutomationEngine {
       }
     }
 
+    this.#byAnyEvent.delete(automationId);
+
     this.#byKey.delete(slot.record.key);
     this.#slots.delete(automationId);
     this.#refusedAt.delete(automationId);
@@ -1049,10 +1067,6 @@ export class AutomationEngine {
     }
 
     for (const { path, leaf } of leaves) {
-      if ((UNAVAILABLE_TRIGGER_TYPES as readonly string[]).includes(leaf.type)) {
-        slot.problems.push('A device event trigger never fires yet: nothing reports device events');
-      }
-
       if (
         leaf.type === 'time' ||
         leaf.type === 'quiet' ||
@@ -1228,7 +1242,12 @@ export class AutomationEngine {
       }
     }
 
-    const watching = this.#byEntity.get(result.entityId);
+    const byEntity = this.#byEntity.get(result.entityId);
+    // An event entity is heard as well by the automations waiting for an event from any entity.
+    const watching =
+      result.current.state.event === undefined || this.#byAnyEvent.size === 0
+        ? byEntity
+        : new Set([...(byEntity ?? []), ...this.#byAnyEvent]);
 
     if (watching === undefined || watching.size === 0) {
       return;

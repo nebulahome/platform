@@ -11,9 +11,11 @@ import { entityState, statesOf } from '@/testing/entity-states.js';
 
 import {
   entitiesOfTriggers,
+  eventTriggerDetail,
   reactTriggers,
   triggerHoldsNow,
   triggerLeaves,
+  watchesAnyEvent,
   type TriggerEvent,
 } from './trigger-match.js';
 
@@ -381,5 +383,107 @@ describe('reactTriggers: a calendar', () => {
       null,
     );
     expect(reactTriggers(list(bins), motionChange(false, true).event, context).fired).toBe(null);
+  });
+});
+
+describe('reactTriggers: a device event', () => {
+  const remote = parseEntityId('event.hallway_remote');
+  const doorbell = parseEntityId('event.front_door');
+  const double: AutomationTrigger = { type: 'event', event: 'double_press', entityId: remote };
+  const anyRing: AutomationTrigger = { type: 'event', event: 'ring' };
+
+  /**
+   * An event entity's state.
+   *
+   * @param entityId - The entity.
+   * @param eventType - Its last event, or null before the first.
+   * @param at - When it came.
+   * @returns The state.
+   */
+  const happened = (entityId: string, eventType: string | null, at: string | null) =>
+    entityState(entityId, { event: { eventType, at } });
+
+  /**
+   * An event entity reporting.
+   *
+   * @param previous - Its state before, or undefined for a first report.
+   * @param current - Its state now.
+   * @returns The change.
+   */
+  const reported = (previous: EntityState | undefined, current: EntityState): TriggerEvent => ({
+    kind: 'state',
+    entityId: current.entityId,
+    previous,
+    current,
+  });
+
+  const first = happened(remote, 'double_press', '2026-10-09T11:58:00.000Z');
+  const again = happened(remote, 'double_press', '2026-10-09T11:59:30.000Z');
+  const context = { stateOf: statesOf(), now };
+
+  it('fires on a new event of its type, the same type twice included', () => {
+    expect(reactTriggers(list(double), reported(undefined, first), context).fired).toEqual({
+      kind: 'event',
+      path: 'triggers.0',
+      entityId: remote,
+      event: 'double_press',
+    });
+    expect(reactTriggers(list(double), reported(first, again), context).fired).toMatchObject({
+      event: 'double_press',
+    });
+  });
+
+  it('does not fire again on the last event repeated when its hub reconnects', () => {
+    const back = happened(remote, 'double_press', '2026-10-09T11:59:30.000Z');
+
+    expect(reactTriggers(list(double), reported(again, back), context).fired).toBeNull();
+    expect(
+      reactTriggers(list(double), reported(undefined, happened(remote, null, null)), context).fired,
+    ).toBeNull();
+  });
+
+  it('fires only on its type, its entity and what it must match', () => {
+    const single = happened(remote, 'single_press', '2026-10-09T11:59:40.000Z');
+    const other = happened(doorbell, 'double_press', '2026-10-09T11:59:40.000Z');
+
+    expect(reactTriggers(list(double), reported(again, single), context).fired).toBeNull();
+    expect(reactTriggers(list(double), reported(undefined, other), context).fired).toBeNull();
+    expect(
+      reactTriggers(
+        list({ ...double, match: { eventType: 'single_press' } }),
+        reported(first, again),
+        context,
+      ).fired,
+    ).toBeNull();
+  });
+
+  it('hears any entity when it names none, and watches only the one it names', () => {
+    const ring = happened(doorbell, 'ring', '2026-10-09T11:59:50.000Z');
+
+    expect(reactTriggers(list(anyRing), reported(undefined, ring), context).fired).toEqual({
+      kind: 'event',
+      path: 'triggers.0',
+      entityId: doorbell,
+      event: 'ring',
+    });
+    expect(entitiesOfTriggers(list(double, anyRing))).toEqual([remote]);
+    expect(watchesAnyEvent(list(double))).toBe(false);
+    expect(watchesAnyEvent(list(double, anyRing))).toBe(true);
+  });
+
+  it('tells its last event when tested, as an instant that never holds', () => {
+    expect(triggerHoldsNow(double, context)).toBeNull();
+    expect(eventTriggerDetail(double, again)).toEqual({
+      detail: 'Its last event: double_press at 2026-10-09T11:59:30.000Z',
+    });
+    expect(eventTriggerDetail(double, undefined)).toEqual({
+      detail: 'The entity has not reported yet',
+    });
+    expect(eventTriggerDetail(double, motionState(true))).toEqual({
+      problem: 'The entity reports no events',
+    });
+    expect(eventTriggerDetail(anyRing, undefined)).toEqual({
+      detail: 'Fires each time any entity reports ring',
+    });
   });
 });
