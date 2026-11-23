@@ -151,6 +151,19 @@ export const entityLinkHintSchema = z.strictObject({
 /** What lets an entity be told apart from the same reading reached another way. */
 export type EntityLinkHint = z.output<typeof entityLinkHintSchema>;
 
+/**
+ * Whether an entity's class is a reading's, held to the catalogue's units: a sensor's or a
+ * number's. A binary sensor's `battery` says the battery is low, and has no unit.
+ *
+ * @param entityId - The entity.
+ * @returns True for a sensor or a number.
+ */
+function isMeasured(entityId: string): boolean {
+  const domain = entityId.slice(0, entityId.indexOf('.'));
+
+  return domain === 'sensor' || domain === 'number';
+}
+
 /** One entity a device exposes. */
 export const entityRegistrationSchema = z
   .object({
@@ -176,7 +189,7 @@ export const entityRegistrationSchema = z
     isEnabledByDefault: z.boolean().optional(),
   })
   .superRefine((entity, ctx) => {
-    const issue = sensorRegistrationIssue(entity);
+    const issue = isMeasured(entity.entityId) ? sensorRegistrationIssue(entity) : undefined;
 
     if (issue !== undefined) {
       ctx.addIssue({
@@ -187,6 +200,10 @@ export const entityRegistrationSchema = z
     }
   })
   .transform((entity) => {
+    if (!isMeasured(entity.entityId)) {
+      return entity;
+    }
+
     const stateClass = resolveStateClass(entity.deviceClass, entity.stateClass);
 
     if (stateClass === undefined || stateClass === entity.stateClass) {

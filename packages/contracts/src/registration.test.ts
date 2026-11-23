@@ -122,6 +122,21 @@ describe('sensor class registration', () => {
     expect(registerDeviceRequestSchema.safeParse({ ...request(), entities }).success).toBe(false);
   });
 
+  it('holds only a reading to its class: a binary sensor saying the battery is low has no unit', () => {
+    const entities = [
+      {
+        entityId: 'binary_sensor.lab_battery_low',
+        name: 'Battery low',
+        capabilities: { sensor_binary: {} },
+        deviceClass: 'battery',
+      },
+    ];
+    const parsed = registerDeviceRequestSchema.safeParse({ ...request(), entities });
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.entities[0]?.stateClass).toBeUndefined();
+  });
+
   it('refuses a native unit when the entity must carry the canonical', () => {
     // `describe` converts and registers amperes; a hub that still sent milliamps would disagree
     // with the number it publishes.
