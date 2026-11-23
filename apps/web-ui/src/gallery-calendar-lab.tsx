@@ -54,8 +54,9 @@ Date.now = () => realNow() + offset;
  * @returns The body, or undefined for a call the sample does not answer.
  */
 function answer(path: string): unknown {
-  // The settings page (`?page=settings`) reads its own samples first.
-  const settings = isSettings ? settingsAnswer(path, query) : undefined;
+  // The settings page (`?page=settings`) reads its own samples first; both read the people.
+  const settings =
+    isSettings || path.startsWith('/calendar/people') ? settingsAnswer(path, query) : undefined;
 
   if (settings !== undefined) {
     return settings;

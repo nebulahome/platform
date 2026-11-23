@@ -172,6 +172,10 @@ export function settingsAnswer(path: string, query: URLSearchParams): unknown {
     return { items: PEOPLE.map(userOf) };
   }
 
+  if (at === '/calendar/people') {
+    return { items: PEOPLE.map((person) => ({ ...person, avatarUrl: null })) };
+  }
+
   if (at === '/settings') {
     const values: Record<string, unknown> = {
       'calendar.country': isPlaced ? 'IT' : null,
