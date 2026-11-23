@@ -15,7 +15,7 @@ import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 
-import { CURRENT_API_VERSION, MaintenanceError } from '@nebulahome/contracts';
+import { CURRENT_API_VERSION, INGRESS_PREFIX, MaintenanceError } from '@nebulahome/contracts';
 
 import { readBearer } from './auth/authenticator.js';
 import type { ApiContext } from './context.js';
@@ -38,6 +38,7 @@ import { registerHistoryRoutes } from './routes/history.js';
 import { registerIconRoutes } from './routes/icons.js';
 import { registerImageRoutes } from './routes/images.js';
 import { registerInfraredRoutes } from './routes/infrared.js';
+import { registerIngressRoutes, registerIngressSessionRoute } from './routes/ingress.js';
 import { registerIntegrationRoutes } from './routes/integrations.js';
 import { registerLinkRoutes } from './routes/links.js';
 import { registerMapRoutes } from './routes/map.js';
@@ -125,7 +126,9 @@ function isPublicPath(url: string): boolean {
     PUBLIC_PATHS.has(path) ||
     SOCKET_PATHS.some((socket) => socket.test(path)) ||
     PACKAGE_FILE_PATHS.some((file) => file.test(path)) ||
-    HOOK_PATH.test(path)
+    HOOK_PATH.test(path) ||
+    // A container's page: its cookie is checked by the route (`routes/ingress.ts`).
+    path.startsWith(INGRESS_PREFIX)
   );
 }
 
@@ -243,7 +246,8 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
      * @param done - Called to let the response continue.
      */
     (request: FastifyRequest, reply: FastifyReply, done: () => void): void => {
-      context.logger.info(
+      // A container's page asks for every file of its own: one line each would drown the rest.
+      context.logger[request.url.startsWith(INGRESS_PREFIX) ? 'debug' : 'info'](
         {
           traceId: request.traceId,
           method: request.method,
@@ -293,7 +297,9 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerSystemUpdateRoutes(environment, context);
   registerPackageRoutes(environment, context);
   registerWebhookRoutes(environment, context);
+  registerIngressSessionRoute(environment);
   await registerHookRoute(server, context);
+  await registerIngressRoutes(server, context);
   registerPackageFileRoutes(server, context, environment.basePath);
   registerMapRoutes(server, context, environment.basePath);
   registerCameraRoutes(server, context, environment.basePath);

@@ -129,6 +129,7 @@ import {
   HUB_PROBE_METHOD,
   HUB_RELOAD_METHOD,
   HUB_SERVICE,
+  ingressRequestSchema,
   managedRequestSchema,
   NotFoundError,
   probeRequestSchema,
@@ -143,6 +144,7 @@ import {
   type CommandAck,
   type ContainerListReply,
   type ContainerSummary,
+  type IngressReply,
   type ManagedReply,
   type DiscoveredDevice,
   type DiscoveredReply,
@@ -874,6 +876,9 @@ const MODBUS_STATUS: ModbusStatus = {
   averageMs: 41,
 };
 
+/** Where the fake supervisor says each container's page is: none unless a test puts one. */
+export const ingressTargets = new Map<string, NonNullable<IngressReply['target']>>();
+
 /** The containers the fake supervisor was asked to control, as `name:action`. */
 export const controlled: string[] = [];
 
@@ -962,6 +967,11 @@ export async function buildTestServer(
       busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.managed),
       managedRequestSchema,
       (): ManagedReply => ({ containers: [] }),
+    ),
+    supervisor.serve(
+      busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.ingress),
+      ingressRequestSchema,
+      (request): IngressReply => ({ target: ingressTargets.get(request.name) ?? null }),
     ),
     backup.serve(
       busSubjects.service(BACKUP_SERVICE, BACKUP_METHODS.status),
