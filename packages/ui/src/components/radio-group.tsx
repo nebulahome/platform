@@ -5,6 +5,11 @@
  * Native radios, visually hidden, under a 16px ring drawn by the theme: the inputs keep the
  * keyboard and the group's arrow keys. The whole row is the control; the dot inside the ring is
  * its picture, so it is hidden from a screen reader.
+ *
+ * Two looks: lines, one under the other, and cards - a bordered card a choice, lit when chosen -
+ * for a choice that weighs more, such as which times of a repeating event a change is for. A line
+ * may carry a control at its end (a repeat that ends On a date, After a number of times): it sits
+ * beside the row's label, not inside it, so pressing it never presses the radio.
  */
 import { useId, type ReactNode } from 'react';
 
@@ -20,6 +25,9 @@ export type RadioOption<TValue extends string> = {
 
   /** A line under it: what it means. */
   readonly note?: ReactNode;
+
+  /** A control at the end of the row, which belongs with the choice: a day, a count. */
+  readonly trail?: ReactNode;
 };
 
 /** What the group needs. */
@@ -39,6 +47,9 @@ export type RadioGroupProps<TValue extends string> = {
   /** Called with the one chosen. */
   readonly onChange: (value: TValue) => void;
 
+  /** Lines, one under the other (the default), or a card a choice. */
+  readonly look?: 'lines' | 'cards';
+
   /** Anything extra for the outer element. */
   readonly className?: string;
 };
@@ -50,11 +61,12 @@ export type RadioGroupProps<TValue extends string> = {
  * @returns The group.
  */
 export function RadioGroup<TValue extends string>(props: RadioGroupProps<TValue>) {
-  const { label, isLabelHidden = false, options, value, onChange, className } = props;
+  const { label, isLabelHidden = false, options, value, onChange, look = 'lines' } = props;
   const name = useId();
+  const isCards = look === 'cards';
 
   return (
-    <fieldset className={cn('flex flex-col gap-1', className)}>
+    <fieldset className={cn('flex flex-col', isCards ? 'gap-2.5' : 'gap-1', props.className)}>
       <legend
         className={cn(
           'mb-1.5 font-mono text-label text-foreground-subtle uppercase',
@@ -65,11 +77,20 @@ export function RadioGroup<TValue extends string>(props: RadioGroupProps<TValue>
       </legend>
       {options.map((option) => {
         const isChosen = option.value === value;
-
-        return (
+        const row = (
           <label
             key={option.value}
-            className="flex cursor-pointer items-start gap-2.5 rounded-field px-1 py-1.5 text-ui"
+            className={cn(
+              'flex cursor-pointer items-start text-ui',
+              isCards
+                ? 'gap-3 rounded-inner border px-4 py-3.5 transition-colors'
+                : 'gap-2.5 rounded-field px-1 py-1.5',
+              isCards &&
+                (isChosen
+                  ? 'border-primary/60 bg-primary/7'
+                  : 'border-border bg-well hover:border-border-strong'),
+              option.trail === undefined ? undefined : 'min-w-0 grow',
+            )}
           >
             <input
               type="radio"
@@ -91,12 +112,27 @@ export function RadioGroup<TValue extends string>(props: RadioGroupProps<TValue>
               {isChosen ? <span className="size-2 rounded-full bg-primary" /> : null}
             </span>
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-foreground">{option.label}</span>
+              <span className={cn('text-foreground', isCards && 'font-medium')}>
+                {option.label}
+              </span>
               {option.note === undefined ? null : (
-                <span className="text-ui-sm text-foreground-subtle">{option.note}</span>
+                <span
+                  className={cn('text-foreground-subtle', isCards ? 'text-caption' : 'text-ui-sm')}
+                >
+                  {option.note}
+                </span>
               )}
             </span>
           </label>
+        );
+
+        return option.trail === undefined ? (
+          row
+        ) : (
+          <div key={option.value} className="flex items-center gap-3">
+            {row}
+            <div className="shrink-0">{option.trail}</div>
+          </div>
         );
       })}
     </fieldset>

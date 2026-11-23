@@ -67,11 +67,13 @@ export {
   formatDayRange,
   shiftDay,
   todayKey,
+  type CalendarDayLook,
   type CalendarProps,
   type DayPick,
   type DayRange,
 } from './components/calendar.js';
 export { DateField, type DateFieldProps } from './components/date-field.js';
+export { TimeField, parseClock, type TimeFieldProps } from './components/time-field.js';
 export { Tooltip, type TooltipProps } from './components/tooltip.js';
 export { useClickOutside, useEscape, useNow, type OutsideTarget } from './lib/hooks.js';
 export { CardHeading, type CardHeadingProps } from './components/card-heading.js';
@@ -147,6 +149,7 @@ export { PanelRow, type PanelRowProps } from './components/panel-row.js';
 export { Pill, type PillProps, type PillTone } from './components/pill.js';
 export { Popover, type PopoverProps } from './components/popover.js';
 export { ProgressBar, type ProgressBarProps } from './components/progress-bar.js';
+export { QrCode, type QrCodeProps } from './components/qr-code.js';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './components/segmented.js';
 export { SetupSteps, type SetupStep, type SetupStepsProps } from './components/setup-steps.js';
 export { Slider, sliderPercent, type SliderProps } from './components/slider.js';
@@ -182,7 +185,7 @@ export {
   type ToastKind,
   type ToastMessage,
 } from './components/toast.js';
-export { TAG_FILL_CLASSES } from './lib/tag-colors.js';
+export { TAG_FILL_CLASSES, TAG_TINT_CLASSES } from './lib/tag-colors.js';
 export {
   IconOverridesProvider,
   useIconOverride,

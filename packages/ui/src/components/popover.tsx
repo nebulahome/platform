@@ -3,9 +3,10 @@
  *
  * Bigger than a dropdown's list and holding more than options - a search field, groups, a footer
  * - so it is its own surface: `surface-raised`, `border-strong`, the `card` radius and the
- * `popover` shadow. It sits under its control (over it when there is no room below), is portalled
- * into the enclosing `<dialog>` for the reason `anchored-list.ts` gives, and follows the control
- * while anything scrolls.
+ * `popover` shadow. It sits under its control (over it when there is no room below), or beside it
+ * - an event's details next to the event, too small to hang anything under - is portalled into
+ * the enclosing `<dialog>` for the reason `anchored-list.ts` gives, and follows the control while
+ * anything scrolls.
  *
  * It closes on a press outside it and its control, and on Escape - which it keeps from reaching
  * the document, where a dialog underneath listens for it too, so one press closes the popover
@@ -23,7 +24,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
-import { hostFor, placeUnder, type Placement } from '../lib/anchored-list.js';
+import { hostFor, placeBeside, placeUnder, type Placement } from '../lib/anchored-list.js';
 import { cn } from '../lib/cn.js';
 
 /** The tallest a popover gets before its content scrolls. */
@@ -49,6 +50,12 @@ export type PopoverProps = {
   /** Its width in pixels; the control's width when left out. */
   readonly width?: number;
 
+  /**
+   * Where it sits: under the control (over it without room below), or beside it - on its right,
+   * on its left without room there - level with its top and kept inside the window.
+   */
+  readonly side?: 'below' | 'beside';
+
   /** What is in it. */
   readonly children: ReactNode;
 
@@ -63,9 +70,12 @@ export type PopoverProps = {
  * @returns The panel, portalled, or nothing while shut.
  */
 export function Popover(props: PopoverProps) {
-  const { anchor, isOpen, onClose, label, width, children, className } = props;
+  const { anchor, isOpen, onClose, label, width, side = 'below', children, className } = props;
   const panel = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<{ at: Placement; host: HTMLElement } | null>(null);
+
+  // Beside the control, how tall the panel came out: what keeps its foot inside the window.
+  const [height, setHeight] = useState(0);
 
   // The caller's latest onClose, without measuring again whenever a render makes a new one.
   const close = useEffectEvent(onClose);
@@ -81,7 +91,13 @@ export function Popover(props: PopoverProps) {
       const element = anchor.current;
 
       if (element !== null) {
-        setPlace({ at: placeUnder(element, MAX_POPOVER_HEIGHT), host: hostFor(element) });
+        setPlace({
+          at:
+            side === 'beside'
+              ? placeBeside(element, width ?? element.offsetWidth, MAX_POPOVER_HEIGHT)
+              : placeUnder(element, MAX_POPOVER_HEIGHT),
+          host: hostFor(element),
+        });
       }
     };
 
@@ -111,7 +127,14 @@ export function Popover(props: PopoverProps) {
       globalThis.removeEventListener('resize', follow);
       globalThis.document.removeEventListener('pointerdown', onPress);
     };
-  }, [anchor, isOpen]);
+  }, [anchor, isOpen, side, width]);
+
+  // Measured once drawn and before it is painted, so it never shows past the window's foot.
+  useLayoutEffect(() => {
+    if (side === 'beside' && place !== null) {
+      setHeight(panel.current?.offsetHeight ?? 0);
+    }
+  }, [side, place]);
 
   if (!isOpen || place === null) {
     return null;
@@ -121,6 +144,10 @@ export function Popover(props: PopoverProps) {
 
   const panelWidth = Math.min(width ?? placement.width, globalThis.innerWidth - EDGE * 2);
   const left = Math.max(EDGE, Math.min(placement.left, globalThis.innerWidth - panelWidth - EDGE));
+  const top =
+    side === 'beside' && placement.top !== undefined
+      ? Math.max(EDGE, Math.min(placement.top, globalThis.innerHeight - EDGE - height))
+      : placement.top;
 
   /**
    * Keeps Escape to the popover.
@@ -149,7 +176,7 @@ export function Popover(props: PopoverProps) {
         left,
         width: panelWidth,
         maxHeight: placement.maxHeight,
-        ...(placement.top === undefined ? {} : { top: placement.top }),
+        ...(top === undefined ? {} : { top }),
         ...(placement.bottom === undefined ? {} : { bottom: placement.bottom }),
       }}
       className={cn(

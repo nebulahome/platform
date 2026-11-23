@@ -101,6 +101,28 @@ export function placeUnder(
 }
 
 /**
+ * Works out where a panel should sit beside its control: to its right, or to its left when the
+ * window has no room on the right, its top level with the control's.
+ *
+ * @param element - The control the panel belongs to.
+ * @param width - The panel's width.
+ * @param maxHeight - The tallest the panel may get.
+ * @returns The placement, in viewport coordinates; the caller keeps it inside the window.
+ */
+export function placeBeside(element: HTMLElement, width: number, maxHeight: number): Placement {
+  const rect = settledRect(element);
+  const right = rect.left + rect.width + GAP;
+  const fitsRight = right + width <= globalThis.innerWidth;
+
+  return {
+    left: fitsRight ? right : rect.left - GAP - width,
+    width,
+    maxHeight: Math.min(maxHeight, globalThis.innerHeight),
+    top: rect.top,
+  };
+}
+
+/**
  * Where a list should be mounted: the dialog the control is in, or the body.
  *
  * @param element - The control the list belongs to.

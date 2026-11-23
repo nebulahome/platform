@@ -13,8 +13,8 @@ import { cn } from '../lib/cn.js';
 
 import { AppIcon } from './app-icon.js';
 
-/** What kind of thing the banner says. */
-export type NoteTone = 'accent' | 'warning' | 'danger';
+/** What kind of thing the banner says; `success` for what a check found, ready to use. */
+export type NoteTone = 'accent' | 'success' | 'warning' | 'danger';
 
 /** The look of each kind. */
 const TONES: Record<
@@ -25,6 +25,11 @@ const TONES: Record<
     icon: 'info',
     box: 'border-primary-ring bg-primary-soft',
     glyph: 'text-primary',
+  },
+  success: {
+    icon: 'circle-check',
+    box: 'border-success/30 bg-success-soft',
+    glyph: 'text-success',
   },
   warning: {
     icon: 'triangle-alert',

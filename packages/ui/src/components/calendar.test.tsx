@@ -127,3 +127,24 @@ describe('Tooltip', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 });
+
+describe('Calendar, one month of a year', () => {
+  it('shows the month it is given by name, with days that cannot be pressed and their marks', () => {
+    render(
+      <Calendar
+        size="mini"
+        isReadOnly
+        month="2027-12"
+        value={null}
+        onChange={vi.fn()}
+        renderDay={(day) =>
+          day === '2027-12-08' ? { tone: 'holiday', note: 'Immaculate Conception' } : {}
+        }
+      />,
+    );
+
+    expect(screen.getByText('December')).toBeInTheDocument();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByTitle('Immaculate Conception')).toHaveTextContent('8');
+  });
+});

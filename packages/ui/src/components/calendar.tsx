@@ -140,6 +140,29 @@ export type DayPick =
       readonly maxDays?: number | undefined;
     };
 
+/**
+ * What a day of a month is marked with, when a calendar shows a year: whether it is a holiday or a
+ * weekend day, a ring (the one day off that makes a long weekend), a band behind it (several days
+ * of one event), a dot under it (something on that day). Bands and dots are classes, so the
+ * caller paints them in a tag's colour.
+ */
+export type CalendarDayLook = {
+  /** How the number is drawn: filled red for a holiday, dimmed for a weekend day. */
+  readonly tone?: 'holiday' | 'weekend' | undefined;
+
+  /** A ring round the number. */
+  readonly mark?: 'ring' | undefined;
+
+  /** The class that paints a band behind the day. */
+  readonly band?: string | undefined;
+
+  /** The class that paints a dot under the number. */
+  readonly dot?: string | undefined;
+
+  /** What the marks mean, on hover: the holiday's name. */
+  readonly note?: string | undefined;
+};
+
 /** What a calendar needs. */
 export type CalendarProps = DayPick & {
   /** The first day that may be picked. */
@@ -157,6 +180,21 @@ export type CalendarProps = DayPick & {
    */
   readonly isRoomy?: boolean;
 
+  /**
+   * How big it is drawn: as a picker (the default), or as one month of a year - the month's name
+   * with no arrows, small round days.
+   */
+  readonly size?: 'medium' | 'mini';
+
+  /** Whether the days are only shown: no day can be pressed, picked or reached with the keyboard. */
+  readonly isReadOnly?: boolean;
+
+  /** The month shown first, `2027-01`; the picked day's, else today's, when left out. */
+  readonly month?: string | undefined;
+
+  /** What each day is marked with; nothing when left out. */
+  readonly renderDay?: ((day: string) => CalendarDayLook) | undefined;
+
   /** Anything extra for the outer element. */
   readonly className?: string;
 };
@@ -169,6 +207,7 @@ export type CalendarProps = DayPick & {
  */
 export function Calendar(props: CalendarProps) {
   const { min, max, takesFocus = false, isRoomy = false, className } = props;
+  const { size = 'medium', isReadOnly = false, renderDay } = props;
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const today = todayKey();
@@ -187,7 +226,7 @@ export function Calendar(props: CalendarProps) {
   const [anchor, setAnchor] = useState<string | null>(props.mode === 'range' ? picked : null);
 
   // The month shown, `2026-06`, and the day the keyboard is on.
-  const [month, setMonth] = useState((picked ?? today).slice(0, 7));
+  const [month, setMonth] = useState(props.month ?? (picked ?? today).slice(0, 7));
   const [focusOn, setFocusOn] = useState(takesFocus ? (picked ?? today) : null);
 
   useEffect(() => {
@@ -208,11 +247,19 @@ export function Calendar(props: CalendarProps) {
       Date.UTC(2026, 0, 5 + index),
     ),
   );
+  const isMini = size === 'mini';
   const title = new Intl.DateTimeFormat(locale, {
     month: 'long',
     year: 'numeric',
     timeZone: 'UTC',
   }).format(utcOf(`${month}-01`));
+
+  // One month of a year says only its name: the year is the page's.
+  const name = isMini
+    ? new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(
+        utcOf(`${month}-01`),
+      )
+    : title;
 
   // The one day in the tab order: where the keyboard is, else the day picked, else today.
   const tabStop =
@@ -274,31 +321,44 @@ export function Calendar(props: CalendarProps) {
   };
 
   return (
-    <div className={cn('flex flex-col gap-2', isRoomy ? 'w-full' : 'w-64', className)}>
-      <div className="flex items-center justify-between gap-2">
-        <IconButton
-          label={t('ui.calendar.previousMonth', 'Previous month')}
-          onClick={() => {
-            setMonth(dayKey(year, monthOf - 1, 1).slice(0, 7));
-          }}
-        >
-          <AppIcon id="chevron-left" size={16} />
-        </IconButton>
-        <span
-          aria-live="polite"
-          className="text-ui font-medium text-foreground first-letter:uppercase"
-        >
-          {title}
+    <div
+      className={cn(
+        'flex flex-col',
+        isMini ? 'gap-1.5' : 'gap-2',
+        isRoomy || isMini ? 'w-full' : 'w-64',
+        className,
+      )}
+    >
+      {isMini ? (
+        <span className="pl-1.5 text-ui font-medium text-foreground first-letter:uppercase">
+          {name}
         </span>
-        <IconButton
-          label={t('ui.calendar.nextMonth', 'Next month')}
-          onClick={() => {
-            setMonth(dayKey(year, monthOf + 1, 1).slice(0, 7));
-          }}
-        >
-          <AppIcon id="chevron-right" size={16} />
-        </IconButton>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <IconButton
+            label={t('ui.calendar.previousMonth', 'Previous month')}
+            onClick={() => {
+              setMonth(dayKey(year, monthOf - 1, 1).slice(0, 7));
+            }}
+          >
+            <AppIcon id="chevron-left" size={16} />
+          </IconButton>
+          <span
+            aria-live="polite"
+            className="text-ui font-medium text-foreground first-letter:uppercase"
+          >
+            {title}
+          </span>
+          <IconButton
+            label={t('ui.calendar.nextMonth', 'Next month')}
+            onClick={() => {
+              setMonth(dayKey(year, monthOf + 1, 1).slice(0, 7));
+            }}
+          >
+            <AppIcon id="chevron-right" size={16} />
+          </IconButton>
+        </div>
+      )}
 
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the arrows are caught here for whichever day has the focus. */}
       <div
@@ -308,13 +368,20 @@ export function Calendar(props: CalendarProps) {
         onKeyDown={onKeyDown}
         className={cn(
           'grid grid-cols-7 text-center',
-          isRoomy ? 'gap-y-1.5 text-ui' : 'gap-y-1 text-ui-sm',
+          isMini ? 'text-caption' : isRoomy ? 'gap-y-1.5 text-ui' : 'gap-y-1 text-ui-sm',
         )}
       >
         {weekdays.map((weekday, index) => (
           // The days carry their weekday in their own names; these are for the eye.
-          // eslint-disable-next-line react/no-array-index-key -- seven fixed columns: two weekdays share a narrow letter.
-          <span key={index} aria-hidden="true" className="py-1 text-caption text-foreground-subtle">
+          <span
+            // eslint-disable-next-line react/no-array-index-key -- seven fixed columns: two weekdays share a narrow letter.
+            key={index}
+            aria-hidden="true"
+            className={cn(
+              'text-foreground-subtle',
+              isMini ? 'py-1 font-mono text-label uppercase' : 'py-1 text-caption',
+            )}
+          >
             {weekday}
           </span>
         ))}
@@ -336,6 +403,47 @@ export function Calendar(props: CalendarProps) {
                 (day === last || column === 6 || index === days - 1) && 'rounded-r-chip',
               )
             : undefined;
+
+          if (isReadOnly) {
+            const look = renderDay?.(day) ?? {};
+
+            return (
+              <span
+                key={day}
+                title={look.note}
+                className={cn(
+                  'relative flex items-center justify-center',
+                  isMini ? 'h-7.5' : 'h-8',
+                  look.band,
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex items-center justify-center rounded-full tabular',
+                    isMini ? 'size-6.5' : 'size-8',
+                    look.tone === 'holiday'
+                      ? 'bg-tag-red/18 font-semibold text-tag-red'
+                      : look.tone === 'weekend'
+                        ? 'text-foreground-subtle'
+                        : 'text-foreground',
+                    look.mark === 'ring' && 'ring-2 ring-tag-red/60 ring-inset',
+                    day === today && look.tone === undefined && 'ring-1 ring-primary/60 ring-inset',
+                  )}
+                >
+                  {index + 1}
+                </span>
+                {look.dot === undefined ? null : (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'absolute bottom-px left-1/2 size-1 -translate-x-1/2 rounded-full',
+                      look.dot,
+                    )}
+                  />
+                )}
+              </span>
+            );
+          }
 
           return (
             <span key={day} className={cn('flex px-0.5', isRoomy && 'justify-center', band)}>
