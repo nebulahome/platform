@@ -387,6 +387,9 @@ export function CalendarPage() {
           setDrawn({ day: each, start, end });
         }}
         onMoved={(occurrence, startsAt, endsAt) => {
+          // Its popover, open from before the drag, would still show the old time.
+          closeAll();
+
           if (occurrence.isRepeating) {
             setMoving({ occurrence, startsAt, endsAt });
           } else {

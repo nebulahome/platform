@@ -80,6 +80,12 @@ export type WeekSlot = {
 type Drag = {
   readonly kind: 'create' | 'move' | 'resize';
   readonly occurrence: CalendarOccurrence | null;
+
+  /**
+   * The block pressed, for its popover: the release goes to the hours, which hold the pointer
+   * while it drags, so the block cannot be read off it.
+   */
+  readonly block: HTMLElement | null;
   readonly from: {
     readonly x: number;
     readonly y: number;
@@ -115,13 +121,23 @@ export type WeekViewProps = {
 };
 
 /**
- * Snaps minutes to the drag's step.
+ * Rounds minutes to the drag's step.
  *
- * @param minutes - The minutes.
+ * @param minutes - The minutes, or a shift of them: earlier is negative.
+ * @returns The nearest step.
+ */
+function step(minutes: number): number {
+  return Math.round(minutes / SNAP) * SNAP;
+}
+
+/**
+ * Snaps a moment to the drag's step.
+ *
+ * @param minutes - The minutes since midnight.
  * @returns The nearest step, inside the day.
  */
 function snap(minutes: number): number {
-  return Math.max(0, Math.min(DAY_MINUTES, Math.round(minutes / SNAP) * SNAP));
+  return Math.max(0, Math.min(DAY_MINUTES, step(minutes)));
 }
 
 /**
@@ -311,6 +327,7 @@ export function WeekView(props: WeekViewProps) {
     setDrag({
       kind,
       occurrence: placed?.occurrence ?? null,
+      block: placed === null ? null : event.currentTarget.closest<HTMLElement>('[data-block]'),
       from: { x: event.clientX, y: event.clientY, dayIndex: point.dayIndex, minute: point.minute },
       origin,
       slot: origin,
@@ -352,7 +369,8 @@ export function WeekView(props: WeekViewProps) {
     } else if (drag.kind === 'resize') {
       slot = { ...origin, end: Math.max(origin.start + SNAP, snap(point.minute)) };
     } else {
-      const shift = snap(point.minute - drag.from.minute);
+      // A shift, not a moment: back is negative, and snapping it would hold it at 0.
+      const shift = step(point.minute - drag.from.minute);
       const length = origin.end - origin.start;
       const start = Math.max(0, Math.min(DAY_MINUTES - length, origin.start + shift));
 
@@ -375,19 +393,13 @@ export function WeekView(props: WeekViewProps) {
 
   /**
    * Ends a drag: a press opens the event, a drawn slot asks its title, a moved block is saved.
-   *
-   * @param event - The release.
    */
-  const end = (event: ReactPointerEvent<HTMLElement>): void => {
+  const end = (): void => {
     if (drag === null) {
       return;
     }
 
-    const { kind, occurrence, slot, hasMoved } = drag;
-    const target =
-      event.target instanceof HTMLElement
-        ? event.target.closest<HTMLElement>('[data-block]')
-        : null;
+    const { kind, occurrence, block, slot, hasMoved } = drag;
 
     setDrag(null);
 
@@ -403,8 +415,8 @@ export function WeekView(props: WeekViewProps) {
     }
 
     if (!hasMoved) {
-      if (target !== null) {
-        onOpen(occurrence, target);
+      if (block !== null) {
+        onOpen(occurrence, block);
       }
 
       return;
