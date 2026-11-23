@@ -16,6 +16,7 @@ export const ENTITY_DOMAINS = [
   'media_player',
   'camera',
   'button',
+  'event',
   'update',
   'lawn_mower',
   'select',

@@ -36,6 +36,7 @@ export type CapabilityName =
   | 'date'
   | 'datetime'
   | 'calendar'
+  | 'event'
   | 'vacuum'
   | 'fan'
   | 'location'
@@ -208,6 +209,11 @@ export type CapabilityStates = {
     readonly next: CalendarEventSummary | null;
     readonly isStale: boolean;
   };
+  /**
+   * Something that happens and is over: a button pressed twice, the doorbell. The last one's type
+   * and its moment, ISO 8601 with its offset, both null before the first; a fresh `at` for each.
+   */
+  readonly event: { readonly eventType: string | null; readonly at: string | null };
   readonly vacuum: {
     readonly activity: VacuumActivity;
     readonly rooms: readonly VacuumRoom[];
@@ -255,6 +261,7 @@ export type ReportedStates = Omit<
   | 'date'
   | 'datetime'
   | 'calendar'
+  | 'event'
   | 'vacuum'
   | 'location'
 > & {
@@ -274,6 +281,7 @@ export type ReportedStates = Omit<
   readonly datetime: Partial<CapabilityStates['datetime']>;
   readonly calendar: Pick<CapabilityStates['calendar'], 'isActive'> &
     Partial<Omit<CapabilityStates['calendar'], 'isActive'>>;
+  readonly event: Partial<CapabilityStates['event']>;
   readonly vacuum: Pick<CapabilityStates['vacuum'], 'activity'> &
     Partial<Omit<CapabilityStates['vacuum'], 'activity'>>;
 };
@@ -375,6 +383,8 @@ export type CapabilityParams = {
   };
   /** Which calendar it is and its colour; null on an alias. */
   readonly calendar: { readonly calendarId?: string | null; readonly color?: CalendarColor | null };
+  /** The types of event it reports, in the device's order. */
+  readonly event: { readonly eventTypes?: readonly string[] };
   readonly vacuum: {
     readonly canPause?: boolean;
     readonly canStop?: boolean;

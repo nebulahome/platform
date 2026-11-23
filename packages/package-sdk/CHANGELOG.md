@@ -9,6 +9,9 @@ to it, a major one breaks it, and a patch leaves it as it is.
   characters) in `CapabilityCommands`, and its `CapabilityParams` say `canSet` (read only without
   it), `minLength`, `maxLength`, a `pattern` the whole text must match, and `isPassword` (the
   interface masks it, and its history keeps only that it changed).
+- **Events:** the `event` domain in `ENTITY_DOMAINS` and the read-only `event` capability in
+  `CapabilityName`, `CapabilityStates` (`eventType` and `at`, the last event's type and moment,
+  both null before the first) and `CapabilityParams` (`eventTypes`, in the device's order).
 
 ## 1.15.0
 
