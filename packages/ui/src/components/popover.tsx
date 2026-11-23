@@ -8,9 +8,11 @@
  * the enclosing `<dialog>` for the reason `anchored-list.ts` gives, and follows the control while
  * anything scrolls.
  *
- * It closes on a press outside it and its control (a select's options, portalled out of it, count
- * as in it), and on Escape wherever the focus is. An Escape inside it is kept from reaching the
- * document, where a dialog underneath listens for it too, so one press closes the popover alone. Where the focus goes is the content's business: a picker moves it into its own search,
+ * It closes on a press outside it and its control - a select's options and a popover opened from
+ * inside it (an icon picker), portalled out of it, count as in it - and on Escape wherever the
+ * focus is. An Escape inside it is kept from reaching the document, where a dialog underneath
+ * listens for it too, so one press closes the popover alone. Where the focus goes is the
+ * content's business: a picker moves it into its own search,
  * the settings search keeps it in the field that opened it.
  */
 import {
@@ -32,6 +34,12 @@ const MAX_POPOVER_HEIGHT = 520;
 
 /** The space kept between a popover and the edge of the window. */
 const EDGE = 8;
+
+/**
+ * Each open panel's control, so a popover can tell a press in one opened from inside it - the
+ * icon picker of a model's popover - from a press outside: both are portalled to the page.
+ */
+const ANCHORS = new WeakMap<Element, RefObject<HTMLElement | null>>();
 
 /** What a popover needs. */
 export type PopoverProps = {
@@ -56,6 +64,9 @@ export type PopoverProps = {
    */
   readonly side?: 'below' | 'beside';
 
+  /** Under the control, which of its edges it lines up with: the left, or the right. */
+  readonly align?: 'start' | 'end';
+
   /** What is in it. */
   readonly children: ReactNode;
 
@@ -70,7 +81,17 @@ export type PopoverProps = {
  * @returns The panel, portalled, or nothing while shut.
  */
 export function Popover(props: PopoverProps) {
-  const { anchor, isOpen, onClose, label, width, side = 'below', children, className } = props;
+  const {
+    anchor,
+    isOpen,
+    onClose,
+    label,
+    width,
+    side = 'below',
+    align = 'start',
+    children,
+    className,
+  } = props;
   const panel = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<{ at: Placement; host: HTMLElement } | null>(null);
 
@@ -126,6 +147,35 @@ export function Popover(props: PopoverProps) {
     };
 
     /**
+     * Whether a press is in a popover opened from inside this one, however deep: its control is
+     * in this panel, or in a popover that is.
+     *
+     * @param target - What was pressed.
+     * @returns True inside such a popover.
+     */
+    const isInNestedPopover = (target: Node): boolean => {
+      let other = (target instanceof Element ? target : target.parentElement)?.closest(
+        '[data-popover]',
+      );
+
+      while (other !== null && other !== undefined && other !== panel.current) {
+        const control = ANCHORS.get(other)?.current ?? null;
+
+        if (control === null) {
+          return false;
+        }
+
+        if (panel.current?.contains(control) ?? false) {
+          return true;
+        }
+
+        other = control.closest('[data-popover]');
+      }
+
+      return false;
+    };
+
+    /**
      * Closes on a press outside the panel, the control and the lists the panel opened.
      *
      * @param event - The press.
@@ -136,7 +186,8 @@ export function Popover(props: PopoverProps) {
       if (
         !(panel.current?.contains(target) ?? false) &&
         !(anchor.current?.contains(target) ?? false) &&
-        !isInOwnedList(target)
+        !isInOwnedList(target) &&
+        !isInNestedPopover(target)
       ) {
         close();
       }
@@ -184,7 +235,11 @@ export function Popover(props: PopoverProps) {
   const placement = place.at;
 
   const panelWidth = Math.min(width ?? placement.width, globalThis.innerWidth - EDGE * 2);
-  const left = Math.max(EDGE, Math.min(placement.left, globalThis.innerWidth - panelWidth - EDGE));
+  const wanted =
+    side === 'below' && align === 'end'
+      ? placement.left + placement.width - panelWidth
+      : placement.left;
+  const left = Math.max(EDGE, Math.min(wanted, globalThis.innerWidth - panelWidth - EDGE));
   const top =
     side === 'beside' && placement.top !== undefined
       ? Math.max(EDGE, Math.min(placement.top, globalThis.innerHeight - EDGE - height))
@@ -205,7 +260,14 @@ export function Popover(props: PopoverProps) {
   return createPortal(
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape is caught here for whatever inside has the focus.
     <div
-      ref={panel}
+      ref={(element) => {
+        panel.current = element;
+
+        if (element !== null) {
+          ANCHORS.set(element, anchor);
+        }
+      }}
+      data-popover=""
       role="dialog"
       aria-label={label}
       onKeyDown={onKeyDown}

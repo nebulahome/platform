@@ -81,4 +81,41 @@ describe('Popover', () => {
     // Inside, the panel takes it alone: once more, not twice.
     expect(onClose).toHaveBeenCalledTimes(3);
   });
+
+  it('stays open for a press in a popover opened from inside it', () => {
+    const outer = createRef<HTMLButtonElement>();
+    const inner = createRef<HTMLButtonElement>();
+    const onClose = vi.fn();
+
+    /**
+     * The model's popover with its icon picker, opened once its button is there.
+     *
+     * @param props - Whether the picker is open.
+     * @param props.isPicking - Whether the picker is open.
+     * @returns Both.
+     */
+    function Both(props: { readonly isPicking: boolean }) {
+      return (
+        <>
+          <button ref={outer} type="button">
+            Add a model
+          </button>
+          <Popover anchor={outer} isOpen onClose={onClose} label="New model">
+            <button ref={inner} type="button">
+              Icon
+            </button>
+          </Popover>
+          <Popover anchor={inner} isOpen={props.isPicking} onClose={() => undefined} label="Icons">
+            <button type="button">Leaf</button>
+          </Popover>
+        </>
+      );
+    }
+    const { rerender } = render(<Both isPicking={false} />);
+
+    rerender(<Both isPicking />);
+    fireEvent.pointerDown(screen.getByText('Leaf'));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
