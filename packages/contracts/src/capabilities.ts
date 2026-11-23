@@ -369,14 +369,93 @@ export const sensorBinaryParamsSchema = z.object({});
  */
 export const sensorTextStateSchema = z.object({ value: z.string().max(512) });
 
+/** What a text password shows wherever its value would be: always eight dots, whatever its length. */
+export const PASSWORD_MASK = '••••••••';
+
+/**
+ * Whether a pattern compiles as the platform reads it: a JavaScript regular expression with the
+ * `u` flag.
+ *
+ * @param pattern - The pattern.
+ * @returns True when it does.
+ */
+function isPattern(pattern: string): boolean {
+  try {
+    new RegExp(pattern, 'u');
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The values a text sensor can take, when it is one of a fixed list (a washing machine's phase,
  * an alarm's state): the order they come in, so its history can be drawn as a band coloured by
  * value. Empty for free text. Its other metadata lives on the entity row.
+ *
+ * A text the house may write - a message on a display, a device's name, a keypad code - says
+ * `canSet` (read only without it, and nothing can be sent to it), and may bound what it takes:
+ * its shortest and longest, in characters, and a `pattern` the whole text must match. One that is
+ * a secret says `isPassword`: it is shown as {@link PASSWORD_MASK} until asked for, and its
+ * history keeps only that it changed.
  */
-export const sensorTextParamsSchema = z.object({
-  options: z.array(z.string().min(1).max(128)).max(64).default([]),
-});
+export const sensorTextParamsSchema = z
+  .object({
+    options: z.array(z.string().min(1).max(128)).max(64).default([]),
+    canSet: z.boolean().default(false),
+    minLength: z.number().int().min(0).max(512).optional(),
+    maxLength: z.number().int().min(0).max(512).optional(),
+    pattern: z
+      .string()
+      .min(1)
+      .max(512)
+      .refine(isPattern, { message: 'pattern must be a regular expression' })
+      .optional(),
+    isPassword: z.boolean().optional(),
+  })
+  .refine(
+    (params) =>
+      params.minLength === undefined ||
+      params.maxLength === undefined ||
+      params.minLength <= params.maxLength,
+    { message: 'minLength must not exceed maxLength', path: ['maxLength'] },
+  );
+
+/** Writing the text, whole. */
+export const sensorTextCommandSchema = z.discriminatedUnion('command', [
+  z.object({ command: z.literal('set_value'), value: z.string().max(512) }),
+]);
+
+/** Why a text does not fit what a text entity takes: too short, too long, or off its pattern. */
+export type TextProblem = 'short' | 'long' | 'pattern';
+
+/**
+ * Why a text entity would refuse a text, as `core` checks it and the interface warns of it.
+ *
+ * @param params - Its limits.
+ * @param value - The text.
+ * @returns The problem, or undefined when the text fits.
+ */
+export function textProblemOf(
+  params: Pick<z.output<typeof sensorTextParamsSchema>, 'minLength' | 'maxLength' | 'pattern'>,
+  value: string,
+): TextProblem | undefined {
+  if (params.minLength !== undefined && value.length < params.minLength) {
+    return 'short';
+  }
+
+  if (params.maxLength !== undefined && value.length > params.maxLength) {
+    return 'long';
+  }
+
+  // The whole text must match, as an HTML `pattern` does.
+  if (params.pattern !== undefined && !new RegExp(`^(?:${params.pattern})$`, 'u').test(value)) {
+    return 'pattern';
+  }
+
+  return undefined;
+}
 
 // --- media_player ------------------------------------------------------------------------
 
@@ -1089,7 +1168,7 @@ export const CAPABILITY_DEFINITIONS = {
   sensor_text: {
     state: sensorTextStateSchema,
     params: sensorTextParamsSchema,
-    commands: NO_COMMANDS,
+    commands: sensorTextCommandSchema,
   },
   media_player: {
     state: mediaPlayerStateSchema,

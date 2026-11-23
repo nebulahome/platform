@@ -80,6 +80,7 @@ export const COMMAND_FIELDS: Readonly<
   },
   select: { select_option: ['option'] },
   number: { set_value: ['value'] },
+  sensor_text: { set_value: ['value'] },
   time_of_day: { set_value: ['value'] },
   date: { set_value: ['value'] },
   datetime: { set_value: ['value'] },

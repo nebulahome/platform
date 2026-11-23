@@ -24,7 +24,6 @@ describe('the capability table', () => {
   it('gives the read-only capabilities no commands at all', () => {
     expect(commandSchemaFor('sensor_numeric')).toBeNull();
     expect(commandSchemaFor('sensor_binary')).toBeNull();
-    expect(commandSchemaFor('sensor_text')).toBeNull();
     // A picture is drawn by what it shows, not told anything.
     expect(commandSchemaFor('image')).toBeNull();
     // Where a phone is, or an earthquake was, is only read.
@@ -35,7 +34,6 @@ describe('the capability table', () => {
     const readOnly = new Set([
       'sensor_numeric',
       'sensor_binary',
-      'sensor_text',
       'image',
       'location',
       // A calendar is told what happens by its events, not by commands.

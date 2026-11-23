@@ -56,7 +56,7 @@ describe('what adapters already report', () => {
       paramsOf('thermostat', { supportedModes: ['heat'], minTemperature: 5, maxTemperature: 30 }),
     ).toMatchObject({ hasTargetRange: false, hasTargetHumidity: false, presets: [], fanModes: [] });
     expect(paramsOf('vacuum', {})).toMatchObject({ canCleanSpot: false, fanSpeeds: [] });
-    expect(paramsOf('sensor_text', {})).toEqual({ options: [] });
+    expect(paramsOf('sensor_text', {})).toEqual({ options: [], canSet: false });
   });
 
   it('keeps every state an adapter sends today valid, with nothing added to it', () => {
