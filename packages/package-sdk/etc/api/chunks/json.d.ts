@@ -5,7 +5,7 @@
  * `ctx.entityId` does, and these read one back.
  */
 /** The kinds of thing an entity is. */
-declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "update", "lawn_mower", "select", "number", "time", "calendar", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
+declare const ENTITY_DOMAINS: readonly ["light", "switch", "sensor", "binary_sensor", "cover", "lock", "climate", "media_player", "camera", "button", "event", "update", "lawn_mower", "select", "number", "time", "calendar", "vacuum", "fan", "device_tracker", "geo_location", "image", "custom", "alias"];
 /** The kind of thing an entity is. */
 type EntityDomain = (typeof ENTITY_DOMAINS)[number];
 /** An entity's identifier: `sensor.weather_temperature`. */
@@ -32,7 +32,7 @@ declare function isEntityId(value: unknown): value is EntityId;
 //#endregion
 //#region src/capabilities.d.ts
 /** Every capability an entity may declare. */
-type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'effect' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'calendar' | 'vacuum' | 'fan' | 'location' | 'image' | 'custom';
+type CapabilityName = 'on_off' | 'level' | 'color_hs' | 'color_temp' | 'effect' | 'cover' | 'lock' | 'thermostat' | 'sensor_numeric' | 'sensor_binary' | 'sensor_text' | 'media_player' | 'camera' | 'button' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'calendar' | 'event' | 'vacuum' | 'fan' | 'location' | 'image' | 'custom';
 /** How a sensor's readings add up, for statistics: a reading, a running total, or a meter. */
 type EntityStateClass = 'measurement' | 'total' | 'total_increasing';
 /** The modes a thermostat may be set to. */
@@ -200,6 +200,14 @@ type CapabilityStates = {
     readonly next: CalendarEventSummary | null;
     readonly isStale: boolean;
   };
+  /**
+   * Something that happens and is over: a button pressed twice, the doorbell. The last one's type
+   * and its moment, ISO 8601 with its offset, both null before the first; a fresh `at` for each.
+   */
+  readonly event: {
+    readonly eventType: string | null;
+    readonly at: string | null;
+  };
   readonly vacuum: {
     readonly activity: VacuumActivity;
     readonly rooms: readonly VacuumRoom[];
@@ -236,7 +244,7 @@ type CapabilityStates = {
   };
 };
 /** Each capability's state, as a package reports it: what has a default may be left out. */
-type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'calendar' | 'vacuum' | 'location'> & {
+type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'lawn_mower' | 'select' | 'number' | 'time_of_day' | 'date' | 'datetime' | 'calendar' | 'event' | 'vacuum' | 'location'> & {
   readonly effect: Partial<CapabilityStates['effect']>;
   readonly location: Partial<CapabilityStates['location']>;
   readonly camera: Omit<CapabilityStates['camera'], 'isRecording'> & {
@@ -252,6 +260,7 @@ type ReportedStates = Omit<CapabilityStates, 'effect' | 'camera' | 'update' | 'l
   readonly date: Partial<CapabilityStates['date']>;
   readonly datetime: Partial<CapabilityStates['datetime']>;
   readonly calendar: Pick<CapabilityStates['calendar'], 'isActive'> & Partial<Omit<CapabilityStates['calendar'], 'isActive'>>;
+  readonly event: Partial<CapabilityStates['event']>;
   readonly vacuum: Pick<CapabilityStates['vacuum'], 'activity'> & Partial<Omit<CapabilityStates['vacuum'], 'activity'>>;
 };
 /** An entity's state, read back: one entry per capability it declares. */
@@ -299,8 +308,17 @@ type CapabilityParams = {
   };
   readonly sensor_numeric: Readonly<Record<never, never>>;
   readonly sensor_binary: Readonly<Record<never, never>>;
+  /**
+   * Its values when they are a fixed list; whether the house may write it, its shortest and
+   * longest, a pattern the whole text must match, and whether it is a password.
+   */
   readonly sensor_text: {
     readonly options?: readonly string[];
+    readonly canSet?: boolean;
+    readonly minLength?: number;
+    readonly maxLength?: number;
+    readonly pattern?: string;
+    readonly isPassword?: boolean;
   };
   readonly media_player: {
     readonly supportedSources?: readonly string[];
@@ -361,6 +379,10 @@ type CapabilityParams = {
   readonly calendar: {
     readonly calendarId?: string | null;
     readonly color?: CalendarColor | null;
+  };
+  /** The types of event it reports, in the device's order. */
+  readonly event: {
+    readonly eventTypes?: readonly string[];
   };
   readonly vacuum: {
     readonly canPause?: boolean;
@@ -538,6 +560,10 @@ type CapabilityCommands = {
   readonly number: {
     readonly command: 'set_value';
     readonly value: number;
+  };
+  readonly sensor_text: {
+    readonly command: 'set_value';
+    readonly value: string;
   };
   readonly time_of_day: {
     readonly command: 'set_value';
