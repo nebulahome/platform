@@ -14,7 +14,9 @@
  * Where it is - its corner, tucked or not - is the layer's, which remembers it: a reload, or the
  * window shown again, puts it back there. While toasts are shown over the bottom-right corner, a
  * window resting there tucks away for them and comes back out when they have gone - unless the
- * viewer brought it out meanwhile; that tuck is not remembered.
+ * viewer brought it out meanwhile; that tuck is not remembered. An app window on show over a right
+ * corner's window tucks it away the same way (docs: app windows, decision 9), and a window in a
+ * right corner tells the layer how much of the right edge it holds, for the app windows' tabs.
  *
  * It is hidden while it is not open, on the package's own page - which shows the same thing in
  * full - and on a screen narrower than 640px; a hidden window gives its corner back.
@@ -82,7 +84,7 @@ export type FloatingWindowProps = {
 const DRAG_THRESHOLD_PX = 4;
 
 /** Narrower than this the window is not shown: a phone has no room beside the page. */
-const WIDE_QUERY = '(min-width: 640px)';
+export const WIDE_QUERY = '(min-width: 640px)';
 
 /** What a press starts a gesture of its own on, rather than the window's: a slider, a field. */
 const OWN_GESTURES = 'input, textarea, select, [contenteditable="true"], [role="slider"]';
@@ -151,8 +153,9 @@ export function FloatingWindow(props: FloatingWindowProps) {
   const isReduced = useReducedMotion();
   const areToastsShown = useToastsShown();
   const [portal, setPortal] = useState<HTMLElement | null>(null);
-  // Brought out, or picked up, by the viewer while toasts are shown: it stays out until they go.
-  const [isOutForToasts, setOutForToasts] = useState(false);
+  // Brought out, or picked up, by the viewer while it is crowded: it stays out until that ends.
+  const [isOutWhileCrowded, setOutWhileCrowded] = useState(false);
+  const isCovered = layer?.covered.includes(packageId) ?? false;
   const frameRef = useRef<HTMLDivElement>(null);
   // Where the spring pulls the window: ahead of the layer's for the moment after a drop.
   const aimRef = useRef<Placement | undefined>(undefined);
@@ -169,15 +172,19 @@ export function FloatingWindow(props: FloatingWindowProps) {
   const placement = isShown ? layer.placements[packageId] : undefined;
   const corner = placement?.corner;
 
-  if (!areToastsShown && isOutForToasts) {
-    setOutForToasts(false);
+  // Crowded: toasts over its corner, or an app window over it in a right corner (it can only tuck
+  // there).
+  const isCrowded =
+    corner !== undefined &&
+    ((areToastsShown && corner === TOASTS_CORNER) || (isCovered && corner.endsWith('right')));
+
+  if (!isCrowded && isOutWhileCrowded) {
+    setOutWhileCrowded(false);
   }
 
-  // Tucked where the layer has it tucked, and while toasts are shown over its corner.
+  // Tucked where the layer has it tucked, and while it is crowded.
   const isTuckedThere =
-    placement !== undefined &&
-    (placement.isTucked ||
-      (areToastsShown && placement.corner === TOASTS_CORNER && !isOutForToasts));
+    placement !== undefined && (placement.isTucked || (isCrowded && !isOutWhileCrowded));
 
   // Where the window is drawn: where it is while it is shown, where it was while it goes.
   const [drawn, setDrawn] = useState<Placement | undefined>(undefined);
@@ -225,6 +232,42 @@ export function FloatingWindow(props: FloatingWindowProps) {
       release(packageId);
     };
   }, [isShown, packageId, claim, release]);
+
+  const holdEdge = layer?.holdEdge;
+  const drawnCorner = drawn?.corner;
+
+  // In a right corner it holds that end of the right edge: the layer hears how much, again when
+  // its size changes, and that it holds nothing once it leaves.
+  useEffect(() => {
+    const frame = frameRef.current;
+
+    if (
+      holdEdge === undefined ||
+      frame === null ||
+      (drawnCorner !== 'top-right' && drawnCorner !== 'bottom-right')
+    ) {
+      return undefined;
+    }
+
+    /** Tells the layer what the window holds. */
+    const say = (): void => {
+      holdEdge(packageId, {
+        corner: drawnCorner,
+        width: frame.offsetWidth,
+        height: frame.offsetHeight,
+        isTucked,
+      });
+    };
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(say);
+
+    say();
+    observer?.observe(frame);
+
+    return (): void => {
+      observer?.disconnect();
+      holdEdge(packageId, null);
+    };
+  }, [holdEdge, packageId, drawnCorner, isTucked]);
 
   /**
    * Measures the layer and the window.
@@ -356,8 +399,8 @@ export function FloatingWindow(props: FloatingWindowProps) {
       return;
     }
 
-    if (!isTuck && areToastsShown) {
-      setOutForToasts(true);
+    if (!isTuck && isCrowded) {
+      setOutWhileCrowded(true);
     }
 
     layer.moveTo(packageId, corner, isTuck);

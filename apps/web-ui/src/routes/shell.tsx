@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router';
 
+import { AppWindowsLayer } from '@/app-windows/app-windows-layer';
 import { Sidebar } from '@/components/sidebar';
 import { useLiveChannel } from '@/live/use-live-channel';
 import { FloatingLayer } from '@/packages/floating/floating-layer';
@@ -57,7 +58,8 @@ export function PagePlaceholder() {
  *
  * The page sits in a box of its own beside the rail, and the packages' floating windows in a layer
  * over that box: a window is held to the page and never covers the rail, however wide the rail is
- * or is becoming.
+ * or is becoming. The integrations' app windows - a container's own page - are in a layer of their
+ * own between the two.
  *
  * An entity opens in a dialog over any page, named in the address (`?entity=`): its host is here,
  * so every page, card and package opens it the same way. So is the command palette's, which Ctrl+K
@@ -78,6 +80,7 @@ export function Shell() {
           <Suspense fallback={null}>
             <Outlet />
           </Suspense>
+          <AppWindowsLayer />
           <PackageBackgrounds />
         </FloatingLayer>
       </div>

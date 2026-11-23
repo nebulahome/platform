@@ -7,6 +7,11 @@
  * the next time, after a reload too; when the corner is taken the window gets the first free one
  * of bottom-right, bottom-left, top-right, top-left. A window put in a corner another holds swaps
  * with it, which comes out of its tuck. A fifth window shares the bottom-right.
+ *
+ * The layer is also where the floating windows and the app windows (`app-windows/`, docs: app
+ * windows 4.5) learn about each other: a floating window in a right corner says how much of the
+ * right edge it holds, which the hidden app windows' tabs keep clear of; the app windows say what
+ * they cover, and a floating window in a right corner they cover tucks away for them.
  */
 import {
   createContext,
@@ -27,6 +32,19 @@ import {
 
 /** Where the places are kept: `{ [packageId]: { corner, isTucked } }`. */
 const STORAGE_KEY = 'nebula.floating';
+
+/** How much of the right edge a floating window in a right corner holds. */
+export type EdgeHold = {
+  /** Its corner. */
+  readonly corner: 'top-right' | 'bottom-right';
+
+  /** Its size, untucked. */
+  readonly width: number;
+  readonly height: number;
+
+  /** Whether it is tucked past the edge, its strip on it. */
+  readonly isTucked: boolean;
+};
 
 /** What the layer shares with the windows drawn in it. */
 export type FloatingLayerValue = {
@@ -50,6 +68,23 @@ export type FloatingLayerValue = {
    * @param isTucked - Whether it is tucked away past the right edge there; only a right corner's is.
    */
   readonly moveTo: (packageId: string, corner: Corner, isTucked?: boolean) => void;
+
+  /** What the floating windows in a right corner hold of the right edge, by package. */
+  readonly edges: Readonly<Record<string, EdgeHold>>;
+
+  /**
+   * Says what a floating window holds of the right edge.
+   *
+   * @param packageId - Whose window.
+   * @param hold - What it holds; null when it holds nothing (a left corner, hidden, gone).
+   */
+  readonly holdEdge: (packageId: string, hold: EdgeHold | null) => void;
+
+  /** The packages whose window, in a right corner, an app window on show covers. */
+  readonly covered: readonly string[];
+
+  /** Says which packages an app window on show covers. */
+  readonly setCovered: (packageIds: readonly string[]) => void;
 };
 
 const FloatingLayerContext = createContext<FloatingLayerValue | null>(null);
@@ -171,9 +206,38 @@ export function FloatingLayer(props: { readonly children?: ReactNode }) {
     [commit],
   );
 
+  const [edges, setEdges] = useState<Readonly<Record<string, EdgeHold>>>({});
+  const [covered, setCoveredList] = useState<readonly string[]>([]);
+
+  const holdEdge = useCallback((packageId: string, hold: EdgeHold | null): void => {
+    setEdges((current) => {
+      const was = current[packageId];
+
+      if (hold === null) {
+        if (was === undefined) {
+          return current;
+        }
+
+        return Object.fromEntries(Object.entries(current).filter(([id]) => id !== packageId));
+      }
+
+      return was?.corner === hold.corner &&
+        was.width === hold.width &&
+        was.height === hold.height &&
+        was.isTucked === hold.isTucked
+        ? current
+        : { ...current, [packageId]: hold };
+    });
+  }, []);
+
+  const setCovered = useCallback((next: readonly string[]): void => {
+    // Said again whenever the app windows move: only a real change is passed on.
+    setCoveredList((current) => (current.join() === next.join() ? current : next));
+  }, []);
+
   const value = useMemo(
-    () => ({ element, placements, claim, release, moveTo }),
-    [element, placements, claim, release, moveTo],
+    () => ({ element, placements, claim, release, moveTo, edges, holdEdge, covered, setCovered }),
+    [element, placements, claim, release, moveTo, edges, holdEdge, covered, setCovered],
   );
 
   return (

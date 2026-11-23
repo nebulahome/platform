@@ -72,6 +72,7 @@ import { LogViewer } from '@/components/log-viewer';
 import { PasswordField } from '@/components/password-field';
 import { Sidebar } from '@/components/sidebar';
 import { CONTAINER_QUERY_KEYS } from '@/containers/api';
+import { AppWindowsSample } from '@/gallery-app-windows';
 import { BrokerGallery } from '@/gallery-brokers';
 import { FloatingSample } from '@/gallery-floating';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -1597,6 +1598,13 @@ function Gallery() {
           note="Two packages' windows beside a rail: drag or throw one to a corner, drop it on the other to swap, throw it right to tuck it and click the strip to bring it back, arrows move it, × closes it. A toast tucks the bottom-right one away until it has gone; a reload puts both back where they were."
         >
           <FloatingSample />
+        </Section>
+
+        <Section
+          title="App windows"
+          note="A container's page in a window over the page: drag the bar to an edge or a corner and a frosted zone shows where it lands; let go anywhere else and it stays. Resize from any edge, double-click the bar for Large, reload, hide it as a tab beside the player, open a sixth to be asked which one to close."
+        >
+          <AppWindowsSample />
         </Section>
 
         <Section title="Modal" note="Clicking away closes it, unless what it holds is shown once.">

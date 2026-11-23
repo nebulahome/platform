@@ -24,11 +24,16 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
-import type { DiscoveredDevice, IntegrationState } from '@nebulahome/contracts';
+import {
+  INGRESS_PREFIX,
+  type DiscoveredDevice,
+  type IntegrationState,
+} from '@nebulahome/contracts';
 import { AppIcon, Button, DetailHero, HeroFact, Pill, TabPanel, Tabs, toast } from '@nebulahome/ui';
 
+import { useAppWindows } from '@/app-windows/app-windows-store';
+import { ensureIngressSession } from '@/app-windows/session';
 import { useSession } from '@/auth/session-store';
-import { openIngressSession } from '@/containers/api';
 import { translate } from '@/i18n/messages';
 import { toMessage } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
@@ -323,10 +328,17 @@ export function VendorPage() {
                       isBusy={isOpeningPage}
                       onClick={() => {
                         setOpeningPage(true);
-                        // The cookie first: the page's own requests carry nothing else.
-                        openIngressSession().then(
+                        // The cookie first: the page's own requests carry nothing else. The page
+                        // opens in a window over the interface (docs: app windows).
+                        ensureIngressSession(true).then(
                           () => {
-                            window.location.assign(webPage);
+                            setOpeningPage(false);
+                            useAppWindows.getState().open({
+                              name: webPage.slice(INGRESS_PREFIX.length).replace(/\/$/, ''),
+                              vendorId,
+                              title: found.name,
+                              path: webPage,
+                            });
                           },
                           (error: unknown) => {
                             setOpeningPage(false);

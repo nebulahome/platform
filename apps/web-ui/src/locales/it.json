@@ -4385,6 +4385,62 @@
       "home": "Casa"
     }
   },
+  "appWindows": {
+    "source": "Integrazione",
+    "chip": {
+      "stopped": "Fermo",
+      "restarting": "Riavvio"
+    },
+    "reload": "Ricarica {{name}}",
+    "hide": "Nascondi {{name}}",
+    "close": "Chiudi {{name}}",
+    "startFailed": "{{name}} non si è avviato",
+    "stopped": {
+      "title": "{{name}} non è in esecuzione",
+      "text": "Il suo container è fermo, quindi non c’è nessuna pagina da mostrare.",
+      "start": "Avvia",
+      "open": "Apri il container"
+    },
+    "restarting": {
+      "title": "Riconnessione",
+      "text": "{{name}} si sta riavviando. La pagina torna da sola."
+    },
+    "noAnswer": {
+      "title": "La pagina non ha risposto",
+      "text": "{{name}} è in esecuzione, ma la sua pagina non ha risposto.",
+      "retry": "Riprova",
+      "log": "Apri il log"
+    },
+    "expired": {
+      "title": "Non è stato possibile aprire la pagina",
+      "text": "La sessione per questa pagina è finita. Accedi di nuovo, poi ricaricala."
+    },
+    "denied": {
+      "title": "Non puoi più aprire questa pagina",
+      "text": "Per aprirla serve il permesso di configurare {{name}}."
+    },
+    "spot": {
+      "large": "Grande",
+      "left": "Metà sinistra",
+      "right": "Metà destra",
+      "topLeft": "In alto a sinistra",
+      "topRight": "In alto a destra",
+      "bottomLeft": "In basso a sinistra",
+      "bottomRight": "In basso a destra"
+    },
+    "show": "Mostra {{name}}",
+    "hidden": "Nascosta",
+    "limit": {
+      "title": "Hai {{limit}} pagine aperte",
+      "description": "Chiudine una per aprire {{name}}.",
+      "cancel": "Annulla",
+      "confirm": "Chiudi e apri",
+      "label": "Pagina da chiudere",
+      "hidden": "Integrazione · nascosta · usata {{when}}",
+      "open": "Integrazione · aperta · usata {{when}}",
+      "note": "Si chiude solo la pagina: l’integrazione e il suo container restano accesi. Quello che non hai salvato in quella pagina va perso."
+    }
+  },
   "floating": {
     "close": "Chiudi",
     "show": "Mostra {{label}}"

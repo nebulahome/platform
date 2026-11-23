@@ -21,6 +21,7 @@ import {
 } from '@nebulahome/contracts';
 import { toast } from '@nebulahome/ui';
 
+import { useAppWindows } from '@/app-windows/app-windows-store';
 import { useSession } from '@/auth/session-store';
 import { openIngressSession } from '@/containers/api';
 import {
@@ -790,9 +791,7 @@ describe('a vendor that adds its own devices', () => {
     expect(screen.getByText(/Pairing is not available yet/u)).toBeTruthy();
   });
 
-  it('opens the page Zigbee2MQTT serves through the platform, once the browser may', async () => {
-    const assign = vi.fn();
-
+  it('opens the page Zigbee2MQTT serves through the platform in a window, once the browser may', async () => {
     vi.mocked(fetchVendor).mockResolvedValue({
       ...ZIGBEE,
       containers: [
@@ -810,15 +809,22 @@ describe('a vendor that adds its own devices', () => {
 
     const button = await screen.findByRole('button', { name: 'Web page' });
 
-    // Only where the click sends the browser: the page itself is the platform's own, not tested.
-    vi.stubGlobal('location', { assign });
+    // The window is the shell's to draw: here, only what the click hands it.
     fireEvent.click(button);
 
     await waitFor(() => {
-      expect(assign).toHaveBeenCalledWith('/api/ingress/nebulahome-zigbee2mqtt/');
+      expect(useAppWindows.getState().windows).toMatchObject([
+        {
+          name: 'nebulahome-zigbee2mqtt',
+          vendorId: 'zigbee2mqtt',
+          title: ZIGBEE.name,
+          path: '/api/ingress/nebulahome-zigbee2mqtt/',
+          isHidden: false,
+        },
+      ]);
     });
     expect(openIngressSession).toHaveBeenCalledTimes(1);
-    vi.unstubAllGlobals();
+    useAppWindows.getState().clear();
   });
 
   it('offers the page to nobody who may not configure the integration', async () => {
