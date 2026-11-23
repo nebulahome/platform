@@ -319,6 +319,11 @@
    * The bar is thin and has no track of its own - the thumb floats in the padding, drawn with a
    * transparent border and `background-clip`, which is the only way to inset a webkit thumb. It
    * is the one piece of furniture that appears on every screen, so it is worth the six lines.
+   *
+   * It is ours wherever `::-webkit-scrollbar` is, `--scrollbar-size` wide on every system: a page
+   * puts it inside its gutter by that width (`page-scroll`). `scrollbar-width` and
+   * `scrollbar-color` are Firefox's alone - set anywhere else, Chromium (121 on) drops the rules
+   * below for its own thin bar, which on a Mac is an overlay 0 px wide.
    */
   ::selection {
     background-color: color-mix(in srgb, var(--color-primary) 32%, transparent);
@@ -340,14 +345,16 @@
     cursor: default;
   }
 
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border-strong) transparent;
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border-strong) transparent;
+    }
   }
 
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
   }
 
   ::-webkit-scrollbar-track {

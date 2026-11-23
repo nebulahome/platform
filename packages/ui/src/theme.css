@@ -357,6 +357,18 @@
   /** The one button of an auth screen. */
   --control-height-xl: 46px;
 
+  /* --- page ---------------------------------------------------------------------------------- */
+
+  /** A page's gutter, left and right: 32 px, the scrollbar inside the right one (`page-scroll`). */
+  --page-gutter: 32px;
+
+  /**
+   * The scrollbar's width, the same on every system: the bar is drawn by `styles.css` wherever
+   * `::-webkit-scrollbar` is (Chromium, Safari), never the platform's thin or overlay bar.
+   * Firefox draws its own thin one, 0 to 8 px; there `page-scroll` is off by that much.
+   */
+  --scrollbar-size: 10px;
+
   /* --- depth -------------------------------------------------------------------------------- */
   /*
    * Flat. A panel has no resting shadow; an entity card has the faint lit top edge of `edge`. A
@@ -706,6 +718,20 @@
  */
 @utility scrollbar-stable {
   scrollbar-gutter: stable;
+}
+
+/*
+ * A page's own scrolling box, under its header or the whole page: it scrolls up and down, keeps
+ * the scrollbar's room whether or not one is drawn - a page that grows long, or a view that does,
+ * never shifts - and puts that room inside its right gutter, so what it holds stands 32 px from
+ * both sides with a bar and without one. Every page that scrolls by itself uses it rather than
+ * `overflow-y-auto px-8`; its top and bottom padding are the page's own.
+ */
+@utility page-scroll {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-left: var(--page-gutter);
+  padding-right: calc(var(--page-gutter) - var(--scrollbar-size));
 }
 
 /* The catalogue's grid: as many 220px tiles as fit, sharing what is left over. */
