@@ -33,7 +33,13 @@ export type TriggerEvent =
       readonly previous: EntityState | undefined;
       readonly current: EntityState;
     }
-  | { readonly kind: 'time'; readonly path: string }
+  | {
+      readonly kind: 'time';
+      readonly path: string;
+
+      /** For a calendar trigger: the event whose edge came. */
+      readonly calendar?: Pick<AutomationRunTrigger, 'eventId' | 'eventTitle' | 'occurrenceStart'>;
+    }
   | {
       readonly kind: 'hold';
       readonly path: string;
@@ -473,6 +479,17 @@ function react(ref: TriggerLeafRef, event: TriggerEvent, context: TriggerContext
 
       if (leaf.type === 'quiet') {
         return { fires: { kind: 'quiet', path: ref.path } };
+      }
+
+      if (leaf.type === 'calendar') {
+        return {
+          fires: {
+            kind: 'calendar',
+            path: ref.path,
+            calendarId: leaf.calendarId,
+            ...event.calendar,
+          },
+        };
       }
 
       return leaf.type === 'sun'

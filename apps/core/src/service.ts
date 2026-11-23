@@ -53,6 +53,8 @@ import { AliasEngine } from './services/alias-engine.js';
 import { startAliasService } from './services/alias-service.js';
 import { AutomationEngine } from './services/automation-engine.js';
 import { startAutomationService } from './services/automation-service.js';
+import { CalendarMonitor } from './services/calendar-monitor.js';
+import { startCalendarService } from './services/calendar-service.js';
 import { createCommandDispatcher } from './services/command-dispatch.js';
 import { startCommandRouter } from './services/command-router.js';
 import { startContainersService } from './services/containers.js';
@@ -60,6 +62,7 @@ import { startEntityService } from './services/entity-service.js';
 import { startHistoryImportService } from './services/history-import.js';
 import { startHistoryService } from './services/history-service.js';
 import { startHouseService } from './services/house-service.js';
+import { IcsFetcher } from './services/ics-fetcher.js';
 import { LinkEngine } from './services/link-engine.js';
 import { startLinkService, syncLinks } from './services/link-service.js';
 import { loadPackageTypes, startPackagesService } from './services/packages.js';
@@ -123,6 +126,8 @@ export class CoreService {
   #systemMonitor: SystemMonitor | undefined;
   #sunMonitor: SunMonitor | undefined;
   #quietTimeMonitor: QuietTimeMonitor | undefined;
+  #calendarMonitor: CalendarMonitor | undefined;
+  #icsFetcher: IcsFetcher | undefined;
   #updating: UpdatingSources | undefined;
   #client: BusClient | undefined;
   #subscriptions: BusSubscription[] = [];
@@ -138,6 +143,9 @@ export class CoreService {
    * @param result - What changed.
    */
   readonly #onChange = (result: IngestResult): void => {
+    // A time or date entity shown in a calendar moves its time there.
+    this.#calendarMonitor?.onStateChanged(result);
+
     // A linked entity changes under every address that means it: an automation watching the
     // address of an entity linked to it is woken, and sees the address it watches.
     for (const address of this.#directory.addressesOf(result.entityId)) {
@@ -368,6 +376,29 @@ export class CoreService {
     this.#quietTimeMonitor = quietTimeMonitor;
     quietTimeMonitor.start(house.timeZone);
 
+    // Before the automation engine: its calendar triggers are armed by the times read here.
+    const calendarMonitor = new CalendarMonitor({
+      db,
+      ingest,
+      logger,
+      newTraceId,
+      /** Arms the calendar triggers again by the times worked out anew. */
+      onChanged: () => {
+        this.#automationEngine?.rearmCalendars();
+      },
+    });
+
+    this.#calendarMonitor = calendarMonitor;
+
+    // A calendar that cannot be read leaves the house running without its calendar entities.
+    const calendarCount = await calendarMonitor.start(house.timeZone).catch((error: unknown) => {
+      startupLogger.error({ err: error }, 'Could not read the calendars');
+
+      return 0;
+    });
+
+    startupLogger.info({ calendars: calendarCount }, 'Calendars loaded');
+
     // A package or an integration being updated: its entities say so, its commands wait.
     const updating = new UpdatingSources({
       /**
@@ -421,12 +452,28 @@ export class CoreService {
       logger,
       newTraceId,
       secretsKey: secretsKeyFrom(config.NEBULA_SECRETS_KEY),
+      calendar: calendarMonitor,
     });
 
     this.#automationEngine = automationEngine;
     const automationCount = await automationEngine.load();
 
     startupLogger.info({ automations: automationCount }, 'Automations loaded');
+
+    const icsFetcher = new IcsFetcher({
+      db,
+      client,
+      logger,
+      /**
+       * Reads the calendars again after a source brought events in.
+       *
+       * @returns How many calendars there are.
+       */
+      onImported: async () => calendarMonitor.reload(),
+    });
+
+    this.#icsFetcher = icsFetcher;
+    icsFetcher.start(house.timeZone);
 
     this.#subscriptions = [
       client.subscribe(busSubjects.updateEvent(), updateEventSchema, (event) => {
@@ -502,8 +549,11 @@ export class CoreService {
         engine: automationEngine,
         sun: sunMonitor,
         quietTime: quietTimeMonitor,
+        calendars: calendarMonitor,
+        ics: icsFetcher,
         logger,
       }),
+      ...startCalendarService({ client, monitor: calendarMonitor, fetcher: icsFetcher, logger }),
     ];
 
     this.#telemetry = runTelemetryIngest({
@@ -564,6 +614,8 @@ export class CoreService {
     this.#aliasEngine?.stop();
     this.#sunMonitor?.stop();
     this.#quietTimeMonitor?.stop();
+    this.#calendarMonitor?.stop();
+    this.#icsFetcher?.stop();
     this.#shutdown.abort();
 
     // Before the writers drain: a cancelled run is still written down.

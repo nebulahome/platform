@@ -46,6 +46,7 @@ import {
   type AutomationTestReply,
   type AutomationTestResult,
   type AutomationTrigger,
+  type CalendarTrigger,
   type ChangeContext,
   type ConditionNode,
   type EntityId,
@@ -106,6 +107,7 @@ import {
   type WebhookSettings,
 } from '../persistence/automation-store.js';
 
+import type { CalendarMonitor } from './calendar-monitor.js';
 import type { CommandDispatcher } from './command-dispatch.js';
 import type { SceneEngine } from './scene-engine.js';
 
@@ -131,6 +133,9 @@ export type AutomationEngineOptions = {
 
   /** Opens the header an HTTP request action keeps secret. */
   readonly secretsKey: Buffer;
+
+  /** When calendar triggers fire. Absent in tests that need none: they report a problem. */
+  readonly calendar?: Pick<CalendarMonitor, 'nextBoundary'>;
 
   /** The clock. */
   readonly now?: () => Date;
@@ -331,6 +336,9 @@ function triggerDetail(trigger: AutomationRunTrigger): string {
     case 'quiet': {
       return 'the quietest time came';
     }
+    case 'calendar': {
+      return `the calendar: ${trigger.eventTitle ?? 'an event'}`;
+    }
     case 'manual': {
       return trigger.userId === undefined ? 'run by hand' : 'run from its Run button';
     }
@@ -490,6 +498,23 @@ export class AutomationEngine {
     }
 
     return { timeZone: this.#house.timeZone, hasPosition: this.#house.position !== null };
+  }
+
+  /**
+   * Re-arms every calendar trigger: the calendars' events, or the house's day, changed.
+   */
+  public rearmCalendars(): void {
+    if (this.#isStopped) {
+      return;
+    }
+
+    for (const slot of this.#slots.values()) {
+      if (
+        triggerLeaves(slot.record.definition.triggers).some(({ leaf }) => leaf.type === 'calendar')
+      ) {
+        this.#armTimes(slot);
+      }
+    }
   }
 
   /**
@@ -867,6 +892,25 @@ export class AutomationEngine {
           ? { ...nothing, detail: '', problem: next.problem.slice(0, 300) }
           : { ...nothing, nextAt: next.at, detail: 'Fires next at this moment' };
       }
+      case 'calendar': {
+        const next = this.#nextCalendar(trigger, this.#now());
+
+        if (next === null) {
+          return { ...nothing, detail: 'Nothing in the calendar comes in the next 400 days' };
+        }
+
+        return 'problem' in next
+          ? { ...nothing, detail: '', problem: next.problem }
+          : {
+              ...nothing,
+              nextAt: next.at,
+              detail:
+                `Fires next for ${next.fires.map((fire) => fire.eventTitle).join(', ')}`.slice(
+                  0,
+                  300,
+                ),
+            };
+      }
       case 'entity': {
         const state = this.#stateOf(trigger.entityId);
         const matches = triggerHoldsNow(trigger, { stateOf: this.#stateOf, now: this.#now() });
@@ -1015,6 +1059,8 @@ export class AutomationEngine {
         (leaf.type === 'sun' && leaf.event !== 'elevation_changed')
       ) {
         this.#armTime(slot, path, leaf, this.#now());
+      } else if (leaf.type === 'calendar') {
+        this.#armCalendar(slot, path, leaf, this.#now());
       } else if (leaf.type === 'sun' && this.#house.position === null) {
         slot.problems.push('The house has no position, so the sun has no height here');
       }
@@ -1045,7 +1091,75 @@ export class AutomationEngine {
       return;
     }
 
-    this.#armUntil(slot, path, leaf, next.at);
+    this.#armUntil(slot, path, next.at, () => {
+      if (leaf.type === 'quiet') {
+        // The quietest time is learned again after midnight and may move later the same day.
+        const { year, month, day } = zonedParts(this.#now(), this.#house.timeZone);
+        const today = `${String(year)}-${String(month)}-${String(day)}`;
+
+        if (slot.quietDays.get(path) !== today) {
+          slot.quietDays.set(path, today);
+          this.#react(slot, { kind: 'time', path }, []);
+        }
+      } else {
+        this.#react(slot, { kind: 'time', path }, []);
+      }
+
+      // From now, not from the moment: after a suspend, missed slots fire once, not each.
+      this.#armTime(slot, path, leaf, new Date(Math.max(next.at.getTime(), this.#now().getTime())));
+    });
+  }
+
+  /**
+   * Arms one calendar trigger for the next edge of an event after an instant. A calendar with
+   * nothing coming arms nothing: its next write reads the calendars again, and that re-arms.
+   *
+   * @param slot - The automation.
+   * @param path - The trigger's path.
+   * @param leaf - The trigger.
+   * @param after - The instant to look past.
+   */
+  #armCalendar(slot: Slot, path: string, leaf: CalendarTrigger, after: Date): void {
+    const next = this.#nextCalendar(leaf, after);
+
+    if (next === null) {
+      return;
+    }
+
+    if ('problem' in next) {
+      slot.problems.push(next.problem);
+
+      return;
+    }
+
+    this.#armUntil(slot, path, next.at, () => {
+      // Two events at the same moment (two bins on the same morning) are two wakes.
+      for (const fire of next.fires) {
+        this.#react(slot, { kind: 'time', path, calendar: fire }, []);
+      }
+
+      this.#armCalendar(
+        slot,
+        path,
+        leaf,
+        new Date(Math.max(next.at.getTime(), this.#now().getTime())),
+      );
+    });
+  }
+
+  /**
+   * When a calendar trigger next fires, from the calendar monitor.
+   *
+   * @param leaf - The trigger.
+   * @param after - The instant to look past.
+   * @returns The moment and its events, why there is none, or null when nothing is coming.
+   */
+  #nextCalendar(leaf: CalendarTrigger, after: Date): ReturnType<CalendarMonitor['nextBoundary']> {
+    return (
+      this.#options.calendar?.nextBoundary(leaf, after) ?? {
+        problem: 'The calendars are not read here',
+      }
+    );
   }
 
   /**
@@ -1053,10 +1167,10 @@ export class AutomationEngine {
    *
    * @param slot - The automation.
    * @param path - The trigger's path.
-   * @param leaf - The trigger.
    * @param at - The moment.
+   * @param fire - What to do when it comes.
    */
-  #armUntil(slot: Slot, path: string, leaf: ScheduledTrigger, at: Date): void {
+  #armUntil(slot: Slot, path: string, at: Date, fire: () => void): void {
     const delay = Math.max(0, at.getTime() - this.#now().getTime());
 
     slot.times.set(
@@ -1070,26 +1184,12 @@ export class AutomationEngine {
           }
 
           if (this.#now().getTime() < at.getTime()) {
-            this.#armUntil(slot, path, leaf, at);
+            this.#armUntil(slot, path, at, fire);
 
             return;
           }
 
-          if (leaf.type === 'quiet') {
-            // The quietest time is learned again after midnight and may move later the same day.
-            const { year, month, day } = zonedParts(this.#now(), this.#house.timeZone);
-            const today = `${String(year)}-${String(month)}-${String(day)}`;
-
-            if (slot.quietDays.get(path) !== today) {
-              slot.quietDays.set(path, today);
-              this.#react(slot, { kind: 'time', path }, []);
-            }
-          } else {
-            this.#react(slot, { kind: 'time', path }, []);
-          }
-
-          // From now, not from the moment: after a suspend, missed slots fire once, not each.
-          this.#armTime(slot, path, leaf, new Date(Math.max(at.getTime(), this.#now().getTime())));
+          fire();
         },
         Math.min(delay, MAX_TIMER_MS),
       ),
@@ -1935,21 +2035,24 @@ export class AutomationEngine {
       );
 
       for (const { path, leaf } of triggerLeaves(triggers)) {
-        if (
-          leaf.type === 'time' ||
-          leaf.type === 'quiet' ||
-          (leaf.type === 'sun' && leaf.event !== 'elevation_changed')
-        ) {
-          const next = nextFire(leaf, this.#house, this.#now(), this.#stateOf);
+        const now = this.#now();
+        const next =
+          leaf.type === 'calendar'
+            ? this.#nextCalendar(leaf, now)
+            : leaf.type === 'time' ||
+                leaf.type === 'quiet' ||
+                (leaf.type === 'sun' && leaf.event !== 'elevation_changed')
+              ? nextFire(leaf, this.#house, now, this.#stateOf)
+              : null;
 
-          if ('at' in next && next.at.getTime() - this.#now().getTime() < timeoutMs) {
-            timers.set(
-              'time',
-              setTimeout(() => {
-                react({ kind: 'time', path });
-              }, next.at.getTime() - this.#now().getTime()),
-            );
-          }
+        // A wait only asks whether it fired, so a calendar's event is not named.
+        if (next !== null && 'at' in next && next.at.getTime() - now.getTime() < timeoutMs) {
+          timers.set(
+            'time',
+            setTimeout(() => {
+              react({ kind: 'time', path });
+            }, next.at.getTime() - now.getTime()),
+          );
         }
       }
     });

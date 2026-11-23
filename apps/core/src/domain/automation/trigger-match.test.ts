@@ -340,3 +340,46 @@ describe('triggerHoldsNow', () => {
     ).toBe(true);
   });
 });
+
+describe('reactTriggers: a calendar', () => {
+  const bins: AutomationTrigger = {
+    type: 'calendar',
+    calendarId: '6f1c2a52-8a3e-4d6b-9b8e-2f1d3c4b5a69',
+    edge: 'start',
+    offsetMinutes: -240,
+  };
+
+  it('fires at the edge of an event, naming the calendar, the event and its start', () => {
+    const fired = reactTriggers(
+      list(turnsOn, bins),
+      {
+        kind: 'time',
+        path: 'triggers.1',
+        calendar: {
+          eventId: '7a1c2a52-8a3e-4d6b-9b8e-2f1d3c4b5a69',
+          eventTitle: 'Glass',
+          occurrenceStart: '2026-11-24',
+        },
+      },
+      { stateOf: statesOf(), now },
+    ).fired;
+
+    expect(fired).toEqual({
+      kind: 'calendar',
+      path: 'triggers.1',
+      calendarId: '6f1c2a52-8a3e-4d6b-9b8e-2f1d3c4b5a69',
+      eventId: '7a1c2a52-8a3e-4d6b-9b8e-2f1d3c4b5a69',
+      eventTitle: 'Glass',
+      occurrenceStart: '2026-11-24',
+    });
+  });
+
+  it("ignores another trigger's moment and every change of an entity", () => {
+    const context = { stateOf: statesOf(), now };
+
+    expect(reactTriggers(list(bins), { kind: 'time', path: 'triggers.1' }, context).fired).toBe(
+      null,
+    );
+    expect(reactTriggers(list(bins), motionChange(false, true).event, context).fired).toBe(null);
+  });
+});

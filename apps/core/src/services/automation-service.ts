@@ -43,6 +43,8 @@ import {
 import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { AutomationEngine } from './automation-engine.js';
+import type { CalendarMonitor } from './calendar-monitor.js';
+import type { IcsFetcher } from './ics-fetcher.js';
 import type { QuietTimeMonitor } from './quiet-time-monitor.js';
 import type { SunMonitor } from './sun-monitor.js';
 
@@ -56,6 +58,10 @@ export type AutomationServiceOptions = {
 
   /** The quietest time's entity, learned in the house's zone. Absent in tests that need none. */
   readonly quietTime?: QuietTimeMonitor;
+
+  /** The calendars' entities and sources, whose days and floating times are the house's zone's. */
+  readonly calendars?: Pick<CalendarMonitor, 'sync'>;
+  readonly ics?: Pick<IcsFetcher, 'sync'>;
 
   readonly logger: PlatformLogger;
 };
@@ -132,6 +138,8 @@ export function startAutomationService(options: AutomationServiceOptions): BusSu
 
         await options.sun?.sync(engine.house.position);
         options.quietTime?.sync(engine.house.timeZone);
+        options.ics?.sync(engine.house.timeZone);
+        await options.calendars?.sync(engine.house.timeZone);
         logger.info(reply, 'Read the house again');
 
         return reply;

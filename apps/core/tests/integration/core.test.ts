@@ -27,6 +27,7 @@ import {
   historyStatesReplySchema,
   historyTelemetryReplySchema,
   parseEntityId,
+  QUIET_TIME_ENTITY_ID,
   stateSnapshotReplySchema,
   SUN_ENTITY_IDS,
   SYSTEM_ENTITIES,
@@ -468,7 +469,8 @@ describe('core end to end', () => {
         deviceId: schema.registry.entities.deviceId,
       })
       .from(schema.registry.entities)
-      .where(eq(schema.registry.entities.source, 'system'));
+      // The calendar entities are `system` ones too, on a device of their own.
+      .where(eq(schema.registry.entities.deviceId, devices[0]?.id ?? ''));
 
     const [house] = await database.db
       .select({ latitude: schema.registry.areas.latitude })
@@ -479,7 +481,7 @@ describe('core end to end', () => {
 
     expect(devices).toHaveLength(1);
     expect(entities.map((entity) => entity.entityId).sort()).toEqual(
-      [...SYSTEM_ENTITIES.map((entity) => entity.entityId), ...sun].sort(),
+      [...SYSTEM_ENTITIES.map((entity) => entity.entityId), QUIET_TIME_ENTITY_ID, ...sun].sort(),
     );
     expect(new Set(entities.map((entity) => entity.deviceId))).toEqual(new Set([devices[0]?.id]));
     expect(service.directory.get(systemCpu)?.source).toBe('system');
