@@ -18,7 +18,7 @@
  * migration - so a key with no row is a database that does not match this build, which is worth
  * saying out loud rather than papering over with an insert the role would be refused anyway.
  */
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 
 import {
   InternalError,
@@ -241,7 +241,8 @@ export async function writeSettings(
       // eslint-disable-next-line no-await-in-loop -- see above
       const updated = await tx
         .update(schema.system.settings)
-        .set({ value, updatedBy: userId })
+        // Drizzle sends a JSON null as SQL NULL, which the column refuses: `calendar.region` is one.
+        .set({ value: value ?? sql`'null'::jsonb`, updatedBy: userId })
         .where(eq(schema.system.settings.key, key))
         .returning({ key: schema.system.settings.key });
 
