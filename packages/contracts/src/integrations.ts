@@ -399,6 +399,9 @@ export const vendorContainerSchema = z.object({
 
   /** The oldest release the vendor works with. */
   minVersion: z.string().min(1).max(64),
+
+  /** Where the platform serves its own web page, `/api/ingress/<container>/`, when it has one. */
+  ingressPath: z.string().startsWith('/api/ingress/').max(256).nullable().default(null),
 });
 
 /** One container a vendor's devices depend on. */

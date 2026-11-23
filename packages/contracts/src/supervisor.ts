@@ -83,6 +83,9 @@ export const SUPERVISOR_METHODS = {
   /** Where the containers one vendor declares stand, for its page. */
   managed: 'managed',
 
+  /** Where `api` sends a request for a managed container's page, by the container's name. */
+  ingress: 'ingress',
+
   /**
    * Stops every container that keeps its data in the data directory - the integrations', the
    * compose projects', the owner's installs - before a restore swaps it.
@@ -1080,7 +1083,8 @@ export type ManagedVolume = z.output<typeof managedVolumeSchema>;
  *
  * What is left in braces is the platform's to fill, since only the supervisor knows how the
  * container it creates reaches the rest of the platform: `{platform.mqtt.url}`,
- * `{platform.mqtt.username}`, `{platform.mqtt.password}`, `{platform.timezone}`. No path of the
+ * `{platform.mqtt.username}`, `{platform.mqtt.password}`, `{platform.timezone}`,
+ * `{platform.ingress.host}`. No path of the
  * host appears but the devices, which the owner typed: where a volume lives is the platform's to
  * choose, never a bundle's.
  */
@@ -1129,6 +1133,12 @@ export const managedContainerSpecSchema = z.object({
 
   /** The container port its own web page is on, when it serves one and it is published. */
   webPort: z.int().min(1).max(65_535).nullable(),
+
+  /** The port of the page the platform serves at `/api/ingress/<container>/`, never published. */
+  ingress: z.object({ port: z.int().min(1).max(65_535) }).optional(),
+
+  /** Stays on the host's network while the platform is on it, though it has `ingress`. */
+  hostNetwork: z.literal(true).optional(),
 
   /** The MQTT topics its broker username is held to; every topic when absent. */
   mqttTopics: z.array(z.string().min(1).max(256)).max(16).optional(),
@@ -1224,6 +1234,58 @@ export const managedReplySchema = z.object({ containers: z.array(managedStatusSc
 
 /** The reply to `reconcile` and `ensure`. */
 export type ManagedReply = z.output<typeof managedReplySchema>;
+
+/** `svc.supervisor.ingress`: which container's page. */
+export const ingressRequestSchema = z.strictObject({ name: containerNameSchema });
+
+/**
+ * The reply to `ingress`: the address `api` forwards to and whose container it is, for the
+ * permission it asks; `target` null when no managed container of that name has a page.
+ */
+export const ingressReplySchema = z.object({
+  target: z
+    .object({
+      url: z.url({ protocol: /^http$/ }),
+      ownerKind: z.enum(CONTAINER_OWNER_KINDS),
+    })
+    .nullable(),
+});
+
+/** The reply to `ingress`. */
+export type IngressReply = z.output<typeof ingressReplySchema>;
+
+/** Who declares a managed container, and its id among theirs: what names it. */
+export type ManagedOwner = Pick<ManagedContainerSpec, 'vendorId' | 'dependencyId'> & {
+  readonly ownerKind?: ManagedContainerSpec['ownerKind'];
+};
+
+/**
+ * What a managed container is called after `nebulahome-`: the vendor's id - a package's with
+ * `pkg-` before it, so a vendor and a package of one name never share a container - and the
+ * container's own id when it is not the owner's.
+ *
+ * @param spec - The declaration.
+ * @returns `zigbee2mqtt`, `pkg-nvr-frigate`.
+ */
+export function managedOwnedName(spec: ManagedOwner): string {
+  const owner = spec.ownerKind === 'package' ? `pkg-${spec.vendorId}` : spec.vendorId;
+
+  return spec.dependencyId === spec.vendorId ? owner : `${owner}-${spec.dependencyId}`;
+}
+
+/**
+ * The name of the container that is one of a vendor's, or a package's, declared containers.
+ *
+ * @param spec - The declaration.
+ * @returns `nebulahome-<vendor>`, `nebulahome-<vendor>-<id>` when the id is not the vendor's, and
+ *   `nebulahome-pkg-<package>…` for a package's.
+ */
+export function managedName(spec: ManagedOwner): string {
+  return `nebulahome-${managedOwnedName(spec)}`;
+}
+
+/** Where a managed container's page is served: `/api/ingress/<container>/`. */
+export const INGRESS_PREFIX = '/api/ingress/';
 
 // ---------------------------------------------------------------------------------------------
 // Events and entities

@@ -79,4 +79,25 @@ describe('declared containers', () => {
   it('refuse the folder names beside theirs', () => {
     expect(problems([container('packages')])).toEqual(['Must be a short lower-case id']);
   });
+
+  it('read a page served through the platform, on the host network when it asks', () => {
+    const [page] = containerDependenciesSchema.parse([
+      container('builder', { ingress: { port: '{setup.port}' }, hostNetwork: true }),
+    ]);
+
+    expect(page).toMatchObject({ ingress: { port: '{setup.port}' }, hostNetwork: true });
+  });
+
+  it('refuse a second page, the host network without one, and anything else beside the port', () => {
+    expect(
+      problems([
+        container('one', { ingress: { port: 8080 } }),
+        container('two', { ingress: { port: 8081 } }),
+      ]),
+    ).toEqual(['Only one container may have ingress']);
+    expect(problems([container('one', { hostNetwork: true })])).toEqual([
+      'Only for a container with ingress',
+    ]);
+    expect(problems([container('one', { ingress: { port: 8080, path: '/ui' } })])).toHaveLength(1);
+  });
 });
