@@ -27,7 +27,7 @@ import {
   fetchScenes,
   LIBRARY_QUERY_KEYS,
 } from '@/library/api';
-import { capabilityStateOf } from '@/library/entity-control';
+import { capabilityStateOf, isPasswordText } from '@/library/entity-control';
 import { fetchPackages, PACKAGE_QUERY_KEYS } from '@/packages/api';
 import { CALENDAR_QUERY_KEYS, fetchCalendars } from '@/routes/calendar/api';
 import { stateLabel } from '@/routes/library/automation/state-choices';
@@ -203,6 +203,17 @@ export function EditorHouseProvider(props: { readonly children: ReactNode }) {
          * @returns Its name, or undefined.
          */
         model: (modelId) => modelById.get(modelId),
+        /**
+         * Whether an entity is a password, whose value a summary never says.
+         *
+         * @param entityId - The address.
+         * @returns True for one.
+         */
+        isPassword: (entityId) => {
+          const entity = byId.get(entityId);
+
+          return entity !== undefined && isPasswordText(entity);
+        },
       },
       entities: directory.entities,
       areas: directory.areas,

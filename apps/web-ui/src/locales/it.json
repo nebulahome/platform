@@ -4063,6 +4063,7 @@
         "time": "Ora",
         "date": "Data",
         "dateTime": "Data e ora",
+        "text": "Testo",
         "calendar": "Calendario"
       },
       "levelNumber": "{{n}}",
@@ -4302,6 +4303,16 @@
         "until": "Fino a {{max}}",
         "up": "{{part}} su",
         "was": "Era {{value}}"
+      },
+      "text": {
+        "empty": "Vuoto",
+        "hide": "Nascondi il testo",
+        "noMatch": "Non corrisponde a",
+        "quoted": "“{{text}}”",
+        "show": "Mostra il testo",
+        "tooLong": "Al massimo {{max}} caratteri",
+        "tooShort": "Almeno {{min}} caratteri",
+        "writeAgain": "Scrivilo di nuovo"
       },
       "calendar": {
         "dayOf": "Giorno {{day}} di {{of}}",

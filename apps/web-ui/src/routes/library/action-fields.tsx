@@ -54,11 +54,13 @@ import {
   hsToHex,
   hueGradient,
   isCommandable,
+  isPasswordText,
   kelvinRangeOf,
   kelvinToMireds,
   miredsToKelvin,
   paramsOf,
   saturationGradient,
+  takesCommands,
   warmthGradient,
 } from '@/library/entity-control';
 import { capabilityLabel } from '@/library/entity-kind';
@@ -88,10 +90,11 @@ const WEEK_MS = 604_800_000;
  * @returns Its commandable capabilities; every commandable one when it is not known.
  */
 function commandableCapabilities(entity: EntityView | undefined): CapabilityName[] {
-  const declared =
-    entity === undefined ? CAPABILITIES : entity.capabilities.map((entry) => entry.capability);
-
-  return declared.filter((capability) => commandSchemaFor(capability) !== null);
+  return entity === undefined
+    ? CAPABILITIES.filter((capability) => commandSchemaFor(capability) !== null)
+    : entity.capabilities
+        .map((entry) => entry.capability)
+        .filter((capability) => takesCommands(entity, capability));
 }
 
 /**
@@ -943,8 +946,14 @@ function CommandFieldControl(props: {
               : field.label
           }
           size="compact"
-          // A lock's code is a secret on the screen as it is anywhere else.
-          type={field.key === 'code' ? 'password' : 'text'}
+          // A lock's code, and a text the device keeps as a password, are secrets on the screen
+          // as anywhere else.
+          type={
+            field.key === 'code' ||
+            (field.key === 'value' && entity !== undefined && isPasswordText(entity))
+              ? 'password'
+              : 'text'
+          }
           autoComplete="off"
           value={current}
           onChange={(event) => {

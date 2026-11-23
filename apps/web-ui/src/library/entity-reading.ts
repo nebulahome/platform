@@ -18,6 +18,7 @@ import {
   getSensorClass,
   isNumericSensorClass,
   isUpdateOffered,
+  PASSWORD_MASK,
   type EntityView,
   type JsonObject,
   type LawnMowerActivity,
@@ -26,7 +27,7 @@ import {
 
 import { numberFormat } from '@/i18n/formatters';
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
-import { miredsToKelvin } from '@/library/entity-control';
+import { isPasswordText, miredsToKelvin } from '@/library/entity-control';
 import { formatClock, formatDayOf, formatMoment, shownZone } from '@/library/time-values';
 import type { LiveReading } from '@/live/live-store';
 
@@ -316,12 +317,13 @@ export function sensorFigureOf(
  *
  * @param state - The state, one entry per capability.
  * @param entity - The unit and the device class, which are properties of the entity rather
- * than of the reading.
+ * than of the reading, and its capabilities when known: a password's text is masked.
  * @returns The reading in words, or {@link NO_READING} when there is none.
  */
 export function describeState(
   state: JsonObject | null,
-  entity: Pick<EntityView, 'unitOfMeasurement' | 'deviceClass'>,
+  entity: Pick<EntityView, 'unitOfMeasurement' | 'deviceClass'> &
+    Partial<Pick<EntityView, 'capabilities'>>,
 ): string {
   if (state === null) {
     return NO_READING;
@@ -397,7 +399,7 @@ export function describeState(
   }
 
   if (value.sensor_text !== undefined) {
-    parts.push(value.sensor_text.value);
+    parts.push(isPasswordText(entity) ? PASSWORD_MASK : value.sensor_text.value);
   }
 
   if (value.media_player !== undefined) {

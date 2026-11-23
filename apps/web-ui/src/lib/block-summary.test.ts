@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { entityIdSchema } from '@nebulahome/contracts';
+import { entityIdSchema, PASSWORD_MASK, type AutomationAction } from '@nebulahome/contracts';
 
 import { dateTimeFormat } from '@/i18n/formatters';
 import { applyLanguage } from '@/i18n/language';
@@ -151,6 +151,25 @@ describe('the sentence a closed block reads', () => {
         timeoutMs: 10_000,
       }),
     ).toBe('POST hooks.example.com/house/…/state');
+  });
+
+  it("never says a password's value", () => {
+    const action: AutomationAction = {
+      type: 'command',
+      entityId: 'sensor.gate_code',
+      capability: 'sensor_text',
+      params: { command: 'set_value', value: '4321' },
+    };
+
+    expect(actionSummary(action, { ...NAMES, isPassword: () => false })).toBe(
+      'Gate code · value 4321',
+    );
+    expect(
+      actionSummary(action, {
+        ...NAMES,
+        isPassword: (entityId) => entityId === 'sensor.gate_code',
+      }),
+    ).toBe(`Gate code · value ${PASSWORD_MASK}`);
   });
 
   it('writes a colour as HEX and a white in kelvin', () => {

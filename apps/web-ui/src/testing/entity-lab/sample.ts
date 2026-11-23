@@ -65,6 +65,10 @@ const HINTS: Readonly<Record<string, unknown>> = {
   revision: 'r1',
   packageId: 'pkg-template',
   type: 'item',
+  // A text the house writes: a message on a display, checked as a device would.
+  minLength: 1,
+  maxLength: 64,
+  pattern: '[A-Za-z0-9 ,.!?]+',
 };
 
 /**

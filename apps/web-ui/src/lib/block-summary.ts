@@ -15,6 +15,7 @@ import {
   isConditionGroup,
   isParamFormula,
   MONTHS,
+  PASSWORD_MASK,
   type AutomationAction,
   type AutomationTrigger,
   type ConditionNode,
@@ -49,6 +50,9 @@ export type BlockNames = {
 
   /** A calendar model's name, by its id. */
   readonly model?: (modelId: string) => string | undefined;
+
+  /** Whether an entity is a text the device keeps as a password, whose value is never said. */
+  readonly isPassword?: (entityId: string) => boolean;
 };
 
 /** Names when there is no house to read them from: the addresses, spelled out. */
@@ -870,9 +874,13 @@ export function conditionsPhrase(
  * What a command body does, in a few words: "turn on", "level 60%".
  *
  * @param params - The command body.
+ * @param isPassword - Whether it goes to a password, whose value is masked.
  * @returns The phrase.
  */
-export function commandPhrase(params: Readonly<Record<string, unknown>>): string {
+export function commandPhrase(
+  params: Readonly<Record<string, unknown>>,
+  isPassword = false,
+): string {
   const command = typeof params['command'] === 'string' ? params['command'] : '';
   const formulas = Object.entries(params).flatMap(([key, value]) =>
     isParamFormula(value) ? [`${key} = ${value.formula}`] : [],
@@ -942,7 +950,7 @@ export function commandPhrase(params: Readonly<Record<string, unknown>>): string
     }
     case 'set_value': {
       return translate('automations.summary.commands.value', 'value {{value}}', {
-        value: String(params['value']),
+        value: isPassword ? PASSWORD_MASK : String(params['value']),
       });
     }
     case 'set_source': {
@@ -1000,7 +1008,10 @@ function blocks(count: number): string {
 export function actionSummary(action: AutomationAction, names: BlockNames = NO_NAMES): string {
   switch (action.type) {
     case 'command': {
-      return `${entityName(names, action.entityId)} · ${commandPhrase(action.params)}`;
+      return `${entityName(names, action.entityId)} · ${commandPhrase(
+        action.params,
+        names.isPassword?.(action.entityId),
+      )}`;
     }
     case 'scene': {
       return action.sceneKey === ''

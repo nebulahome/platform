@@ -23,7 +23,7 @@ import { cn } from '@nebulahome/ui';
 
 import { dateTimeFormat } from '@/i18n/formatters';
 import { clockText } from '@/lib/format-time';
-import { hasCapability } from '@/library/entity-control';
+import { hasCapability, isPasswordText } from '@/library/entity-control';
 import { NO_READING } from '@/library/entity-reading';
 import type { HistoryRange } from '@/library/history-series';
 import { BigValue, Caption, CardHead } from '@/routes/dashboard/cards/card-kit';
@@ -104,7 +104,10 @@ function TextCard(props: { readonly model: EntityCardModel }) {
   const { model } = props;
   const { state, title, reading } = model;
   const { head } = readingLook(model);
-  const value = state.sensor_text?.value ?? reading.text;
+  // A password reads as its mask, which its reading already is.
+  const value = isPasswordText(model.entity)
+    ? reading.text
+    : (state.sensor_text?.value ?? reading.text);
   const hasValue = value !== NO_READING && value !== '';
   const tone = hasValue && !model.isOffline ? undefined : 'text-foreground-subtle';
 

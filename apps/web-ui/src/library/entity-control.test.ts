@@ -3,6 +3,8 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import type { JsonObject } from '@nebulahome/contracts';
+
 import { aTag, anEntity } from '@/testing/fixtures';
 
 import {
@@ -17,6 +19,7 @@ import {
   miredsToKelvin,
   paramsOf,
   powerCommand,
+  takesCommands,
   warmthGradient,
 } from './entity-control';
 
@@ -73,6 +76,20 @@ describe('isCommandable', () => {
     expect(
       isCommandable(anEntity({ capabilities: [{ capability: 'sensor_numeric', params: {} }] })),
     ).toBe(false);
+  });
+
+  it('takes a text only when its device says the house may write it', () => {
+    const text = (params: JsonObject) =>
+      anEntity({
+        entityId: 'sensor.kitchen_display',
+        capabilities: [{ capability: 'sensor_text', params }],
+      });
+
+    expect(isCommandable(text({}))).toBe(false);
+    expect(isCommandable(text({ options: ['wash', 'rinse'] }))).toBe(false);
+    expect(isCommandable(text({ canSet: true }))).toBe(true);
+    expect(takesCommands(text({ canSet: true }), 'sensor_text')).toBe(true);
+    expect(takesCommands(text({}), 'sensor_text')).toBe(false);
   });
 });
 

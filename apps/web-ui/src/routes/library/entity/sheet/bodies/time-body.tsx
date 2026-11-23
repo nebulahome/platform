@@ -46,7 +46,7 @@ export const TIME_GLYPHS: Readonly<Record<TimeCapability, UiIconId>> = {
 };
 
 /** What a value in the making needs: the value shown, the one before, and how to change it. */
-type Draft = {
+export type Draft = {
   /** The value shown: the draft, the one being sent, or the entity's. */
   readonly shown: string | null;
 
@@ -73,13 +73,13 @@ type Draft = {
 };
 
 /**
- * Keeps a draft of one of the three values, and sends it whole.
+ * Keeps a draft of one of the three values - or of a text - and sends it whole.
  *
  * @param props - The body's props.
- * @param capability - Which of the three.
+ * @param capability - Which of the three, or `sensor_text`.
  * @returns See {@link Draft}.
  */
-function useDraft(props: SheetBodyProps, capability: TimeCapability): Draft {
+export function useDraft(props: SheetBodyProps, capability: TimeCapability | 'sensor_text'): Draft {
   const { state, reportedAt, commander } = props;
   const isSending = commander.busy.has(capability);
   const pending = usePendingValue<string | null>(
@@ -124,7 +124,11 @@ function useDraft(props: SheetBodyProps, capability: TimeCapability): Draft {
  * @param props.disabled - Whether it cannot be sent now.
  * @returns The bar, or nothing when there is no change.
  */
-function SetBar(props: { draft: Draft; format: (value: string) => string; disabled: boolean }) {
+export function SetBar(props: {
+  draft: Draft;
+  format: (value: string) => string;
+  disabled: boolean;
+}) {
   const { t } = useTranslation();
   const { draft, format } = props;
   const was = draft.isChanged ? draft.base : draft.isSending ? draft.was : null;

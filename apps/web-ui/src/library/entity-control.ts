@@ -113,7 +113,40 @@ export function isCommandable(
     return false;
   }
 
-  return entity.capabilities.some((entry) => commandSchemaFor(entry.capability) !== null);
+  return entity.capabilities.some((entry) => takesCommands(entity, entry.capability));
+}
+
+/**
+ * Whether an entity is a text its device keeps as a password: shown masked, its value never said
+ * unless asked for.
+ *
+ * @param entity - Its capabilities, each with its params; none known reads as no password.
+ * @returns True for one.
+ */
+export function isPasswordText(entity: Partial<Pick<EntityView, 'capabilities'>>): boolean {
+  const { capabilities } = entity;
+
+  return (
+    capabilities !== undefined && paramsOf({ capabilities }, 'sensor_text')?.isPassword === true
+  );
+}
+
+/**
+ * Whether one capability of an entity takes commands: never one that only reports, and a text
+ * only when its device says the house may write it - `core` refuses the rest.
+ *
+ * @param entity - Its capabilities, each with its params.
+ * @param capability - The one asked about.
+ * @returns True when a command to it can be accepted.
+ */
+export function takesCommands(
+  entity: Pick<EntityView, 'capabilities'>,
+  capability: CapabilityName,
+): boolean {
+  return (
+    commandSchemaFor(capability) !== null &&
+    (capability !== 'sensor_text' || paramsOf(entity, 'sensor_text')?.canSet === true)
+  );
 }
 
 /**

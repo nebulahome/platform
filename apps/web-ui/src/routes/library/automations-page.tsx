@@ -40,6 +40,7 @@ import {
   matchesAutomationFilter,
   OPEN_AUTOMATION_FILTER,
 } from '@/library/automation-filters';
+import { isPasswordText } from '@/library/entity-control';
 import { AutomationFilterButton } from '@/routes/library/automation-filter';
 import { AUTOMATION_COLUMNS, AutomationRow } from '@/routes/library/automation-row';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
@@ -81,6 +82,11 @@ export function AutomationsPage() {
     const entityNames = new Map(
       directory.entities.map((entity) => [String(entity.entityId), entity.name]),
     );
+    const passwords = new Set(
+      directory.entities
+        .filter((entity) => isPasswordText(entity))
+        .map((entity) => String(entity.entityId)),
+    );
     const sceneNames = new Map((scenes.data ?? []).map((scene) => [scene.key, scene.name]));
     const automationNames = new Map((automations.data ?? []).map((one) => [one.key, one.name]));
 
@@ -106,6 +112,13 @@ export function AutomationsPage() {
        * @returns Its name, or undefined.
        */
       automation: (automationKey) => automationNames.get(automationKey),
+      /**
+       * Whether an entity is a password, whose value a summary never says.
+       *
+       * @param entityId - The address.
+       * @returns True for one.
+       */
+      isPassword: (entityId) => passwords.has(entityId),
     };
   }, [automations.data, directory.entities, scenes.data]);
 

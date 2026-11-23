@@ -45,6 +45,7 @@ import {
   SelectBody,
 } from '@/routes/library/entity/sheet/bodies/setting-bodies';
 import { SwitchBody } from '@/routes/library/entity/sheet/bodies/switch-body';
+import { canSetText, TextBody } from '@/routes/library/entity/sheet/bodies/text-body';
 import { canSetTime, TIME_GLYPHS, TimeBody } from '@/routes/library/entity/sheet/bodies/time-body';
 import { UpdateBody } from '@/routes/library/entity/sheet/bodies/update-body';
 import type { SheetBodyProps, SheetKind } from '@/routes/library/entity/sheet/sheet-types';
@@ -67,17 +68,22 @@ type KindId =
   | 'select'
   | 'number'
   | 'time'
+  | 'text'
   | 'button'
   | 'image'
   | 'binary'
   | 'sensor'
   | 'calendar';
 
-/** How a kind is picked: any of its capabilities, and a domain when only that domain's will do. */
+/**
+ * How a kind is picked: any of its capabilities, a domain when only that domain's will do, and
+ * what else the entity must be.
+ */
 type KindRule = {
   readonly id: KindId;
   readonly anyOf: readonly CapabilityName[];
   readonly domain?: string;
+  readonly when?: (entity: EntityView) => boolean;
   readonly history: SheetKind['history'];
   readonly Body: ComponentType<SheetBodyProps>;
 };
@@ -104,6 +110,8 @@ const KINDS: readonly KindRule[] = [
   { id: 'button', anyOf: ['button'], history: 'none', Body: ButtonBody },
   { id: 'image', anyOf: ['image'], history: 'none', Body: ImageBody },
   { id: 'binary', anyOf: ['sensor_binary'], history: 'body', Body: BinaryBody },
+  // A text the house may write; one it may only read stays a sensor, drawn as it always was.
+  { id: 'text', anyOf: ['sensor_text'], when: canSetText, history: 'body', Body: TextBody },
   { id: 'sensor', anyOf: ['sensor_numeric', 'sensor_text'], history: 'body', Body: SensorBody },
 ];
 
@@ -151,6 +159,7 @@ function toneOf(id: KindId, entity: EntityView, state: CapabilityState): SheetTo
     case 'switch':
     case 'number':
     case 'time':
+    case 'text':
     case 'calendar': {
       return 'primary';
     }
@@ -190,6 +199,7 @@ function iconOf(id: KindId, entity: EntityView): UiIconId {
     select: 'list',
     number: 'hash',
     time: TIME_GLYPHS[timeCapabilityOf(entity) ?? 'time_of_day'],
+    text: 'text-cursor-input',
     image: 'image',
     button:
       deviceClass === 'restart'
@@ -298,6 +308,9 @@ function wordsOf(id: KindId, entity: EntityView): string {
           ? translate('entity.sheet.kind.dateTime', 'Date and time')
           : translate('entity.sheet.kind.time', 'Time');
     }
+    case 'text': {
+      return translate('entity.sheet.kind.text', 'Text');
+    }
     case 'button': {
       return translate('entity.sheet.kind.button', 'Button');
     }
@@ -393,7 +406,8 @@ export function sheetKindOf(entity: EntityView, state: CapabilityState): SheetKi
   const rule = KINDS.find(
     (each) =>
       each.anyOf.some((capability) => hasCapability(entity, capability)) &&
-      (each.domain === undefined || each.domain === entity.domain),
+      (each.domain === undefined || each.domain === entity.domain) &&
+      (each.when === undefined || each.when(entity)),
   );
 
   if (rule === undefined) {

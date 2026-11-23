@@ -519,6 +519,9 @@ function historyValueOf(state: unknown): string {
  * @param props.now - The time now.
  * @param props.current - The value now.
  * @param props.readValue - Reads a value off a state from history; a sensor's by default.
+ * @param props.onPick - Called with a value tapped, for a text that can be written again: the
+ * rows are then buttons, all quiet, since the value now is in its field.
+ * @param props.disabled - Whether a value tapped does nothing now.
  * @returns The list.
  */
 export function LastValues(props: {
@@ -526,8 +529,11 @@ export function LastValues(props: {
   now: number;
   current: string;
   readValue?: (state: unknown) => string;
+  onPick?: (value: string) => void;
+  disabled?: boolean;
 }) {
   const { t } = useTranslation();
+  const { onPick } = props;
   const rows = [...props.points]
     .reverse()
     .slice(0, 5)
@@ -541,29 +547,51 @@ export function LastValues(props: {
       <MonoLabel>{t('entity.sheet.sensor.lastValues', 'Last values')}</MonoLabel>
       <div className="flex flex-col">
         {(rows.length === 0 ? [{ at: props.now, value: props.current }] : rows).map(
-          (row, index) => (
-            <div key={row.at} className="flex h-10.5 items-center gap-3 border-t border-border">
-              <span
-                className={cn(
-                  'size-2 rounded-full',
-                  index === 0 ? 'bg-cyan' : 'bg-foreground-disabled',
-                )}
-              />
-              <span
-                className={cn(
-                  'grow truncate text-ui select-text',
-                  index === 0 ? 'text-foreground' : 'text-foreground-muted',
-                )}
+          (row, index) => {
+            const isNewest = index === 0 && onPick === undefined;
+            const cells = (
+              <>
+                <span
+                  className={cn(
+                    'size-2 rounded-full',
+                    isNewest ? 'bg-cyan' : 'bg-foreground-disabled',
+                  )}
+                />
+                <span
+                  className={cn(
+                    'grow truncate text-ui select-text',
+                    isNewest ? 'text-foreground' : 'text-foreground-muted',
+                  )}
+                >
+                  {row.value}
+                </span>
+                <span className="font-mono text-[11px] text-foreground-subtle select-text">
+                  {props.now - row.at < 86_400_000
+                    ? clockText(row.at)
+                    : shortTime(new Date(row.at), new Date(props.now))}
+                </span>
+              </>
+            );
+
+            return onPick === undefined ? (
+              <div key={row.at} className="flex h-10.5 items-center gap-3 border-t border-border">
+                {cells}
+              </div>
+            ) : (
+              <button
+                key={row.at}
+                type="button"
+                title={t('entity.sheet.text.writeAgain', 'Write it again')}
+                disabled={props.disabled}
+                onClick={() => {
+                  onPick(row.value);
+                }}
+                className="flex h-10.5 w-full cursor-pointer items-center gap-3 border-t border-border text-left disabled:cursor-default"
               >
-                {row.value}
-              </span>
-              <span className="font-mono text-[11px] text-foreground-subtle select-text">
-                {props.now - row.at < 86_400_000
-                  ? clockText(row.at)
-                  : shortTime(new Date(row.at), new Date(props.now))}
-              </span>
-            </div>
-          ),
+                {cells}
+              </button>
+            );
+          },
         )}
       </div>
     </div>
