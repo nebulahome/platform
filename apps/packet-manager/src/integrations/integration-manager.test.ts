@@ -178,7 +178,8 @@ async function buildsOf(integrationsDir: string, vendorId: string): Promise<stri
   return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 }
 
-describe('installing integrations', () => {
+// Real tar + fs work: well under a second alone, past the 5 s default under `turbo run test` load.
+describe('installing integrations', { timeout: 30_000 }, () => {
   it('lists a bundle of the local folder, installs it, and names its build current', async () => {
     const { manager, work, integrationsDir, localDir, loads, reported } = await setUp();
 
