@@ -8,6 +8,10 @@ version adds to the contract, a major one breaks it, and a patch leaves it as it
 - **Broker roles for code drivers:** a `kind: "code"` driver may say `bluetoothProxy` and
   `infrared` in its `driver.json`, as a declarative profile does, for a device whose entities are
   known only at runtime. A driver of any other kind is refused when it names them.
+- **A text the house may write:** `sensor_text` takes `set_value` (`{ value }`, up to 512
+  characters), and its params say `canSet` (read only without it), `minLength`, `maxLength`, a
+  `pattern` the whole text must match and `isPassword` (masked in the interface and in history).
+  No new domain: it stays a `sensor`.
 
 ## 1.14.0
 

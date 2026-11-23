@@ -348,6 +348,16 @@ latest it takes, `"min"` and `"max"` in the same form. One that can be set gives
 platform has already refused one outside the limits or off a step. A moment the device measured -
 the last time it ran - is a sensor with the `timestamp` class, not this.
 
+A **text the house may write** - a message on a display, a device's name, a keypad code - stays a
+`sensor` with `sensor_text`, its state `{ "value": "…" }` (512 characters at most). Its params say
+so, `"canSet": true` (read only without it, as every text sensor before), and may bound what it
+takes: `"minLength"` and `"maxLength"` in characters, and a `"pattern"` the whole text must match,
+a JavaScript regular expression with the `u` flag, written as the device gives it. One that can be
+set gives the request of `sensor_text.set_value`, whose `command.value` is the new text; the
+platform has already refused one too short, too long or off its pattern. `"isPassword": true`
+marks a secret: the interface shows eight dots and an eye, and the history keeps only that it
+changed, never the text.
+
 An entity few houses want - a diagnostic, a raw register, a firmware version - says
 **`"isEnabledByDefault": false`**: it is created disabled, left out of the pickers and of the
 history, and listed apart on its device's page until the owner enables it. Only a new entity reads
