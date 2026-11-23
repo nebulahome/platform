@@ -204,7 +204,7 @@ export function SettingsLayout() {
   };
 
   return (
-    <div className="relative min-w-0 grow scrollbar-stable overflow-y-auto px-8 pt-7 pb-12">
+    <div className="relative min-w-0 grow page-scroll pt-7 pb-12">
       <div className="flex flex-wrap items-start gap-x-12 gap-y-8">
         <aside className="flex min-w-0 flex-[0_0_232px] flex-col gap-4 max-sm:flex-auto">
           <h1 className="px-2.5 text-display-sm font-medium">{t('settings.title', 'Settings')}</h1>

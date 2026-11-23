@@ -134,7 +134,7 @@ export function LibraryPage(props: LibraryPageProps) {
   const isShowingEmpty = empty !== undefined && !isPending && !hasError && isEmpty;
 
   return (
-    <div className="min-h-0 min-w-0 grow overflow-y-auto px-8 py-7">
+    <div className="min-h-0 min-w-0 grow page-scroll py-7">
       <div className={cn('flex flex-col gap-5', empty === undefined ? undefined : 'min-h-full')}>
         <PageHeader
           title={title}

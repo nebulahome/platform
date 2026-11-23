@@ -178,7 +178,7 @@ export function DetailFrame(props: DetailFrameProps) {
   return (
     <div
       className={cn(
-        'min-h-0 min-w-0 grow overflow-y-auto px-8 pt-6',
+        'min-h-0 min-w-0 grow page-scroll pt-6',
         isFilled ? 'flex flex-col pb-7' : 'pb-10',
       )}
     >

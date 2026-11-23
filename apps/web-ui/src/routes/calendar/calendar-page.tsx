@@ -458,7 +458,7 @@ export function CalendarPage() {
   // would wait for its place in the stagger before its own entrance.
   return (
     <>
-      <div className="entity-stagger flex min-h-0 min-w-0 grow flex-col gap-5 overflow-y-auto px-8 pt-6 pb-10">
+      <div className="entity-stagger flex min-h-0 min-w-0 grow page-scroll flex-col gap-5 pt-6 pb-10">
         <PageHeader
           title={t('calendar.page.title', 'Calendar')}
           meta={

@@ -700,7 +700,7 @@ export function SceneDialog(props: SceneDialogProps) {
 
   if (presentation === 'page') {
     return (
-      <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
+      <div className="min-h-0 grow page-scroll pt-6 pb-10">
         <div className="flex flex-col gap-5">
           <DetailHero
             back={<BackLink to="/scenes">{t('library.sceneDialog.scenes', 'Scenes')}</BackLink>}

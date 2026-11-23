@@ -751,7 +751,7 @@ function Shell(props: ShellProps) {
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- a click on the page lets a selected block go; Escape does the same from the keyboard
-    <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10" onClick={onClick}>
+    <div className="min-h-0 grow page-scroll pt-6 pb-10" onClick={onClick}>
       <div className="flex flex-col gap-5">
         <DetailHero
           back={

@@ -535,7 +535,7 @@ function Editor(props: { readonly dashboard: DashboardView }) {
         )}
       </div>
 
-      <div ref={scrollerRef} className="min-h-0 grow overflow-y-auto px-8 pt-5 pb-7">
+      <div ref={scrollerRef} className="min-h-0 grow page-scroll pt-5 pb-7">
         {isNarrow && screen === 'desktop' ? (
           <p className="mb-4 rounded-tile border border-border bg-surface px-4 py-3 text-ui-sm text-foreground-muted">
             {t(

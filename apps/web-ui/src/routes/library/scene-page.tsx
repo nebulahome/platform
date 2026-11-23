@@ -73,7 +73,7 @@ export function ScenePage() {
 
   if (!isNew && scene === undefined) {
     return (
-      <div className="min-h-0 grow overflow-y-auto px-8 pt-6 pb-10">
+      <div className="min-h-0 grow page-scroll pt-6 pb-10">
         <DetailPlaceholder isProblem={!scenes.isPending}>
           {scenes.isPending
             ? t('library.scene.reading', 'Reading…')
