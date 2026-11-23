@@ -56,6 +56,7 @@ export const DASHBOARD_CARD_TYPES = [
   'activity',
   'automation',
   'shortcut',
+  'agenda',
   'container',
 ] as const;
 
@@ -430,6 +431,19 @@ export const dashboardShortcutCardSchema = z.object({
 /** A tile that goes somewhere. */
 export type DashboardShortcutCard = z.output<typeof dashboardShortcutCardSchema>;
 
+/** The coming events of some calendars, by day. Read only. */
+export const dashboardAgendaCardSchema = z.object({
+  ...placement,
+  type: z.literal('agenda'),
+
+  /** The calendars it shows; none means every calendar. */
+  calendarIds: z.array(z.uuid()).max(100),
+  title: cardTitleSchema,
+});
+
+/** The coming events of some calendars. */
+export type DashboardAgendaCard = z.output<typeof dashboardAgendaCardSchema>;
+
 /** A card that can sit inside a container: anything but another container. */
 export const dashboardLeafCardSchema = z.discriminatedUnion('type', [
   dashboardEntityCardSchema,
@@ -446,6 +460,7 @@ export const dashboardLeafCardSchema = z.discriminatedUnion('type', [
   dashboardActivityCardSchema,
   dashboardAutomationCardSchema,
   dashboardShortcutCardSchema,
+  dashboardAgendaCardSchema,
 ]);
 
 /** A card that can sit inside a container. */
@@ -484,6 +499,7 @@ export const dashboardCardSchema = z.discriminatedUnion('type', [
   dashboardActivityCardSchema,
   dashboardAutomationCardSchema,
   dashboardShortcutCardSchema,
+  dashboardAgendaCardSchema,
   dashboardContainerCardSchema,
 ]);
 
