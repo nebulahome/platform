@@ -82,12 +82,12 @@ export function ModelToken(props: ModelTokenProps) {
 }
 
 /**
- * The sides a calendar's mark is drawn at, and the classes for each. The icon is even on an even
- * side, so it sits on whole pixels: 11 in 18 left it half a pixel off its middle.
+ * The sides a calendar's mark is drawn at: its side, its corner's radius (the `check` and `chip`
+ * radii) and its icon, even on an even side so the icon has whole pixels round it.
  */
 const MARK_SIZES = {
-  18: { box: 'size-4.5 text-label', square: 'rounded-check', icon: 12 },
-  22: { box: 'size-5.5 text-caption', square: 'rounded-chip', icon: 14 },
+  18: { side: 18, radius: 5, icon: 12, letter: 'size-4.5 text-label' },
+  22: { side: 22, radius: 8, icon: 14, letter: 'size-5.5 text-caption' },
 } as const;
 
 /** What a calendar's mark needs. */
@@ -116,27 +116,51 @@ export type CalendarMarkProps = {
 export function CalendarMark(props: CalendarMarkProps) {
   const { name, color, icon, isPerson, isOn = true, size = 18 } = props;
   const look = MARK_SIZES[size];
+  // Off it pales into its colour's tint, and fills again when switched back on.
+  const glyph = isOn ? 'text-canvas' : 'text-[color-mix(in_srgb,var(--lane)_75%,transparent)]';
+
+  if (isPerson) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center rounded-full font-bold transition-colors duration-220 ease-out',
+          look.letter,
+          isOn ? 'bg-[var(--lane)]' : 'bg-[color-mix(in_srgb,var(--lane)_18%,transparent)]',
+          glyph,
+          LANE_CLASSES[color],
+        )}
+      >
+        {name.slice(0, 1).toUpperCase()}
+      </span>
+    );
+  }
+
+  // The tile and its icon are one drawing: at a screen scale that puts the tile on half a pixel
+  // (18 px at 125 % is 22.5), a box's background snaps to the pixel and an svg inside it does not,
+  // so the icon stood half a pixel off; drawn together they stay centred on each other.
+  const inset = (look.side - look.icon) / 2;
 
   return (
-    <span
+    <svg
       aria-hidden="true"
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center font-bold',
-        // Off it pales into its colour's tint, and fills again when switched back on.
-        'transition-[background-color,color] duration-220 ease-out',
-        look.box,
-        isPerson ? 'rounded-full' : look.square,
-        isOn
-          ? 'bg-[var(--lane)] text-canvas'
-          : 'bg-[color-mix(in_srgb,var(--lane)_18%,transparent)] text-[color-mix(in_srgb,var(--lane)_75%,transparent)]',
-        LANE_CLASSES[color],
-      )}
+      width={look.side}
+      height={look.side}
+      viewBox={`0 0 ${String(look.side)} ${String(look.side)}`}
+      className={cn('shrink-0 transition-colors duration-220 ease-out', glyph, LANE_CLASSES[color])}
     >
-      {isPerson ? (
-        name.slice(0, 1).toUpperCase()
-      ) : icon === undefined ? null : (
-        <CatalogueIcon node={icon.node} frame={icon.frame} size={look.icon} />
+      <rect
+        width={look.side}
+        height={look.side}
+        rx={look.radius}
+        className={cn(
+          'transition-colors duration-220 ease-out',
+          isOn ? 'fill-[var(--lane)]' : 'fill-[color-mix(in_srgb,var(--lane)_18%,transparent)]',
+        )}
+      />
+      {icon === undefined ? null : (
+        <CatalogueIcon node={icon.node} frame={icon.frame} size={look.icon} x={inset} y={inset} />
       )}
-    </span>
+    </svg>
   );
 }

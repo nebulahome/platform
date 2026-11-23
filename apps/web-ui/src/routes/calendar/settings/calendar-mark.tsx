@@ -27,7 +27,8 @@ export type CalendarMarkProps = {
 export function CalendarMark(props: CalendarMarkProps) {
   const { calendar, icon, size = 'medium' } = props;
   const isPerson = calendar.kind === 'personal';
-  const glyph = size === 'medium' ? 17 : 13;
+  // Even, so the glyph has whole pixels round it inside the border: 34 and 24 pixels of room.
+  const glyph = size === 'medium' ? 18 : 14;
 
   return (
     <span
