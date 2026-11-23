@@ -29,6 +29,7 @@ import {
   NotFoundError,
   type ContainerManager,
   type ContainerOwnerKind,
+  type IngressReply,
   type ManagedContainerSpec,
   type ManagedReply,
   type ManagedStatus,
@@ -41,7 +42,9 @@ import type { InspectedContainer } from '../docker/engine-schemas.js';
 import type { DockerEngine } from '../docker/engine.js';
 import { parseImageReference } from '../domain/image-ref.js';
 import {
+  containerContext,
   fillPlaceholders,
+  ingressUrlOf,
   MANAGED_LABELS,
   managedCreateBody,
   managedName,
@@ -368,6 +371,35 @@ export class ManagedContainers {
   }
 
   /**
+   * Where `api` forwards a request for a managed container's page.
+   *
+   * @param name - The container's name.
+   * @returns Its address and whose it is, or null when no declared container of that name has a
+   *   page, or while it has no address - stopped, or being made.
+   */
+  public async ingressOf(name: string): Promise<IngressReply['target']> {
+    const context = this.#options.context();
+    const spec = [...this.#desired.values()].flat().find((each) => managedName(each) === name);
+
+    if (context === null || spec?.ingress === undefined) {
+      return null;
+    }
+
+    const container = await this.#inspect(name);
+
+    if (
+      container === undefined ||
+      isAnotherInstallations(container.Config.Labels, this.#options.installationId)
+    ) {
+      return null;
+    }
+
+    const url = ingressUrlOf(spec.ingress.port, container, context);
+
+    return url === null ? null : { url, ownerKind: spec.ownerKind };
+  }
+
+  /**
    * Stops every container an integration runs, before a restore swaps the folders their volumes
    * are in. Nothing is started again until {@link resume}.
    *
@@ -531,7 +563,7 @@ export class ManagedContainers {
       // Before anything else, the container up to date too: the platform's own container made
       // again - a new image - is no longer on the network, and a container already running would
       // then look for the broker under a name nothing answers to.
-      if (context.network !== 'host') {
+      if (containerContext(spec, context).network !== 'host') {
         await this.ensureNetwork(context);
       }
 
@@ -602,7 +634,7 @@ export class ManagedContainers {
         tracker.add(progress);
       });
 
-      await this.#prepareVolumes(spec, context);
+      await this.#prepareVolumes(spec, containerContext(spec, context));
 
       if (existing === undefined) {
         const id = await this.#options.engine.createContainer(name, body);

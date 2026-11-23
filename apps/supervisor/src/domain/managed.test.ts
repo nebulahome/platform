@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import type { ManagedContainerSpec } from '@nebulahome/contracts';
 
 import {
+  containerContext,
   fillPlaceholders,
+  ingressUrlOf,
   isAnotherInstallations,
   MANAGED_LABELS,
   managedCreateBody,
@@ -193,6 +195,81 @@ describe('managedCreateBody', () => {
         BRIDGE,
       ).hash,
     ).not.toBe(before);
+  });
+});
+
+describe('a container whose page the platform serves', () => {
+  const PAGE: ManagedContainerSpec = {
+    ...SPEC,
+    env: [
+      ...SPEC.env,
+      { name: 'ZIGBEE2MQTT_CONFIG_FRONTEND_HOST', value: '{platform.ingress.host}' },
+    ],
+    ports: [{ container: 5683, host: 5683, protocol: 'udp' }],
+    webPort: null,
+    ingress: { port: 8080 },
+  };
+  const HOST: PlatformContext = { ...BRIDGE, network: 'host' };
+
+  it('leaves the host network for the containers’ own, reaching the broker as development does', () => {
+    const { body } = managedCreateBody(PAGE, '2.14.1', HOST);
+
+    expect(body['HostConfig']).toMatchObject({
+      NetworkMode: 'nebulahome',
+      ExtraHosts: ['host.docker.internal:host-gateway'],
+      PortBindings: { '5683/udp': [{ HostPort: '5683' }] },
+    });
+    expect(body['Env']).toContain(
+      'ZIGBEE2MQTT_CONFIG_MQTT_SERVER=mqtt://host.docker.internal:1884',
+    );
+    expect(body['Env']).toContain('ZIGBEE2MQTT_CONFIG_FRONTEND_HOST=0.0.0.0');
+    expect(body['ExposedPorts']).not.toHaveProperty('8080/tcp');
+  });
+
+  it('stays on the host network when it must hear multicast, its page on the loopback only', () => {
+    const { body } = managedCreateBody({ ...PAGE, hostNetwork: true }, '2.14.1', HOST);
+
+    expect(body['HostConfig']).toMatchObject({ NetworkMode: 'host' });
+    expect(body['Env']).toContain('ZIGBEE2MQTT_CONFIG_FRONTEND_HOST=127.0.0.1');
+  });
+
+  it('publishes the page on the loopback for a platform outside Docker, and nowhere else', () => {
+    const native = managedCreateBody(PAGE, '2.14.1', { ...BRIDGE, network: 'native' }).body;
+    const bridge = managedCreateBody(PAGE, '2.14.1', BRIDGE).body;
+
+    expect(native['HostConfig']).toMatchObject({
+      PortBindings: { '8080/tcp': [{ HostIp: '127.0.0.1', HostPort: '' }] },
+    });
+    expect(native['ExposedPorts']).toHaveProperty('8080/tcp');
+    expect(bridge['HostConfig']).not.toHaveProperty(['PortBindings', '8080/tcp']);
+  });
+
+  it('is reached at its address on the network, the loopback, or the port published for it', () => {
+    const container = {
+      HostConfig: { NetworkMode: 'nebulahome' },
+      NetworkSettings: {
+        Networks: { nebulahome: { IPAddress: '172.20.0.5' } },
+        Ports: { '8080/tcp': [{ HostIp: '127.0.0.1', HostPort: '49153' }] },
+      },
+    };
+
+    expect(ingressUrlOf(8080, container, BRIDGE)).toBe('http://172.20.0.5:8080');
+    expect(ingressUrlOf(8080, container, HOST)).toBe('http://172.20.0.5:8080');
+    expect(ingressUrlOf(8080, container, { ...BRIDGE, network: 'native' })).toBe(
+      'http://127.0.0.1:49153',
+    );
+    expect(ingressUrlOf(8080, { ...container, HostConfig: { NetworkMode: 'host' } }, HOST)).toBe(
+      'http://127.0.0.1:8080',
+    );
+    expect(
+      ingressUrlOf(8080, { ...container, NetworkSettings: { Networks: {} } }, BRIDGE),
+    ).toBeNull();
+  });
+
+  it('leaves a container without a page where the platform is', () => {
+    expect(containerContext(SPEC, HOST)).toBe(HOST);
+    expect(containerContext(PAGE, HOST).network).toBe('native');
+    expect(containerContext(PAGE, BRIDGE)).toBe(BRIDGE);
   });
 });
 

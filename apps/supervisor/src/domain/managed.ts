@@ -23,11 +23,14 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 import { CACHE_DIRECTORY, CONTAINERS_DIRECTORY } from '@nebulahome/config';
-import type {
-  JsonObject,
-  ManagedContainerSpec,
-  ManagedVolume,
-  PlatformNetworkMode,
+import {
+  managedName,
+  managedOwnedName,
+  type JsonObject,
+  type ManagedContainerSpec,
+  type ManagedOwner,
+  type ManagedVolume,
+  type PlatformNetworkMode,
 } from '@nebulahome/contracts';
 
 /** The labels a managed container carries. */
@@ -97,35 +100,8 @@ export function isAnotherInstallations(
   return made !== undefined && made !== installationId;
 }
 
-/** What names a managed container: who declares it, and its id among theirs. */
-type ManagedOwner = Pick<ManagedContainerSpec, 'vendorId' | 'dependencyId'> & {
-  readonly ownerKind?: ManagedContainerSpec['ownerKind'];
-};
-
-/**
- * What a managed container is called after `nebulahome-`: the vendor's id - a package's with
- * `pkg-` before it, so a vendor and a package of one name never share a container - and the
- * container's own id when it is not the owner's.
- *
- * @param spec - The declaration.
- * @returns `zigbee2mqtt`, `pkg-nvr-frigate`.
- */
-function ownedName(spec: ManagedOwner): string {
-  const owner = spec.ownerKind === 'package' ? `pkg-${spec.vendorId}` : spec.vendorId;
-
-  return spec.dependencyId === spec.vendorId ? owner : `${owner}-${spec.dependencyId}`;
-}
-
-/**
- * The name of the container that is one of a vendor's, or a package's, declared containers.
- *
- * @param spec - The declaration.
- * @returns `nebulahome-<vendor>`, `nebulahome-<vendor>-<id>` when the id is not the vendor's, and
- *   `nebulahome-pkg-<package>…` for a package's.
- */
-export function managedName(spec: ManagedOwner): string {
-  return `nebulahome-${ownedName(spec)}`;
-}
+// In contracts, since `hub` names the container too: the integration's page links to its ingress.
+export { managedName };
 
 /**
  * The name the other containers on the network reach a managed container by: a vendor's by its
@@ -135,7 +111,7 @@ export function managedName(spec: ManagedOwner): string {
  * @returns The alias.
  */
 export function managedAlias(spec: ManagedOwner): string {
-  return spec.ownerKind === 'package' ? ownedName(spec) : spec.dependencyId;
+  return spec.ownerKind === 'package' ? managedOwnedName(spec) : spec.dependencyId;
 }
 
 /**
@@ -188,7 +164,72 @@ export function platformValues(context: PlatformContext): Readonly<Record<string
     'platform.mqtt.username': context.mqtt?.username ?? '',
     'platform.mqtt.password': context.mqtt?.password ?? '',
     'platform.timezone': context.timezone,
+    // Where a page served through the platform listens: on the host's network only its loopback,
+    // which the platform shares and the house does not; on the containers' network, everywhere.
+    'platform.ingress.host': context.network === 'host' ? '127.0.0.1' : '0.0.0.0',
   };
+}
+
+/**
+ * The platform as one container sees it. A container with a page served through the platform
+ * leaves the host's network for the containers' own, where nothing but the platform reaches the
+ * page, and so reaches the platform as one made in development does - unless it must stay for
+ * the house's multicast.
+ *
+ * @param spec - The container.
+ * @param context - The platform.
+ * @returns The context its network, broker address and placeholders follow.
+ */
+export function containerContext(
+  spec: Pick<ManagedContainerSpec, 'ingress' | 'hostNetwork'>,
+  context: PlatformContext,
+): PlatformContext {
+  return context.network === 'host' && spec.ingress !== undefined && spec.hostNetwork !== true
+    ? { ...context, network: 'native' }
+    : context;
+}
+
+/** What `ingressUrlOf` reads of a container's inspect. */
+export type IngressInspect = {
+  readonly HostConfig: { readonly NetworkMode?: string | undefined };
+  readonly NetworkSettings: {
+    readonly Networks: Readonly<
+      Record<string, { readonly IPAddress?: string | undefined } | undefined>
+    >;
+    readonly Ports?: Readonly<
+      Record<string, readonly { readonly HostPort?: string | undefined }[] | null>
+    > | null;
+  };
+};
+
+/**
+ * Where the platform reaches a container's page: on its loopback for one on the host's network,
+ * by the port Docker published on the loopback for a platform outside Docker, and otherwise at
+ * the container's address on the containers' network.
+ *
+ * @param port - The page's container port.
+ * @param container - The container, inspected.
+ * @param context - The platform.
+ * @returns `http://…`, or null while the container has no such address - stopped, or being made.
+ */
+export function ingressUrlOf(
+  port: number,
+  container: IngressInspect,
+  context: PlatformContext,
+): string | null {
+  if (container.HostConfig.NetworkMode === 'host') {
+    return `http://127.0.0.1:${String(port)}`;
+  }
+
+  if (context.network === 'native') {
+    const published = container.NetworkSettings.Ports?.[`${String(port)}/tcp`]?.[0]?.HostPort;
+
+    return published === undefined || published === '' ? null : `http://127.0.0.1:${published}`;
+  }
+
+  const address = container.NetworkSettings.Networks[context.networkName]?.IPAddress;
+
+  return address === undefined || address === '' ? null : `http://${address}:${String(port)}`;
 }
 
 /**
@@ -214,7 +255,7 @@ export function volumeFolder(spec: ManagedOwner, volume: ManagedVolume): string 
   // A vendor's container keeps the folder it always had, named after its own id.
   const folder = path.posix.join(
     CONTAINERS_DIRECTORY,
-    spec.ownerKind === 'package' ? ownedName(spec) : spec.dependencyId,
+    spec.ownerKind === 'package' ? managedOwnedName(spec) : spec.dependencyId,
     volume.name,
   );
 
@@ -361,14 +402,21 @@ export function startOrder(specs: readonly ManagedContainerSpec[]): ManagedConta
  *
  * @param spec - The declaration, the vendor's settings in it.
  * @param tag - The release to run.
- * @param context - The platform.
+ * @param platform - The platform.
  * @returns The body, and the hash it carries.
  */
 export function managedCreateBody(
   spec: ManagedContainerSpec,
   tag: string,
-  context: PlatformContext,
+  platform: PlatformContext,
 ): { readonly body: JsonObject; readonly hash: string } {
+  const context = containerContext(spec, platform);
+  // A platform outside Docker cannot reach the containers' network: the page is published for
+  // it, on the loopback only, at a port Docker picks. Anywhere else it is never published.
+  const ingressPorts =
+    platform.network === 'native' && spec.ingress !== undefined
+      ? { [`${String(spec.ingress.port)}/tcp`]: [{ HostIp: '127.0.0.1', HostPort: '' }] }
+      : {};
   const values = platformValues(context);
   const env = spec.env.map((entry) => `${entry.name}=${fillPlaceholders(entry.value, values)}`);
   const isHost = context.network === 'host';
@@ -387,7 +435,10 @@ export function managedCreateBody(
       [MANAGED_LABELS.installation]: context.installationId,
     },
     ExposedPorts: Object.fromEntries(
-      spec.ports.map((port) => [`${String(port.container)}/${port.protocol}`, {}]),
+      [
+        ...spec.ports.map((port) => `${String(port.container)}/${port.protocol}`),
+        ...Object.keys(ingressPorts),
+      ].map((port) => [port, {}]),
     ),
     ...(spec.command === undefined
       ? {}
@@ -405,12 +456,15 @@ export function managedCreateBody(
       ...(isHost
         ? {}
         : {
-            PortBindings: Object.fromEntries(
-              spec.ports.map((port) => [
-                `${String(port.container)}/${port.protocol}`,
-                [{ HostPort: String(port.host) }],
-              ]),
-            ),
+            PortBindings: {
+              ...Object.fromEntries(
+                spec.ports.map((port) => [
+                  `${String(port.container)}/${port.protocol}`,
+                  [{ HostPort: String(port.host) }],
+                ]),
+              ),
+              ...ingressPorts,
+            },
           }),
       ...(context.network === 'native'
         ? { ExtraHosts: ['host.docker.internal:host-gateway'] }
@@ -458,6 +512,7 @@ function specHash(
         // still hashes the same and is not made again.
         ...(spec.command === undefined ? {} : { command: spec.command }),
         ...(spec.healthcheck === undefined ? {} : { healthcheck: spec.healthcheck }),
+        ...(spec.ingress === undefined ? {} : { ingress: spec.ingress }),
         network: context.network,
         dataMount: context.dataMount,
         installation: context.installationId,
