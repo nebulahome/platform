@@ -9,8 +9,8 @@
  * anything scrolls.
  *
  * It closes on a press outside it and its control (a select's options, portalled out of it, count
- * as in it), and on Escape - which it keeps from reaching the document, where a dialog underneath
- * listens for it too, so one press closes the popover alone. Where the focus goes is the content's business: a picker moves it into its own search,
+ * as in it), and on Escape wherever the focus is. An Escape inside it is kept from reaching the
+ * document, where a dialog underneath listens for it too, so one press closes the popover alone. Where the focus goes is the content's business: a picker moves it into its own search,
  * the settings search keeps it in the field that opened it.
  */
 import {
@@ -142,15 +142,31 @@ export function Popover(props: PopoverProps) {
       }
     };
 
+    /**
+     * Closes on Escape wherever the focus is: a popover opened by a press keeps no focus of its
+     * own. One the panel took is stopped there (`onKeyDown`), so it closes once.
+     *
+     * @param event - The key press.
+     */
+    const onEscape = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape' && !event.defaultPrevented) {
+        close();
+      }
+    };
+
     follow();
     globalThis.addEventListener('scroll', follow, true);
     globalThis.addEventListener('resize', follow);
-    globalThis.document.addEventListener('pointerdown', onPress);
+    // Captured, so a press whose handler stops it - a calendar block starting a drag - still
+    // closes the popover it lands outside.
+    globalThis.document.addEventListener('pointerdown', onPress, true);
+    globalThis.document.addEventListener('keydown', onEscape);
 
     return () => {
       globalThis.removeEventListener('scroll', follow, true);
       globalThis.removeEventListener('resize', follow);
-      globalThis.document.removeEventListener('pointerdown', onPress);
+      globalThis.document.removeEventListener('pointerdown', onPress, true);
+      globalThis.document.removeEventListener('keydown', onEscape);
     };
   }, [anchor, isOpen, side, width]);
 

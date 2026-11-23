@@ -44,4 +44,41 @@ describe('Popover', () => {
 
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it('shuts for a press whose own handler stops it, and for Escape with the focus elsewhere', () => {
+    const anchor = createRef<HTMLButtonElement>();
+    const onClose = vi.fn();
+
+    render(
+      <>
+        <button ref={anchor} type="button">
+          Anchor
+        </button>
+        <Popover anchor={anchor} isOpen onClose={onClose} label="Event">
+          <p>Inside</p>
+        </Popover>
+        <button
+          type="button"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          A block
+        </button>
+      </>,
+    );
+
+    fireEvent.pointerDown(screen.getByText('A block'));
+
+    expect(onClose).toHaveBeenCalledOnce();
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalledTimes(2);
+
+    fireEvent.keyDown(screen.getByText('Inside'), { key: 'Escape' });
+
+    // Inside, the panel takes it alone: once more, not twice.
+    expect(onClose).toHaveBeenCalledTimes(3);
+  });
 });
