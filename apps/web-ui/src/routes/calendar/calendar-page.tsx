@@ -134,6 +134,13 @@ export function CalendarPage() {
     [read.data, ahead.data, book],
   );
 
+  // The pickups popover opens from a day of the view or from Today's "Out tonight", so it reads
+  // both; the two overlap for the next 60 days, and a time in both must be listed once.
+  const pickupsFrom = useMemo(
+    () => [...new Map([...shown, ...(ahead.data ?? [])].map((each) => [each.key, each])).values()],
+    [shown, ahead.data],
+  );
+
   // The icons the occurrences carry, read with the calendars' in one request.
   const icons = useMemo(
     () => [...new Set([...(read.data ?? []), ...(ahead.data ?? [])].map((each) => each.icon))],
@@ -638,7 +645,7 @@ export function CalendarPage() {
         key={pickupsDay ?? 'shut'}
         book={book}
         day={pickupsDay}
-        occurrences={[...shown, ...(ahead.data ?? [])]}
+        occurrences={pickupsFrom}
         anchor={anchor}
         onClose={() => {
           setPickupsDay(null);

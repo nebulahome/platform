@@ -85,9 +85,14 @@ function Row(props: {
         props.onPress(event.currentTarget);
       }}
       className={cn(
-        'calendar-appear flex w-full cursor-pointer items-center border-t border-border text-left first:border-t-0',
-        props.isCompact ? 'min-h-12 gap-3 px-4 py-1' : 'min-h-13 gap-4 py-1.5',
-        'hover:bg-surface-raised/40 focus-visible:shadow-focus focus-visible:outline-none',
+        'calendar-appear relative isolate flex w-full cursor-pointer items-center border-t border-border text-left first:border-t-0',
+        // The hover and the focus are a rounded layer inside the row, clear of the lines between
+        // rows and a little wider than what it holds; the row itself stays square to its lines.
+        'before:pointer-events-none before:absolute before:inset-y-1 before:-z-1 before:rounded-field before:transition-colors',
+        'hover:before:bg-surface-raised/60 focus-visible:outline-none focus-visible:before:shadow-focus',
+        props.isCompact
+          ? 'min-h-12 gap-3 px-4 py-1 before:inset-x-1.5'
+          : 'min-h-13 gap-4 py-1.5 before:-inset-x-3',
         props.isDim && 'opacity-50',
       )}
     >
