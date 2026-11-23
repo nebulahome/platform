@@ -192,6 +192,7 @@ export function CalendarPage() {
   const open = (occurrence: CalendarOccurrence, element: HTMLElement): void => {
     setOpenDay(null);
     setPickupsDay(null);
+    setDrawn(null);
     anchor.current = element;
     setOpened(occurrence);
   };
@@ -205,6 +206,7 @@ export function CalendarPage() {
   const showDay = (each: string, element: HTMLElement): void => {
     setOpened(null);
     setPickupsDay(null);
+    setDrawn(null);
     anchor.current = element;
     setOpenDay(each);
   };
@@ -218,6 +220,7 @@ export function CalendarPage() {
   const showPickups = (each: string, element: HTMLElement): void => {
     setOpened(null);
     setOpenDay(null);
+    setDrawn(null);
     anchor.current = element;
     setPickupsDay(each);
   };
@@ -581,7 +584,9 @@ export function CalendarPage() {
         }}
       />
 
+      {/* Keyed by what it shows: opened on another event or day, it is placed beside that one. */}
       <EventPopover
+        key={opened?.key ?? 'shut'}
         book={book}
         occurrence={opened}
         anchor={anchor}
@@ -600,6 +605,7 @@ export function CalendarPage() {
       />
 
       <DayPopover
+        key={openDay ?? 'shut'}
         book={book}
         day={openDay}
         occurrences={shown}
@@ -617,6 +623,7 @@ export function CalendarPage() {
       />
 
       <PickupsPopover
+        key={pickupsDay ?? 'shut'}
         book={book}
         day={pickupsDay}
         occurrences={[...shown, ...(ahead.data ?? [])]}
