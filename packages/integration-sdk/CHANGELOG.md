@@ -3,12 +3,27 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
-## 1.13.0 (unreleased)
+## 1.14.0 (unreleased)
 
 - **The house's calendars:** the read-only `calendar` capability in `CAPABILITIES` and the state
   schemas (on while one of its events is, the current and the next event, whether its source is
   stale), and the `calendar` domain in `ENTITY_DOMAINS`. The platform makes these entities, one per
   calendar: a profile's entity and a setup's entity field do not take the domain.
+
+## 1.13.0
+
+- **A container's own page, through the platform:** a container in `manifest.json` may say
+  `ingress: { "port": … }` - a number, or `{setup.<key>}` - for the web page it serves. The
+  platform serves it to the house's users at `/api/ingress/<container>/`, to one who may configure
+  the integration (`integration:read` and `integration:configure`), and never publishes the port;
+  the integration's page gets a **Web page** button. The page shares the platform's origin: it
+  works under that path with relative links, or reads the path from `X-Forwarded-Prefix` /
+  `X-Ingress-Path`. One container of a manifest at most.
+- A container with `ingress` runs on the containers' network even when the platform is on the
+  host's. One that must hear the house's multicast (mDNS, SSDP) says `hostNetwork: true` and keeps
+  the host's network, and its page must then listen on `{platform.ingress.host}` (`127.0.0.1`
+  there, `0.0.0.0` on the containers' network), or the whole network reaches it past the
+  platform. A manifest that says `ingress` does not load on a platform older than 1.13.0.
 
 ## 1.12.0
 

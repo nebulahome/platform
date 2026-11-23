@@ -60,6 +60,7 @@ import {
   type ImageSearchReply,
   type ImageTagsReply,
   type ContainerOwnerKind,
+  type IngressReply,
   type ManagedReply,
   type ReconcileRequest,
   type ResyncReply,
@@ -952,6 +953,16 @@ export class SupervisorService {
     this.#publishReports(reports);
 
     return { entityCount: reports.length };
+  }
+
+  /**
+   * Where `api` forwards a request for a managed container's page.
+   *
+   * @param name - The container's name.
+   * @returns Its address and whose it is, or no target.
+   */
+  public async ingress(name: string): Promise<IngressReply> {
+    return { target: await this.#managed.ingressOf(name) };
   }
 
   /**

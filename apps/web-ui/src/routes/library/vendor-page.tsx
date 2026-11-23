@@ -25,10 +25,12 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import type { DiscoveredDevice, IntegrationState } from '@nebulahome/contracts';
-import { AppIcon, Button, DetailHero, HeroFact, Pill, TabPanel, Tabs } from '@nebulahome/ui';
+import { AppIcon, Button, DetailHero, HeroFact, Pill, TabPanel, Tabs, toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { openIngressSession } from '@/containers/api';
 import { translate } from '@/i18n/messages';
+import { toMessage } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
 import { useAddressOnce } from '@/lib/use-address-once';
 import { useTab } from '@/lib/use-tab';
@@ -108,6 +110,7 @@ export function VendorPage() {
   const [open, setOpen] = useState<DeviceDialogTarget | null>(null);
   const [adopting, setAdopting] = useState<DiscoveredDevice | null>(null);
   const [isSettingUp, setSettingUp] = useState(false);
+  const [isOpeningPage, setOpeningPage] = useState(false);
   const [tab, setTab] = useTab<VendorTab>(TABS);
   const network = useNetworkScan();
   const { packages } = useInstalledPackages();
@@ -154,6 +157,11 @@ export function VendorPage() {
     found !== undefined &&
     found.setup.transport.fields.length + found.setup.options.fields.length > 0;
   const hasContainers = found !== undefined && found.containers.length > 0;
+  // The page of the one container the platform serves one of; only who may configure opens it.
+  const webPage =
+    can('integration:read') && canConfigure
+      ? (found?.containers.find((each) => each.ingressPath !== null)?.ingressPath ?? null)
+      : null;
   const hasConfiguration = hasSetupFields && !hasContainers;
   // A vendor that adds its own devices finds nothing to go through.
   const hasFound = found !== undefined && !isAutomatic;
@@ -307,6 +315,31 @@ export function VendorPage() {
                     >
                       {t('library.vendor.open', 'Open')}{' '}
                       {packages.find((each) => each.id === neededPackage)?.name ?? neededPackage}
+                    </Button>
+                  )}
+                  {webPage === null ? null : (
+                    <Button
+                      variant="ghost"
+                      isBusy={isOpeningPage}
+                      onClick={() => {
+                        setOpeningPage(true);
+                        // The cookie first: the page's own requests carry nothing else.
+                        openIngressSession().then(
+                          () => {
+                            window.location.assign(webPage);
+                          },
+                          (error: unknown) => {
+                            setOpeningPage(false);
+                            toast.error({
+                              title: t('library.vendor.webPageFailed', 'The web page did not open'),
+                              message: toMessage(error),
+                            });
+                          },
+                        );
+                      }}
+                    >
+                      <AppIcon id="app-window" size={16} />
+                      {t('library.vendor.webPage', 'Web page')}
                     </Button>
                   )}
                   {hasPairing ? <PairingButton pairing={pairing} /> : null}

@@ -202,4 +202,23 @@ describe('renderContainers', () => {
       renderContainers('zigbee2mqtt', DECLARED, { connection: 'usb', serialPath: '/etc/shadow' }),
     ).toThrow('which is not a device under /dev');
   });
+
+  it('hands over the page the platform serves, its port from the settings', () => {
+    const declared = containerDependenciesSchema.parse([
+      {
+        id: 'builder',
+        name: 'Device Builder',
+        image: 'esphome/esphome',
+        minVersion: '2026.1.0',
+        ingress: { port: '{setup.port}' },
+        hostNetwork: true,
+      },
+    ]);
+    const [builder] = renderContainers('esphome', declared, { port: 6052 });
+
+    expect(builder).toMatchObject({ ingress: { port: 6052 }, hostNetwork: true });
+    expect(containerDependencyProblems(declared, undefined)).toEqual([
+      "builder reads the setting port, which the vendor's setup.json does not ask",
+    ]);
+  });
 });

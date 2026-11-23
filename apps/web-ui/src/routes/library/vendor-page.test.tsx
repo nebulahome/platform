@@ -22,6 +22,7 @@ import {
 import { toast } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { openIngressSession } from '@/containers/api';
 import {
   commandEntity,
   fetchDevices,
@@ -41,6 +42,11 @@ vi.mock('@/library/integration-catalogue-api', () => ({
   installIntegration: vi.fn(),
   removeIntegration: vi.fn(),
   INTEGRATION_CATALOGUE_KEYS: { all: ['integrations', 'catalogue'] },
+}));
+
+vi.mock('@/containers/api', async (original) => ({
+  ...(await original<object>()),
+  openIngressSession: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('@/library/links-api', () => ({
@@ -782,6 +788,58 @@ describe('a vendor that adds its own devices', () => {
     );
     // And why, in the page rather than only in a tooltip.
     expect(screen.getByText(/Pairing is not available yet/u)).toBeTruthy();
+  });
+
+  it('opens the page Zigbee2MQTT serves through the platform, once the browser may', async () => {
+    const assign = vi.fn();
+
+    vi.mocked(fetchVendor).mockResolvedValue({
+      ...ZIGBEE,
+      containers: [
+        {
+          id: 'zigbee2mqtt',
+          name: 'Zigbee2MQTT',
+          image: 'koenkk/zigbee2mqtt',
+          minVersion: '2.1.0',
+          ingressPath: '/api/ingress/nebulahome-zigbee2mqtt/',
+        },
+      ],
+    });
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    renderPage('zigbee2mqtt', ['integration:read']);
+
+    const button = await screen.findByRole('button', { name: 'Web page' });
+
+    // Only where the click sends the browser: the page itself is the platform's own, not tested.
+    vi.stubGlobal('location', { assign });
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith('/api/ingress/nebulahome-zigbee2mqtt/');
+    });
+    expect(openIngressSession).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it('offers the page to nobody who may not configure the integration', async () => {
+    vi.mocked(fetchVendor).mockResolvedValue({
+      ...ZIGBEE,
+      containers: [
+        {
+          id: 'zigbee2mqtt',
+          name: 'Zigbee2MQTT',
+          image: 'koenkk/zigbee2mqtt',
+          minVersion: '2.1.0',
+          ingressPath: '/api/ingress/nebulahome-zigbee2mqtt/',
+        },
+      ],
+    });
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    // `integration:configure` without `integration:read`: both are asked.
+    renderPage('zigbee2mqtt');
+
+    expect(await screen.findByText(/is added here on its own/u)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Web page' })).toBeNull();
   });
 
   it("opens pairing with the bridge's button, whatever the page saw last", async () => {

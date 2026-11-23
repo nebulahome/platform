@@ -62,6 +62,7 @@ function settingsRead(dep: ContainerDependency): Set<string> {
     ...dep.devices.map((device) => device.host),
     ...dep.ports.flatMap((port) => [String(port.container), String(port.host)]),
     ...(dep.webPort === undefined ? [] : [String(dep.webPort)]),
+    ...(dep.ingress === undefined ? [] : [String(dep.ingress.port)]),
   ];
 
   for (const text of texts) {
@@ -249,6 +250,8 @@ export function renderContainers(
         })),
       seed: dep.seed.map((seed) => ({ ...seed, content: fillSettings(seed.content, values) })),
       webPort,
+      ...(dep.ingress === undefined ? {} : { ingress: { port: portOf(dep.ingress.port, values) } }),
+      ...(dep.hostNetwork === undefined ? {} : { hostNetwork: dep.hostNetwork }),
       ...(dep.mqttTopics === undefined ? {} : { mqttTopics: [...dep.mqttTopics] }),
       ...(dep.command === undefined
         ? {}

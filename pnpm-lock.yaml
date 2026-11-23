@@ -65,6 +65,9 @@ importers:
       '@fastify/rate-limit':
         specifier: ^11.2.0
         version: 11.2.0
+      '@fastify/reply-from':
+        specifier: ^12.6.4
+        version: 12.6.4
       '@fastify/websocket':
         specifier: ^11.3.0
         version: 11.3.0
@@ -101,6 +104,9 @@ importers:
       nats:
         specifier: ^2.29.3
         version: 2.29.3
+      ws:
+        specifier: ^8.21.3
+        version: 8.21.3
       zod:
         specifier: ^4.5.4
         version: 4.5.4

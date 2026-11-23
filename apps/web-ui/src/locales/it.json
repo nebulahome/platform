@@ -5589,6 +5589,8 @@
       "setUpNameFirst": "Prima configura {{name}}",
       "settings": "Impostazioni",
       "signInFirst": "Prima accedi a un account",
+      "webPage": "Pagina web",
+      "webPageFailed": "La pagina web non si è aperta",
       "signInToFirst": "Prima accedi a un {{name}}",
       "vversion": "v{{version}}",
       "bluetoothProxy": "Proxy Bluetooth",

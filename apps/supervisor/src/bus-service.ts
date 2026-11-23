@@ -25,6 +25,7 @@ import {
   imageDescribeRequestSchema,
   imageSearchRequestSchema,
   imageTagsRequestSchema,
+  ingressRequestSchema,
   managedRequestSchema,
   platformReleasesRequestSchema,
   platformServiceRequestSchema,
@@ -165,6 +166,12 @@ export function serveSupervisor(client: BusClient, service: SupervisorService): 
       subject(SUPERVISOR_METHODS.managed),
       managedRequestSchema,
       (request) => service.managedStatuses(request.vendorId, request.ownerKind),
+      reads,
+    ),
+    client.serve(
+      subject(SUPERVISOR_METHODS.ingress),
+      ingressRequestSchema,
+      async (request) => service.ingress(request.name),
       reads,
     ),
     client.serve(

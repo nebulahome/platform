@@ -40,6 +40,13 @@ describe('buildProxyServer', () => {
       forwardedFor: request.headers['x-forwarded-for'],
       payload: 'y'.repeat(4096),
     }));
+    // A container's page, which api serves under a policy of its own.
+    upstream.get('/api/ingress/nebulahome-zigbee2mqtt/', (request, reply) =>
+      reply
+        .header('content-security-policy', "frame-ancestors 'self'")
+        .type('text/html')
+        .send('<p>Zigbee2MQTT</p>'),
+    );
     await upstream.listen({ host: '127.0.0.1', port: 0 });
 
     const address = upstream.server.address();
@@ -157,6 +164,17 @@ describe('buildProxyServer', () => {
     });
 
     expect(response.json<{ forwardedFor: string }>().forwardedFor).toBe('203.0.113.7');
+  });
+
+  it("keeps a container page's own policy in place of the page's, so the page may frame it", async () => {
+    const response = await proxy.inject({
+      method: 'GET',
+      url: '/api/ingress/nebulahome-zigbee2mqtt/',
+    });
+
+    expect(response.body).toBe('<p>Zigbee2MQTT</p>');
+    expect(response.headers['content-security-policy']).toBe("frame-ancestors 'self'");
+    expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
   });
 
   it('does not answer an unknown API path with the page', async () => {

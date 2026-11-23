@@ -73,10 +73,10 @@ declare const capabilityStateSchema: z.ZodObject<{
     targetTemperatureLow: z.ZodOptional<z.ZodNumber>;
     targetTemperatureHigh: z.ZodOptional<z.ZodNumber>;
     mode: z.ZodEnum<{
+      auto: "auto";
       off: "off";
       heat: "heat";
       cool: "cool";
-      auto: "auto";
       fan_only: "fan_only";
       dry: "dry";
     }>;
@@ -108,8 +108,8 @@ declare const capabilityStateSchema: z.ZodObject<{
   }, z.core.$strip>>;
   media_player: z.ZodOptional<z.ZodObject<{
     playback: z.ZodEnum<{
-      stopped: "stopped";
       idle: "idle";
+      stopped: "stopped";
       playing: "playing";
       paused: "paused";
       buffering: "buffering";
@@ -120,8 +120,8 @@ declare const capabilityStateSchema: z.ZodObject<{
     soundMode: z.ZodOptional<z.ZodString>;
     isShuffled: z.ZodOptional<z.ZodBoolean>;
     repeat: z.ZodOptional<z.ZodEnum<{
-      off: "off";
       all: "all";
+      off: "off";
       one: "one";
     }>>;
     mediaTitle: z.ZodOptional<z.ZodString>;
@@ -225,8 +225,8 @@ declare const capabilityStateSchema: z.ZodObject<{
     preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     isOscillating: z.ZodOptional<z.ZodBoolean>;
     direction: z.ZodOptional<z.ZodEnum<{
-      forward: "forward";
       reverse: "reverse";
+      forward: "forward";
     }>>;
   }, z.core.$strip>>;
   location: z.ZodOptional<z.ZodObject<{
@@ -328,6 +328,10 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
+  date: "date";
+  custom: "custom";
+  image: "image";
+  datetime: "datetime";
   cover: "cover";
   lock: "lock";
   media_player: "media_player";
@@ -339,10 +343,8 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   calendar: "calendar";
   vacuum: "vacuum";
   fan: "fan";
-  image: "image";
-  custom: "custom";
-  on_off: "on_off";
   level: "level";
+  on_off: "on_off";
   color_hs: "color_hs";
   color_temp: "color_temp";
   effect: "effect";
@@ -351,8 +353,6 @@ declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   sensor_binary: "sensor_binary";
   sensor_text: "sensor_text";
   time_of_day: "time_of_day";
-  date: "date";
-  datetime: "datetime";
   location: "location";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
@@ -431,10 +431,10 @@ declare const stateReportSchema: z.ZodObject<{
       targetTemperatureLow: z.ZodOptional<z.ZodNumber>;
       targetTemperatureHigh: z.ZodOptional<z.ZodNumber>;
       mode: z.ZodEnum<{
+        auto: "auto";
         off: "off";
         heat: "heat";
         cool: "cool";
-        auto: "auto";
         fan_only: "fan_only";
         dry: "dry";
       }>;
@@ -466,8 +466,8 @@ declare const stateReportSchema: z.ZodObject<{
     }, z.core.$strip>>;
     media_player: z.ZodOptional<z.ZodObject<{
       playback: z.ZodEnum<{
-        stopped: "stopped";
         idle: "idle";
+        stopped: "stopped";
         playing: "playing";
         paused: "paused";
         buffering: "buffering";
@@ -478,8 +478,8 @@ declare const stateReportSchema: z.ZodObject<{
       soundMode: z.ZodOptional<z.ZodString>;
       isShuffled: z.ZodOptional<z.ZodBoolean>;
       repeat: z.ZodOptional<z.ZodEnum<{
-        off: "off";
         all: "all";
+        off: "off";
         one: "one";
       }>>;
       mediaTitle: z.ZodOptional<z.ZodString>;
@@ -583,8 +583,8 @@ declare const stateReportSchema: z.ZodObject<{
       preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
       isOscillating: z.ZodOptional<z.ZodBoolean>;
       direction: z.ZodOptional<z.ZodEnum<{
-        forward: "forward";
         reverse: "reverse";
+        forward: "forward";
       }>>;
     }, z.core.$strip>>;
     location: z.ZodOptional<z.ZodObject<{
@@ -773,27 +773,27 @@ declare const setupFieldSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
   type: z.ZodLiteral<"entity">;
   domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
     number: "number";
-    light: "light";
-    switch: "switch";
     sensor: "sensor";
     binary_sensor: "binary_sensor";
-    cover: "cover";
-    lock: "lock";
-    climate: "climate";
-    media_player: "media_player";
-    camera: "camera";
-    button: "button";
-    update: "update";
-    lawn_mower: "lawn_mower";
-    select: "select";
-    time: "time";
-    vacuum: "vacuum";
-    fan: "fan";
     device_tracker: "device_tracker";
     geo_location: "geo_location";
+    switch: "switch";
+    light: "light";
+    fan: "fan";
+    cover: "cover";
+    lock: "lock";
+    button: "button";
+    select: "select";
+    media_player: "media_player";
+    camera: "camera";
     image: "image";
+    vacuum: "vacuum";
+    lawn_mower: "lawn_mower";
+    update: "update";
     custom: "custom";
     alias: "alias";
+    time: "time";
+    climate: "climate";
   }>>>;
   key: z.ZodString;
   label: z.ZodString;
@@ -921,27 +921,27 @@ declare const integrationSetupSchema: z.ZodObject<{
       type: z.ZodLiteral<"entity">;
       domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
         number: "number";
-        light: "light";
-        switch: "switch";
         sensor: "sensor";
         binary_sensor: "binary_sensor";
-        cover: "cover";
-        lock: "lock";
-        climate: "climate";
-        media_player: "media_player";
-        camera: "camera";
-        button: "button";
-        update: "update";
-        lawn_mower: "lawn_mower";
-        select: "select";
-        time: "time";
-        vacuum: "vacuum";
-        fan: "fan";
         device_tracker: "device_tracker";
         geo_location: "geo_location";
+        switch: "switch";
+        light: "light";
+        fan: "fan";
+        cover: "cover";
+        lock: "lock";
+        button: "button";
+        select: "select";
+        media_player: "media_player";
+        camera: "camera";
         image: "image";
+        vacuum: "vacuum";
+        lawn_mower: "lawn_mower";
+        update: "update";
         custom: "custom";
         alias: "alias";
+        time: "time";
+        climate: "climate";
       }>>>;
       key: z.ZodString;
       label: z.ZodString;
@@ -1066,27 +1066,27 @@ declare const integrationSetupSchema: z.ZodObject<{
       type: z.ZodLiteral<"entity">;
       domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
         number: "number";
-        light: "light";
-        switch: "switch";
         sensor: "sensor";
         binary_sensor: "binary_sensor";
-        cover: "cover";
-        lock: "lock";
-        climate: "climate";
-        media_player: "media_player";
-        camera: "camera";
-        button: "button";
-        update: "update";
-        lawn_mower: "lawn_mower";
-        select: "select";
-        time: "time";
-        vacuum: "vacuum";
-        fan: "fan";
         device_tracker: "device_tracker";
         geo_location: "geo_location";
+        switch: "switch";
+        light: "light";
+        fan: "fan";
+        cover: "cover";
+        lock: "lock";
+        button: "button";
+        select: "select";
+        media_player: "media_player";
+        camera: "camera";
         image: "image";
+        vacuum: "vacuum";
+        lawn_mower: "lawn_mower";
+        update: "update";
         custom: "custom";
         alias: "alias";
+        time: "time";
+        climate: "climate";
       }>>>;
       key: z.ZodString;
       label: z.ZodString;
@@ -1148,8 +1148,8 @@ declare const integrationInstallSchema: z.ZodObject<{
   build: z.ZodString;
   version: z.ZodString;
   source: z.ZodEnum<{
-    local: "local";
     index: "index";
+    local: "local";
   }>;
   artifactSha256: z.ZodString;
   installedAt: z.ZodISODateTime;
@@ -1193,8 +1193,8 @@ declare const modbusTemplateSchema: z.ZodObject<{
       number: "number";
       button: "button";
       select: "select";
-      on_off: "on_off";
       level: "level";
+      on_off: "on_off";
       sensor_numeric: "sensor_numeric";
       sensor_binary: "sensor_binary";
       sensor_text: "sensor_text";
@@ -1242,10 +1242,10 @@ declare const serialLineSchema: z.ZodObject<{
   dataBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<7>, z.ZodLiteral<8>]>>;
   parity: z.ZodDefault<z.ZodEnum<{
     none: "none";
+    space: "space";
     even: "even";
     odd: "odd";
     mark: "mark";
-    space: "space";
   }>>;
   stopBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<1.5>, z.ZodLiteral<2>]>>;
   flowControl: z.ZodDefault<z.ZodEnum<{
@@ -2419,27 +2419,27 @@ declare const accountDeclarationSchema: z.ZodObject<{
       type: z.ZodLiteral<"entity">;
       domains: z.ZodOptional<z.ZodArray<z.ZodEnum<{
         number: "number";
-        light: "light";
-        switch: "switch";
         sensor: "sensor";
         binary_sensor: "binary_sensor";
-        cover: "cover";
-        lock: "lock";
-        climate: "climate";
-        media_player: "media_player";
-        camera: "camera";
-        button: "button";
-        update: "update";
-        lawn_mower: "lawn_mower";
-        select: "select";
-        time: "time";
-        vacuum: "vacuum";
-        fan: "fan";
         device_tracker: "device_tracker";
         geo_location: "geo_location";
+        switch: "switch";
+        light: "light";
+        fan: "fan";
+        cover: "cover";
+        lock: "lock";
+        button: "button";
+        select: "select";
+        media_player: "media_player";
+        camera: "camera";
         image: "image";
+        vacuum: "vacuum";
+        lawn_mower: "lawn_mower";
+        update: "update";
         custom: "custom";
         alias: "alias";
+        time: "time";
+        climate: "climate";
       }>>>;
       key: z.ZodString;
       label: z.ZodString;
@@ -2604,8 +2604,8 @@ declare const vendorManifestSchema: z.ZodObject<{
   }>>>;
   internetRequired: z.ZodDefault<z.ZodBoolean>;
   twins: z.ZodOptional<z.ZodArray<z.ZodEnum<{
-    mac: "mac";
     serial: "serial";
+    mac: "mac";
   }>>>;
   twinsPrefer: z.ZodOptional<z.ZodArray<z.ZodString>>;
   setup: z.ZodOptional<z.ZodString>;
@@ -2613,9 +2613,8 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
-      ir: "ir";
-      matter: "matter";
       udp: "udp";
+      matter: "matter";
       mqtt: "mqtt";
       modbus: "modbus";
       serial: "serial";
@@ -2623,6 +2622,7 @@ declare const vendorManifestSchema: z.ZodObject<{
       ble: "ble";
       zigbee: "zigbee";
       thread: "thread";
+      ir: "ir";
     }>>;
   }, z.core.$strict>]>>>;
   streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -2675,6 +2675,10 @@ declare const vendorManifestSchema: z.ZodObject<{
       key: z.ZodString;
       equals: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodBoolean]>>;
     }, z.core.$strict>>;
+    ingress: z.ZodOptional<z.ZodObject<{
+      port: z.ZodUnion<readonly [z.ZodInt, z.ZodString]>;
+    }, z.core.$strict>>;
+    hostNetwork: z.ZodOptional<z.ZodLiteral<true>>;
     command: z.ZodOptional<z.ZodArray<z.ZodString>>;
     healthcheck: z.ZodOptional<z.ZodObject<{
       test: z.ZodArray<z.ZodString>;
@@ -2711,12 +2715,12 @@ declare const bundleManifestSchema: z.ZodObject<{
   modelCodes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
   modelSeries: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
   kind: z.ZodEnum<{
-    infrared: "infrared";
+    declarative: "declarative";
     code: "code";
     matter: "matter";
-    declarative: "declarative";
     mqtt: "mqtt";
     modbus: "modbus";
+    infrared: "infrared";
     serial: "serial";
     bluetooth: "bluetooth";
   }>;
@@ -2731,10 +2735,10 @@ declare const bundleManifestSchema: z.ZodObject<{
     dataBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<7>, z.ZodLiteral<8>]>>;
     parity: z.ZodDefault<z.ZodEnum<{
       none: "none";
+      space: "space";
       even: "even";
       odd: "odd";
       mark: "mark";
-      space: "space";
     }>>;
     stopBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<1.5>, z.ZodLiteral<2>]>>;
     flowControl: z.ZodDefault<z.ZodEnum<{

@@ -65,6 +65,8 @@ import { auditOrigin } from '../services/audit.js';
 import { readAvatarUrl } from '../services/avatars.js';
 import { readHouseLocale } from '../services/settings.js';
 
+import { CLEARED_INGRESS_COOKIE } from './ingress.js';
+
 /** One message for every way a sign-in can fail, so none of them is an oracle. */
 const REJECTED = 'Username or password is not correct';
 
@@ -599,7 +601,8 @@ export function registerAuthRoutes(environment: RouteEnvironment, context: ApiCo
         });
       }
 
-      void route.reply.status(204);
+      // The containers' pages close with the session.
+      void route.reply.header('set-cookie', CLEARED_INGRESS_COOKIE).status(204);
     },
   );
 

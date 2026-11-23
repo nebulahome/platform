@@ -156,6 +156,8 @@ function withEngine(existing?: unknown) {
       Promise.resolve('made'),
     ),
     control: vi.fn(() => Promise.resolve()),
+    inspectNetwork: vi.fn(() => Promise.resolve(undefined)),
+    createNetwork: vi.fn(() => Promise.resolve()),
   };
   const broker: { current: PlatformContext['mqtt'] | undefined } = { current: undefined };
   const set = new ManagedContainers({
@@ -232,6 +234,36 @@ describe('a container that speaks MQTT', () => {
     await vi.waitFor(() => {
       expect(engine.createContainer).toHaveBeenCalledTimes(1);
     });
+    set.stop();
+  });
+});
+
+describe('a container whose page the platform serves', () => {
+  it('is made on the containers’ network on a host platform, and says where its page is', async () => {
+    const { set, engine } = withEngine();
+    const page = { ...spec('zigbee2mqtt', 'zigbee2mqtt'), ingress: { port: 8080 } };
+
+    set.ensure({ vendorId: 'zigbee2mqtt', containers: [page] });
+
+    await vi.waitFor(() => {
+      expect(engine.createContainer).toHaveBeenCalledTimes(1);
+    });
+    expect(engine.createNetwork).toHaveBeenCalledTimes(1);
+    expect(engine.createContainer.mock.calls[0]?.[1]).toMatchObject({
+      HostConfig: { NetworkMode: 'nebulahome' },
+    });
+
+    engine.inspectContainer.mockResolvedValue({
+      Config: { Labels: {} },
+      HostConfig: { NetworkMode: 'nebulahome' },
+      NetworkSettings: { Networks: { nebulahome: { IPAddress: '172.20.0.5' } }, Ports: {} },
+    });
+
+    await expect(set.ingressOf('nebulahome-zigbee2mqtt')).resolves.toEqual({
+      url: 'http://172.20.0.5:8080',
+      ownerKind: 'vendor',
+    });
+    await expect(set.ingressOf('nebulahome-tasmota')).resolves.toBeNull();
     set.stop();
   });
 });

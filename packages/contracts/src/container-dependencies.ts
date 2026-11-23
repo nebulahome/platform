@@ -172,6 +172,20 @@ export const containerDependencySchema = z.strictObject({
   /** Whether the web page is published at all: a condition on the settings, like `when`. */
   webPortWhen: containerWhenSchema.optional(),
 
+  /**
+   * The container port its own web page is on, which the platform serves to the house's users at
+   * `/api/ingress/<container>/` and never publishes: only one who may configure its integration
+   * opens it. A number, or a number the vendor's settings give.
+   */
+  ingress: z.strictObject({ port: portSchema }).optional(),
+
+  /**
+   * Keeps a container with `ingress` on the host's network while the platform is on it, for one
+   * that must hear the house's multicast - mDNS, SSDP - which no published port carries. Its page
+   * must then listen on `{platform.ingress.host}`, or the whole network reaches it past the platform.
+   */
+  hostNetwork: z.literal(true).optional(),
+
   /** The command the container runs, in place of its image's: each argument on its own. */
   command: z.array(z.string().max(4096)).min(1).max(64).optional(),
 
@@ -221,6 +235,28 @@ export const containerDependenciesSchema = z
   .superRefine((deps, context) => {
     for (const [index, problem] of dependsOnProblems(deps)) {
       context.addIssue({ code: 'custom', path: [index, 'dependsOn'], message: problem });
+    }
+
+    // One page per declaration: the integration's page has one button for it.
+    for (const [index, dep] of deps.entries()) {
+      if (
+        dep.ingress !== undefined &&
+        deps.findIndex((each) => each.ingress !== undefined) < index
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'ingress'],
+          message: 'Only one container may have ingress',
+        });
+      }
+
+      if (dep.hostNetwork === true && dep.ingress === undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'hostNetwork'],
+          message: 'Only for a container with ingress',
+        });
+      }
     }
   });
 
