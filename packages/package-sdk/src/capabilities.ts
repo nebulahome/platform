@@ -315,7 +315,18 @@ export type CapabilityParams = {
   };
   readonly sensor_numeric: Readonly<Record<never, never>>;
   readonly sensor_binary: Readonly<Record<never, never>>;
-  readonly sensor_text: { readonly options?: readonly string[] };
+  /**
+   * Its values when they are a fixed list; whether the house may write it, its shortest and
+   * longest, a pattern the whole text must match, and whether it is a password.
+   */
+  readonly sensor_text: {
+    readonly options?: readonly string[];
+    readonly canSet?: boolean;
+    readonly minLength?: number;
+    readonly maxLength?: number;
+    readonly pattern?: string;
+    readonly isPassword?: boolean;
+  };
   readonly media_player: {
     readonly supportedSources?: readonly string[];
     readonly soundModes?: readonly string[];
@@ -452,6 +463,7 @@ export type CapabilityCommands = {
     | { readonly command: 'resume' };
   readonly select: { readonly command: 'select_option'; readonly option: string };
   readonly number: { readonly command: 'set_value'; readonly value: number };
+  readonly sensor_text: { readonly command: 'set_value'; readonly value: string };
   readonly time_of_day: { readonly command: 'set_value'; readonly value: string };
   readonly date: { readonly command: 'set_value'; readonly value: string };
   readonly datetime: { readonly command: 'set_value'; readonly value: string };

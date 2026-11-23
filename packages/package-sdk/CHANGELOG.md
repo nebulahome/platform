@@ -3,6 +3,13 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
+## 1.16.0
+
+- **A text the house may write:** `sensor_text` takes `set_value` (`{ value }`, up to 512
+  characters) in `CapabilityCommands`, and its `CapabilityParams` say `canSet` (read only without
+  it), `minLength`, `maxLength`, a `pattern` the whole text must match, and `isPassword` (the
+  interface masks it, and its history keeps only that it changed).
+
 ## 1.15.0
 
 - **The house's calendars:** the `calendar` domain in `ENTITY_DOMAINS` and the read-only `calendar`
