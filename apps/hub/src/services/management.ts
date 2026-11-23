@@ -37,6 +37,8 @@ import {
   HUB_SERVICE,
   HUB_VENDOR_CHANGED_METHOD,
   HUB_VENDOR_LOAD_METHOD,
+  INGRESS_PREFIX,
+  managedName,
   NotFoundError,
   probeRequestSchema,
   reloadRequestSchema,
@@ -298,6 +300,10 @@ function vendorOf(
       name: container.name,
       image: container.image,
       minVersion: container.minVersion,
+      ingressPath:
+        container.ingress === undefined
+          ? null
+          : `${INGRESS_PREFIX}${managedName({ vendorId: manifest.id, dependencyId: container.id })}/`,
     })),
     requires: manifest.requires,
     packageProblems: [...packageProblems],
