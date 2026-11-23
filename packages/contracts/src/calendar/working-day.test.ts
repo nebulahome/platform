@@ -38,7 +38,7 @@ describe('a working day', () => {
   });
 
   it('makes 7 December a day off in Milan alone', () => {
-    expect(isWorkingDay('2026-12-07', WEEKEND, italianHolidays(2026, 'MI'), none)).toBe(false);
+    expect(isWorkingDay('2026-12-07', WEEKEND, italianHolidays(2026, 'Milano'), none)).toBe(false);
     expect(isWorkingDay('2026-12-07', WEEKEND, italianHolidays(2026, 'RM'), none)).toBe(true);
   });
 });
@@ -77,7 +77,12 @@ describe('the long weekends of a year', () => {
 
   it("needs no bridge in Milan, where Sant'Ambrogio fills the Monday", () => {
     const rome = longWeekendsOf('2026-12-01', '2026-12-10', WEEKEND, italianHolidays(2026, 'RM'));
-    const milan = longWeekendsOf('2026-12-01', '2026-12-10', WEEKEND, italianHolidays(2026, 'MI'));
+    const milan = longWeekendsOf(
+      '2026-12-01',
+      '2026-12-10',
+      WEEKEND,
+      italianHolidays(2026, 'Milano'),
+    );
 
     expect(rome.longWeekends).toEqual([
       {

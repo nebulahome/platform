@@ -63,7 +63,10 @@ import { requireSession } from '../http/guard.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { auditOrigin } from '../services/audit.js';
 import { deleteAvatar, readAvatarUrl, readAvatarUrls, writeAvatar } from '../services/avatars.js';
+import { createPersonalCalendar, removePersonalCalendar } from '../services/calendar-store.js';
 import { refuseEscalation } from '../services/roles.js';
+
+import { settleCalendarWrite } from './calendars.js';
 
 /** The path parameters of the per-user routes. */
 const userParamsSchema = z.object({ userId: z.uuid() });
@@ -306,6 +309,20 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
         details: { username: route.body.username, role: route.body.role },
       });
 
+      // Everyone has a calendar of their own, and a member or above edits House and Waste.
+      const calendarId = await createPersonalCalendar(context.db, {
+        id: created.id,
+        username: route.body.username,
+        displayName: route.body.displayName,
+        roleKey: route.body.role,
+      });
+
+      if (calendarId !== null) {
+        await settleCalendarWrite(context, route, 'calendar.create', calendarId, {
+          kind: 'personal',
+        });
+      }
+
       void route.reply
         .status(201)
         .header('location', `${environment.basePath}/users/${created.id}`);
@@ -501,6 +518,16 @@ export function registerUserRoutes(environment: RouteEnvironment, context: ApiCo
       }
 
       await revokeAllSessions(context.db, row.id, 'admin', now);
+
+      // The row stays, so its cascades never fire: the personal calendar and the editor rows
+      // go here, its events, entity and share-link membership with it.
+      const calendarId = await removePersonalCalendar(context.db, row.id);
+
+      if (calendarId !== null) {
+        await settleCalendarWrite(context, route, 'calendar.delete', calendarId, {
+          kind: 'personal',
+        });
+      }
       await context.db
         .update(schema.auth.accessTokens)
         .set({ revokedAt: now })

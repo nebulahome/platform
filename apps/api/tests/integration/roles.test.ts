@@ -47,6 +47,7 @@ const OWNER = [
   'alias:read',
   'package:read',
   'integration:read',
+  'calendar:read',
 ];
 
 let database: ReturnType<typeof createDatabase>;

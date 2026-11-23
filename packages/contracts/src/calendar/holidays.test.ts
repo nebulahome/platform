@@ -1,7 +1,13 @@
 import Holidays from 'date-holidays';
 import { describe, expect, it } from 'vitest';
 
-import { countriesOf, holidaysOf, ITALIAN_PATRONS, regionsOf } from './holidays.js';
+import {
+  countriesOf,
+  holidaysOf,
+  ITALIAN_CAPITALS,
+  ITALIAN_PATRONS,
+  regionsOf,
+} from './holidays.js';
 
 const ITALY = { country: 'IT', region: null, town: null };
 
@@ -68,7 +74,7 @@ describe('the holidays of a place', () => {
   });
 
   it("adds Milan's patron, Sant'Ambrogio on 7 December, once", () => {
-    const milan = holidaysOf(2026, { country: 'IT', region: '25', town: 'MI' }, 'it');
+    const milan = holidaysOf(2026, { country: 'IT', region: '25', town: 'Milano' }, 'it');
 
     expect(milan.filter((holiday) => holiday.date === '2026-12-07')).toEqual([
       { key: 'it-mi.patron', date: '2026-12-07', name: "Sant'Ambrogio", kind: 'patron' },
@@ -76,36 +82,36 @@ describe('the holidays of a place', () => {
   });
 
   it('works out a patron day that moves: the first Tuesday of May in Asti', () => {
-    expect(lines(2026, { country: 'IT', region: null, town: 'AT' })).toContain(
+    expect(lines(2026, { country: 'IT', region: null, town: 'Asti' })).toContain(
       '2026-05-05 San Secondo di Asti',
     );
-    expect(lines(2027, { country: 'IT', region: null, town: 'AT' })).toContain(
+    expect(lines(2027, { country: 'IT', region: null, town: 'Asti' })).toContain(
       '2027-05-04 San Secondo di Asti',
     );
   });
 
   it('numbers the days of a province with several, and keeps the regional ones regional', () => {
-    const bolzano = holidaysOf(2026, { country: 'IT', region: '32', town: 'BZ' }, 'it');
-    const trani = holidaysOf(2026, { country: 'IT', region: null, town: 'BT' }, 'it');
+    const bolzano = holidaysOf(2026, { country: 'IT', region: '32', town: 'Bolzano/Bozen' }, 'it');
+    const ragusa = holidaysOf(2026, { country: 'IT', region: '82', town: 'Ragusa' }, 'it');
 
     expect(bolzano.filter((holiday) => holiday.date === '2026-05-25')).toEqual([
       { key: 'it.easter_50', date: '2026-05-25', name: 'Lunedì di Pentecoste', kind: 'regional' },
     ]);
     expect(
-      trani.filter((holiday) => holiday.kind === 'patron').map((holiday) => holiday.key),
-    ).toEqual(['it-bt.patron_1', 'it-bt.patron_2', 'it-bt.patron_3']);
+      ragusa.filter((holiday) => holiday.kind === 'patron').map((holiday) => holiday.key),
+    ).toEqual(['it-rg.patron_1', 'it-rg.patron_2']);
   });
 
   it('does not list a patron day twice when it is already a holiday', () => {
     expect(
-      lines(2026, { country: 'IT', region: null, town: 'BI' }).filter((line) =>
+      lines(2026, { country: 'IT', region: null, town: 'Biella' }).filter((line) =>
         line.startsWith('2026-12-26'),
       ),
     ).toHaveLength(1);
   });
 
   it('takes the patron the owner typed before the listed one', () => {
-    const typed = holidaysOf(2026, { country: 'IT', region: null, town: 'MI' }, 'it', {
+    const typed = holidaysOf(2026, { country: 'IT', region: null, town: 'Milano' }, 'it', {
       name: 'San Rocco',
       month: 8,
       day: 16,
@@ -114,6 +120,28 @@ describe('the holidays of a place', () => {
     expect(typed.filter((holiday) => holiday.kind === 'patron')).toEqual([
       { key: 'it.patron', date: '2026-08-16', name: 'San Rocco', kind: 'patron' },
     ]);
+  });
+
+  it('finds the patron by the town as the settings keep it, a city of its own included', () => {
+    const forli = holidaysOf(2026, { country: 'IT', region: null, town: 'Forlì' }, 'it');
+    const cesena = holidaysOf(2026, { country: 'IT', region: null, town: 'Cesena' }, 'it');
+
+    expect(forli.filter((holiday) => holiday.kind === 'patron')).toEqual([
+      { key: 'it-forli.patron', date: '2026-02-04', name: 'Madonna del Fuoco', kind: 'patron' },
+    ]);
+    expect(cesena.filter((holiday) => holiday.kind === 'patron').map((each) => each.key)).toEqual([
+      'it-cesena.patron',
+    ]);
+  });
+
+  it('adds no patron for a town that is not listed, nor for a code where a name belongs', () => {
+    for (const town of ['Rho', 'MI', 'constructor']) {
+      expect(
+        holidaysOf(2026, { country: 'IT', region: null, town }, 'it').filter(
+          (holiday) => holiday.kind === 'patron',
+        ),
+      ).toEqual([]);
+    }
   });
 
   it('knows nothing of a country it has no rules for', () => {
@@ -126,6 +154,18 @@ describe('the Italian patrons', () => {
     expect(Object.keys(ITALIAN_PATRONS)).toHaveLength(114);
     expect(ITALIAN_PATRONS['RM']).toEqual([{ name: 'Santi Pietro e Paolo', rule: '06-29' }]);
     expect(ITALIAN_PATRONS['Forli']).toEqual([{ name: 'Madonna del Fuoco', rule: '02-04' }]);
+  });
+
+  it('is reached from a town for every province and city, but the three whose cities are listed', () => {
+    const reached = new Set(Object.values(ITALIAN_CAPITALS));
+
+    expect(Object.keys(ITALIAN_PATRONS).filter((key) => !reached.has(key))).toEqual([
+      'BT',
+      'FC',
+      'PU',
+    ]);
+    expect(ITALIAN_CAPITALS['Milano']).toBe('MI');
+    expect(ITALIAN_CAPITALS['Forlì']).toBe('Forli');
   });
 
   it('writes every day as a rule date-holidays reads, once a year', () => {

@@ -128,6 +128,12 @@ export const entityViewSchema = z.object({
     .object({ domain: z.string(), deviceClass: z.string().nullable() })
     .nullable()
     .default(null),
+
+  /**
+   * Show in calendar: the calendar a time, date or date-and-time entity's value is shown in;
+   * null or absent in none.
+   */
+  calendarId: z.uuid().nullable().optional(),
 });
 
 /** One entity, as the interface reads it. */
@@ -135,7 +141,7 @@ export type EntityView = z.output<typeof entityViewSchema>;
 
 /**
  * What changing an entity accepts: what a person calls it, what it is drawn as, the tags on it
- * and whether it is enabled. The identifier is not here - it is what automations and history name the entity by, and
+ * whether it is enabled and the calendar it is shown in. The identifier is not here - it is what automations and history name the entity by, and
  * renaming in the interface changes `name`, never that.
  */
 export const entityUpdateSchema = z
@@ -165,6 +171,12 @@ export const entityUpdateSchema = z
      * out when entities are picked.
      */
     isEnabled: z.boolean(),
+
+    /**
+     * Show in calendar, for a time, date or date-and-time entity: the calendar its value is shown
+     * in, read only; null to show it in none.
+     */
+    calendarId: z.uuid().nullable(),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to change' });

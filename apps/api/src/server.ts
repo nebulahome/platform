@@ -28,6 +28,13 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerBackupRoutes } from './routes/backup.js';
 import { registerBluetoothRoutes } from './routes/bluetooth.js';
 import { registerBrokerRoutes } from './routes/brokers.js';
+import { registerCalendarEventRoutes } from './routes/calendar-events.js';
+import {
+  CALENDAR_FEED_PATH_PREFIX,
+  registerCalendarFeedRoute,
+  registerCalendarFeedRoutes,
+} from './routes/calendar-feeds.js';
+import { registerCalendarRoutes } from './routes/calendars.js';
 import { registerCameraRoutes } from './routes/cameras.js';
 import { registerContainerRoutes } from './routes/containers.js';
 import { registerDashboardRoutes } from './routes/dashboards.js';
@@ -108,6 +115,9 @@ const PACKAGE_FILE_PATHS = [
 /** A webhook's address: its id is its credential, which the route checks (`routes/webhooks.ts`). */
 const HOOK_PATH = new RegExp(`^${HOOK_PATH_PREFIX}[^/]+$`, 'u');
 
+/** A calendar share link: its token is its credential, which the route checks. */
+const CALENDAR_FEED_PATH = new RegExp(`^${CALENDAR_FEED_PATH_PREFIX}[^/]+$`, 'u');
+
 /**
  * Says whether a path may be reached without a credential.
  *
@@ -125,7 +135,8 @@ function isPublicPath(url: string): boolean {
     PUBLIC_PATHS.has(path) ||
     SOCKET_PATHS.some((socket) => socket.test(path)) ||
     PACKAGE_FILE_PATHS.some((file) => file.test(path)) ||
-    HOOK_PATH.test(path)
+    HOOK_PATH.test(path) ||
+    CALENDAR_FEED_PATH.test(path)
   );
 }
 
@@ -270,6 +281,9 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerRegistryRoutes(environment, context);
   registerAreaRoutes(environment, context);
   registerDashboardRoutes(environment, context);
+  registerCalendarRoutes(environment, context);
+  registerCalendarEventRoutes(environment, context);
+  registerCalendarFeedRoutes(environment, context);
   registerTagRoutes(environment, context);
   registerDeviceRoutes(environment, context);
   registerDiscoveryRoutes(environment, context);
@@ -294,6 +308,7 @@ export async function buildServer(context: ApiContext): Promise<FastifyInstance>
   registerPackageRoutes(environment, context);
   registerWebhookRoutes(environment, context);
   await registerHookRoute(server, context);
+  registerCalendarFeedRoute(server, context);
   registerPackageFileRoutes(server, context, environment.basePath);
   registerMapRoutes(server, context, environment.basePath);
   registerCameraRoutes(server, context, environment.basePath);

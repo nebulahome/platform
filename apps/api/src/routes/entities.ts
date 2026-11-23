@@ -34,6 +34,9 @@ import { IdempotencyStore } from '../http/idempotency.js';
 import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { requireBus } from '../services/ask-service.js';
 import { auditOrigin } from '../services/audit.js';
+import { requireCanEditCalendar } from '../services/calendar-access.js';
+import { syncCalendarsOnCore } from '../services/calendar-core.js';
+import { readCalendar } from '../services/calendar-store.js';
 import { isAuditedCapability, sendCommand } from '../services/commands.js';
 import {
   findEntity,
@@ -209,7 +212,19 @@ export function registerEntityRoutes(environment: RouteEnvironment, context: Api
 
       requirePermission(route.identity, 'entity:write', found.scopes);
 
+      // Shown in a calendar is an event of that calendar, read only: its editors' to place there.
+      if (typeof route.body.calendarId === 'string') {
+        requireCanEditCalendar(
+          route.identity,
+          await readCalendar(context.db, route.body.calendarId),
+        );
+      }
+
       const view = await updateEntity(context.db, context.icons, found, route.body);
+
+      if (route.body.calendarId !== undefined) {
+        await syncCalendarsOnCore(forRequest(context, route.request.traceId));
+      }
 
       if (route.body.transport !== undefined) {
         // The way it is read first changed: `core` reads its order again.

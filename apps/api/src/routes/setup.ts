@@ -37,6 +37,8 @@ import { generateOpaqueToken, signAccessToken } from '../auth/tokens.js';
 import type { ApiContext } from '../context.js';
 import { definePublicRoute, type RouteEnvironment } from '../http/route.js';
 import { syncHouseOnCore } from '../services/automations-core.js';
+import { syncCalendarsOnCore } from '../services/calendar-core.js';
+import { createPersonalCalendar } from '../services/calendar-store.js';
 import { chooseFreeKey, keyPrefixOf } from '../services/keys.js';
 import { readHouseLocale } from '../services/settings.js';
 
@@ -240,7 +242,22 @@ export function registerSetupRoutes(environment: RouteEnvironment, context: ApiC
           await writeHome(tx, route.body.home, user.id);
         }
 
+        // The owner's own calendar, and House and Waste to edit, like every account after them.
+        await createPersonalCalendar(tx, {
+          id: user.id,
+          username: route.body.username,
+          displayName: route.body.displayName,
+          roleKey: 'owner',
+        });
+
         return user.id;
+      });
+
+      await syncCalendarsOnCore({
+        bus: context.bus,
+        traceId: route.request.traceId,
+        timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+        logger: context.logger,
       });
 
       if (route.body.home !== undefined) {

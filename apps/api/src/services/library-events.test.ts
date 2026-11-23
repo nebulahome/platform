@@ -11,6 +11,8 @@ describe('libraryKindOf', () => {
     expect(libraryKindOf('device.link')).toBe('devices');
     expect(libraryKindOf('role.update')).toBe('people');
     expect(libraryKindOf('integration.configure')).toBe('vendors');
+    expect(libraryKindOf('calendar.event.update')).toBe('calendar');
+    expect(libraryKindOf('calendar.feed.create')).toBe('calendar');
   });
 
   it('announces no sign-in, token or command, which would only echo', () => {
@@ -19,5 +21,6 @@ describe('libraryKindOf', () => {
     expect(libraryKindOf('entity.command')).toBeNull();
     expect(libraryKindOf('scene.apply')).toBeNull();
     expect(libraryKindOf('package.install')).toBeNull();
+    expect(libraryKindOf('calendar.ics_file.upload')).toBeNull();
   });
 });

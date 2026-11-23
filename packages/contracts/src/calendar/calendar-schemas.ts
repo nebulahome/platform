@@ -163,8 +163,14 @@ export const calendarIcsFileSchema = z.object({
 /** A `.ics` file loaded as a calendar's source. */
 export type CalendarIcsFile = z.output<typeof calendarIcsFileSchema>;
 
-/** Asks whether an address is a calendar, before it becomes a source. */
-export const calendarIcsTestSchema = z.object({ url: icsUrlSchema });
+/**
+ * Asks whether an address is a calendar, before it becomes a source. With `calendarId`, its
+ * events are matched against that calendar's models.
+ */
+export const calendarIcsTestSchema = z.object({
+  url: icsUrlSchema,
+  calendarId: z.uuid().optional(),
+});
 
 /** Asks whether an address is a calendar. */
 export type CalendarIcsTest = z.output<typeof calendarIcsTestSchema>;
@@ -176,6 +182,9 @@ export type CalendarIcsTest = z.output<typeof calendarIcsTestSchema>;
 export const calendarIcsFileUploadSchema = z.object({
   name: z.string().trim().min(1).max(255),
   text: z.string().min(1).max(CALENDAR_ICS_MAXIMUM_BYTES),
+
+  /** The calendar it is meant for, whose models its events are matched against. */
+  calendarId: z.uuid().optional(),
 });
 
 /** A `.ics` file as the browser read it. */
@@ -606,9 +615,10 @@ export type CalendarHolidaysQuery = z.output<typeof calendarHolidaysQuerySchema>
 
 /**
  * Where the house keeps its holidays. `country` is ISO 3166-1 alpha-2; `region` the region as
- * `date-holidays` codes it (`regionsOf` in `@nebulahome/contracts/holidays`); `town`, in Italy, a
- * key of `ITALIAN_PATRONS` (a province's code, or the city of a province with several capitals),
- * any other town having no listed patron.
+ * `date-holidays` codes it (`regionsOf` in `@nebulahome/contracts/holidays`), or for an Italian
+ * region it has no holidays of, GeoNames' code (`GET /calendar/places` lists both); `town`, in
+ * Italy, the town's name (`Milano`, `Forlì`), its patron found through `ITALIAN_CAPITALS`, any
+ * other town having no listed patron.
  */
 export const calendarPlaceSchema = z.object({
   country: z.string().regex(/^[A-Z]{2}$/, 'Must be a country code'),
@@ -650,19 +660,42 @@ export const calendarTownOptionSchema = z.object({
   name: z.string(),
   province: z.string().nullable(),
   patronName: z.string().nullable(),
+
+  /** Whether it is a provincial capital. */
+  isCapital: z.boolean().default(false),
 });
 
 /** A town, for a select. */
 export type CalendarTownOption = z.output<typeof calendarTownOptionSchema>;
 
-/** What the place selects offer for a country. */
+/**
+ * What the place selects offer: every country, the regions of the one asked for, and in Italy its
+ * towns - of the region asked for, matching the words typed, or the capitals when none are typed.
+ */
 export const calendarPlacesSchema = z.object({
+  countries: z.array(calendarRegionOptionSchema).default([]),
   regions: z.array(calendarRegionOptionSchema),
   towns: z.array(calendarTownOptionSchema),
 });
 
-/** What the place selects offer for a country. */
+/** What the place selects offer. */
 export type CalendarPlaces = z.output<typeof calendarPlacesSchema>;
+
+/** Which country's regions, which region's towns, and the words a town is looked for by. */
+export const calendarPlacesQuerySchema = z.object({
+  country: calendarPlaceSchema.shape.country.optional(),
+  region: z.string().min(1).max(16).optional(),
+  q: z.string().trim().max(64).optional(),
+});
+
+/** Which places to offer. */
+export type CalendarPlacesQuery = z.output<typeof calendarPlacesQuerySchema>;
+
+/** The place the house's position suggests; null when the house has no position or none fits. */
+export const calendarPlaceSuggestionSchema = z.object({ place: calendarPlaceSchema.nullable() });
+
+/** The place the house's position suggests. */
+export type CalendarPlaceSuggestion = z.output<typeof calendarPlaceSuggestionSchema>;
 
 // --- share links -------------------------------------------------------------------------
 

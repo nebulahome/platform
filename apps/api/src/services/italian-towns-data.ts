@@ -1,0 +1,7960 @@
+/**
+ * The comuni of Italy, from GeoNames (https://www.geonames.org, CC BY 4.0), written by
+ * `scripts/italian-towns.ts`; do not edit by hand. One town a line:
+ * name|province code|region code|latitude|longitude|provincial capital (1).
+ */
+
+/** The regions, by GeoNames' code. */
+export const ITALIAN_REGIONS: Readonly<Record<string, string>> = {
+  '10': 'Marche',
+  '11': 'Molise',
+  '12': 'Piemonte',
+  '13': 'Puglia',
+  '14': 'Sardegna',
+  '15': 'Sicilia',
+  '16': 'Toscana',
+  '17': 'Trentino-Alto Adige',
+  '18': 'Umbria',
+  '19': "Valle d'Aosta",
+  '20': 'Veneto',
+  '01': 'Abruzzo',
+  '02': 'Basilicata',
+  '03': 'Calabria',
+  '04': 'Campania',
+  '05': 'Emilia-Romagna',
+  '06': 'Friuli Venezia Giulia',
+  '07': 'Lazio',
+  '08': 'Liguria',
+  '09': 'Lombardia',
+};
+
+/**
+ * The regions `date-holidays` has holidays of its own for, by its code (`regionsOf('IT')`):
+ * GeoNames' region, and the province when the code is one province of it (Alto Adige).
+ */
+export const ITALIAN_HOLIDAY_REGIONS: Readonly<
+  Record<string, { readonly region: string; readonly province: string | null }>
+> = {
+  '21': {
+    region: '12',
+    province: null,
+  },
+  '25': {
+    region: '09',
+    province: null,
+  },
+  '32': {
+    region: '17',
+    province: 'BZ',
+  },
+  '52': {
+    region: '16',
+    province: null,
+  },
+  '62': {
+    region: '07',
+    province: null,
+  },
+  '82': {
+    region: '15',
+    province: null,
+  },
+};
+
+/** The towns, one a line. */
+export const ITALIAN_TOWNS = `Abano Terme|PD|20|45.3610|11.7914|0
+Abbadia Cerreto|LO|09|45.3122|9.5942|0
+Abbadia Lariana|LC|09|45.9005|9.3341|0
+Abbadia San Salvatore|SI|16|42.8821|11.6695|0
+Abbasanta|OR|14|40.1268|8.8180|0
+Abbateggio|PE|01|42.2251|14.0111|0
+Abbiategrasso|MI|09|45.4008|8.9185|0
+Abetone Cutigliano|PT|16|44.1249|10.7057|0
+Abriola|PZ|02|40.5080|15.8136|0
+Acate|RG|15|37.0250|14.4930|0
+Accadia|FG|13|41.1588|15.3315|0
+Acceglio|CN|12|44.4746|6.9909|0
+Accettura|MT|02|40.4910|16.1580|0
+Acciano|AQ|01|42.1765|13.7171|0
+Accumoli|RI|07|42.6941|13.2477|0
+Acerenza|PZ|02|40.7921|15.9366|0
+Acerno|SA|04|40.7377|15.0570|0
+Acerra|NA|04|40.9507|14.3762|0
+Aci Bonaccorsi|CT|15|37.5977|15.1079|0
+Aci Castello|CT|15|37.5583|15.1346|0
+Aci Catena|CT|15|37.5960|15.1402|0
+Aci Sant'Antonio|CT|15|37.6062|15.1202|0
+Acireale|CT|15|37.6125|15.1663|0
+Acquafondata|FR|07|41.5428|13.9528|0
+Acquaformosa|CS|03|39.7231|16.0899|0
+Acquafredda|BS|09|45.3074|10.4147|0
+Acqualagna|PU|10|43.6261|12.6760|0
+Acquanegra Cremonese|CR|09|45.1704|9.8909|0
+Acquanegra sul Chiese|MN|09|45.1625|10.4347|0
+Acquapendente|VT|07|42.7438|11.8642|0
+Acquappesa|CS|03|39.4937|15.9521|0
+Acquaro|VV|03|38.5548|16.1872|0
+Acquasanta Terme|AP|10|42.7699|13.4102|0
+Acquasparta|TR|18|42.6901|12.5401|0
+Acquaviva Collecroce|CB|11|41.8662|14.7473|0
+Acquaviva d'Isernia|IS|11|41.6721|14.1489|0
+Acquaviva delle Fonti|BA|13|40.8978|16.8425|0
+Acquaviva Picena|AP|10|42.9453|13.8155|0
+Acquaviva Platani|CL|15|37.5717|13.7016|0
+Acquedolci|ME|15|38.0565|14.5794|0
+Acqui Terme|AL|12|44.6752|8.4675|0
+Acri|CS|03|39.4929|16.3838|0
+Acuto|FR|07|41.7915|13.1744|0
+Adelfia|BA|13|41.0042|16.8717|0
+Adrano|CT|15|37.6617|14.8348|0
+Adrara San Martino|BG|09|45.7023|9.9490|0
+Adrara San Rocco|BG|09|45.7158|9.9591|0
+Adria|RO|20|45.0565|12.0549|0
+Adro|BS|09|45.6179|9.9627|0
+Affi|VR|20|45.5544|10.7774|0
+Affile|RM|07|41.8841|13.0954|0
+Afragola|NA|04|40.9260|14.3108|0
+Africo|RC|03|38.0507|16.1332|0
+Agazzano|PC|05|44.9457|9.5186|0
+Agerola|NA|04|40.6377|14.5388|0
+Aggius|SS|14|40.9304|9.0659|0
+Agira|EN|15|37.6561|14.5216|0
+Agliana|PT|16|43.9066|11.0062|0
+Agliano Terme|AT|12|44.7903|8.2504|0
+Agliè|TO|12|45.3671|7.7669|0
+Aglientu|SS|14|41.0796|9.1127|0
+Agna|PD|20|45.1686|11.9565|0
+Agnadello|CR|09|45.4444|9.5571|0
+Agnana Calabra|RC|03|38.3027|16.2229|0
+Agnone|IS|11|41.8094|14.3776|0
+Agnosine|BS|09|45.6497|10.3527|0
+Agordo|BL|20|46.2799|12.0368|0
+Agosta|RM|07|41.9816|13.0327|0
+Agra|VA|09|46.0367|8.7683|0
+Agrate Brianza|MB|09|45.5778|9.3514|0
+Agrate Conturbia|NO|12|45.6755|8.5597|0
+Agrigento|AG|15|37.3208|13.5888|1
+Agropoli|SA|04|40.3469|14.9965|0
+Agugliano|AN|10|43.5436|13.3895|0
+Agugliaro|VI|20|45.3254|11.5842|0
+Aicurzio|MB|09|45.6400|9.4149|0
+Aidomaggiore|OR|14|40.1707|8.8565|0
+Aidone|EN|15|37.4154|14.4453|0
+Aielli|AQ|01|42.0808|13.5906|0
+Aiello Calabro|CS|03|39.1176|16.1667|0
+Aiello del Friuli|UD|06|45.8729|13.3636|0
+Aiello del Sabato|AV|04|40.8891|14.8208|0
+Aieta|CS|03|39.9278|15.8235|0
+Ailano|CE|04|41.3904|14.2050|0
+Ailoche|BI|12|45.6986|8.2210|0
+Airasca|TO|12|44.9170|7.4843|0
+Airola|BN|04|41.0610|14.5584|0
+Airole|IM|08|43.8709|7.5541|0
+Airuno|LC|09|45.7539|9.4243|0
+Aisone|CN|12|44.3139|7.2196|0
+Alà dei Sardi|SS|14|40.6501|9.3278|0
+Ala di Stura|TO|12|45.3152|7.3059|0
+Ala|TN|17|45.7590|11.0002|0
+Alagna Valsesia|VC|12|45.8510|7.9369|0
+Alagna|PV|09|45.1699|8.8898|0
+Alanno|PE|01|42.2954|13.9711|0
+Alassio|SV|08|44.0082|8.1639|0
+Alatri|FR|07|41.7306|13.3402|0
+Alba Adriatica|TE|01|42.8275|13.9281|0
+Alba|CN|12|44.6915|8.0256|0
+Albagiara|OR|14|39.7876|8.8620|0
+Albairate|MI|09|45.4196|8.9374|0
+Albanella|SA|04|40.4789|15.1163|0
+Albano di Lucania|PZ|02|40.5846|16.0362|0
+Albano Laziale|RM|07|41.7260|12.6313|0
+Albano Sant'Alessandro|BG|09|45.6865|9.7707|0
+Albano Vercellese|VC|12|45.4262|8.3809|0
+Albaredo d'Adige|VR|20|45.3160|11.2728|0
+Albaredo per San Marco|SO|09|46.1035|9.5900|0
+Albareto|PR|05|44.4466|9.7000|0
+Albaretto della Torre|CN|12|44.5962|8.0646|0
+Albavilla|CO|09|45.8004|9.1850|0
+Albenga|SV|08|44.0529|8.2160|0
+Albera Ligure|AL|12|44.7024|9.0662|0
+Alberobello|BA|13|40.7859|17.2372|0
+Alberona|FG|13|41.4327|15.1230|0
+Albese con Cassano|CO|09|45.7949|9.1636|0
+Albettone|VI|20|45.3569|11.5818|0
+Albi|CZ|03|39.0250|16.5964|0
+Albiano d'Ivrea|TO|12|45.4330|7.9506|0
+Albiano|TN|17|46.1449|11.1935|0
+Albiate|MB|09|45.6571|9.2561|0
+Albidona|CS|03|39.9226|16.4702|0
+Albignasego|PD|20|45.3475|11.8672|0
+Albinea|RE|05|44.6245|10.6064|0
+Albino|BG|09|45.7638|9.7964|0
+Albiolo|CO|09|45.8056|8.9392|0
+Albisola Superiore|SV|08|44.3667|8.4667|0
+Albissola Marina|SV|08|44.3309|8.5030|0
+Albizzate|VA|09|45.7292|8.8016|0
+Albonese|PV|09|45.2923|8.7066|0
+Albosaggia|SO|09|46.1475|9.8541|0
+Albugnano|AT|12|45.0776|7.9711|0
+Albuzzano|PV|09|45.1877|9.2728|0
+Alcamo|TP|15|37.9984|12.9565|0
+Alcara li Fusi|ME|15|38.0220|14.7009|0
+Aldeno|TN|17|45.9781|11.0934|0
+Aldino/Aldein|BZ|17|46.3658|11.3551|0
+Ales|OR|14|39.7683|8.8156|0
+Alessandria del Carretto|CS|03|39.9581|16.3795|0
+Alessandria della Rocca|AG|15|37.5664|13.4534|0
+Alessandria|AL|12|44.9124|8.6189|1
+Alessano|LE|13|39.8886|18.3310|0
+Alezio|LE|13|40.0613|18.0582|0
+Alfano|SA|04|40.1775|15.4252|0
+Alfedena|AQ|01|41.7363|14.0385|0
+Alfianello|BS|09|45.2670|10.1482|0
+Alfiano Natta|AL|12|45.0485|8.2083|0
+Alfonsine|RA|05|44.5053|12.0403|0
+Alghero|SS|14|40.5569|8.3211|0
+Algua|BG|09|45.8027|9.7499|0
+Alì Terme|ME|15|38.0051|15.4227|0
+Alì|ME|15|38.0274|15.4177|0
+Alia|PA|15|37.7799|13.7139|0
+Aliano|MT|02|40.3131|16.2311|0
+Alice Bel Colle|AL|12|44.7261|8.4507|0
+Alice Castello|VC|12|45.3652|8.0729|0
+Alife|CE|04|41.3261|14.3340|0
+Alimena|PA|15|37.6936|14.1137|0
+Aliminusa|PA|15|37.8640|13.7813|0
+Allai|OR|14|39.9571|8.8633|0
+Alleghe|BL|20|46.4072|12.0247|0
+Allein|AO|19|45.8076|7.2714|0
+Allerona|TR|18|42.8120|11.9731|0
+Alliste|LE|13|39.9486|18.0888|0
+Allumiere|RM|07|42.1562|11.9040|0
+Alluvioni Piovera|AL|12|44.9678|8.7536|0
+Almè|BG|09|45.7360|9.6142|0
+Almenno San Bartolomeo|BG|09|45.7427|9.5823|0
+Almenno San Salvatore|BG|09|45.7502|9.5962|0
+Almese|TO|12|45.1191|7.4011|0
+Alonte|VI|20|45.3659|11.4271|0
+Alpago|BL|20|46.1308|12.3650|0
+Alpette|TO|12|45.4094|7.5773|0
+Alpignano|TO|12|45.1020|7.5266|0
+Alseno|PC|05|44.8984|9.9614|0
+Alserio|CO|09|45.7789|9.2001|0
+Alta Val Tidone|PC|05|44.8991|9.3590|0
+Alta Valle Intelvi|CO|09|45.9757|9.0364|0
+Altamura|BA|13|40.8292|16.5537|0
+Altare|SV|08|44.3352|8.3430|0
+Altavalle|TN|17|46.2244|11.2687|0
+Altavilla Irpina|AV|04|41.0070|14.7813|0
+Altavilla Milicia|PA|15|38.0378|13.5483|0
+Altavilla Monferrato|AL|12|44.9935|8.3759|0
+Altavilla Silentina|SA|04|40.5313|15.1310|0
+Altavilla Vicentina|VI|20|45.5155|11.4587|0
+Altidona|FM|10|43.1084|13.7973|0
+Altilia|CS|03|39.1305|16.2527|0
+Altino|CH|01|42.0993|14.3316|0
+Altissimo|VI|20|45.6143|11.2519|0
+Altivole|TV|20|45.7537|11.9562|0
+Alto Reno Terme|BO|05|44.1287|10.9372|0
+Alto Sermenza|VC|12|45.8766|8.0290|0
+Alto|CN|12|44.1086|8.0022|0
+Altofonte|PA|15|38.0421|13.2963|0
+Altomonte|CS|03|39.6958|16.1393|0
+Altopascio|LU|16|43.8157|10.6739|0
+Altopiano della Vigolana|TN|17|45.9881|11.2013|0
+Alviano|TR|18|42.5886|12.2976|0
+Alvignano|CE|04|41.2447|14.3356|0
+Alvito|FR|07|41.6895|13.7442|0
+Alzano Lombardo|BG|09|45.7334|9.7287|0
+Alzano Scrivia|AL|12|45.0181|8.8806|0
+Alzate Brianza|CO|09|45.7698|9.1820|0
+Amalfi|SA|04|40.6348|14.6041|0
+Amandola|FM|10|42.9789|13.3546|0
+Amantea|CS|03|39.1332|16.0746|0
+Amaro|UD|06|46.3742|13.0955|0
+Amaroni|CZ|03|38.7931|16.4481|0
+Amaseno|FR|07|41.4678|13.3360|0
+Amato|CZ|03|38.9418|16.4622|0
+Amatrice|RI|07|42.6266|13.2951|0
+Ambivere|BG|09|45.7196|9.5502|0
+Amblar-Don|TN|17|46.3865|11.1726|0
+Ameglia|SP|08|44.0677|9.9652|0
+Amelia|TR|18|42.5523|12.4182|0
+Amendolara|CS|03|39.9521|16.5824|0
+Ameno|NO|12|45.7887|8.4409|0
+Amorosi|BN|04|41.2031|14.4638|0
+Ampezzo|UD|06|46.4170|12.7896|0
+Anacapri|NA|04|40.5558|14.2136|0
+Anagni|FR|07|41.7447|13.1527|0
+Ancarano|TE|01|42.8361|13.7394|0
+Ancona|AN|10|43.5982|13.5101|1
+Andali|CZ|03|39.0134|16.7684|0
+Andalo Valtellino|SO|09|46.1360|9.4738|0
+Andalo|TN|17|46.1651|11.0041|0
+Andezeno|TO|12|45.0378|7.8705|0
+Andora|SV|08|43.9519|8.1456|0
+Andorno Micca|BI|12|45.6093|8.0527|0
+Andrano|LE|13|39.9832|18.3825|0
+Andrate|TO|12|45.5274|7.8803|0
+Andreis|PN|06|46.2009|12.6139|0
+Andretta|AV|04|40.9374|15.3248|0
+Andria|BT|13|41.2306|16.2909|1
+Andriano/Andrian|BZ|17|46.5176|11.2314|0
+Anela|SS|14|40.4418|9.0574|0
+Anfo|BS|09|45.7664|10.4938|0
+Angera|VA|09|45.7774|8.5900|0
+Anghiari|AR|16|43.5408|12.0595|0
+Angiari|VR|20|45.2232|11.2768|0
+Angolo Terme|BS|09|45.8914|10.1478|0
+Angri|SA|04|40.7427|14.5714|0
+Angrogna|TO|12|44.8435|7.2242|0
+Anguillara Sabazia|RM|07|42.0875|12.2767|0
+Anguillara Veneta|PD|20|45.1386|11.8886|0
+Annicco|CR|09|45.2446|9.8795|0
+Annone di Brianza|LC|09|45.8029|9.3304|0
+Annone Veneto|VE|20|45.7955|12.6842|0
+Anoia|RC|03|38.4362|16.0794|0
+Antegnate|BG|09|45.4865|9.7915|0
+Anterivo/Altrei|BZ|17|46.2785|11.3663|0
+Antey-Saint-André|AO|19|45.8067|7.5888|0
+Anticoli Corrado|RM|07|42.0095|12.9891|0
+Antignano|AT|12|44.8454|8.1349|0
+Antillo|ME|15|37.9773|15.2448|0
+Antonimina|RC|03|38.2723|16.1484|0
+Antrodoco|RI|07|42.4161|13.0787|0
+Antrona Schieranco|VB|12|46.0604|8.1146|0
+Anversa degli Abruzzi|AQ|01|41.9938|13.8039|0
+Anzano del Parco|CO|09|45.7704|9.2095|0
+Anzano di Puglia|FG|13|41.1225|15.2844|0
+Anzi|PZ|02|40.5166|15.9246|0
+Anzio|RM|07|41.4853|12.6179|0
+Anzola d'Ossola|VB|12|45.9890|8.3445|0
+Anzola dell'Emilia|BO|05|44.5464|11.1946|0
+Aosta|AO|19|45.7374|7.3166|1
+Apecchio|PU|10|43.5585|12.4209|0
+Apice|BN|04|41.1201|14.9310|0
+Apiro|MC|10|43.3900|13.1315|0
+Apollosa|BN|04|41.0941|14.7053|0
+Appiano Gentile|CO|09|45.7376|8.9787|0
+Appiano sulla strada del vino/Eppan an der Weinstraße|BZ|17|46.4547|11.2618|0
+Appignano del Tronto|AP|10|42.8995|13.6619|0
+Appignano|MC|10|43.3628|13.3477|0
+Aprica|SO|09|46.1527|10.1517|0
+Apricale|IM|08|43.8806|7.6593|0
+Apricena|FG|13|41.7839|15.4437|0
+Aprigliano|CS|03|39.2410|16.3410|0
+Aprilia|LT|07|41.5895|12.6501|0
+Aquara|SA|04|40.4439|15.2539|0
+Aquila d'Arroscia|IM|08|44.0859|8.0053|0
+Aquileia|UD|06|45.7674|13.3640|0
+Aquilonia|AV|04|40.9867|15.4745|0
+Aquino|FR|07|41.4911|13.7047|0
+Aradeo|LE|13|40.1309|18.1296|0
+Aragona|AG|15|37.4008|13.6176|0
+Aramengo|AT|12|45.1009|8.0000|0
+Arba|PN|06|46.1469|12.7903|0
+Arborea|OR|14|39.7729|8.5804|0
+Arborio|VC|12|45.4950|8.3853|0
+Arbus|SU|14|39.5258|8.5978|0
+Arcade|TV|20|45.7836|12.2217|0
+Arce|FR|07|41.5866|13.5736|0
+Arcene|BG|09|45.5756|9.6141|0
+Arcevia|AN|10|43.5002|12.9413|0
+Archi|CH|01|42.0899|14.3812|0
+Arcidosso|GR|16|42.8716|11.5383|0
+Arcinazzo Romano|RM|07|41.8797|13.1144|0
+Arcisate|VA|09|45.8558|8.8682|0
+Arco|TN|17|45.9199|10.8848|0
+Arcola|SP|08|44.1185|9.9127|0
+Arcole|VR|20|45.3568|11.2845|0
+Arconate|MI|09|45.5420|8.8485|0
+Arcore|MB|09|45.6267|9.3255|0
+Arcugnano|VI|20|45.4958|11.5477|0
+Ardara|SS|14|40.6218|8.8103|0
+Ardauli|OR|14|40.0847|8.9115|0
+Ardea|RM|07|41.6087|12.5194|0
+Ardenno|SO|09|46.1643|9.6449|0
+Ardesio|BG|09|45.9375|9.9312|0
+Ardore|RC|03|38.1914|16.1680|0
+Arena Po|PV|09|45.0967|9.3625|0
+Arena|VV|03|38.5628|16.2099|0
+Arenzano|GE|08|44.4027|8.6745|0
+Arese|MI|09|45.5523|9.0765|0
+Arezzo|AR|16|43.4723|11.8690|1
+Argegno|CO|09|45.9430|9.1256|0
+Argelato|BO|05|44.6416|11.3478|0
+Argenta|FE|05|44.6124|11.8356|0
+Argentera|CN|12|44.3962|6.9382|0
+Arguello|CN|12|44.5827|8.1108|0
+Argusto|CZ|03|38.6808|16.4354|0
+Ari|CH|01|42.2923|14.2630|0
+Ariano Irpino|AV|04|41.1489|15.0833|0
+Ariano nel Polesine|RO|20|44.9461|12.1249|0
+Ariccia|RM|07|41.7201|12.6759|0
+Arielli|CH|01|42.2619|14.3075|0
+Arienzo|CE|04|41.0281|14.5006|0
+Arignano|TO|12|45.0391|7.8979|0
+Aritzo|NU|14|39.9567|9.1964|0
+Arizzano|VB|12|45.9574|8.5829|0
+Arlena di Castro|VT|07|42.4628|11.8207|0
+Arluno|MI|09|45.5051|8.9415|0
+Armeno|NO|12|45.8238|8.4372|0
+Armento|PZ|02|40.3077|16.0650|0
+Armo|IM|08|44.0877|7.9154|0
+Armungia|SU|14|39.5217|9.3819|0
+Arnad|AO|19|45.6473|7.7170|0
+Arnara|FR|07|41.5845|13.3884|0
+Arnasco|SV|08|44.0782|8.1075|0
+Arnesano|LE|13|40.3371|18.0909|0
+Arola|VB|12|45.8085|8.3570|0
+Arona|NO|12|45.7493|8.5558|0
+Arosio|CO|09|45.7170|9.2080|0
+Arpaia|BN|04|41.0373|14.5500|0
+Arpaise|BN|04|41.0313|14.7443|0
+Arpino|FR|07|41.6474|13.6088|0
+Arquà Petrarca|PD|20|45.2704|11.7206|0
+Arquà Polesine|RO|20|45.0101|11.7398|0
+Arquata del Tronto|AP|10|42.7726|13.2963|0
+Arquata Scrivia|AL|12|44.6917|8.8807|0
+Arre|PD|20|45.2181|11.9242|0
+Arrone|TR|18|42.5826|12.7765|0
+Arsago Seprio|VA|09|45.6884|8.7346|0
+Arsiè|BL|20|45.9830|11.7583|0
+Arsiero|VI|20|45.8029|11.3542|0
+Arsita|TE|01|42.5021|13.7828|0
+Arsoli|RM|07|42.0405|13.0184|0
+Arta Terme|UD|06|46.4817|13.0211|0
+Artegna|UD|06|46.2363|13.1528|0
+Artena|RM|07|41.7414|12.9035|0
+Artogne|BS|09|45.8499|10.1610|0
+Arvier|AO|19|45.7021|7.1658|0
+Arzachena|SS|14|41.0769|9.3887|0
+Arzago d'Adda|BG|09|45.4814|9.5641|0
+Arzana|NU|14|39.9190|9.5278|0
+Arzano|NA|04|40.9144|14.2671|0
+Arzergrande|PD|20|45.2728|12.0517|0
+Arzignano|VI|20|45.5193|11.3386|0
+Ascea|SA|04|40.1416|15.1858|0
+Asciano|SI|16|43.2351|11.5763|0
+Ascoli Piceno|AP|10|42.8589|13.5739|1
+Ascoli Satriano|FG|13|41.2061|15.5615|0
+Ascrea|RI|07|42.1962|12.9966|0
+Asiago|VI|20|45.8751|11.5076|0
+Asigliano Veneto|VI|20|45.3047|11.4464|0
+Asigliano Vercellese|VC|12|45.2615|8.4085|0
+Asola|MN|09|45.2211|10.4136|0
+Asolo|TV|20|45.7923|11.9117|0
+Assago|MI|09|45.4089|9.1257|0
+Assemini|CA|14|39.2915|9.0015|0
+Assisi|PG|18|43.0691|12.6165|0
+Asso|CO|09|45.8606|9.2696|0
+Assolo|OR|14|39.8100|8.9182|0
+Assoro|EN|15|37.6253|14.4217|0
+Asti|AT|12|44.8980|8.2068|1
+Asuni|OR|14|39.8725|8.9464|0
+Ateleta|AQ|01|41.8554|14.1975|0
+Atella|PZ|02|40.8803|15.6502|0
+Atena Lucana|SA|04|40.4551|15.5573|0
+Atessa|CH|01|42.0693|14.4511|0
+Atina|FR|07|41.6206|13.7997|0
+Atrani|SA|04|40.6369|14.6075|0
+Atri|TE|01|42.5778|13.9848|0
+Atripalda|AV|04|40.9158|14.8246|0
+Attigliano|TR|18|42.5142|12.2925|0
+Attimis|UD|06|46.1893|13.3071|0
+Atzara|NU|14|39.9922|9.0757|0
+Augusta|SR|15|37.2639|15.1495|0
+Auletta|SA|04|40.5615|15.4254|0
+Aulla|MS|16|44.2146|9.9678|0
+Aurano|VB|12|46.0004|8.5882|0
+Aurigo|IM|08|43.9827|7.9225|0
+Auronzo di Cadore|BL|20|46.5626|12.4171|0
+Ausonia|FR|07|41.3602|13.7510|0
+Austis|NU|14|40.0707|9.0879|0
+Avegno|GE|08|44.3828|9.1580|0
+Avelengo/Hafling|BZ|17|46.6444|11.2237|0
+Avella|AV|04|40.9589|14.6005|0
+Avellino|AV|04|40.9144|14.7887|1
+Averara|BG|09|45.9883|9.6305|0
+Aversa|CE|04|40.9732|14.2049|0
+Avetrana|TA|13|40.3529|17.7349|0
+Avezzano|AQ|01|42.0402|13.4388|0
+Aviano|PN|06|46.0789|12.5849|0
+Aviatico|BG|09|45.7976|9.7714|0
+Avigliana|TO|12|45.0772|7.3986|0
+Avigliano Umbro|TR|18|42.6548|12.4262|0
+Avigliano|PZ|02|40.7297|15.7203|0
+Avio|TN|17|45.7338|10.9372|0
+Avise|AO|19|45.7089|7.1399|0
+Avola|SR|15|36.9113|15.1395|0
+Avolasca|AL|12|44.8032|8.9655|0
+Ayas|AO|19|45.8151|7.6891|0
+Aymavilles|AO|19|45.7018|7.2456|0
+Azeglio|TO|12|45.4235|7.9939|0
+Azzanello|CR|09|45.3140|9.9197|0
+Azzano d'Asti|AT|12|44.8734|8.2668|0
+Azzano Decimo|PN|06|45.8943|12.6945|0
+Azzano Mella|BS|09|45.4546|10.1172|0
+Azzano San Paolo|BG|09|45.6580|9.6730|0
+Azzate|VA|09|45.7804|8.7931|0
+Azzio|VA|09|45.8847|8.7085|0
+Azzone|BG|09|45.9789|10.1118|0
+Baceno|VB|12|46.2609|8.3202|0
+Bacoli|NA|04|40.7995|14.0783|0
+Badalucco|IM|08|43.9173|7.8457|0
+Badesi|SS|14|40.9651|8.8842|0
+Badia Calavena|VR|20|45.5664|11.1526|0
+Badia Pavese|PV|09|45.1209|9.4687|0
+Badia Polesine|RO|20|45.0972|11.4916|0
+Badia Tedalda|AR|16|43.7073|12.1864|0
+Badia/Abtei|BZ|17|46.6101|11.8935|0
+Badolato|CZ|03|38.5687|16.5246|0
+Bagaladi|RC|03|38.0267|15.8214|0
+Bagheria|PA|15|38.0793|13.5093|0
+Bagnacavallo|RA|05|44.4125|11.9771|0
+Bagnara Calabra|RC|03|38.2885|15.8078|0
+Bagnara di Romagna|RA|05|44.3906|11.8300|0
+Bagnaria Arsa|UD|06|45.8849|13.2860|0
+Bagnaria|PV|09|44.8273|9.1226|0
+Bagnasco|CN|12|44.3013|8.0431|0
+Bagnatica|BG|09|45.6609|9.7811|0
+Bagni di Lucca|LU|16|44.0087|10.5785|0
+Bagno a Ripoli|FI|16|43.7512|11.3225|0
+Bagno di Romagna|FC|05|43.8378|11.9610|0
+Bagnoli del Trigno|IS|11|41.7030|14.4565|0
+Bagnoli di Sopra|PD|20|45.1876|11.8849|0
+Bagnoli Irpino|AV|04|40.8331|15.0725|0
+Bagnolo Cremasco|CR|09|45.3612|9.6130|0
+Bagnolo del Salento|LE|13|40.1506|18.3526|0
+Bagnolo di Po|RO|20|45.0155|11.5009|0
+Bagnolo in Piano|RE|05|44.7630|10.6733|0
+Bagnolo Mella|BS|09|45.4291|10.1844|0
+Bagnolo Piemonte|CN|12|44.7603|7.3139|0
+Bagnolo San Vito|MN|09|45.0897|10.8754|0
+Bagnone|MS|16|44.3139|9.9906|0
+Bagnoregio|VT|07|42.6290|12.0884|0
+Bagolino|BS|09|45.8252|10.4595|0
+Baia e Latina|CE|04|41.3029|14.2521|0
+Baiano|AV|04|40.9525|14.6167|0
+Bairo|TO|12|45.3861|7.7553|0
+Baiso|RE|05|44.5011|10.6038|0
+Bajardo|IM|08|43.9040|7.7253|0
+Balangero|TO|12|45.2704|7.5174|0
+Baldichieri d'Asti|AT|12|44.9059|8.0916|0
+Baldissero Canavese|TO|12|45.4103|7.7442|0
+Baldissero d'Alba|CN|12|44.7618|7.9086|0
+Baldissero Torinese|TO|12|45.0680|7.8116|0
+Balestrate|PA|15|38.0513|13.0072|0
+Balestrino|SV|08|44.1251|8.1714|0
+Ballabio|LC|09|45.8982|9.4234|0
+Ballao|SU|14|39.5498|9.3615|0
+Balme|TO|12|45.3028|7.2158|0
+Balmuccia|VC|12|45.8188|8.1417|0
+Balocco|VC|12|45.4553|8.2801|0
+Balsorano|AQ|01|41.8000|13.5667|0
+Balvano|PZ|02|40.6503|15.5142|0
+Balzola|AL|12|45.1836|8.4034|0
+Banari|SS|14|40.5706|8.7005|0
+Banchette|TO|12|45.4536|7.8563|0
+Bannio Anzino|VB|12|45.9840|8.1461|0
+Banzi|PZ|02|40.8606|16.0130|0
+Baone|PD|20|45.2436|11.6881|0
+Baradili|OR|14|39.7213|8.8974|0
+Baragiano|PZ|02|40.6793|15.5945|0
+Baranello|CB|11|41.5260|14.5594|0
+Barano d'Ischia|NA|04|40.7180|13.9309|0
+Baranzate|MI|09|45.5272|9.1172|0
+Barasso|VA|09|45.8405|8.7568|0
+Baratili San Pietro|OR|14|39.9928|8.5557|0
+Barbania|TO|12|45.2912|7.6303|0
+Barbara|AN|10|43.5804|13.0274|0
+Barbarano Mossano|VI|20|45.4087|11.5708|0
+Barbarano Romano|VT|07|42.2495|12.0668|0
+Barbaresco|CN|12|44.7232|8.0819|0
+Barbariga|BS|09|45.4051|10.0544|0
+Barbata|BG|09|45.4750|9.7774|0
+Barberino di Mugello|FI|16|44.0027|11.2371|0
+Barberino Tavarnelle|FI|16|43.5406|11.2040|0
+Barbianello|PV|09|45.0767|9.2051|0
+Barbiano/Barbian|BZ|17|46.6033|11.5214|0
+Barbona|PD|20|45.1028|11.7026|0
+Barcellona Pozzo di Gotto|ME|15|38.1476|15.2105|0
+Barcis|PN|06|46.1908|12.5589|0
+Bard|AO|19|45.6094|7.7449|0
+Bardello con Malgesso e Bregano|VA|09|45.8285|8.6848|0
+Bardi|PR|05|44.6330|9.7302|0
+Bardineto|SV|08|44.1904|8.1366|0
+Bardolino|VR|20|45.5434|10.7259|0
+Bardonecchia|TO|12|45.0783|6.7032|0
+Bareggio|MI|09|45.4877|8.9999|0
+Barengo|NO|12|45.5760|8.5140|0
+Baressa|OR|14|39.7127|8.8753|0
+Barete|AQ|01|42.4505|13.2821|0
+Barga|LU|16|44.0742|10.4808|0
+Bargagli|GE|08|44.4472|9.0918|0
+Barge|CN|12|44.7275|7.3210|0
+Barghe|BS|09|45.6819|10.4122|0
+Bari Sardo|NU|14|39.8421|9.6441|0
+Bari|BA|13|41.1177|16.8512|1
+Bariano|BG|09|45.5126|9.7037|0
+Baricella|BO|05|44.6467|11.5345|0
+Barile|PZ|02|40.9463|15.6727|0
+Barisciano|AQ|01|42.3244|13.5924|0
+Barlassina|MB|09|45.6543|9.1297|0
+Barletta|BT|13|41.3118|16.2908|1
+Barni|CO|09|45.9113|9.2651|0
+Barolo|CN|12|44.6109|7.9428|0
+Barone Canavese|TO|12|45.3258|7.8734|0
+Baronissi|SA|04|40.7477|14.7708|0
+Barrafranca|EN|15|37.3791|14.2011|0
+Barrali|SU|14|39.4755|9.1006|0
+Barrea|AQ|01|41.7559|13.9925|0
+Barumini|SU|14|39.7015|9.0027|0
+Barzago|LC|09|45.7555|9.3142|0
+Barzana|BG|09|45.7356|9.5673|0
+Barzanò|LC|09|45.7355|9.3131|0
+Barzio|LC|09|45.9500|9.4667|0
+Basaluzzo|AL|12|44.7689|8.7049|0
+Bascapè|PV|09|45.3083|9.3134|0
+Baschi|TR|18|42.6728|12.2180|0
+Basciano|TE|01|42.5937|13.7401|0
+Baselga di Pinè|TN|17|46.1323|11.2472|0
+Baselice|BN|04|41.3937|14.9728|0
+Basiano|MI|09|45.5825|9.4633|0
+Basicò|ME|15|38.0616|15.0634|0
+Basiglio|MI|09|45.3592|9.1585|0
+Basiliano|UD|06|46.0163|13.1071|0
+Bassano Bresciano|BS|09|45.3272|10.1284|0
+Bassano del Grappa|VI|20|45.7676|11.7357|0
+Bassano in Teverina|VT|07|42.4659|12.3118|0
+Bassano Romano|VT|07|42.2244|12.1892|0
+Bassiano|LT|07|41.5504|13.0319|0
+Bassignana|AL|12|45.0012|8.7309|0
+Bastia Mondovì|CN|12|44.4419|7.8944|0
+Bastia Umbra|PG|18|43.0679|12.5456|0
+Bastida Pancarana|PV|09|45.0861|9.0852|0
+Bastiglia|MO|05|44.7270|10.9986|0
+Battaglia Terme|PD|20|45.2860|11.7815|0
+Battifollo|CN|12|44.3198|8.0109|0
+Battipaglia|SA|04|40.6109|14.9852|0
+Battuda|PV|09|45.2747|9.0780|0
+Baucina|PA|15|37.9250|13.5373|0
+Bauladu|OR|14|40.0206|8.6719|0
+Baunei|NU|14|40.0320|9.6629|0
+Baveno|VB|12|45.9084|8.4996|0
+Bedero Valcuvia|VA|09|45.9109|8.7955|0
+Bedizzole|BS|09|45.5104|10.4233|0
+Bedollo|TN|17|46.1655|11.2999|0
+Bedonia|PR|05|44.4980|9.6328|0
+Bedulita|BG|09|45.7914|9.5517|0
+Bee|VB|12|45.9633|8.5754|0
+Beinasco|TO|12|45.0231|7.5839|0
+Beinette|CN|12|44.3648|7.6467|0
+Belcastro|CZ|03|39.0180|16.7864|0
+Belfiore|VR|20|45.3823|11.2095|0
+Belforte all'Isauro|PU|10|43.7168|12.3758|0
+Belforte del Chienti|MC|10|43.1626|13.2454|0
+Belforte Monferrato|AL|12|44.6251|8.6613|0
+Belgioioso|PV|09|45.1586|9.3138|0
+Belgirate|VB|12|45.8389|8.5714|0
+Bella|PZ|02|40.7609|15.5406|0
+Bellagio|CO|09|45.9875|9.2620|0
+Bellano|LC|09|46.0433|9.3061|0
+Bellante|TE|01|42.7418|13.8102|0
+Bellaria-Igea Marina|RN|05|44.1386|12.4693|0
+Bellegra|RM|07|41.8834|13.0268|0
+Bellino|CN|12|44.5806|7.0171|0
+Bellinzago Lombardo|MI|09|45.5421|9.4459|0
+Bellinzago Novarese|NO|12|45.5688|8.6432|0
+Bellizzi|SA|04|40.6198|14.9468|0
+Bellona|CE|04|41.1600|14.2323|0
+Bellosguardo|SA|04|40.4233|15.3142|0
+Belluno|BL|20|46.1494|12.2161|1
+Bellusco|MB|09|45.6196|9.4191|0
+Belmonte Calabro|CS|03|39.1624|16.0863|0
+Belmonte Castello|FR|07|41.5774|13.8158|0
+Belmonte del Sannio|IS|11|41.8239|14.4221|0
+Belmonte in Sabina|RI|07|42.3173|12.8914|0
+Belmonte Mezzagno|PA|15|38.0457|13.3947|0
+Belmonte Piceno|FM|10|43.0917|13.5394|0
+Belpasso|CT|15|37.5947|14.9834|0
+Belsito|CS|03|39.1772|16.2883|0
+Belvedere di Spinello|KR|03|39.2099|16.8882|0
+Belvedere Langhe|CN|12|44.4930|7.9746|0
+Belvedere Marittimo|CS|03|39.6179|15.8617|0
+Belvedere Ostrense|AN|10|43.5822|13.1687|0
+Belveglio|AT|12|44.8299|8.3283|0
+Belvì|NU|14|39.9624|9.1852|0
+Bema|SO|09|46.1082|9.5641|0
+Bene Lario|CO|09|46.0290|9.1841|0
+Bene Vagienna|CN|12|44.5433|7.8283|0
+Benestare|RC|03|38.1854|16.1370|0
+Benetutti|SS|14|40.4565|9.1688|0
+Benevello|CN|12|44.6298|8.1041|0
+Benevento|BN|04|41.1295|14.7861|1
+Benna|BI|12|45.5137|8.1266|0
+Bentivoglio|BO|05|44.6346|11.4180|0
+Berbenno di Valtellina|SO|09|46.1678|9.7452|0
+Berbenno|BG|09|45.8148|9.5710|0
+Berceto|PR|05|44.5106|9.9898|0
+Berchidda|SS|14|40.7841|9.1645|0
+Beregazzo con Figliaro|CO|09|45.7807|8.9441|0
+Bereguardo|PV|09|45.2571|9.0274|0
+Bergamasco|AL|12|44.8272|8.4547|0
+Bergamo|BG|09|45.6980|9.6690|1
+Bergantino|RO|20|45.0611|11.2517|0
+Bergeggi|SV|08|44.2497|8.4434|0
+Bergolo|CN|12|44.5478|8.1831|0
+Berlingo|BS|09|45.5030|10.0437|0
+Bernalda|MT|02|40.4128|16.6920|0
+Bernareggio|MB|09|45.6478|9.4050|0
+Bernate Ticino|MI|09|45.4774|8.8176|0
+Bernezzo|CN|12|44.3853|7.4363|0
+Bertinoro|FC|05|44.1487|12.1342|0
+Bertiolo|UD|06|45.9441|13.0543|0
+Bertonico|LO|09|45.2331|9.6681|0
+Berzano di San Pietro|AT|12|45.0947|7.9528|0
+Berzano di Tortona|AL|12|44.8775|8.9513|0
+Berzo Demo|BS|09|46.1000|10.3167|0
+Berzo Inferiore|BS|09|45.9310|10.2797|0
+Berzo San Fermo|BG|09|45.7194|9.9032|0
+Besana in Brianza|MB|09|45.7038|9.2859|0
+Besano|VA|09|45.8890|8.8910|0
+Besate|MI|09|45.3130|8.9696|0
+Besenello|TN|17|45.9426|11.1104|0
+Besenzone|PC|05|44.9861|9.9537|0
+Besnate|VA|09|45.6977|8.7677|0
+Besozzo|VA|09|45.8520|8.6692|0
+Bessude|SS|14|40.5554|8.7267|0
+Bettola|PC|05|44.7783|9.6086|0
+Bettona|PG|18|43.0126|12.4855|0
+Beura-Cardezza|VB|12|46.0796|8.2997|0
+Bevagna|PG|18|42.9337|12.6084|0
+Beverino|SP|08|44.1974|9.7844|0
+Bevilacqua|VR|20|45.2318|11.3925|0
+Biancavilla|CT|15|37.6452|14.8671|0
+Bianchi|CS|03|39.1009|16.4101|0
+Bianco|RC|03|38.0907|16.1493|0
+Biandrate|NO|12|45.4527|8.4624|0
+Biandronno|VA|09|45.8151|8.7100|0
+Bianzano|BG|09|45.7731|9.9182|0
+Bianzè|VC|12|45.3085|8.1225|0
+Bianzone|SO|09|46.1882|10.1093|0
+Biassono|MB|09|45.6299|9.2705|0
+Bibbiano|RE|05|44.6644|10.4803|0
+Bibbiena|AR|16|43.6966|11.8135|0
+Bibbona|LI|16|43.2687|10.5936|0
+Bibiana|TO|12|44.7989|7.2882|0
+Biccari|FG|13|41.3961|15.1944|0
+Bicinicco|UD|06|45.9358|13.2511|0
+Bidonì|OR|14|40.1131|8.9364|0
+Biella|BI|12|45.5599|8.0500|1
+Bienno|BS|09|45.9358|10.2934|0
+Bieno|TN|17|46.0815|11.5561|0
+Bientina|PI|16|43.7063|10.6197|0
+Binago|CO|09|45.7822|8.9223|0
+Binasco|MI|09|45.3319|9.0991|0
+Binetto|BA|13|41.0234|16.7099|0
+Bioglio|BI|12|45.6152|8.1360|0
+Bionaz|AO|19|45.8736|7.4231|0
+Bione|BS|09|45.6728|10.3389|0
+Birori|NU|14|40.2648|8.8176|0
+Bisaccia|AV|04|41.0121|15.3748|0
+Bisacquino|PA|15|37.7024|13.2598|0
+Bisceglie|BT|13|41.2420|16.5044|0
+Bisegna|AQ|01|41.9211|13.7576|0
+Bisenti|TE|01|42.5287|13.8005|0
+Bisignano|CS|03|39.5059|16.2772|0
+Bistagno|AL|12|44.6601|8.3703|0
+Bisuschio|VA|09|45.8715|8.8684|0
+Bitetto|BA|13|41.0386|16.7469|0
+Bitonto|BA|13|41.1108|16.6894|0
+Bitritto|BA|13|41.0445|16.8252|0
+Bitti|NU|14|40.4796|9.3840|0
+Bivona|AG|15|37.6193|13.4383|0
+Bivongi|RC|03|38.4833|16.4525|0
+Bizzarone|CO|09|45.8343|8.9427|0
+Bleggio Superiore|TN|17|46.0248|10.8384|0
+Blello|BG|09|45.8378|9.5710|0
+Blera|VT|07|42.2725|12.0317|0
+Blessagno|CO|09|45.9591|9.0975|0
+Blevio|CO|09|45.8422|9.1051|0
+Blufi|PA|15|37.7520|14.0730|0
+Boara Pisani|PD|20|45.1081|11.7827|0
+Bobbio Pellice|TO|12|44.8085|7.1169|0
+Bobbio|PC|05|44.7706|9.3854|0
+Boca|NO|12|45.6790|8.4087|0
+Bocchigliero|CS|03|39.4198|16.7490|0
+Boccioleto|VC|12|45.8305|8.1128|0
+Bocenago|TN|17|46.1191|10.7589|0
+Bodio Lomnago|VA|09|45.7887|8.7508|0
+Boffalora d'Adda|LO|09|45.3598|9.4942|0
+Boffalora sopra Ticino|MI|09|45.4679|8.8385|0
+Bogliasco|GE|08|44.3790|9.0680|0
+Bognanco|VB|12|46.1167|8.2000|0
+Bogogno|NO|12|45.6631|8.5347|0
+Boissano|SV|08|44.1358|8.2216|0
+Bojano|CB|11|41.4857|14.4729|0
+Bolano|SP|08|44.1885|9.8965|0
+Bolgare|BG|09|45.6351|9.8129|0
+Bollate|MI|09|45.5465|9.1205|0
+Bollengo|TO|12|45.4709|7.9420|0
+Bologna|BO|05|44.5066|11.3504|1
+Bolognano|PE|01|42.2181|13.9601|0
+Bolognetta|PA|15|37.9656|13.4568|0
+Bolognola|MC|10|42.9939|13.2283|0
+Bolotana|NU|14|40.3258|8.9611|0
+Bolsena|VT|07|42.6438|11.9851|0
+Boltiere|BG|09|45.6009|9.5785|0
+Bolzano Novarese|NO|12|45.7640|8.4449|0
+Bolzano Vicentino|VI|20|45.6037|11.6233|0
+Bolzano/Bozen|BZ|17|46.4927|11.3336|1
+Bomarzo|VT|07|42.4819|12.2488|0
+Bomba|CH|01|42.0343|14.3671|0
+Bompensiere|CL|15|37.4743|13.7813|0
+Bompietro|PA|15|37.7450|14.0930|0
+Bomporto|MO|05|44.7298|11.0384|0
+Bonarcado|OR|14|40.0958|8.6571|0
+Bonassola|SP|08|44.1847|9.5825|0
+Bonate Sopra|BG|09|45.6834|9.5597|0
+Bonate Sotto|BG|09|45.6682|9.5587|0
+Bonavigo|VR|20|45.2597|11.2796|0
+Bondeno|FE|05|44.8862|11.4108|0
+Bondone|TN|17|45.8065|10.5503|0
+Bonea|BN|04|41.0752|14.6189|0
+Bonefro|CB|11|41.7045|14.9333|0
+Bonemerse|CR|09|45.1137|10.0775|0
+Bonifati|CS|03|39.5853|15.9003|0
+Bonito|AV|04|41.0977|15.0013|0
+Bonnanaro|SS|14|40.5334|8.7644|0
+Bono|SS|14|40.4146|9.0323|0
+Bonorva|SS|14|40.4188|8.7681|0
+Bonvicino|CN|12|44.5035|8.0175|0
+Borbona|RI|07|42.5125|13.1360|0
+Borca di Cadore|BL|20|46.4364|12.2196|0
+Bordano|UD|06|46.3153|13.1046|0
+Bordighera|IM|08|43.7845|7.6574|0
+Bordolano|CR|09|45.2923|9.9873|0
+Bore|PR|05|44.7187|9.7921|0
+Boretto|RE|05|44.9019|10.5543|0
+Borgarello|PV|09|45.2407|9.1405|0
+Borgaro Torinese|TO|12|45.1482|7.6567|0
+Borgetto|PA|15|38.0470|13.1435|0
+Borghetto d'Arroscia|IM|08|44.0577|7.9817|0
+Borghetto di Borbera|AL|12|44.7294|8.9435|0
+Borghetto di Vara|SP|08|44.2234|9.7201|0
+Borghetto Lodigiano|LO|09|45.2148|9.4993|0
+Borghetto Santo Spirito|SV|08|44.1154|8.2391|0
+Borghi|FC|05|44.0321|12.3556|0
+Borgia|CZ|03|38.8262|16.5088|0
+Borgiallo|TO|12|45.4171|7.6685|0
+Borgio Verezzi|SV|08|44.1607|8.3092|0
+Borgo a Mozzano|LU|16|43.9789|10.5457|0
+Borgo Chiese|TN|17|45.9009|10.5712|0
+Borgo d'Ale|VC|12|45.3517|8.0507|0
+Borgo d'Anaunia|TN|17|46.4406|11.1374|0
+Borgo di Terzo|BG|09|45.7208|9.8910|0
+Borgo Lares|TN|17|46.0061|10.7369|0
+Borgo Mantovano|MN|09|45.0269|11.1152|0
+Borgo Pace|PU|10|43.6585|12.2941|0
+Borgo Priolo|PV|09|44.9669|9.1479|0
+Borgo San Dalmazzo|CN|12|44.3330|7.4858|0
+Borgo San Giacomo|BS|09|45.3470|9.9685|0
+Borgo San Giovanni|LO|09|45.2779|9.4350|0
+Borgo San Lorenzo|FI|16|43.9554|11.3835|0
+Borgo San Martino|AL|12|45.0943|8.5246|0
+Borgo San Siro|PV|09|45.2351|8.9133|0
+Borgo Ticino|NO|12|45.6893|8.6018|0
+Borgo Tossignano|BO|05|44.2767|11.5902|0
+Borgo Val di Taro|PR|05|44.4871|9.7658|0
+Borgo Valbelluna|BL|20|46.0270|12.1062|0
+Borgo Valsugana|TN|17|46.0514|11.4544|0
+Borgo Velino|RI|07|42.4060|13.0593|0
+Borgo Veneto|PD|20|45.2135|11.5416|0
+Borgo Vercelli|VC|12|45.3579|8.4630|0
+Borgo Virgilio|MN|09|45.0827|10.7875|0
+Borgocarbonara|MN|09|45.0237|11.2156|0
+Borgofranco d'Ivrea|TO|12|45.5129|7.8580|0
+Borgolavezzaro|NO|12|45.3197|8.6995|0
+Borgomale|CN|12|44.6203|8.1322|0
+Borgomanero|NO|12|45.7024|8.4581|0
+Borgomaro|IM|08|43.9749|7.9451|0
+Borgomasino|TO|12|45.3633|7.9875|0
+Borgomezzavalle|VB|12|46.0480|8.1893|0
+Borgone Susa|TO|12|45.1228|7.2397|0
+Borgonovo Val Tidone|PC|05|45.0144|9.4435|0
+Borgoratto Alessandrino|AL|12|44.8362|8.5385|0
+Borgoratto Mormorolo|PV|09|44.9307|9.1933|0
+Borgoricco|PD|20|45.5352|11.9411|0
+Borgorose|RI|07|42.1890|13.2340|0
+Borgosatollo|BS|09|45.4808|10.2411|0
+Borgosesia|VC|12|45.7145|8.2799|0
+Bormida|SV|08|44.2781|8.2324|0
+Bormio|SO|09|46.4684|10.3720|0
+Bornasco|PV|09|45.2666|9.2180|0
+Borno|BS|09|45.9454|10.1979|0
+Boroneddu|OR|14|40.1131|8.8710|0
+Borore|NU|14|40.2169|8.8037|0
+Borrello|CH|01|41.9189|14.3044|0
+Borriana|BI|12|45.5062|8.0386|0
+Borso del Grappa|TV|20|45.8100|11.7877|0
+Bortigali|NU|14|40.2829|8.8362|0
+Bortigiadas|SS|14|40.8917|9.0435|0
+Borutta|SS|14|40.5224|8.7435|0
+Borzonasca|GE|08|44.4222|9.3866|0
+Bosa|OR|14|40.2981|8.4971|0
+Bosaro|RO|20|44.9988|11.7647|0
+Boschi Sant'Anna|VR|20|45.2177|11.3562|0
+Bosco Chiesanuova|VR|20|45.6193|11.0322|0
+Bosco Marengo|AL|12|44.8255|8.6773|0
+Bosconero|TO|12|45.2670|7.7629|0
+Boscoreale|NA|04|40.7756|14.4994|0
+Boscotrecase|NA|04|40.7743|14.4620|0
+Bosia|CN|12|44.6024|8.1473|0
+Bosio|AL|12|44.6497|8.7928|0
+Bosisio Parini|LC|09|45.8023|9.2907|0
+Bosnasco|PV|09|45.0645|9.3588|0
+Bossico|BG|09|45.8284|10.0451|0
+Bossolasco|CN|12|44.5293|8.0509|0
+Botricello|CZ|03|38.9320|16.8583|0
+Botrugno|LE|13|40.0647|18.3244|0
+Bottanuco|BG|09|45.6399|9.5064|0
+Botticino|BS|09|45.5360|10.3019|0
+Bottidda|SS|14|40.3915|9.0085|0
+Bova Marina|RC|03|37.9304|15.9175|0
+Bova|RC|03|37.9951|15.9319|0
+Bovalino|RC|03|38.1498|16.1770|0
+Bovegno|BS|09|45.7933|10.2739|0
+Boves|CN|12|44.3320|7.5514|0
+Bovezzo|BS|09|45.5915|10.2413|0
+Boville Ernica|FR|07|41.6425|13.4727|0
+Bovino|FG|13|41.2500|15.3333|0
+Bovisio-Masciago|MB|09|45.6100|9.1556|0
+Bovolenta|PD|20|45.2711|11.9360|0
+Bovolone|VR|20|45.2548|11.1263|0
+Bozzole|AL|12|45.0698|8.6064|0
+Bozzolo|MN|09|45.1025|10.4840|0
+Bra|CN|12|44.7030|7.8556|0
+Bracca|BG|09|45.8236|9.7088|0
+Bracciano|RM|07|42.1004|12.1662|0
+Bracigliano|SA|04|40.8235|14.7054|0
+Braies/Prags|BZ|17|46.7167|12.1167|0
+Brallo di Pregola|PV|09|44.7386|9.2824|0
+Brancaleone|RC|03|37.9667|16.1000|0
+Brandico|BS|09|45.4542|10.0527|0
+Brandizzo|TO|12|45.1773|7.8377|0
+Branzi|BG|09|46.0025|9.7593|0
+Braone|BS|09|45.9908|10.3426|0
+Brebbia|VA|09|45.8273|8.6462|0
+Breda di Piave|TV|20|45.7239|12.3326|0
+Breganze|VI|20|45.7057|11.5668|0
+Bregnano|CO|09|45.6960|9.0583|0
+Brembate di Sopra|BG|09|45.7167|9.5794|0
+Brembate|BG|09|45.6048|9.5565|0
+Brembio|LO|09|45.2146|9.5715|0
+Breme|PV|09|45.1276|8.6256|0
+Brendola|VI|20|45.4749|11.4423|0
+Brenna|CO|09|45.7430|9.1871|0
+Brennero/Brenner|BZ|17|47.0045|11.5051|0
+Breno|BS|09|45.9578|10.3048|0
+Brenta|VA|09|45.8942|8.6837|0
+Brentino Belluno|VR|20|45.6569|10.8937|0
+Brentonico|TN|17|45.8191|10.9551|0
+Brenzone sul Garda|VR|20|45.7000|10.7833|0
+Brescello|RE|05|44.8966|10.5123|0
+Brescia|BS|09|45.5248|10.2273|1
+Bresimo|TN|17|46.4118|10.9682|0
+Bressana Bottarone|PV|09|45.0789|9.1326|0
+Bressanone/Brixen|BZ|17|46.7089|11.6564|0
+Bressanvido|VI|20|45.6443|11.6343|0
+Bresso|MI|09|45.5379|9.1975|0
+Brezzo di Bedero|VA|09|45.9784|8.7174|0
+Briaglia|CN|12|44.3958|7.8757|0
+Briatico|VV|03|38.7260|16.0329|0
+Bricherasio|TO|12|44.8235|7.3054|0
+Brienno|CO|09|45.9092|9.1302|0
+Brienza|PZ|02|40.4775|15.6293|0
+Briga Alta|CN|12|44.0827|7.7494|0
+Briga Novarese|NO|12|45.7319|8.4567|0
+Brignano Gera d'Adda|BG|09|45.5466|9.6477|0
+Brignano-Frascata|AL|12|44.8128|9.0403|0
+Brindisi Montagna|PZ|02|40.6095|15.9398|0
+Brindisi|BR|13|40.6277|17.9368|1
+Brinzio|VA|09|45.8894|8.7896|0
+Briona|NO|12|45.5425|8.4797|0
+Brione|BS|09|45.6423|10.1485|0
+Briosco|MB|09|45.7101|9.2406|0
+Brisighella|RA|05|44.2217|11.7748|0
+Brissago-Valtravaglia|VA|09|45.9486|8.7461|0
+Brissogne|AO|19|45.7257|7.3926|0
+Brittoli|PE|01|42.3173|13.8616|0
+Brivio|LC|09|45.7392|9.4268|0
+Broccostella|FR|07|41.6997|13.6353|0
+Brogliano|VI|20|45.5892|11.3655|0
+Brognaturo|VV|03|38.6013|16.3414|0
+Brolo|ME|15|38.1554|14.8296|0
+Brondello|CN|12|44.6007|7.4059|0
+Broni|PV|09|45.0655|9.2623|0
+Bronte|CT|15|37.7895|14.8342|0
+Bronzolo/Branzoll|BZ|17|46.4023|11.3195|0
+Brossasco|CN|12|44.5686|7.3617|0
+Brosso|TO|12|45.4933|7.8039|0
+Brovello-Carpugnino|VB|12|45.8425|8.5317|0
+Brozolo|TO|12|45.1170|8.0719|0
+Brugherio|MB|09|45.5573|9.2941|0
+Brugine|PD|20|45.2966|11.9951|0
+Brugnato|SP|08|44.2368|9.7254|0
+Brugnera|PN|06|45.9016|12.5341|0
+Bruino|TO|12|45.0099|7.4842|0
+Brumano|BG|09|45.8551|9.5006|0
+Brunate|CO|09|45.8210|9.0943|0
+Brunello|VA|09|45.7650|8.7953|0
+Brunico/Bruneck|BZ|17|46.7958|11.9364|0
+Bruno|AT|12|44.7933|8.4405|0
+Brusaporto|BG|09|45.6714|9.7614|0
+Brusasco|TO|12|45.1555|8.0627|0
+Brusciano|NA|04|40.9232|14.4239|0
+Brusimpiano|VA|09|45.9333|8.8833|0
+Brusnengo|BI|12|45.5939|8.2519|0
+Brusson|AO|19|45.7578|7.7296|0
+Bruzolo|TO|12|45.1396|7.1984|0
+Bruzzano Zeffirio|RC|03|38.0133|16.0826|0
+Bubbiano|MI|09|45.3273|9.0145|0
+Bubbio|AT|12|44.6634|8.2951|0
+Buccheri|SR|15|37.1251|14.8499|0
+Bucchianico|CH|01|42.3048|14.1810|0
+Bucciano|BN|04|41.0768|14.5713|0
+Buccinasco|MI|09|45.4171|9.1070|0
+Buccino|SA|04|40.6329|15.3697|0
+Bucine|AR|16|43.4783|11.6115|0
+Buddusò|SS|14|40.5781|9.2581|0
+Budoia|PN|06|46.0462|12.5305|0
+Budoni|SS|14|40.7026|9.7077|0
+Budrio|BO|05|44.5371|11.5336|0
+Buggerru|SU|14|39.3964|8.4016|0
+Buggiano|PT|16|43.8755|10.7335|0
+Buglio in Monte|SO|09|46.1827|9.6748|0
+Bugnara|AQ|01|42.0238|13.8614|0
+Buguggiate|VA|09|45.7823|8.8106|0
+Buja|UD|06|46.2085|13.1263|0
+Bulciago|LC|09|45.7506|9.2853|0
+Bulgarograsso|CO|09|45.7471|9.0064|0
+Bultei|SS|14|40.4563|9.0647|0
+Bulzi|SS|14|40.8474|8.8300|0
+Buonabitacolo|SA|04|40.2713|15.6200|0
+Buonalbergo|BN|04|41.2232|14.9774|0
+Buonconvento|SI|16|43.1336|11.4834|0
+Buonvicino|CS|03|39.6860|15.8855|0
+Burago di Molgora|MB|09|45.5965|9.3817|0
+Burcei|SU|14|39.3426|9.3596|0
+Burgio|AG|15|37.5994|13.2902|0
+Burgos|SS|14|40.3907|8.9942|0
+Buriasco|TO|12|44.8736|7.4103|0
+Burolo|TO|12|45.4812|7.9339|0
+Buronzo|VC|12|45.4809|8.2671|0
+Busachi|OR|14|40.0326|8.8967|0
+Busalla|GE|08|44.5733|8.9555|0
+Busano|TO|12|45.3329|7.6572|0
+Busca|CN|12|44.5181|7.4743|0
+Buscate|MI|09|45.5460|8.8120|0
+Buscemi|SR|15|37.0868|14.8839|0
+Buseto Palizzolo|TP|15|38.0260|12.7174|0
+Busnago|MB|09|45.6165|9.4637|0
+Bussero|MI|09|45.5341|9.3720|0
+Busseto|PR|05|44.9806|10.0421|0
+Bussi sul Tirino|PE|01|42.2130|13.8262|0
+Busso|CB|11|41.5541|14.5610|0
+Bussolengo|VR|20|45.4692|10.8506|0
+Bussoleno|TO|12|45.1403|7.1464|0
+Busto Arsizio|VA|09|45.6122|8.8427|0
+Busto Garolfo|MI|09|45.5477|8.8856|0
+Butera|CL|15|37.1910|14.1837|0
+Buti|PI|16|43.7289|10.5858|0
+Buttapietra|VR|20|45.3427|11.0011|0
+Buttigliera Alta|TO|12|45.0699|7.4284|0
+Buttigliera d'Asti|AT|12|45.0217|7.9510|0
+Buttrio|UD|06|46.0104|13.3338|0
+Cabella Ligure|AL|12|44.6737|9.0958|0
+Cabiate|CO|09|45.6742|9.1737|0
+Cabras|OR|14|39.9285|8.5300|0
+Caccamo|PA|15|37.9327|13.6649|0
+Caccuri|KR|03|39.2270|16.7765|0
+Cadegliano-Viconago|VA|09|45.9595|8.8434|0
+Cadelbosco di Sopra|RE|05|44.7622|10.5959|0
+Cadeo|PC|05|44.9754|9.8311|0
+Caderzone Terme|TN|17|46.1302|10.7575|0
+Cadoneghe|PD|20|45.4423|11.9277|0
+Cadorago|CO|09|45.7273|9.0378|0
+Cadrezzate con Osmate|VA|09|45.7948|8.6440|0
+Caerano di San Marco|TV|20|45.7852|12.0028|0
+Cafasse|TO|12|45.2500|7.5167|0
+Caggiano|SA|04|40.5678|15.4934|0
+Cagli|PU|10|43.5457|12.6527|0
+Cagliari|CA|14|39.2133|9.1303|1
+Caglio|CO|09|45.8724|9.2388|0
+Cagnano Amiterno|AQ|01|42.4574|13.2279|0
+Cagnano Varano|FG|13|41.8287|15.7731|0
+Caianello|CE|04|41.3040|14.0817|0
+Caiazzo|CE|04|41.1787|14.3622|0
+Caines/Kuens|BZ|17|46.7000|11.1699|0
+Caino|BS|09|45.6094|10.3132|0
+Caiolo|SO|09|46.1500|9.8146|0
+Cairano|AV|04|40.8968|15.3704|0
+Cairate|VA|09|45.6893|8.8694|0
+Cairo Montenotte|SV|08|44.4031|8.2745|0
+Caivano|NA|04|40.9571|14.3102|0
+Calabritto|AV|04|40.7822|15.2240|0
+Calalzo di Cadore|BL|20|46.4460|12.3844|0
+Calamandrana|AT|12|44.7371|8.3387|0
+Calamonaci|AG|15|37.5261|13.2898|0
+Calangianus|SS|14|40.9198|9.1948|0
+Calanna|RC|03|38.1837|15.7231|0
+Calasca-Castiglione|VB|12|46.0034|8.1690|0
+Calascibetta|EN|15|37.5909|14.2707|0
+Calascio|AQ|01|42.3264|13.6972|0
+Calasetta|SU|14|39.1059|8.3663|0
+Calatabiano|CT|15|37.8209|15.2280|0
+Calatafimi-Segesta|TP|15|37.9148|12.8625|0
+Calcata|VT|07|42.2195|12.4262|0
+Calceranica al Lago|TN|17|46.0046|11.2437|0
+Calci|PI|16|43.7236|10.5183|0
+Calciano|MT|02|40.5880|16.1924|0
+Calcinaia|PI|16|43.6835|10.6182|0
+Calcinate|BG|09|45.6203|9.7993|0
+Calcinato|BS|09|45.4572|10.4136|0
+Calcio|BG|09|45.5095|9.8513|0
+Calco|LC|09|45.7242|9.4125|0
+Caldaro sulla strada del vino/Kaltern an der Weinstraße|BZ|17|46.4132|11.2412|0
+Caldarola|MC|10|43.1405|13.2245|0
+Calderara di Reno|BO|05|44.5631|11.2711|0
+Caldes|TN|17|46.3661|10.9417|0
+Caldiero|VR|20|45.4144|11.1774|0
+Caldogno|VI|20|45.6078|11.5028|0
+Caldonazzo|TN|17|45.9950|11.2647|0
+Calendasco|PC|05|45.0873|9.5961|0
+Calenzano|FI|16|43.8559|11.1627|0
+Calestano|PR|05|44.6032|10.1230|0
+Calice al Cornoviglio|SP|08|44.2428|9.8361|0
+Calice Ligure|SV|08|44.2049|8.2953|0
+Calimera|LE|13|40.2503|18.2779|0
+Calitri|AV|04|40.9021|15.4306|0
+Calizzano|SV|08|44.2345|8.1202|0
+Callabiana|BI|12|45.6314|8.0972|0
+Calliano Monferrato|AT|12|45.0085|8.2575|0
+Calliano|TN|17|45.9330|11.0936|0
+Calolziocorte|LC|09|45.7954|9.4376|0
+Calopezzati|CS|03|39.5612|16.8018|0
+Calosso|AT|12|44.7399|8.2271|0
+Caloveto|CS|03|39.5051|16.7599|0
+Caltabellotta|AG|15|37.5773|13.2165|0
+Caltagirone|CT|15|37.2368|14.5126|0
+Caltanissetta|CL|15|37.4877|14.0450|1
+Caltavuturo|PA|15|37.8210|13.8902|0
+Caltignaga|NO|12|45.5187|8.5885|0
+Calto|RO|20|44.9917|11.3586|0
+Caltrano|VI|20|45.7748|11.4498|0
+Calusco d'Adda|BG|09|45.6914|9.4726|0
+Caluso|TO|12|45.3049|7.8957|0
+Calvagese della Riviera|BS|09|45.5334|10.4417|0
+Calvanico|SA|04|40.7752|14.8279|0
+Calvatone|CR|09|45.1286|10.4413|0
+Calvello|PZ|02|40.4760|15.8486|0
+Calvene|VI|20|45.7674|11.5114|0
+Calvenzano|BG|09|45.4968|9.6014|0
+Calvera|PZ|02|40.1495|16.1439|0
+Calvi dell'Umbria|TR|18|42.4031|12.5678|0
+Calvi Risorta|CE|04|41.2172|14.1308|0
+Calvi|BN|04|41.0716|14.8652|0
+Calvignano|PV|09|44.9831|9.1688|0
+Calvignasco|MI|09|45.3260|9.0277|0
+Calvisano|BS|09|45.3482|10.3450|0
+Calvizzano|NA|04|40.9055|14.1854|0
+Camagna Monferrato|AL|12|45.0177|8.4297|0
+Camaiore|LU|16|43.9097|10.2419|0
+Camandona|BI|12|45.6442|8.0997|0
+Camastra|AG|15|37.2526|13.7948|0
+Cambiago|MI|09|45.5721|9.4243|0
+Cambiano|TO|12|44.9684|7.7720|0
+Cambiasca|VB|12|45.9624|8.5446|0
+Camburzano|BI|12|45.5428|8.0028|0
+Camerana|CN|12|44.4240|8.1414|0
+Camerano Casasco|AT|12|44.9916|8.0910|0
+Camerano|AN|10|43.5313|13.5516|0
+Camerata Cornello|BG|09|45.8987|9.6563|0
+Camerata Nuova|RM|07|42.0185|13.1077|0
+Camerata Picena|AN|10|43.5782|13.3510|0
+Cameri|NO|12|45.5033|8.6628|0
+Camerino|MC|10|43.1399|13.0692|0
+Camerota|SA|04|40.0325|15.3728|0
+Camigliano|CE|04|41.1798|14.2095|0
+Camini|RC|03|38.4321|16.4827|0
+Camino al Tagliamento|UD|06|45.9270|12.9451|0
+Camino|AL|12|45.1602|8.2905|0
+Camisano Vicentino|VI|20|45.5222|11.7077|0
+Camisano|CR|09|45.4433|9.7458|0
+Cammarata|AG|15|37.6299|13.6315|0
+Camogli|GE|08|44.3492|9.1589|0
+Campagna Lupia|VE|20|45.3550|12.0968|0
+Campagna|SA|04|40.6653|15.1059|0
+Campagnano di Roma|RM|07|42.1388|12.3708|0
+Campagnatico|GR|16|42.8837|11.2735|0
+Campagnola Cremasca|CR|09|45.3985|9.6695|0
+Campagnola Emilia|RE|05|44.8393|10.7571|0
+Campana|CS|03|39.4136|16.8222|0
+Camparada|MB|09|45.6560|9.3196|0
+Campegine|RE|05|44.7837|10.5319|0
+Campello sul Clitunno|PG|18|42.8251|12.7738|0
+Campertogno|VC|12|45.7988|8.0321|0
+Campi Bisenzio|FI|16|43.8246|11.1324|0
+Campi Salentina|LE|13|40.3991|18.0182|0
+Campiglia Cervo|BI|12|45.6635|7.9989|0
+Campiglia dei Berici|VI|20|45.3348|11.5424|0
+Campiglia Marittima|LI|16|43.0602|10.6152|0
+Campiglione Fenile|TO|12|44.8028|7.3242|0
+Campione d'Italia|CO|09|45.9681|8.9710|0
+Campitello di Fassa|TN|17|46.4763|11.7420|0
+Campli|TE|01|42.7285|13.6923|0
+Campo Calabro|RC|03|38.2161|15.6592|0
+Campo di Giove|AQ|01|42.0101|14.0394|0
+Campo di Trens/Freienfeld|BZ|17|46.8746|11.4867|0
+Campo Ligure|GE|08|44.5376|8.6982|0
+Campo nell'Elba|LI|16|42.7500|10.2000|0
+Campo San Martino|PD|20|45.5444|11.8104|0
+Campo Tures/Sand in Taufers|BZ|17|46.9203|11.9545|0
+Campobasso|CB|11|41.5600|14.6675|1
+Campobello di Licata|AG|15|37.2584|13.9183|0
+Campobello di Mazara|TP|15|37.6358|12.7443|0
+Campochiaro|CB|11|41.4475|14.5089|0
+Campodarsego|PD|20|45.5061|11.9209|0
+Campodenno|TN|17|46.2579|11.0332|0
+Campodimele|LT|07|41.3882|13.5308|0
+Campodipietra|CB|11|41.5570|14.7460|0
+Campodolcino|SO|09|46.4042|9.3519|0
+Campodoro|PD|20|45.4903|11.7520|0
+Campofelice di Fitalia|PA|15|37.8267|13.4863|0
+Campofelice di Roccella|PA|15|37.9901|13.8854|0
+Campofilone|FM|10|43.0806|13.8174|0
+Campofiorito|PA|15|37.7537|13.2688|0
+Campoformido|UD|06|46.0193|13.1624|0
+Campofranco|CL|15|37.5111|13.7126|0
+Campogalliano|MO|05|44.6916|10.8420|0
+Campolattaro|BN|04|41.2866|14.7294|0
+Campoli Appennino|FR|07|41.7357|13.6837|0
+Campoli del Monte Taburno|BN|04|41.1315|14.6459|0
+Campolieto|CB|11|41.6319|14.7669|0
+Campolongo Maggiore|VE|20|45.3228|12.0435|0
+Campolongo Tapogliano|UD|06|45.8698|13.3990|0
+Campomaggiore|PZ|02|40.5686|16.0738|0
+Campomarino|CB|11|41.9559|15.0337|0
+Campomorone|GE|08|44.5385|8.8639|0
+Camponogara|VE|20|45.3820|12.0867|0
+Campora|SA|04|40.3054|15.2924|0
+Camporeale|PA|15|37.8972|13.0938|0
+Camporgiano|LU|16|44.1600|10.3337|0
+Camporosso|IM|08|43.8040|7.6276|0
+Camporotondo di Fiastrone|MC|10|43.1324|13.2660|0
+Camporotondo Etneo|CT|15|37.5656|15.0032|0
+Camposampiero|PD|20|45.5684|11.9354|0
+Camposano|NA|04|40.9522|14.5286|0
+Camposanto|MO|05|44.8034|11.1450|0
+Campospinoso Albaredo|PV|09|45.0937|9.2462|0
+Campotosto|AQ|01|42.5588|13.3680|0
+Camugnano|BO|05|44.1705|11.0888|0
+Canal San Bovo|TN|17|46.1557|11.7325|0
+Canale d'Agordo|BL|20|46.3560|11.9134|0
+Canale Monterano|RM|07|42.1340|12.1022|0
+Canale|CN|12|44.7985|7.9973|0
+Canaro|RO|20|44.9372|11.6761|0
+Canazei|TN|17|46.4759|11.7715|0
+Cancellara|PZ|02|40.7302|15.9258|0
+Cancello ed Arnone|CE|04|41.0731|14.0263|0
+Canda|RO|20|45.0361|11.5033|0
+Candela|FG|13|41.1379|15.5146|0
+Candelo|BI|12|45.5470|8.1057|0
+Candia Canavese|TO|12|45.3278|7.8851|0
+Candia Lomellina|PV|09|45.1788|8.5948|0
+Candiana|PD|20|45.2211|11.9891|0
+Candida|AV|04|40.9424|14.8741|0
+Candidoni|RC|03|38.5055|16.0863|0
+Candiolo|TO|12|44.9592|7.6017|0
+Canegrate|MI|09|45.5693|8.9284|0
+Canelli|AT|12|44.7215|8.2924|0
+Canepina|VT|07|42.3822|12.2320|0
+Caneva|PN|06|45.9686|12.4506|0
+Canicattì|AG|15|37.3589|13.8504|0
+Canicattini Bagni|SR|15|37.0329|15.0634|0
+Canino|VT|07|42.4640|11.7512|0
+Canischio|TO|12|45.3749|7.5962|0
+Canistro|AQ|01|41.9407|13.4125|0
+Canna|CS|03|40.0939|16.5043|0
+Cannalonga|SA|04|40.2442|15.2952|0
+Cannara|PG|18|42.9947|12.5794|0
+Cannero Riviera|VB|12|46.0230|8.6861|0
+Canneto Pavese|PV|09|45.0505|9.2788|0
+Canneto sull'Oglio|MN|09|45.1527|10.3809|0
+Cannobio|VB|12|46.0597|8.6964|0
+Cannole|LE|13|40.1662|18.3660|0
+Canolo|RC|03|38.3150|16.1999|0
+Canonica d'Adda|BG|09|45.5757|9.5417|0
+Canosa di Puglia|BT|13|41.2196|16.0675|0
+Canosa Sannita|CH|01|42.2992|14.3052|0
+Canosio|CN|12|44.4558|7.0827|0
+Canossa|RE|05|44.5974|10.4102|0
+Cansano|AQ|01|42.0044|14.0119|0
+Cantagallo|PO|16|44.0221|11.0797|0
+Cantalice|RI|07|42.4657|12.9048|0
+Cantalupa|TO|12|44.9459|7.3303|0
+Cantalupo in Sabina|RI|07|42.3061|12.6473|0
+Cantalupo Ligure|AL|12|44.7182|9.0450|0
+Cantalupo nel Sannio|IS|11|41.5218|14.3929|0
+Cantarana|AT|12|44.9025|8.0275|0
+Cantello|VA|09|45.8225|8.8959|0
+Canterano|RM|07|41.9432|13.0381|0
+Cantiano|PU|10|43.4757|12.6287|0
+Cantoira|TO|12|45.3392|7.3871|0
+Cantù|CO|09|45.7294|9.1405|0
+Canzano|TE|01|42.6456|13.8041|0
+Canzo|CO|09|45.8495|9.2772|0
+Caorle|VE|20|45.5939|12.8697|0
+Caorso|PC|05|45.0485|9.8711|0
+Capaccio Paestum|SA|04|40.4244|15.0808|0
+Capaci|PA|15|38.1782|13.2426|0
+Capalbio|GR|16|42.4534|11.4217|0
+Capannoli|PI|16|43.5891|10.6689|0
+Capannori|LU|16|43.8747|10.5728|0
+Capena|RM|07|42.1416|12.5408|0
+Capergnanica|CR|09|45.3376|9.6434|0
+Capestrano|AQ|01|42.2684|13.7658|0
+Capiago Intimiano|CO|09|45.7690|9.1276|0
+Capistrano|VV|03|38.6923|16.2896|0
+Capistrello|AQ|01|41.9727|13.3991|0
+Capitignano|AQ|01|42.5218|13.2975|0
+Capizzi|ME|15|37.8479|14.4782|0
+Capizzone|BG|09|45.7845|9.5678|0
+Capo d'Orlando|ME|15|38.1435|14.7305|0
+Capo di Ponte|BS|09|46.0310|10.3459|0
+Capodimonte|VT|07|42.5567|11.8895|0
+Capodrise|CE|04|41.0443|14.3035|0
+Capoliveri|LI|16|42.7434|10.3789|0
+Capolona|AR|16|43.5669|11.8637|0
+Caponago|MB|09|45.5665|9.3758|0
+Caporciano|AQ|01|42.2508|13.6729|0
+Caposele|AV|04|40.8144|15.2233|0
+Capoterra|CA|14|39.1763|8.9718|0
+Capovalle|BS|09|45.7534|10.5445|0
+Cappadocia|AQ|01|42.0065|13.2800|0
+Cappella Cantone|CR|09|45.2466|9.8383|0
+Cappella de' Picenardi|CR|09|45.1586|10.2300|0
+Cappella Maggiore|TV|20|45.9772|12.3413|0
+Cappelle sul Tavo|PE|01|42.4658|14.0976|0
+Capracotta|IS|11|41.8333|14.2643|0
+Capraia e Limite|FI|16|43.7454|10.9834|0
+Capraia Isola|LI|16|43.0505|9.8429|0
+Capralba|CR|09|45.4441|9.6433|0
+Capranica Prenestina|RM|07|41.8631|12.9517|0
+Capranica|VT|07|42.2587|12.1721|0
+Caprarica di Lecce|LE|13|40.2616|18.2450|0
+Caprarola|VT|07|42.3266|12.2358|0
+Caprauna|CN|12|44.1160|7.9550|0
+Caprese Michelangelo|AR|16|43.6399|11.9848|0
+Caprezzo|VB|12|45.9820|8.5628|0
+Capri Leone|ME|15|38.0863|14.7288|0
+Capri|NA|04|40.5493|14.2435|0
+Capriana|TN|17|46.2619|11.3386|0
+Capriano del Colle|BS|09|45.4748|10.1323|0
+Capriata d'Orba|AL|12|44.7278|8.6908|0
+Capriate San Gervasio|BG|09|45.6126|9.5288|0
+Capriati a Volturno|CE|04|41.4686|14.1454|0
+Caprie|TO|12|45.1189|7.3319|0
+Capriglia Irpina|AV|04|40.9603|14.7772|0
+Capriglio|AT|12|45.0035|8.0089|0
+Caprile|BI|12|45.6896|8.2158|0
+Caprino Bergamasco|BG|09|45.7453|9.4817|0
+Caprino Veronese|VR|20|45.6049|10.7952|0
+Capriolo|BS|09|45.6353|9.9324|0
+Capriva del Friuli|GO|06|45.9414|13.5135|0
+Capua|CE|04|41.0997|14.2201|0
+Capurso|BA|13|41.0469|16.9216|0
+Caraffa del Bianco|RC|03|38.0927|16.0864|0
+Caraffa di Catanzaro|CZ|03|38.8813|16.4856|0
+Caraglio|CN|12|44.4194|7.4329|0
+Caramagna Piemonte|CN|12|44.7822|7.7394|0
+Caramanico Terme|PE|01|42.1591|14.0055|0
+Carapelle Calvisio|AQ|01|42.2993|13.6847|0
+Carapelle|FG|13|41.3652|15.6937|0
+Carasco|GE|08|44.3498|9.3457|0
+Carassai|AP|10|43.0320|13.6850|0
+Carate Brianza|MB|09|45.6737|9.2359|0
+Carate Urio|CO|09|45.8718|9.1221|0
+Caravaggio|BG|09|45.4989|9.6405|0
+Caravate|VA|09|45.8789|8.6579|0
+Caravino|TO|12|45.3983|7.9603|0
+Caravonica|IM|08|43.9930|7.9581|0
+Carbognano|VT|07|42.3316|12.2644|0
+Carbonara al Ticino|PV|09|45.1657|9.0616|0
+Carbonara di Nola|NA|04|40.8744|14.5788|0
+Carbonara Scrivia|AL|12|44.8492|8.8697|0
+Carbonate|CO|09|45.6851|8.9381|0
+Carbone|PZ|02|40.1424|16.0894|0
+Carbonera|TV|20|45.6836|12.2844|0
+Carbonia|SU|14|39.1653|8.5278|1
+Carcare|SV|08|44.3541|8.2920|0
+Carcoforo|VC|12|45.9093|8.0490|0
+Cardano al Campo|VA|09|45.6489|8.7693|0
+Cardè|CN|12|44.7444|7.4776|0
+Cardedu|NU|14|39.7959|9.6257|0
+Cardeto|RC|03|38.0846|15.7666|0
+Cardinale|CZ|03|38.6495|16.3854|0
+Cardito|NA|04|40.9420|14.2994|0
+Careggine|LU|16|44.1200|10.3254|0
+Carema|TO|12|45.5836|7.8107|0
+Carenno|LC|09|45.8035|9.4620|0
+Carentino|AL|12|44.8289|8.4713|0
+Careri|RC|03|38.1766|16.1178|0
+Caresana|VC|12|45.2209|8.5052|0
+Caresanablot|VC|12|45.3566|8.3928|0
+Carezzano|AL|12|44.8070|8.9006|0
+Carfizzi|KR|03|39.3074|16.9739|0
+Cargeghe|SS|14|40.6695|8.6145|0
+Cariati|CS|03|39.4922|16.9594|0
+Carife|AV|04|41.0263|15.2089|0
+Carignano|TO|12|44.9069|7.6732|0
+Carimate|CO|09|45.7030|9.1106|0
+Carinaro|CE|04|40.9829|14.2196|0
+Carini|PA|15|38.1566|13.1776|0
+Carinola|CE|04|41.1872|13.9815|0
+Carisio|VC|12|45.4094|8.1990|0
+Carisolo|TN|17|46.1688|10.7589|0
+Carlantino|FG|13|41.5951|14.9759|0
+Carlazzo|CO|09|46.0481|9.1595|0
+Carlentini|SR|15|37.2696|15.0126|0
+Carlino|UD|06|45.8025|13.1884|0
+Carloforte|SU|14|39.1427|8.3026|0
+Carlopoli|CZ|03|39.0567|16.4549|0
+Carmagnola|TO|12|44.8470|7.7180|0
+Carmiano|LE|13|40.3448|18.0430|0
+Carmignano di Brenta|PD|20|45.6309|11.7065|0
+Carmignano|PO|16|43.8113|11.0155|0
+Carnago|VA|09|45.7221|8.8342|0
+Carnate|MB|09|45.6516|9.3770|0
+Carobbio degli Angeli|BG|09|45.6652|9.8292|0
+Carolei|CS|03|39.2563|16.2201|0
+Carona|BG|09|46.0214|9.7828|0
+Caronia|ME|15|38.0244|14.4406|0
+Caronno Pertusella|VA|09|45.5978|9.0463|0
+Caronno Varesino|VA|09|45.7358|8.8317|0
+Carosino|TA|13|40.4658|17.3976|0
+Carovigno|BR|13|40.7080|17.6550|0
+Carovilli|IS|11|41.7135|14.2947|0
+Carpaneto Piacentino|PC|05|44.9153|9.7893|0
+Carpanzano|CS|03|39.1475|16.3033|0
+Carpegna|PU|10|43.7821|12.3367|0
+Carpenedolo|BS|09|45.3645|10.4313|0
+Carpeneto|AL|12|44.6784|8.6055|0
+Carpi|MO|05|44.7824|10.8777|0
+Carpiano|MI|09|45.3409|9.2728|0
+Carpignano Salentino|LE|13|40.1969|18.3383|0
+Carpignano Sesia|NO|12|45.5343|8.4184|0
+Carpineti|RE|05|44.4560|10.5197|0
+Carpineto della Nora|PE|01|42.3330|13.8608|0
+Carpineto Romano|RM|07|41.6044|13.0851|0
+Carpineto Sinello|CH|01|42.0120|14.5050|0
+Carpino|FG|13|41.8442|15.8561|0
+Carpinone|IS|11|41.5904|14.3233|0
+Carrara|MS|16|44.0629|10.0607|0
+Carrè|VI|20|45.7488|11.4578|0
+Carrega Ligure|AL|12|44.6198|9.1748|0
+Carro|SP|08|44.2722|9.6089|0
+Carrodano|SP|08|44.2333|9.6500|0
+Carrosio|AL|12|44.6583|8.8316|0
+Carrù|CN|12|44.4810|7.8744|0
+Carsoli|AQ|01|42.0989|13.0849|0
+Cartigliano|VI|20|45.7130|11.6956|0
+Cartignano|CN|12|44.4783|7.2857|0
+Cartoceto|PU|10|43.7657|12.8835|0
+Cartosio|AL|12|44.5902|8.4207|0
+Cartura|PD|20|45.2684|11.8568|0
+Carugate|MI|09|45.5498|9.3438|0
+Carugo|CO|09|45.7085|9.1968|0
+Carunchio|CH|01|41.9166|14.5267|0
+Carvico|BG|09|45.7038|9.4823|0
+Carzano|TN|17|46.0709|11.4938|0
+Casabona|KR|03|39.2503|16.9565|0
+Casacalenda|CB|11|41.7371|14.8467|0
+Casacanditella|CH|01|42.2474|14.1993|0
+Casagiove|CE|04|41.0747|14.3077|0
+Casal Cermelli|AL|12|44.8349|8.6250|0
+Casal di Principe|CE|04|41.0114|14.1248|0
+Casal Velino|SA|04|40.1911|15.1130|0
+Casalanguida|CH|01|42.0366|14.4993|0
+Casalattico|FR|07|41.6223|13.7262|0
+Casalbeltrame|NO|12|45.4381|8.4665|0
+Casalbordino|CH|01|42.1535|14.5991|0
+Casalbore|AV|04|41.2339|15.0067|0
+Casalborgone|TO|12|45.1305|7.9404|0
+Casalbuono|SA|04|40.2143|15.6880|0
+Casalbuttano ed Uniti|CR|09|45.2519|9.9617|0
+Casalciprano|CB|11|41.5816|14.5293|0
+Casalduni|BN|04|41.2614|14.6950|0
+Casale Corte Cerro|VB|12|45.9179|8.4171|0
+Casale Cremasco-Vidolasco|CR|09|45.4319|9.7142|0
+Casale di Scodosia|PD|20|45.1860|11.4683|0
+Casale Litta|VA|09|45.7679|8.7413|0
+Casale Marittimo|PI|16|43.2967|10.6158|0
+Casale Monferrato|AL|12|45.1334|8.4571|0
+Casale sul Sile|TV|20|45.5979|12.3233|0
+Casalecchio di Reno|BO|05|44.4756|11.2759|0
+Casaleggio Boiro|AL|12|44.6335|8.7304|0
+Casaleggio Novara|NO|12|45.4888|8.4919|0
+Casaleone|VR|20|45.1738|11.1943|0
+Casaletto Ceredano|CR|09|45.3181|9.6176|0
+Casaletto di Sopra|CR|09|45.4192|9.7826|0
+Casaletto Lodigiano|LO|09|45.2936|9.3620|0
+Casaletto Spartano|SA|04|40.1507|15.6187|0
+Casaletto Vaprio|CR|09|45.4082|9.6288|0
+Casalfiumanese|BO|05|44.2969|11.6240|0
+Casalgrande|RE|05|44.5847|10.7355|0
+Casalgrasso|CN|12|44.8196|7.6246|0
+Casali del Manco|CS|03|39.2848|16.3326|0
+Casalincontrada|CH|01|42.2974|14.1351|0
+Casalino|NO|12|45.3584|8.5239|0
+Casalmaggiore|CR|09|44.9939|10.4189|0
+Casalmaiocco|LO|09|45.3539|9.3743|0
+Casalmorano|CR|09|45.2864|9.8997|0
+Casalmoro|MN|09|45.2596|10.4045|0
+Casalnoceto|AL|12|44.9131|8.9822|0
+Casalnuovo di Napoli|NA|04|40.9092|14.3457|0
+Casalnuovo Monterotaro|FG|13|41.6202|15.1038|0
+Casaloldo|MN|09|45.2548|10.4744|0
+Casalpusterlengo|LO|09|45.1769|9.6491|0
+Casalromano|MN|09|45.2007|10.3694|0
+Casalserugo|PD|20|45.3191|11.9130|0
+Casaluce|CE|04|41.0019|14.1980|0
+Casalvecchio di Puglia|FG|13|41.5938|15.1105|0
+Casalvecchio Siculo|ME|15|37.9582|15.3226|0
+Casalvieri|FR|07|41.6319|13.7139|0
+Casalvolone|NO|12|45.4010|8.4646|0
+Casalzuigno|VA|09|45.9051|8.7088|0
+Casamarciano|NA|04|40.9319|14.5532|0
+Casamassima|BA|13|40.9571|16.9204|0
+Casamicciola Terme|NA|04|40.7480|13.9048|0
+Casandrino|NA|04|40.9286|14.2496|0
+Casanova Elvo|VC|12|45.4010|8.2935|0
+Casanova Lerrone|SV|08|44.0321|8.0472|0
+Casanova Lonati|PV|09|45.0945|9.2134|0
+Casape|RM|07|41.9070|12.8858|0
+Casapesenna|CE|04|40.9915|14.1361|0
+Casapinta|BI|12|45.6157|8.1959|0
+Casaprota|RI|07|42.2510|12.8043|0
+Casapulla|CE|04|41.0753|14.2897|0
+Casarano|LE|13|40.0150|18.1630|0
+Casargo|LC|09|46.0365|9.3853|0
+Casarile|MI|09|45.3178|9.1052|0
+Casarsa della Delizia|PN|06|45.9525|12.8425|0
+Casarza Ligure|GE|08|44.2735|9.4498|0
+Casasco|AL|12|44.8284|9.0059|0
+Casatenovo|LC|09|45.6964|9.3117|0
+Casatisma|PV|09|45.0491|9.1319|0
+Casavatore|NA|04|40.8992|14.2766|0
+Casazza|BG|09|45.7492|9.9073|0
+Cascia|PG|18|42.7186|13.0174|0
+Casciago|VA|09|45.8325|8.7833|0
+Casciana Terme Lari|PI|16|43.5310|10.6116|0
+Cascina|PI|16|43.6791|10.4994|0
+Cascinette d'Ivrea|TO|12|45.4802|7.9056|0
+Casei Gerola|PV|09|45.0076|8.9268|0
+Caselette|TO|12|45.1048|7.4808|0
+Casella|GE|08|44.5350|8.9980|0
+Caselle in Pittari|SA|04|40.1727|15.5450|0
+Caselle Landi|LO|09|45.1026|9.7956|0
+Caselle Lurani|LO|09|45.2806|9.3595|0
+Caselle Torinese|TO|12|45.1778|7.6426|0
+Caserta|CE|04|41.0832|14.3349|1
+Casier|TV|20|45.6421|12.2933|0
+Casignana|RC|03|38.1019|16.0899|0
+Casina|RE|05|44.5103|10.5016|0
+Casirate d'Adda|BG|09|45.4968|9.5663|0
+Caslino d'Erba|CO|09|45.8387|9.2314|0
+Casnate con Bernate|CO|09|45.7563|9.0726|0
+Casnigo|BG|09|45.8160|9.8686|0
+Casola di Napoli|NA|04|40.6972|14.5376|0
+Casola in Lunigiana|MS|16|44.2004|10.1768|0
+Casola Valsenio|RA|05|44.2251|11.6251|0
+Casole d'Elsa|SI|16|43.3401|11.0475|0
+Casoli|CH|01|42.1146|14.2902|0
+Casorate Primo|PV|09|45.3124|9.0168|0
+Casorate Sempione|VA|09|45.6710|8.7434|0
+Casorezzo|MI|09|45.5244|8.9015|0
+Casoria|NA|04|40.9118|14.2934|0
+Casorzo Monferrato|AT|12|45.0224|8.3370|0
+Casperia|RI|07|42.3386|12.6701|0
+Caspoggio|SO|09|46.2635|9.8628|0
+Cassacco|UD|06|46.1777|13.1995|0
+Cassago Brianza|LC|09|45.7381|9.2934|0
+Cassano all'Ionio|CS|03|39.7830|16.3182|0
+Cassano d'Adda|MI|09|45.5236|9.5139|0
+Cassano delle Murge|BA|13|40.8928|16.7678|0
+Cassano Irpino|AV|04|40.8704|15.0259|0
+Cassano Magnago|VA|09|45.6692|8.8267|0
+Cassano Spinola|AL|12|44.7706|8.8696|0
+Cassano Valcuvia|VA|09|45.9324|8.7684|0
+Cassaro|SR|15|37.1070|14.9479|0
+Cassiglio|BG|09|45.9668|9.6121|0
+Cassina de' Pecchi|MI|09|45.5164|9.3598|0
+Cassina Rizzardi|CO|09|45.7523|9.0245|0
+Cassina Valsassina|LC|09|45.9321|9.4789|0
+Cassinasco|AT|12|44.6891|8.3026|0
+Cassine|AL|12|44.7499|8.5279|0
+Cassinelle|AL|12|44.6015|8.5634|0
+Cassinetta di Lugagnano|MI|09|45.4225|8.9060|0
+Cassino|FR|07|41.4876|13.8315|0
+Cassola|VI|20|45.7336|11.7994|0
+Cassolnovo|PV|09|45.3612|8.8086|0
+Castagnaro|VR|20|45.1173|11.4114|0
+Castagneto Carducci|LI|16|43.1607|10.6109|0
+Castagneto Po|TO|12|45.1593|7.8894|0
+Castagnito|CN|12|44.7554|8.0313|0
+Castagnole delle Lanze|AT|12|44.7511|8.1502|0
+Castagnole Monferrato|AT|12|44.9590|8.3044|0
+Castagnole Piemonte|TO|12|44.8981|7.5661|0
+Castana|PV|09|45.0268|9.2725|0
+Castano Primo|MI|09|45.5536|8.7754|0
+Casteggio|PV|09|45.0101|9.1224|0
+Castegnato|BS|09|45.5602|10.1140|0
+Castegnero|VI|20|45.4425|11.5845|0
+Castel Baronia|AV|04|41.0474|15.1888|0
+Castel Boglione|AT|12|44.7219|8.3799|0
+Castel Bolognese|RA|05|44.3207|11.7999|0
+Castel Campagnano|CE|04|41.1827|14.4522|0
+Castel Castagna|TE|01|42.5429|13.7164|0
+Castel Condino|TN|17|45.9144|10.6028|0
+Castel d'Aiano|BO|05|44.2759|10.9994|0
+Castel d'Ario|MN|09|45.1880|10.9745|0
+Castel d'Azzano|VR|20|45.3564|10.9547|0
+Castel del Giudice|IS|11|41.8545|14.2311|0
+Castel del Monte|AQ|01|42.3657|13.7279|0
+Castel del Piano|GR|16|42.8900|11.5385|0
+Castel del Rio|BO|05|44.2144|11.5039|0
+Castel di Casio|BO|05|44.1630|11.0358|0
+Castel di Ieri|AQ|01|42.1152|13.7426|0
+Castel di Iudica|CT|15|37.4945|14.6503|0
+Castel di Lama|AP|10|42.8644|13.7193|0
+Castel di Lucio|ME|15|37.8865|14.3122|0
+Castel di Sangro|AQ|01|41.7737|14.1035|0
+Castel di Sasso|CE|04|41.1924|14.2777|0
+Castel di Tora|RI|07|42.2153|12.9642|0
+Castel Focognano|AR|16|43.6536|11.7877|0
+Castel Frentano|CH|01|42.1971|14.3552|0
+Castel Gabbiano|CR|09|45.4683|9.7165|0
+Castel Gandolfo|RM|07|41.7425|12.6489|0
+Castel Giorgio|TR|18|42.7055|11.9764|0
+Castel Goffredo|MN|09|45.2986|10.4754|0
+Castel Guelfo di Bologna|BO|05|44.4307|11.6778|0
+Castel Ivano|TN|17|46.0665|11.5237|0
+Castel Madama|RM|07|41.9735|12.8685|0
+Castel Maggiore|BO|05|44.5771|11.3607|0
+Castel Mella|BS|09|45.4987|10.1442|0
+Castel Morrone|CE|04|41.1210|14.3547|0
+Castel Ritaldi|PG|18|42.8215|12.6750|0
+Castel Rocchero|AT|12|44.7184|8.4153|0
+Castel Rozzone|BG|09|45.5523|9.6198|0
+Castel San Giorgio|SA|04|40.7837|14.6988|0
+Castel San Giovanni|PC|05|45.0583|9.4335|0
+Castel San Lorenzo|SA|04|40.4183|15.2272|0
+Castel San Niccolò|AR|16|43.7445|11.7091|0
+Castel San Pietro Romano|RM|07|41.8457|12.8949|0
+Castel San Pietro Terme|BO|05|44.3986|11.5848|0
+Castel San Vincenzo|IS|11|41.6556|14.0644|0
+Castel Sant'Angelo|RI|07|42.3937|13.0274|0
+Castel Sant'Elia|VT|07|42.2506|12.3741|0
+Castel Viscardo|TR|18|42.7534|11.9985|0
+Castel Vittorio|IM|08|43.9282|7.6751|0
+Castel Volturno|CE|04|41.0149|13.9462|0
+Castelbaldo|PD|20|45.1229|11.4523|0
+Castelbelforte|MN|09|45.2121|10.8925|0
+Castelbellino|AN|10|43.4868|13.1447|0
+Castelbello-Ciardes/Kastelbell-Tschars|BZ|17|46.6283|10.9067|0
+Castelbianco|SV|08|44.1142|8.0752|0
+Castelbottaccio|CB|11|41.7533|14.7088|0
+Castelbuono|PA|15|37.9320|14.0886|0
+Castelcivita|SA|04|40.4942|15.2345|0
+Castelcovati|BS|09|45.5020|9.9460|0
+Castelcucco|TV|20|45.8307|11.8842|0
+Casteldaccia|PA|15|38.0525|13.5287|0
+Casteldelci|RN|05|43.7912|12.1551|0
+Casteldelfino|CN|12|44.5896|7.0698|0
+Casteldidone|CR|09|45.0695|10.4063|0
+Castelfidardo|AN|10|43.4632|13.5452|0
+Castelfiorentino|FI|16|43.6100|10.9692|0
+Castelforte|LT|07|41.2990|13.8240|0
+Castelfranci|AV|04|40.9313|15.0433|0
+Castelfranco di Sotto|PI|16|43.7015|10.7455|0
+Castelfranco Emilia|MO|05|44.5958|11.0520|0
+Castelfranco in Miscano|BN|04|41.2986|15.0835|0
+Castelfranco Piandiscò|AR|16|43.6321|11.5513|0
+Castelfranco Veneto|TV|20|45.6761|11.9260|0
+Castelgerundo|LO|09|45.2002|9.7378|0
+Castelgomberto|VI|20|45.5849|11.3957|0
+Castelgrande|PZ|02|40.7866|15.4302|0
+Castelguglielmo|RO|20|45.0248|11.5366|0
+Castelguidone|CH|01|41.8226|14.5219|0
+Castell'Alfero|AT|12|44.9813|8.2105|0
+Castell'Arquato|PC|05|44.8524|9.8724|0
+Castell'Azzara|GR|16|42.7716|11.6992|0
+Castell'Umberto|ME|15|38.0851|14.8070|0
+Castellabate|SA|04|40.2817|14.9565|0
+Castellafiume|AQ|01|41.9891|13.3344|0
+Castellalto|TE|01|42.6780|13.8216|0
+Castellammare del Golfo|TP|15|38.0189|12.8858|0
+Castellammare di Stabia|NA|04|40.7155|14.4891|0
+Castellamonte|TO|12|45.3820|7.7121|0
+Castellana Grotte|BA|13|40.8864|17.1655|0
+Castellana Sicula|PA|15|37.7848|14.0394|0
+Castellaneta|TA|13|40.6272|16.9369|0
+Castellania Coppi|AL|12|44.7985|8.9304|0
+Castellanza|VA|09|45.6124|8.9011|0
+Castellar Guidobono|AL|12|44.9059|8.9479|0
+Castellarano|RE|05|44.5131|10.7329|0
+Castellaro|IM|08|43.8652|7.8688|0
+Castellazzo Bormida|AL|12|44.8451|8.5772|0
+Castellazzo Novarese|NO|12|45.5134|8.4869|0
+Castelleone di Suasa|AN|10|43.6082|12.9780|0
+Castelleone|CR|09|45.2939|9.7617|0
+Castellero|AT|12|44.9254|8.0738|0
+Castelletto Cervo|BI|12|45.5214|8.2254|0
+Castelletto d'Erro|AL|12|44.6262|8.3936|0
+Castelletto d'Orba|AL|12|44.6846|8.7040|0
+Castelletto di Branduzzo|PV|09|45.0694|9.0984|0
+Castelletto Merli|AL|12|45.0740|8.2401|0
+Castelletto Molina|AT|12|44.7512|8.4332|0
+Castelletto Monferrato|AL|12|44.9811|8.5645|0
+Castelletto sopra Ticino|NO|12|45.7200|8.6292|0
+Castelletto Stura|CN|12|44.4438|7.6392|0
+Castelletto Uzzone|CN|12|44.4833|8.2000|0
+Castelli Calepio|BG|09|45.6410|9.9060|0
+Castelli|TE|01|42.4879|13.7117|0
+Castellina in Chianti|SI|16|43.4682|11.2877|0
+Castellina Marittima|PI|16|43.4118|10.5763|0
+Castellinaldo d'Alba|CN|12|44.7748|8.0297|0
+Castellino del Biferno|CB|11|41.7016|14.7311|0
+Castellino Tanaro|CN|12|44.4278|7.9812|0
+Castelliri|FR|07|41.6792|13.5514|0
+Castello Cabiaglio|VA|09|45.8936|8.7576|0
+Castello d'Agogna|PV|09|45.2346|8.6871|0
+Castello d'Argile|BO|05|44.6791|11.2959|0
+Castello del Matese|CE|04|41.3667|14.3777|0
+Castello dell'Acqua|SO|09|46.1460|10.0136|0
+Castello di Annone|AT|12|44.8781|8.3171|0
+Castello di Brianza|LC|09|45.7593|9.3453|0
+Castello di Cisterna|NA|04|40.9151|14.4062|0
+Castello di Godego|TV|20|45.6934|11.8769|0
+Castello Tesino|TN|17|46.0635|11.6324|0
+Castello-Molina di Fiemme|TN|17|46.2824|11.4335|0
+Castellucchio|MN|09|45.1473|10.6485|0
+Castelluccio dei Sauri|FG|13|41.3060|15.4797|0
+Castelluccio Inferiore|PZ|02|40.0039|15.9809|0
+Castelluccio Superiore|PZ|02|40.0103|15.9751|0
+Castelluccio Valmaggiore|FG|13|41.3423|15.1990|0
+Castelmagno|CN|12|44.4088|7.2119|0
+Castelmarte|CO|09|45.8324|9.2330|0
+Castelmassa|RO|20|45.0185|11.3133|0
+Castelmauro|CB|11|41.8278|14.7091|0
+Castelmezzano|PZ|02|40.5288|16.0456|0
+Castelmola|ME|15|37.8583|15.2784|0
+Castelnovetto|PV|09|45.2548|8.6118|0
+Castelnovo Bariano|RO|20|45.0274|11.2876|0
+Castelnovo del Friuli|PN|06|46.1999|12.9029|0
+Castelnovo di Sotto|RE|05|44.8080|10.5682|0
+Castelnovo ne' Monti|RE|05|44.4356|10.4033|0
+Castelnuovo Belbo|AT|12|44.8021|8.4100|0
+Castelnuovo Berardenga|SI|16|43.3463|11.5033|0
+Castelnuovo Bocca d'Adda|LO|09|45.1109|9.8637|0
+Castelnuovo Bormida|AL|12|44.7426|8.5486|0
+Castelnuovo Bozzente|CO|09|45.7646|8.9435|0
+Castelnuovo Calcea|AT|12|44.7884|8.2850|0
+Castelnuovo Cilento|SA|04|40.2181|15.1771|0
+Castelnuovo del Garda|VR|20|45.4388|10.7598|0
+Castelnuovo della Daunia|FG|13|41.5826|15.1208|0
+Castelnuovo di Ceva|CN|12|44.3536|8.1289|0
+Castelnuovo di Conza|SA|04|40.8206|15.3187|0
+Castelnuovo di Farfa|RI|07|42.2319|12.7431|0
+Castelnuovo di Garfagnana|LU|16|44.1213|10.4046|0
+Castelnuovo di Porto|RM|07|42.1258|12.5012|0
+Castelnuovo di Val di Cecina|PI|16|43.2109|10.9018|0
+Castelnuovo Don Bosco|AT|12|45.0408|7.9631|0
+Castelnuovo Magra|SP|08|44.1003|10.0164|0
+Castelnuovo Nigra|TO|12|45.4382|7.6946|0
+Castelnuovo Parano|FR|07|41.3791|13.7562|0
+Castelnuovo Rangone|MO|05|44.5513|10.9350|0
+Castelnuovo Scrivia|AL|12|44.9805|8.8812|0
+Castelnuovo|TN|17|46.0528|11.4933|0
+Castelpagano|BN|04|41.4017|14.8080|0
+Castelpetroso|IS|11|41.5594|14.3450|0
+Castelpizzuto|IS|11|41.5217|14.2923|0
+Castelplanio|AN|10|43.4931|13.0819|0
+Castelpoto|BN|04|41.1399|14.7003|0
+Castelraimondo|MC|10|43.2082|13.0537|0
+Castelrotto/Kastelruth|BZ|17|46.5666|11.5610|0
+Castelsantangelo sul Nera|MC|10|42.8858|13.1533|0
+Castelsaraceno|PZ|02|40.1637|15.9919|0
+Castelsardo|SS|14|40.9105|8.7183|0
+Castelseprio|VA|09|45.7160|8.8626|0
+Castelsilano|KR|03|39.2691|16.7674|0
+Castelspina|AL|12|44.8062|8.5831|0
+Casteltermini|AG|15|37.5405|13.6445|0
+Castelveccana|VA|09|45.9480|8.6663|0
+Castelvecchio Calvisio|AQ|01|42.3113|13.6872|0
+Castelvecchio di Rocca Barbena|SV|08|44.1298|8.1166|0
+Castelvecchio Subequo|AQ|01|42.1302|13.7278|0
+Castelvenere|BN|04|41.2348|14.5465|0
+Castelverde|CR|09|45.1888|9.9956|0
+Castelverrino|IS|11|41.7664|14.3976|0
+Castelvetere in Val Fortore|BN|04|41.4423|14.9418|0
+Castelvetere sul Calore|AV|04|40.9287|14.9862|0
+Castelvetrano|TP|15|37.6826|12.7916|0
+Castelvetro di Modena|MO|05|44.5058|10.9464|0
+Castelvetro Piacentino|PC|05|45.0993|9.9896|0
+Castelvisconti|CR|09|45.3054|9.9411|0
+Castenaso|BO|05|44.5089|11.4698|0
+Castenedolo|BS|09|45.4695|10.2957|0
+Castiadas|SU|14|39.2363|9.4994|0
+Castiglion Fibocchi|AR|16|43.5279|11.7627|0
+Castiglion Fiorentino|AR|16|43.3428|11.9180|0
+Castiglione a Casauria|PE|01|42.2360|13.8976|0
+Castiglione Chiavarese|GE|08|44.2760|9.5180|0
+Castiglione Cosentino|CS|03|39.3520|16.2894|0
+Castiglione d'Adda|LO|09|45.2189|9.6942|0
+Castiglione d'Orcia|SI|16|43.0044|11.6161|0
+Castiglione dei Pepoli|BO|05|44.1423|11.1638|0
+Castiglione del Genovesi|SA|04|40.7255|14.8484|0
+Castiglione del Lago|PG|18|43.1271|12.0452|0
+Castiglione della Pescaia|GR|16|42.7647|10.8801|0
+Castiglione delle Stiviere|MN|09|45.3906|10.4853|0
+Castiglione di Garfagnana|LU|16|44.1499|10.4109|0
+Castiglione di Sicilia|CT|15|37.8821|15.1214|0
+Castiglione Falletto|CN|12|44.6225|7.9753|0
+Castiglione in Teverina|VT|07|42.6479|12.2034|0
+Castiglione Messer Marino|CH|01|41.8689|14.4524|0
+Castiglione Messer Raimondo|TE|01|42.5323|13.8787|0
+Castiglione Olona|VA|09|45.7532|8.8745|0
+Castiglione Tinella|CN|12|44.7253|8.1901|0
+Castiglione Torinese|TO|12|45.1191|7.8071|0
+Castignano|AP|10|42.9393|13.6240|0
+Castilenti|TE|01|42.5333|13.9171|0
+Castino|CN|12|44.6178|8.1824|0
+Castione Andevenno|SO|09|46.1728|9.8003|0
+Castione della Presolana|BG|09|45.9144|10.0636|0
+Castions di Strada|UD|06|45.9064|13.1853|0
+Castiraga Vidardo|LO|09|45.2573|9.4046|0
+Casto|BS|09|45.6949|10.3212|0
+Castorano|AP|10|42.8984|13.7289|0
+Castrezzato|BS|09|45.5113|9.9809|0
+Castri di Lecce|LE|13|40.2738|18.2633|0
+Castrignano de' Greci|LE|13|40.1734|18.2964|0
+Castrignano del Capo|LE|13|39.8323|18.3512|0
+Castro dei Volsci|FR|07|41.5082|13.4063|0
+Castro|BG|09|45.8030|10.0671|0
+Castro|LE|13|40.0068|18.4255|0
+Castrocaro Terme e Terra del Sole|FC|05|44.1748|11.9497|0
+Castrocielo|FR|07|41.5283|13.6935|0
+Castrofilippo|AG|15|37.3488|13.7503|0
+Castrolibero|CS|03|39.3081|16.1944|0
+Castronno|VA|09|45.7457|8.8128|0
+Castronovo di Sicilia|PA|15|37.6789|13.6035|0
+Castronuovo di Sant'Andrea|PZ|02|40.1907|16.1855|0
+Castropignano|CB|11|41.6183|14.5598|0
+Castroreale|ME|15|38.0992|15.2102|0
+Castroregio|CS|03|39.9924|16.4776|0
+Castrovillari|CS|03|39.8203|16.2123|0
+Catania|CT|15|37.5003|15.0734|1
+Catanzaro|CZ|03|38.8908|16.5987|1
+Catenanuova|EN|15|37.5699|14.6921|0
+Catignano|PE|01|42.3475|13.9535|0
+Cattolica Eraclea|AG|15|37.4408|13.3920|0
+Cattolica|RN|05|43.9575|12.7376|0
+Caulonia|RC|03|38.3814|16.4090|0
+Cautano|BN|04|41.1514|14.6441|0
+Cava de' Tirreni|SA|04|40.7009|14.7056|0
+Cava Manara|PV|09|45.1402|9.1068|0
+Cavaglià|BI|12|45.4075|8.0933|0
+Cavaglietto|NO|12|45.6022|8.5021|0
+Cavaglio d'Agogna|NO|12|45.6132|8.4861|0
+Cavagnolo|TO|12|45.1517|8.0490|0
+Cavaion Veronese|VR|20|45.5401|10.7705|0
+Cavalese|TN|17|46.2915|11.4594|0
+Cavallerleone|CN|12|44.7401|7.6639|0
+Cavallermaggiore|CN|12|44.7098|7.6863|0
+Cavallino-Treporti|VE|20|45.4816|12.5619|0
+Cavallino|LE|13|40.3125|18.2004|0
+Cavallirio|NO|12|45.6634|8.3945|0
+Cavareno|TN|17|46.4084|11.1381|0
+Cavargna|CO|09|46.0901|9.1112|0
+Cavaria con Premezzo|VA|09|45.6934|8.8014|0
+Cavarzere|VE|20|45.1367|12.0816|0
+Cavaso del Tomba|TV|20|45.8607|11.8984|0
+Cavasso Nuovo|PN|06|46.1978|12.7730|0
+Cavatore|AL|12|44.6303|8.4543|0
+Cavazzo Carnico|UD|06|46.3678|13.0401|0
+Cave|RM|07|41.8167|12.9338|0
+Cavedago|TN|17|46.1852|11.0315|0
+Cavedine|TN|17|45.9952|10.9736|0
+Cavenago d'Adda|LO|09|45.2845|9.6011|0
+Cavenago di Brianza|MB|09|45.5841|9.4145|0
+Cavernago|BG|09|45.6253|9.7656|0
+Cavezzo|MO|05|44.8364|11.0286|0
+Cavizzana|TN|17|46.3672|10.9582|0
+Cavour|TO|12|44.7889|7.3761|0
+Cavriago|RE|05|44.6937|10.5275|0
+Cavriana|MN|09|45.3471|10.5980|0
+Cavriglia|AR|16|43.5202|11.4869|0
+Cazzago Brabbia|VA|09|45.7959|8.7348|0
+Cazzago San Martino|BS|09|45.5938|10.0419|0
+Cazzano di Tramigna|VR|20|45.4731|11.2029|0
+Cazzano Sant'Andrea|BG|09|45.8126|9.8848|0
+Ceccano|FR|07|41.5677|13.3333|0
+Cecima|PV|09|44.8507|9.0804|0
+Cecina|LI|16|43.3128|10.5240|0
+Cedegolo|BS|09|46.0646|10.3854|0
+Cedrasco|SO|09|46.1493|9.7670|0
+Cefalà Diana|PA|15|37.9156|13.4633|0
+Cefalù|PA|15|38.0316|14.0104|0
+Ceggia|VE|20|45.6854|12.6381|0
+Ceglie Messapica|BR|13|40.6439|17.5155|0
+Celano|AQ|01|42.0855|13.5398|0
+Celenza sul Trigno|CH|01|41.8722|14.5779|0
+Celenza Valfortore|FG|13|41.5617|14.9788|0
+Celico|CS|03|39.3101|16.3399|0
+Cella Dati|CR|09|45.0953|10.2215|0
+Cella Monte|AL|12|45.0740|8.3915|0
+Cellamare|BA|13|41.0193|16.9283|0
+Cellara|CS|03|39.2185|16.3348|0
+Cellarengo|AT|12|44.8644|7.9453|0
+Cellatica|BS|09|45.5820|10.1802|0
+Celle di Bulgheria|SA|04|40.0947|15.4033|0
+Celle di Macra|CN|12|44.4828|7.1806|0
+Celle di San Vito|FG|13|41.3259|15.1810|0
+Celle Enomondo|AT|12|44.8569|8.1237|0
+Celle Ligure|SV|08|44.3486|8.5440|0
+Celleno|VT|07|42.5600|12.1365|0
+Cellere|VT|07|42.5104|11.7716|0
+Cellino Attanasio|TE|01|42.5857|13.8605|0
+Cellino San Marco|BR|13|40.4722|17.9663|0
+Cellio con Breia|VC|12|45.7607|8.3117|0
+Cellole|CE|04|41.2048|13.8543|0
+Cembra Lisignago|TN|17|46.1838|11.2067|0
+Cenadi|CZ|03|38.7195|16.4172|0
+Cenate Sopra|BG|09|45.7130|9.8222|0
+Cenate Sotto|BG|09|45.6990|9.8264|0
+Cencenighe Agordino|BL|20|46.3527|11.9687|0
+Cene|BG|09|45.7833|9.8255|0
+Ceneselli|RO|20|45.0137|11.3700|0
+Cengio|SV|08|44.3894|8.2116|0
+Centallo|CN|12|44.5015|7.5878|0
+Cento|FE|05|44.7260|11.2882|0
+Centola|SA|04|40.0665|15.3120|0
+Centrache|CZ|03|38.7290|16.4321|0
+Centro Valle Intelvi|CO|09|45.9470|9.0612|0
+Centuripe|EN|15|37.6230|14.7391|0
+Cepagatti|PE|01|42.3649|14.0758|0
+Ceppaloni|BN|04|41.0459|14.7605|0
+Ceppo Morelli|VB|12|45.9718|8.0677|0
+Ceprano|FR|07|41.5404|13.5122|0
+Cerami|EN|15|37.8107|14.5073|0
+Ceranesi|GE|08|44.5040|8.8931|0
+Cerano d'Intelvi|CO|09|45.9433|9.0888|0
+Cerano|NO|12|45.4110|8.7800|0
+Ceranova|PV|09|45.2603|9.2431|0
+Ceraso|SA|04|40.1943|15.2561|0
+Cercemaggiore|CB|11|41.4613|14.7231|0
+Cercenasco|TO|12|44.8620|7.4982|0
+Cercepiccola|CB|11|41.4601|14.6654|0
+Cerchiara di Calabria|CS|03|39.8604|16.3828|0
+Cerchio|AQ|01|42.0609|13.6017|0
+Cercino|SO|09|46.1581|9.5081|0
+Cercivento|UD|06|46.5271|12.9919|0
+Cercola|NA|04|40.8566|14.3577|0
+Cerda|PA|15|37.9059|13.8144|0
+Cerea|VR|20|45.1921|11.2103|0
+Ceregnano|RO|20|45.0480|11.8693|0
+Cerenzia|KR|03|39.2555|16.8222|0
+Ceres|TO|12|45.3147|7.3896|0
+Ceresara|MN|09|45.2623|10.5696|0
+Cereseto|AL|12|45.0876|8.3199|0
+Ceresole Alba|CN|12|44.7997|7.8224|0
+Ceresole Reale|TO|12|45.4320|7.2357|0
+Cerete|BG|09|45.8673|9.9947|0
+Ceretto Lomellina|PV|09|45.2450|8.6724|0
+Cergnago|PV|09|45.1983|8.7723|0
+Ceriale|SV|08|44.0916|8.2233|0
+Ceriana|IM|08|43.8804|7.7749|0
+Ceriano Laghetto|MB|09|45.6304|9.0783|0
+Cerignale|PC|05|44.6778|9.3508|0
+Cerignola|FG|13|41.2640|15.9005|0
+Cerisano|CS|03|39.2761|16.1754|0
+Cermenate|CO|09|45.7029|9.0858|0
+Cermes/Tscherms|BZ|17|46.6346|11.1466|0
+Cermignano|TE|01|42.5916|13.7959|0
+Cernobbio|CO|09|45.8411|9.0670|0
+Cernusco Lombardone|LC|09|45.6909|9.3993|0
+Cernusco sul Naviglio|MI|09|45.5229|9.3227|0
+Cerreto d'Asti|AT|12|45.0521|8.0351|0
+Cerreto d'Esi|AN|10|43.3130|12.9876|0
+Cerreto di Spoleto|PG|18|42.8218|12.9193|0
+Cerreto Grue|AL|12|44.8426|8.9304|0
+Cerreto Guidi|FI|16|43.7608|10.8761|0
+Cerreto Laziale|RM|07|41.9433|12.9817|0
+Cerreto Sannita|BN|04|41.2820|14.5551|0
+Cerretto Langhe|CN|12|44.5748|8.0979|0
+Cerrina Monferrato|AL|12|45.1213|8.2138|0
+Cerrione|BI|12|45.4684|8.0681|0
+Cerro al Lambro|MI|09|45.3300|9.3391|0
+Cerro al Volturno|IS|11|41.6559|14.1023|0
+Cerro Maggiore|MI|09|45.5953|8.9502|0
+Cerro Tanaro|AT|12|44.8734|8.3587|0
+Cerro Veronese|VR|20|45.5745|11.0416|0
+Cersosimo|PZ|02|40.0470|16.3494|0
+Certaldo|FI|16|43.5470|11.0402|0
+Certosa di Pavia|PV|09|45.2542|9.1329|0
+Cerva|CZ|03|39.0239|16.7436|0
+Cervara di Roma|RM|07|41.9882|13.0680|0
+Cervarese Santa Croce|PD|20|45.4244|11.6879|0
+Cervaro|FR|07|41.4837|13.9053|0
+Cervasca|CN|12|44.3809|7.4712|0
+Cervatto|VC|12|45.8830|8.1623|0
+Cerveno|BS|09|46.0026|10.3258|0
+Cervere|CN|12|44.6354|7.7919|0
+Cervesina|PV|09|45.0613|9.0161|0
+Cerveteri|RM|07|41.9926|12.0924|0
+Cervia|RA|05|44.2657|12.3427|0
+Cervicati|CS|03|39.5425|16.1283|0
+Cervignano d'Adda|LO|09|45.3739|9.4240|0
+Cervignano del Friuli|UD|06|45.8169|13.3438|0
+Cervinara|AV|04|41.0167|14.6167|0
+Cervino|CE|04|41.0400|14.4240|0
+Cervo|IM|08|43.9275|8.1089|0
+Cerzeto|CS|03|39.5078|16.1150|0
+Cesa|CE|04|40.9644|14.2301|0
+Cesana Brianza|LC|09|45.8168|9.2995|0
+Cesana Torinese|TO|12|44.9522|6.7908|0
+Cesano Boscone|MI|09|45.4421|9.0945|0
+Cesano Maderno|MB|09|45.6304|9.1522|0
+Cesara|VB|12|45.8345|8.3664|0
+Cesarò|ME|15|37.8448|14.7131|0
+Cesate|MI|09|45.5959|9.0757|0
+Cesena|FC|05|44.1562|12.2640|0
+Cesenatico|FC|05|44.1990|12.4006|0
+Cesinali|AV|04|40.8971|14.8277|0
+Cesio|IM|08|44.0080|7.9752|0
+Cesiomaggiore|BL|20|46.0881|11.9866|0
+Cessalto|TV|20|45.7131|12.6144|0
+Cessaniti|VV|03|38.6637|16.0268|0
+Cessapalombo|MC|10|43.1082|13.2576|0
+Cessole|AT|12|44.6489|8.2436|0
+Cetara|SA|04|40.6496|14.6998|0
+Ceto|BS|09|46.0026|10.3520|0
+Cetona|SI|16|42.9669|11.9024|0
+Cetraro|CS|03|39.5166|15.9416|0
+Ceva|CN|12|44.3825|8.0255|0
+Cevo|BS|09|46.0833|10.3667|0
+Challand-Saint-Anselme|AO|19|45.7146|7.7345|0
+Challand-Saint-Victor|AO|19|45.6905|7.7047|0
+Chambave|AO|19|45.7443|7.5493|0
+Chamois|AO|19|45.8389|7.6187|0
+Champdepraz|AO|19|45.6853|7.6568|0
+Champorcher|AO|19|45.6238|7.6215|0
+Charvensod|AO|19|45.7201|7.3250|0
+Châtillon|AO|19|45.7517|7.6175|0
+Cherasco|CN|12|44.6477|7.8584|0
+Cheremule|SS|14|40.5064|8.7253|0
+Chialamberto|TO|12|45.3636|7.3413|0
+Chiampo|VI|20|45.5459|11.2796|0
+Chianche|AV|04|41.0463|14.7890|0
+Chianciano Terme|SI|16|43.0439|11.8125|0
+Chianni|PI|16|43.4812|10.6418|0
+Chianocco|TO|12|45.1485|7.1698|0
+Chiaramonte Gulfi|RG|15|37.0313|14.7013|0
+Chiaramonti|SS|14|40.7491|8.8186|0
+Chiarano|TV|20|45.7291|12.5827|0
+Chiaravalle Centrale|CZ|03|38.6804|16.4106|0
+Chiaravalle|AN|10|43.6027|13.3246|0
+Chiari|BS|09|45.5359|9.9304|0
+Chiaromonte|PZ|02|40.1239|16.2148|0
+Chiauci|IS|11|41.6765|14.3824|0
+Chiavari|GE|08|44.3201|9.3220|0
+Chiavenna|SO|09|46.3216|9.3986|0
+Chiaverano|TO|12|45.4989|7.9026|0
+Chienes/Kiens|BZ|17|46.8046|11.8418|0
+Chieri|TO|12|45.0140|7.8223|0
+Chies d'Alpago|BL|20|46.1734|12.3875|0
+Chiesa in Valmalenco|SO|09|46.2651|9.8486|0
+Chiesanuova|TO|12|45.4175|7.6555|0
+Chiesina Uzzanese|PT|16|43.8389|10.7221|0
+Chieti|CH|01|42.3503|14.1677|1
+Chieuti|FG|13|41.8446|15.1659|0
+Chieve|CR|09|45.3405|9.6165|0
+Chignolo d'Isola|BG|09|45.6676|9.5276|0
+Chignolo Po|PV|09|45.1482|9.4816|0
+Chioggia|VE|20|45.2078|12.2930|0
+Chiomonte|TO|12|45.1195|6.9853|0
+Chions|PN|06|45.8631|12.7529|0
+Chiopris-Viscone|UD|06|45.9271|13.4038|0
+Chitignano|AR|16|43.6624|11.8813|0
+Chiuduno|BG|09|45.6507|9.8495|0
+Chiuppano|VI|20|45.7638|11.4617|0
+Chiuro|SO|09|46.1650|9.9809|0
+Chiusa di Pesio|CN|12|44.3264|7.6754|0
+Chiusa di San Michele|TO|12|45.1042|7.3271|0
+Chiusa Sclafani|PA|15|37.6769|13.2701|0
+Chiusa/Klausen|BZ|17|46.6425|11.5720|0
+Chiusaforte|UD|06|46.4083|13.3090|0
+Chiusanico|IM|08|43.9719|7.9934|0
+Chiusano d'Asti|AT|12|44.9866|8.1185|0
+Chiusano di San Domenico|AV|04|40.9331|14.9163|0
+Chiusavecchia|IM|08|43.9684|7.9836|0
+Chiusdino|SI|16|43.1546|11.0842|0
+Chiusi della Verna|AR|16|43.6975|11.9350|0
+Chiusi|SI|16|43.0160|11.9474|0
+Chivasso|TO|12|45.1893|7.8872|0
+Ciampino|RM|07|41.8016|12.6066|0
+Cianciana|AG|15|37.5202|13.4336|0
+Cibiana di Cadore|BL|20|46.3878|12.2855|0
+Cicagna|GE|08|44.4040|9.2464|0
+Cicala|CZ|03|39.0222|16.4861|0
+Cicciano|NA|04|40.9647|14.5389|0
+Cicerale|SA|04|40.3429|15.1312|0
+Ciciliano|RM|07|41.9609|12.9409|0
+Cicognolo|CR|09|45.1646|10.1946|0
+Ciconio|TO|12|45.3302|7.7585|0
+Cigliano|VC|12|45.3084|8.0210|0
+Cigliè|CN|12|44.4365|7.9265|0
+Cigognola|PV|09|45.0328|9.2449|0
+Cigole|BS|09|45.3087|10.1894|0
+Cilavegna|PV|09|45.3101|8.7447|0
+Cimadolmo|TV|20|45.7853|12.3623|0
+Cimbergo|BS|09|46.0241|10.3657|0
+Ciminà|RC|03|38.2467|16.1404|0
+Ciminna|PA|15|37.8982|13.5595|0
+Cimitile|NA|04|40.9405|14.5254|0
+Cimolais|PN|06|46.2881|12.4376|0
+Cimone|TN|17|45.9793|11.0695|0
+Cinaglio|AT|12|44.9753|8.1000|0
+Cineto Romano|RM|07|42.0504|12.9622|0
+Cingia de' Botti|CR|09|45.0851|10.2755|0
+Cingoli|MC|10|43.3733|13.2025|0
+Cinigiano|GR|16|42.8903|11.3917|0
+Cinisello Balsamo|MI|09|45.5571|9.2218|0
+Cinisi|PA|15|38.1561|13.1073|0
+Cino|SO|09|46.1590|9.4845|0
+Cinquefrondi|RC|03|38.4162|16.0842|0
+Cintano|TO|12|45.4286|7.6881|0
+Cinte Tesino|TN|17|46.0576|11.6133|0
+Cinto Caomaggiore|VE|20|45.8290|12.7825|0
+Cinto Euganeo|PD|20|45.2748|11.6618|0
+Cinzano|TO|12|45.0943|7.9256|0
+Ciorlano|CE|04|41.4502|14.1583|0
+Cipressa|IM|08|43.8529|7.9322|0
+Circello|BN|04|41.3550|14.8089|0
+Ciriè|TO|12|45.2351|7.5988|0
+Cirigliano|MT|02|40.3944|16.1726|0
+Cirimido|CO|09|45.6998|9.0125|0
+Cirò Marina|KR|03|39.3732|17.1260|0
+Cirò|KR|03|39.3824|17.0626|0
+Cis|TN|17|46.3984|11.0033|0
+Cisano Bergamasco|BG|09|45.7425|9.4703|0
+Cisano sul Neva|SV|08|44.0854|8.1494|0
+Ciserano|BG|09|45.5894|9.6026|0
+Cislago|VA|09|45.6588|8.9719|0
+Cisliano|MI|09|45.4447|8.9902|0
+Cison di Valmarino|TV|20|45.9663|12.1431|0
+Cissone|CN|12|44.5631|8.0304|0
+Cisterna d'Asti|AT|12|44.8261|8.0009|0
+Cisterna di Latina|LT|07|41.5976|12.8305|0
+Cisternino|BR|13|40.7445|17.4243|0
+Citerna|PG|18|43.4982|12.1164|0
+Città della Pieve|PG|18|42.9539|12.0048|0
+Città di Castello|PG|18|43.4691|12.2304|0
+Città Sant'Angelo|PE|01|42.5181|14.0592|0
+Cittadella|PD|20|45.6500|11.7842|0
+Cittaducale|RI|07|42.3871|12.9570|0
+Cittanova|RC|03|38.3552|16.0798|0
+Cittareale|RI|07|42.6162|13.1579|0
+Cittiglio|VA|09|45.8970|8.6601|0
+Civate|LC|09|45.8281|9.3429|0
+Civezza|IM|08|43.8798|7.9516|0
+Civezzano|TN|17|46.0875|11.1791|0
+Civiasco|VC|12|45.8083|8.2935|0
+Cividale del Friuli|UD|06|46.0896|13.4340|0
+Cividate al Piano|BG|09|45.5549|9.8310|0
+Cividate Camuno|BS|09|45.9425|10.2775|0
+Civita Castellana|VT|07|42.2952|12.4092|0
+Civita d'Antino|AQ|01|41.8857|13.4715|0
+Civita|CS|03|39.8288|16.3125|0
+Civitacampomarano|CB|11|41.7812|14.6868|0
+Civitaluparella|CH|01|41.9461|14.2990|0
+Civitanova del Sannio|IS|11|41.6679|14.4038|0
+Civitanova Marche|MC|10|43.3034|13.7204|0
+Civitaquana|PE|01|42.3259|13.9034|0
+Civitavecchia|RM|07|42.0931|11.8071|0
+Civitella Alfedena|AQ|01|41.7653|13.9427|0
+Civitella Casanova|PE|01|42.3645|13.8851|0
+Civitella d'Agliano|VT|07|42.6032|12.1870|0
+Civitella del Tronto|TE|01|42.7732|13.6738|0
+Civitella di Romagna|FC|05|44.0077|11.9422|0
+Civitella in Val di Chiana|AR|16|43.4177|11.7233|0
+Civitella Messer Raimondo|CH|01|42.0889|14.2170|0
+Civitella Paganico|GR|16|42.9500|11.2833|0
+Civitella Roveto|AQ|01|41.9160|13.4269|0
+Civitella San Paolo|RM|07|42.1985|12.5765|0
+Civo|SO|09|46.1542|9.5606|0
+Claino con Osteno|CO|09|46.0067|9.0846|0
+Claut|PN|06|46.2667|12.5167|0
+Clauzetto|PN|06|46.2297|12.9161|0
+Clavesana|CN|12|44.4833|7.9108|0
+Claviere|TO|12|44.9397|6.7530|0
+Cles|TN|17|46.3651|11.0330|0
+Cleto|CS|03|39.0902|16.1584|0
+Clivio|VA|09|45.8628|8.9308|0
+Clusone|BG|09|45.8871|9.9497|0
+Coassolo Torinese|TO|12|45.2978|7.4604|0
+Coazze|TO|12|45.0545|7.3069|0
+Coazzolo|AT|12|44.7282|8.1451|0
+Coccaglio|BS|09|45.5646|9.9743|0
+Cocconato|AT|12|45.0881|8.0394|0
+Cocquio-Trevisago|VA|09|45.8629|8.6882|0
+Cocullo|AQ|01|42.0328|13.7750|0
+Codevigo|PD|20|45.2667|12.0986|0
+Codevilla|PV|09|44.9636|9.0562|0
+Codigoro|FE|05|44.8316|12.1095|0
+Codognè|TV|20|45.8689|12.4360|0
+Codogno|LO|09|45.1619|9.7022|0
+Codroipo|UD|06|45.9580|12.9856|0
+Codrongianos|SS|14|40.6573|8.6798|0
+Coggiola|BI|12|45.7145|8.1579|0
+Cogliate|MB|09|45.6460|9.0788|0
+Cogne|AO|19|45.6089|7.3588|0
+Cogoleto|GE|08|44.3893|8.6429|0
+Cogollo del Cengio|VI|20|45.7847|11.4259|0
+Cogorno|GE|08|44.3302|9.3540|0
+Colazza|NO|12|45.7926|8.5003|0
+Colceresa|VI|20|45.7217|11.6102|0
+Colere|BG|09|45.9743|10.0828|0
+Colfelice|FR|07|41.5584|13.6049|0
+Coli|PC|05|44.7448|9.4146|0
+Colico|LC|09|46.1324|9.3698|0
+Collalto Sabino|RI|07|42.1357|13.0475|0
+Collarmele|AQ|01|42.0590|13.6257|0
+Collazzone|PG|18|42.9002|12.4353|0
+Colle Brianza|LC|09|45.7624|9.3643|0
+Colle d'Anchise|CB|11|41.5094|14.5184|0
+Colle di Tora|RI|07|42.2116|12.9480|0
+Colle di Val d'Elsa|SI|16|43.4151|11.1314|0
+Colle San Magno|FR|07|41.5512|13.6949|0
+Colle Sannita|BN|04|41.3643|14.8331|0
+Colle Santa Lucia|BL|20|46.4485|12.0140|0
+Colle Umberto|TV|20|45.9396|12.3427|0
+Collebeato|BS|09|45.5812|10.2102|0
+Collecchio|PR|05|44.7540|10.2184|0
+Collecorvino|PE|01|42.4589|14.0152|0
+Colledara|TE|01|42.5407|13.6790|0
+Colledimacine|CH|01|42.0044|14.2006|0
+Colledimezzo|CH|01|41.9874|14.3884|0
+Colleferro|RM|07|41.7262|13.0036|0
+Collegiove|RI|07|42.1755|13.0390|0
+Collegno|TO|12|45.0776|7.5724|0
+Collelongo|AQ|01|41.8868|13.5849|0
+Collepardo|FR|07|41.7643|13.3695|0
+Collepasso|LE|13|40.0715|18.1640|0
+Collepietro|AQ|01|42.2217|13.7793|0
+Colleretto Castelnuovo|TO|12|45.4224|7.6798|0
+Colleretto Giacosa|TO|12|45.4329|7.7985|0
+Collesalvetti|LI|16|43.5888|10.4748|0
+Collesano|PA|15|37.9183|13.9357|0
+Colletorto|CB|11|41.6636|14.9688|0
+Collevecchio|RI|07|42.3340|12.5527|0
+Colli a Volturno|IS|11|41.5987|14.1049|0
+Colli al Metauro|PU|10|43.7489|12.8989|0
+Colli del Tronto|AP|10|42.8768|13.7494|0
+Colli sul Velino|RI|07|42.4982|12.7787|0
+Colli Verdi|PV|09|44.9004|9.2307|0
+Colliano|SA|04|40.7261|15.2912|0
+Collinas|SU|14|39.6401|8.8384|0
+Collio|BS|09|45.8098|10.3343|0
+Collobiano|VC|12|45.3969|8.3483|0
+Colloredo di Monte Albano|UD|06|46.1615|13.1348|0
+Colmurano|MC|10|43.1649|13.3591|0
+Colobraro|MT|02|40.1873|16.4250|0
+Cologna Veneta|VR|20|45.3103|11.3844|0
+Cologne|BS|09|45.5814|9.9414|0
+Cologno al Serio|BG|09|45.5821|9.7088|0
+Cologno Monzese|MI|09|45.5357|9.2764|0
+Colognola ai Colli|VR|20|45.4337|11.1843|0
+Colonna|RM|07|41.8337|12.7532|0
+Colonnella|TE|01|42.8732|13.8683|0
+Colonno|CO|09|45.9577|9.1529|0
+Colorina|SO|09|46.1537|9.7294|0
+Colorno|PR|05|44.9263|10.3768|0
+Colosimi|CS|03|39.1191|16.3997|0
+Colturano|MI|09|45.3798|9.3378|0
+Colverde|CO|09|45.8101|9.0032|0
+Colzate|BG|09|45.8172|9.8561|0
+Comabbio|VA|09|45.7710|8.6762|0
+Comacchio|FE|05|44.6964|12.1804|0
+Comano Terme|TN|17|46.0107|10.8839|0
+Comano|MS|16|44.2933|10.1311|0
+Comazzo|LO|09|45.4410|9.4647|0
+Comeglians|UD|06|46.5152|12.8678|0
+Comelico Superiore|BL|20|46.5896|12.5144|0
+Comerio|VA|09|45.8433|8.7436|0
+Comezzano-Cizzago|BS|09|45.4713|9.9501|0
+Comignago|NO|12|45.7149|8.5640|0
+Comiso|RG|15|36.9513|14.6102|0
+Comitini|AG|15|37.4079|13.6430|0
+Comiziano|NA|04|40.9521|14.5514|0
+Commessaggio|MN|09|45.0379|10.5435|0
+Commezzadura|TN|17|46.3217|10.8396|0
+Como|CO|09|45.8100|9.0874|1
+Compiano|PR|05|44.4960|9.6621|0
+Comun Nuovo|BG|09|45.6227|9.6598|0
+Comunanza|AP|10|42.9573|13.4123|0
+Cona|VE|20|45.1838|12.0201|0
+Conca Casale|IS|11|41.4951|14.0068|0
+Conca dei Marini|SA|04|40.6189|14.5678|0
+Conca della Campania|CE|04|41.3309|13.9916|0
+Concamarise|VR|20|45.2144|11.1452|0
+Concerviano|RI|07|42.3230|12.9856|0
+Concesio|BS|09|45.6052|10.2170|0
+Concordia Sagittaria|VE|20|45.7593|12.8350|0
+Concordia sulla Secchia|MO|05|44.9132|10.9833|0
+Concorezzo|MB|09|45.5897|9.3360|0
+Condofuri|RC|03|38.0045|15.8577|0
+Condove|TO|12|45.1174|7.3076|0
+Condrò|ME|15|38.1744|15.3268|0
+Conegliano|TV|20|45.8871|12.3039|0
+Confienza|PV|09|45.3322|8.5563|0
+Configni|RI|07|42.4235|12.6422|0
+Conflenti|CZ|03|39.0717|16.2845|0
+Coniolo|AL|12|45.1482|8.3709|0
+Conselice|RA|05|44.5119|11.8312|0
+Conselve|PD|20|45.2309|11.8738|0
+Contà|TN|17|46.2958|11.0186|0
+Contessa Entellina|PA|15|37.7306|13.1837|0
+Contigliano|RI|07|42.4115|12.7679|0
+Contrada|AV|04|40.8659|14.7789|0
+Controguerra|TE|01|42.8546|13.8176|0
+Controne|SA|04|40.5096|15.2056|0
+Contursi Terme|SA|04|40.6495|15.2393|0
+Conversano|BA|13|40.9662|17.1148|0
+Conza della Campania|AV|04|40.8732|15.3070|0
+Conzano|AL|12|45.0204|8.4539|0
+Copertino|LE|13|40.2715|18.0565|0
+Copiano|PV|09|45.1963|9.3224|0
+Copparo|FE|05|44.8930|11.8249|0
+Corana|PV|09|45.0617|8.9683|0
+Corato|BA|13|41.1455|16.4139|0
+Corbara|SA|04|40.7212|14.5945|0
+Corbetta|MI|09|45.4714|8.9158|0
+Corbola|RO|20|45.0057|12.0785|0
+Corchiano|VT|07|42.3540|12.3322|0
+Corciano|PG|18|43.1290|12.2873|0
+Cordenons|PN|06|45.9836|12.6949|0
+Cordignano|TV|20|45.9518|12.4137|0
+Cordovado|PN|06|45.8423|12.8824|0
+Coreglia Antelminelli|LU|16|44.0637|10.5255|0
+Coreglia Ligure|GE|08|44.3877|9.2610|0
+Coreno Ausonio|FR|07|41.3450|13.7816|0
+Corfinio|AQ|01|42.1237|13.8415|0
+Cori|LT|07|41.6444|12.9128|0
+Coriano|RN|05|43.9691|12.6006|0
+Corigliano d'Otranto|LE|13|40.1596|18.2594|0
+Corigliano-Rossano|CS|03|39.6043|16.6214|0
+Corinaldo|AN|10|43.6499|13.0482|0
+Corio|TO|12|45.3137|7.5322|0
+Corleone|PA|15|37.8167|13.2994|0
+Corleto Monforte|SA|04|40.4372|15.3796|0
+Corleto Perticara|PZ|02|40.3835|16.0407|0
+Cormano|MI|09|45.5396|9.1709|0
+Cormons|GO|06|45.9569|13.4653|0
+Corna Imagna|BG|09|45.8307|9.5449|0
+Cornalba|BG|09|45.8515|9.7440|0
+Cornale e Bastida|PV|09|45.0472|8.9155|0
+Cornaredo|MI|09|45.4970|9.0261|0
+Cornate d'Adda|MB|09|45.6417|9.4673|0
+Cornedo all'Isarco/Karneid|BZ|17|46.4898|11.4048|0
+Cornedo Vicentino|VI|20|45.6131|11.3406|0
+Cornegliano Laudense|LO|09|45.2862|9.4880|0
+Corneliano d'Alba|CN|12|44.7361|7.9572|0
+Corniglio|PR|05|44.4742|10.0901|0
+Corno di Rosazzo|UD|06|45.9934|13.4438|0
+Corno Giovine|LO|09|45.1335|9.7597|0
+Cornovecchio|LO|09|45.1367|9.7994|0
+Cornuda|TV|20|45.8335|12.0051|0
+Correggio|RE|05|44.7698|10.7823|0
+Correzzana|MB|09|45.6666|9.3076|0
+Correzzola|PD|20|45.2352|12.0677|0
+Corrido|CO|09|46.0476|9.1355|0
+Corridonia|MC|10|43.2511|13.5088|0
+Corropoli|TE|01|42.8295|13.8320|0
+Corsano|LE|13|39.8892|18.3693|0
+Corsico|MI|09|45.4305|9.1154|0
+Corsione|AT|12|45.0010|8.1452|0
+Cortaccia sulla strada del vino/Kurtatsch an der Weinstraße|BZ|17|46.3140|11.2239|0
+Cortale|CZ|03|38.8401|16.4096|0
+Cortandone|AT|12|44.9592|8.0584|0
+Cortanze|AT|12|45.0144|8.0880|0
+Cortazzone|AT|12|44.9791|8.0612|0
+Corte Brugnatella|PC|05|44.7116|9.3811|0
+Corte de' Cortesi con Cignone|CR|09|45.2732|10.0079|0
+Corte de' Frati|CR|09|45.2185|10.1019|0
+Corte Franca|BS|09|45.6300|9.9885|0
+Corte Palasio|LO|09|45.3137|9.5622|0
+Cortemaggiore|PC|05|44.9938|9.9308|0
+Cortemilia|CN|12|44.5779|8.1929|0
+Corteno Golgi|BS|09|46.1667|10.2333|0
+Cortenova|LC|09|46.0003|9.3845|0
+Cortenuova|BG|09|45.5390|9.7879|0
+Corteolona e Genzone|PV|09|45.1679|9.3654|0
+Cortiglione|AT|12|44.8233|8.3584|0
+Cortina d'Ampezzo|BL|20|46.5384|12.1377|0
+Cortina sulla strada del vino/Kurtinig an der Weinstraße|BZ|17|46.2694|11.2219|0
+Cortino|TE|01|42.6333|13.5423|0
+Cortona|AR|16|43.2745|11.9870|0
+Corvara in Badia/Corvara|BZ|17|46.5516|11.8702|0
+Corvara|PE|01|42.2749|13.8730|0
+Corvino San Quirico|PV|09|45.0109|9.1624|0
+Corzano|BS|09|45.4438|10.0074|0
+Coseano|UD|06|46.0970|13.0195|0
+Cosenza|CS|03|39.3100|16.2502|1
+Cosio d'Arroscia|IM|08|44.0774|7.8324|0
+Cosio Valtellino|SO|09|46.1351|9.5516|0
+Cosoleto|RC|03|38.2754|15.9280|0
+Cossano Belbo|CN|12|44.6688|8.1986|0
+Cossano Canavese|TO|12|45.3878|7.9915|0
+Cossato|BI|12|45.5739|8.1817|0
+Cosseria|SV|08|44.3677|8.2348|0
+Cossignano|AP|10|42.9843|13.6900|0
+Cossogno|VB|12|45.9641|8.5096|0
+Cossoine|SS|14|40.4314|8.7162|0
+Cossombrato|AT|12|44.9930|8.1361|0
+Costa de' Nobili|PV|09|45.1322|9.3789|0
+Costa di Mezzate|BG|09|45.6620|9.7940|0
+Costa di Rovigo|RO|20|45.0491|11.6946|0
+Costa Masnaga|LC|09|45.7670|9.2777|0
+Costa Serina|BG|09|45.8327|9.7416|0
+Costa Valle Imagna|BG|09|45.8049|9.5022|0
+Costa Vescovato|AL|12|44.8162|8.9269|0
+Costa Volpino|BG|09|45.8299|10.0982|0
+Costabissara|VI|20|45.5836|11.4872|0
+Costacciaro|PG|18|43.3608|12.7122|0
+Costanzana|VC|12|45.2382|8.3681|0
+Costarainera|IM|08|43.8554|7.9387|0
+Costermano sul Garda|VR|20|45.5869|10.7372|0
+Costigliole d'Asti|AT|12|44.7839|8.1809|0
+Costigliole Saluzzo|CN|12|44.5645|7.4854|0
+Cotignola|RA|05|44.3872|11.9394|0
+Cotronei|KR|03|39.1582|16.7809|0
+Cottanello|RI|07|42.4063|12.6842|0
+Courmayeur|AO|19|45.7939|6.9714|0
+Covo|BG|09|45.5003|9.7713|0
+Cozzo|PV|09|45.1927|8.6110|0
+Craco|MT|02|40.3799|16.4371|0
+Crandola Valsassina|LC|09|46.0233|9.3791|0
+Cravagliana|VC|12|45.8483|8.2018|0
+Cravanzana|CN|12|44.5747|8.1260|0
+Craveggia|VB|12|46.1416|8.4882|0
+Creazzo|VI|20|45.5320|11.4785|0
+Crecchio|CH|01|42.2891|14.3229|0
+Credaro|BG|09|45.6606|9.9311|0
+Credera Rubbiano|CR|09|45.3033|9.6561|0
+Crema|CR|09|45.3588|9.6683|0
+Cremella|LC|09|45.7386|9.3006|0
+Cremenaga|VA|09|45.9894|8.8033|0
+Cremeno|LC|09|45.9355|9.4687|0
+Cremia|CO|09|46.0865|9.2711|0
+Cremolino|AL|12|44.6359|8.5853|0
+Cremona|CR|09|45.1362|10.0280|1
+Cremosano|CR|09|45.3947|9.6383|0
+Crescentino|VC|12|45.1904|8.0999|0
+Crespadoro|VI|20|45.6202|11.2259|0
+Crespiatica|LO|09|45.3567|9.5752|0
+Crespina Lorenzana|PI|16|43.5606|10.5510|0
+Crespino|RO|20|44.9839|11.8870|0
+Cressa|NO|12|45.6483|8.5090|0
+Crevacuore|BI|12|45.6869|8.2467|0
+Crevalcore|BO|05|44.7206|11.1498|0
+Crevoladossola|VB|12|46.1486|8.2974|0
+Crispano|NA|04|40.9525|14.2899|0
+Crispiano|TA|13|40.6001|17.2356|0
+Crissolo|CN|12|44.6995|7.1560|0
+Crocefieschi|GE|08|44.5797|9.0240|0
+Crocetta del Montello|TV|20|45.8263|12.0328|0
+Crodo|VB|12|46.2108|8.3206|0
+Crognaleto|TE|01|42.5879|13.4896|0
+Cropalati|CS|03|39.5172|16.7265|0
+Cropani|CZ|03|38.9678|16.7813|0
+Crosia|CS|03|39.5676|16.7728|0
+Crosio della Valle|VA|09|45.7600|8.7704|0
+Crotone|KR|03|39.0851|17.1178|1
+Crotta d'Adda|CR|09|45.1583|9.8565|0
+Crova|VC|12|45.3307|8.2108|0
+Croviana|TN|17|46.3452|10.9035|0
+Crucoli|KR|03|39.4237|17.0023|0
+Cuasso al Monte|VA|09|45.9148|8.8792|0
+Cuccaro Vetere|SA|04|40.1652|15.3065|0
+Cucciago|CO|09|45.7393|9.0929|0
+Cuceglio|TO|12|45.3592|7.8174|0
+Cuggiono|MI|09|45.5109|8.8154|0
+Cugliate-Fabiasco|VA|09|45.9457|8.8186|0
+Cuglieri|OR|14|40.1880|8.5664|0
+Cugnoli|PE|01|42.3071|13.9327|0
+Cumiana|TO|12|44.9797|7.3767|0
+Cumignano sul Naviglio|CR|09|45.3558|9.8348|0
+Cunardo|VA|09|45.9343|8.8077|0
+Cuneo|CN|12|44.3973|7.5445|1
+Cunico|AT|12|45.0399|8.0967|0
+Cuorgnè|TO|12|45.3894|7.6499|0
+Cupello|CH|01|42.0681|14.6692|0
+Cupra Marittima|AP|10|43.0299|13.8579|0
+Cupramontana|AN|10|43.4459|13.1155|0
+Cura Carpignano|PV|09|45.2125|9.2556|0
+Curcuris|OR|14|39.7461|8.8306|0
+Cureggio|NO|12|45.6749|8.4597|0
+Curiglia con Monteviasco|VA|09|46.0602|8.8043|0
+Curinga|CZ|03|38.8262|16.3134|0
+Curino|BI|12|45.6272|8.2362|0
+Curno|BG|09|45.6890|9.6070|0
+Curon Venosta/Graun im Vinschgau|BZ|17|46.8083|10.5427|0
+Cursi|LE|13|40.1496|18.3148|0
+Curtarolo|PD|20|45.5221|11.8358|0
+Curtatone|MN|09|45.1350|10.7182|0
+Curti|CE|04|41.0729|14.2739|0
+Cusago|MI|09|45.4500|9.0374|0
+Cusano Milanino|MI|09|45.5531|9.1835|0
+Cusano Mutri|BN|04|41.3377|14.5088|0
+Cusino|CO|09|46.0749|9.1526|0
+Cusio|BG|09|45.9909|9.6017|0
+Custonaci|TP|15|38.0731|12.6875|0
+Cutro|KR|03|39.0353|16.9819|0
+Cutrofiano|LE|13|40.1263|18.2016|0
+Cuveglio|VA|09|45.9061|8.7333|0
+Cuvio|VA|09|45.8962|8.7341|0
+Dairago|MI|09|45.5672|8.8632|0
+Dalmine|BG|09|45.6493|9.6039|0
+Dambel|TN|17|46.4047|11.0931|0
+Danta di Cadore|BL|20|46.5669|12.5214|0
+Darfo Boario Terme|BS|09|45.8819|10.1806|0
+Dasà|VV|03|38.5649|16.1960|0
+Davagna|GE|08|44.4659|9.0867|0
+Daverio|VA|09|45.7780|8.7734|0
+Davoli|CZ|03|38.6474|16.4862|0
+Dazio|SO|09|46.1613|9.6006|0
+Decimomannu|CA|14|39.3117|8.9688|0
+Decimoputzu|SU|14|39.3352|8.9152|0
+Decollatura|CZ|03|39.0478|16.3551|0
+Dego|SV|08|44.4430|8.3059|0
+Deiva Marina|SP|08|44.2189|9.5190|0
+Delebio|SO|09|46.1361|9.4606|0
+Delia|CL|15|37.3587|13.9287|0
+Delianuova|RC|03|38.2341|15.9178|0
+Deliceto|FG|13|41.2230|15.3858|0
+Dello|BS|09|45.4203|10.0775|0
+Demonte|CN|12|44.3155|7.2987|0
+Denice|AL|12|44.5988|8.3331|0
+Denno|TN|17|46.2750|11.0491|0
+Dernice|AL|12|44.7666|9.0504|0
+Derovere|CR|09|45.1100|10.2480|0
+Deruta|PG|18|42.9804|12.4151|0
+Dervio|LC|09|46.0760|9.3046|0
+Desana|VC|12|45.2697|8.3597|0
+Desenzano del Garda|BS|09|45.4680|10.5340|0
+Desio|MB|09|45.6202|9.2043|0
+Desulo|NU|14|40.0167|9.2333|0
+Diamante|CS|03|39.6760|15.8249|0
+Diano Arentino|IM|08|43.9496|8.0416|0
+Diano Castello|IM|08|43.9179|8.0727|0
+Diano d'Alba|CN|12|44.6500|8.0273|0
+Diano Marina|IM|08|43.9103|8.0793|0
+Diano San Pietro|IM|08|43.9314|8.0716|0
+Dicomano|FI|16|43.8909|11.5211|0
+Dignano|UD|06|46.0840|12.9408|0
+Dimaro Folgarida|TN|17|46.2986|10.8834|0
+Dinami|VV|03|38.5297|16.1479|0
+Dipignano|CS|03|39.2376|16.2516|0
+Diso|LE|13|40.0095|18.3925|0
+Divignano|NO|12|45.6624|8.6016|0
+Dizzasco|CO|09|45.9438|9.0997|0
+Dobbiaco/Toblach|BZ|17|46.7249|12.2211|0
+Doberdò del Lago-Doberdob|GO|06|45.8431|13.5383|0
+Dogliani|CN|12|44.5309|7.9472|0
+Dogliola|CH|01|41.9418|14.6362|0
+Dogna|UD|06|46.4479|13.3150|0
+Dolcè|VR|20|45.6007|10.8525|0
+Dolceacqua|IM|08|43.8517|7.6226|0
+Dolcedo|IM|08|43.9051|7.9501|0
+Dolegna del Collio|GO|06|46.0313|13.4793|0
+Dolianova|SU|14|39.3782|9.1786|0
+Dolo|VE|20|45.4250|12.0763|0
+Dolzago|LC|09|45.7670|9.3393|0
+Domanico|CS|03|39.2197|16.2061|0
+Domaso|CO|09|46.1529|9.3334|0
+Domegge di Cadore|BL|20|46.4593|12.4138|0
+Domicella|AV|04|40.8800|14.5877|0
+Domodossola|VB|12|46.1135|8.2896|0
+Domus de Maria|SU|14|38.9440|8.8635|0
+Domusnovas|SU|14|39.3247|8.6487|0
+Donato|BI|12|45.5263|7.9096|0
+Dongo|CO|09|46.1316|9.2808|0
+Donnas|AO|19|45.6029|7.7749|0
+Donori|SU|14|39.4310|9.1273|0
+Dorgali|NU|14|40.2926|9.5881|0
+Dorio|LC|09|46.1017|9.3200|0
+Dormelletto|NO|12|45.7363|8.5666|0
+Dorno|PV|09|45.1560|8.9527|0
+Dorzano|BI|12|45.4261|8.0985|0
+Dosolo|MN|09|44.9534|10.6376|0
+Dossena|BG|09|45.8803|9.6967|0
+Dosso del Liro|CO|09|46.1640|9.2729|0
+Doues|AO|19|45.8192|7.3060|0
+Dovadola|FC|05|44.1227|11.8887|0
+Dovera|CR|09|45.3653|9.5414|0
+Dozza|BO|05|44.3603|11.6322|0
+Dragoni|CE|04|41.2718|14.3123|0
+Drapia|VV|03|38.6656|15.9116|0
+Drena|TN|17|45.9693|10.9445|0
+Drenchia|UD|06|46.1738|13.6227|0
+Dresano|MI|09|45.3730|9.3578|0
+Dro|TN|17|45.9616|10.9115|0
+Dronero|CN|12|44.4657|7.3513|0
+Druento|TO|12|45.1347|7.5766|0
+Druogno|VB|12|46.1349|8.4360|0
+Dualchi|NU|14|40.2289|8.8964|0
+Dubino|SO|09|46.1718|9.4301|0
+Due Carrare|PD|20|45.2926|11.8184|0
+Dueville|VI|20|45.6337|11.5502|0
+Dugenta|BN|04|41.1322|14.4524|0
+Duino Aurisina-Devin Nabrežina|TS|06|45.7506|13.6700|0
+Dumenza|VA|09|46.0189|8.7875|0
+Duno|VA|09|45.9140|8.7376|0
+Durazzano|BN|04|41.0630|14.4506|0
+Duronia|CB|11|41.6589|14.4584|0
+Dusino San Michele|AT|12|44.9261|7.9707|0
+Eboli|SA|04|40.6142|15.0579|0
+Edolo|BS|09|46.1782|10.3292|0
+Egna/Neumarkt|BZ|17|46.3169|11.2726|0
+Elice|PE|01|42.5204|13.9693|0
+Elini|NU|14|39.8999|9.5310|0
+Ello|LC|09|45.7857|9.3653|0
+Elmas|CA|14|39.2698|9.0487|0
+Elva|CN|12|44.5403|7.0903|0
+Emarèse|AO|19|45.7246|7.7018|0
+Empoli|FI|16|43.7176|10.9414|0
+Endine Gaiano|BG|09|45.7925|9.9691|0
+Enego|VI|20|45.9416|11.7055|0
+Enemonzo|UD|06|46.4091|12.8762|0
+Enna|EN|15|37.5588|14.2892|1
+Entracque|CN|12|44.2414|7.3993|0
+Entratico|BG|09|45.7078|9.8732|0
+Envie|CN|12|44.6822|7.3711|0
+Episcopia|PZ|02|40.0748|16.0982|0
+Eraclea|VE|20|45.5815|12.6745|0
+Erba|CO|09|45.8096|9.2312|0
+Erbè|VR|20|45.2415|10.9692|0
+Erbezzo|VR|20|45.6405|11.0007|0
+Erbusco|BS|09|45.6000|9.9667|0
+Erchie|BR|13|40.4380|17.7306|0
+Ercolano|NA|04|40.8063|14.3609|0
+Erice|TP|15|38.0370|12.5865|0
+Erli|SV|08|44.1375|8.1031|0
+Erto e Casso|PN|06|46.2768|12.3720|0
+Erula|SS|14|40.7912|8.9422|0
+Erve|LC|09|45.8216|9.4528|0
+Esanatoglia|MC|10|43.2525|12.9506|0
+Escalaplano|SU|14|39.6266|9.3571|0
+Escolca|SU|14|39.6985|9.1215|0
+Esine|BS|09|45.9257|10.2509|0
+Esino Lario|LC|09|45.9955|9.3353|0
+Esperia|FR|07|41.3829|13.6869|0
+Esporlatu|SS|14|40.3846|8.9898|0
+Este|PD|20|45.2229|11.6587|0
+Esterzili|SU|14|39.7792|9.2847|0
+Etroubles|AO|19|45.8206|7.2293|0
+Eupilio|CO|09|45.8181|9.2698|0
+Exilles|TO|12|45.0975|6.9292|0
+Fabbrica Curone|AL|12|44.7850|9.1476|0
+Fabbriche di Vergemoli|LU|16|44.0397|10.3817|0
+Fabbrico|RE|05|44.8695|10.8116|0
+Fabriano|AN|10|43.3406|12.9073|0
+Fabrica di Roma|VT|07|42.3351|12.2998|0
+Fabrizia|VV|03|38.4871|16.3010|0
+Fabro|TR|18|42.8752|12.0172|0
+Faedis|UD|06|46.1503|13.3464|0
+Faedo Valtellino|SO|09|46.1530|9.9061|0
+Faenza|RA|05|44.2915|11.8752|0
+Faeto|FG|13|41.3254|15.1598|0
+Fagagna|UD|06|46.1131|13.0884|0
+Faggeto Lario|CO|09|45.8588|9.1589|0
+Faggiano|TA|13|40.4198|17.3866|0
+Fagnano Alto|AQ|01|42.2534|13.5745|0
+Fagnano Castello|CS|03|39.5657|16.0537|0
+Fagnano Olona|VA|09|45.6698|8.8599|0
+Fai della Paganella|TN|17|46.1746|11.0691|0
+Faicchio|BN|04|41.2779|14.4780|0
+Falcade|BL|20|46.3537|11.8649|0
+Falciano del Massico|CE|04|41.1627|13.9481|0
+Falconara Albanese|CS|03|39.2759|16.0918|0
+Falconara Marittima|AN|10|43.6233|13.4031|0
+Falcone|ME|15|38.1171|15.0791|0
+Faleria|VT|07|42.2265|12.4454|0
+Falerna|CZ|03|39.0025|16.1707|0
+Falerone|FM|10|43.1071|13.4717|0
+Fallo|CH|01|41.9383|14.3236|0
+Faloppio|CO|09|45.8097|8.9643|0
+Falvaterra|FR|07|41.5051|13.5238|0
+Falzes/Pfalzen|BZ|17|46.8144|11.8837|0
+Fanano|MO|05|44.2115|10.7964|0
+Fanna|PN|06|46.1845|12.7498|0
+Fano Adriano|TE|01|42.5530|13.5359|0
+Fano|PU|10|43.8204|13.0121|0
+Fara Filiorum Petri|CH|01|42.2489|14.1860|0
+Fara Gera d'Adda|BG|09|45.5557|9.5379|0
+Fara in Sabina|RI|07|42.2089|12.7292|0
+Fara Novarese|NO|12|45.5518|8.4586|0
+Fara Olivana con Sola|BG|09|45.4951|9.7491|0
+Fara San Martino|CH|01|42.0900|14.2053|0
+Fara Vicentino|VI|20|45.7398|11.5476|0
+Fardella|PZ|02|40.1138|16.1698|0
+Farigliano|CN|12|44.5120|7.9142|0
+Farindola|PE|01|42.4424|13.8221|0
+Farini|PC|05|44.7127|9.5689|0
+Farnese|VT|07|42.5494|11.7256|0
+Farra d'Isonzo|GO|06|45.9080|13.5165|0
+Farra di Soligo|TV|20|45.8982|12.1035|0
+Fasano|BR|13|40.8344|17.3584|0
+Fascia|GE|08|44.5825|9.2214|0
+Fauglia|PI|16|43.5706|10.5144|0
+Faule|CN|12|44.8062|7.5851|0
+Favale di Malvaro|GE|08|44.4522|9.2590|0
+Favara|AG|15|37.3175|13.6623|0
+Favignana|TP|15|37.9300|12.3285|0
+Favria|TO|12|45.3312|7.6906|0
+Feisoglio|CN|12|44.5437|8.1049|0
+Feletto|TO|12|45.3038|7.7447|0
+Felino|PR|05|44.6958|10.2411|0
+Felitto|SA|04|40.3735|15.2431|0
+Felizzano|AL|12|44.8993|8.4358|0
+Feltre|BL|20|46.0235|11.9070|0
+Fenegrò|CO|09|45.7016|8.9996|0
+Fenestrelle|TO|12|45.0359|7.0494|0
+Fénis|AO|19|45.7335|7.4977|0
+Ferentillo|TR|18|42.6205|12.7901|0
+Ferentino|FR|07|41.6953|13.2564|0
+Ferla|SR|15|37.1205|14.9396|0
+Fermignano|PU|10|43.6840|12.6441|0
+Fermo|FM|10|43.1647|13.7233|1
+Ferno|VA|09|45.6162|8.7545|0
+Feroleto Antico|CZ|03|38.9624|16.3878|0
+Feroleto della Chiesa|RC|03|38.4658|16.0642|0
+Ferrandina|MT|02|40.5012|16.4547|0
+Ferrara di Monte Baldo|VR|20|45.6732|10.8608|0
+Ferrara|FE|05|44.8268|11.6207|1
+Ferrazzano|CB|11|41.5303|14.6722|0
+Ferrera di Varese|VA|09|45.9328|8.7891|0
+Ferrera Erbognone|PV|09|45.1151|8.8643|0
+Ferrere|AT|12|44.8755|7.9947|0
+Ferriere|PC|05|44.6439|9.4966|0
+Ferruzzano|RC|03|38.0378|16.0877|0
+Fiamignano|RI|07|42.2648|13.1231|0
+Fiano Romano|RM|07|42.1595|12.5942|0
+Fiano|TO|12|45.2169|7.5227|0
+Fiastra|MC|10|43.0333|13.1500|0
+Fiavè|TN|17|46.0046|10.8422|0
+Ficarazzi|PA|15|38.0898|13.4680|0
+Ficarolo|RO|20|44.9544|11.4348|0
+Ficarra|ME|15|38.1091|14.8290|0
+Ficulle|TR|18|42.8336|12.0678|0
+Fidenza|PR|05|44.8640|10.0667|0
+Fiè allo Sciliar/Völs am Schlern|BZ|17|46.5167|11.5013|0
+Fierozzo|TN|17|46.1113|11.3185|0
+Fiesco|CR|09|45.3374|9.7779|0
+Fiesole|FI|16|43.8049|11.2941|0
+Fiesse|BS|09|45.2315|10.3242|0
+Fiesso d'Artico|VE|20|45.4226|12.0366|0
+Fiesso Umbertiano|RO|20|44.9626|11.6054|0
+Figino Serenza|CO|09|45.7105|9.1311|0
+Figline e Incisa Valdarno|FI|16|43.6395|11.4508|0
+Figline Vegliaturo|CS|03|39.2252|16.3303|0
+Filacciano|RM|07|42.2548|12.5977|0
+Filadelfia|VV|03|38.7847|16.2920|0
+Filago|BG|09|45.6376|9.5564|0
+Filandari|VV|03|38.6151|16.0314|0
+Filattiera|MS|16|44.3300|9.9331|0
+Filettino|FR|07|41.8914|13.3275|0
+Filetto|CH|01|42.2282|14.2451|0
+Filiano|PZ|02|40.8107|15.7062|0
+Filighera|PV|09|45.1771|9.3160|0
+Filignano|IS|11|41.5449|14.0563|0
+Filogaso|VV|03|38.6815|16.2287|0
+Filottrano|AN|10|43.4354|13.3514|0
+Finale Emilia|MO|05|44.8346|11.2939|0
+Finale Ligure|SV|08|44.1728|8.3537|0
+Fino del Monte|BG|09|45.8927|9.9941|0
+Fino Mornasco|CO|09|45.7429|9.0476|0
+Fiorano al Serio|BG|09|45.8002|9.8428|0
+Fiorano Canavese|TO|12|45.4678|7.8337|0
+Fiorano Modenese|MO|05|44.5360|10.8218|0
+Fiorenzuola d'Arda|PC|05|44.9221|9.9090|0
+Firenze|FI|16|43.7865|11.2489|1
+Firenzuola|FI|16|44.1211|11.3791|0
+Firmo|CS|03|39.7214|16.1702|0
+Fiscaglia|FE|05|44.7893|11.9693|0
+Fisciano|SA|04|40.7728|14.7994|0
+Fiuggi|FR|07|41.7986|13.2203|0
+Fiumalbo|MO|05|44.1793|10.6472|0
+Fiumara|RC|03|38.2127|15.6937|0
+Fiume Veneto|PN|06|45.9241|12.7313|0
+Fiumedinisi|ME|15|38.0260|15.3810|0
+Fiumefreddo Bruzio|CS|03|39.2344|16.0696|0
+Fiumefreddo di Sicilia|CT|15|37.7915|15.2092|0
+Fiumicello Villa Vicentina|UD|06|45.7837|13.4132|0
+Fiumicino|RM|07|41.7628|12.2475|0
+Fiuminata|MC|10|43.1869|12.9324|0
+Fivizzano|MS|16|44.2383|10.1260|0
+Flaibano|UD|06|46.0587|12.9842|0
+Flero|BS|09|45.4826|10.1735|0
+Floresta|ME|15|37.9876|14.9102|0
+Floridia|SR|15|37.0870|15.1519|0
+Florinas|SS|14|40.6496|8.6651|0
+Flumeri|AV|04|41.0778|15.1478|0
+Fluminimaggiore|SU|14|39.4392|8.4979|0
+Flussio|OR|14|40.2674|8.5402|0
+Fobello|VC|12|45.8902|8.1573|0
+Foggia|FG|13|41.4609|15.5493|1
+Foglianise|BN|04|41.1645|14.6682|0
+Fogliano Redipuglia|GO|06|45.8667|13.4808|0
+Foglizzo|TO|12|45.2719|7.8198|0
+Foiano della Chiana|AR|16|43.2556|11.8153|0
+Foiano di Val Fortore|BN|04|41.3518|14.9773|0
+Folgaria|TN|17|45.9152|11.1707|0
+Folignano|AP|10|42.8203|13.6343|0
+Foligno|PG|18|42.9440|12.7011|0
+Follina|TV|20|45.9516|12.1196|0
+Follo|SP|08|44.1638|9.8619|0
+Follonica|GR|16|42.9263|10.7616|0
+Fombio|LO|09|45.1404|9.6878|0
+Fondachelli-Fantina|ME|15|37.9848|15.1752|0
+Fondi|LT|07|41.3541|13.4313|0
+Fonni|NU|14|40.1206|9.2508|0
+Fontainemore|AO|19|45.6475|7.8595|0
+Fontana Liri|FR|07|41.6100|13.5503|0
+Fontanafredda|PN|06|45.9890|12.5477|0
+Fontanarosa|AV|04|41.0181|15.0206|0
+Fontanelice|BO|05|44.2597|11.5592|0
+Fontanella|BG|09|45.4699|9.8020|0
+Fontanellato|PR|05|44.8817|10.1722|0
+Fontanelle|TV|20|45.8360|12.4642|0
+Fontaneto d'Agogna|NO|12|45.6435|8.4808|0
+Fontanetto Po|VC|12|45.1950|8.1935|0
+Fontanigorda|GE|08|44.5461|9.3045|0
+Fontanile|AT|12|44.7529|8.4213|0
+Fontaniva|PD|20|45.6340|11.7486|0
+Fonte Nuova|RM|07|42.0017|12.6219|0
+Fonte|TV|20|45.7839|11.8746|0
+Fontecchio|AQ|01|42.2296|13.6058|0
+Fontechiari|FR|07|41.6682|13.6745|0
+Fontegreca|CE|04|41.4555|14.1836|0
+Fonteno|BG|09|45.7586|10.0186|0
+Fontevivo|PR|05|44.8588|10.1752|0
+Fonzaso|BL|20|46.0172|11.7998|0
+Foppolo|BG|09|46.0419|9.7575|0
+Forano|RI|07|42.3012|12.5898|0
+Force|AP|10|42.9609|13.4877|0
+Forchia|BN|04|41.0308|14.5363|0
+Forcola|SO|09|46.1586|9.6603|0
+Fordongianus|OR|14|39.9945|8.8098|0
+Forenza|PZ|02|40.8587|15.8565|0
+Foresto Sparso|BG|09|45.6909|9.9201|0
+Forgaria nel Friuli|UD|06|46.2245|12.9844|0
+Forino|AV|04|40.8626|14.7360|0
+Forio|NA|04|40.7342|13.8646|0
+Forlì del Sannio|IS|11|41.6959|14.1795|0
+Forlì|FC|05|44.2219|12.0527|1
+Forlimpopoli|FC|05|44.1878|12.1256|0
+Formazza|VB|12|46.3769|8.4257|0
+Formello|RM|07|42.0825|12.4003|0
+Formia|LT|07|41.2563|13.6058|0
+Formicola|CE|04|41.2100|14.2374|0
+Formigara|CR|09|45.2221|9.7699|0
+Formigine|MO|05|44.5730|10.8470|0
+Formigliana|VC|12|45.4293|8.2919|0
+Fornace|TN|17|46.1167|11.2055|0
+Fornelli|IS|11|41.6049|14.1394|0
+Forni Avoltri|UD|06|46.5868|12.7769|0
+Forni di Sopra|UD|06|46.4221|12.5823|0
+Forni di Sotto|UD|06|46.3945|12.6741|0
+Forno Canavese|TO|12|45.3454|7.5910|0
+Fornovo di Taro|PR|05|44.6920|10.1010|0
+Fornovo San Giovanni|BG|09|45.4978|9.6786|0
+Forte dei Marmi|LU|16|43.9648|10.1724|0
+Fortezza/Franzensfeste|BZ|17|46.7833|11.6000|0
+Fortunago|PV|09|44.9223|9.1852|0
+Forza d'Agrò|ME|15|37.9148|15.3347|0
+Fosciandora|LU|16|44.1150|10.4585|0
+Fosdinovo|MS|16|44.1324|10.0165|0
+Fossa|AQ|01|42.2982|13.4885|0
+Fossacesia|CH|01|42.2356|14.4796|0
+Fossalta di Piave|VE|20|45.6466|12.5113|0
+Fossalta di Portogruaro|VE|20|45.7950|12.9083|0
+Fossalto|CB|11|41.6729|14.5457|0
+Fossano|CN|12|44.5489|7.7201|0
+Fossato di Vico|PG|18|43.2981|12.7607|0
+Fossato Serralta|CZ|03|38.9963|16.5796|0
+Fossò|VE|20|45.3852|12.0494|0
+Fossombrone|PU|10|43.6908|12.8127|0
+Foza|VI|20|45.8962|11.6308|0
+Frabosa Soprana|CN|12|44.2878|7.8069|0
+Frabosa Sottana|CN|12|44.3023|7.7975|0
+Fraconalto|AL|12|44.5911|8.8785|0
+Fragagnano|TA|13|40.4319|17.4722|0
+Fragneto l'Abate|BN|04|41.2539|14.7823|0
+Fragneto Monforte|BN|04|41.2469|14.7631|0
+Fraine|CH|01|41.9054|14.4864|0
+Framura|SP|08|44.2065|9.5551|0
+Francavilla al Mare|CH|01|42.4206|14.2870|0
+Francavilla Angitola|VV|03|38.7802|16.2717|0
+Francavilla Bisio|AL|12|44.7347|8.7312|0
+Francavilla d'Ete|FM|10|43.1874|13.5407|0
+Francavilla di Sicilia|ME|15|37.9019|15.1375|0
+Francavilla Fontana|BR|13|40.5306|17.5852|0
+Francavilla in Sinni|PZ|02|40.0791|16.2033|0
+Francavilla Marittima|CS|03|39.8161|16.3950|0
+Francica|VV|03|38.6157|16.0993|0
+Francofonte|SR|15|37.2264|14.8806|0
+Francolise|CE|04|41.1850|14.0567|0
+Frascaro|AL|12|44.8265|8.5322|0
+Frascarolo|PV|09|45.0467|8.6820|0
+Frascati|RM|07|41.8163|12.6687|0
+Frascineto|CS|03|39.8364|16.2620|0
+Frassilongo|TN|17|46.0899|11.2972|0
+Frassinelle Polesine|RO|20|44.9952|11.6988|0
+Frassinello Monferrato|AL|12|45.0318|8.3876|0
+Frassineto Po|AL|12|45.1337|8.5343|0
+Frassinetto|TO|12|45.4369|7.6067|0
+Frassino|CN|12|44.5716|7.2760|0
+Frassinoro|MO|05|44.2956|10.5702|0
+Frasso Sabino|RI|07|42.2298|12.8056|0
+Frasso Telesino|BN|04|41.1568|14.5278|0
+Fratta Polesine|RO|20|45.0293|11.6450|0
+Fratta Todina|PG|18|42.8568|12.3637|0
+Frattamaggiore|NA|04|40.9393|14.2740|0
+Frattaminore|NA|04|40.9555|14.2727|0
+Fratte Rosa|PU|10|43.6335|12.9024|0
+Frazzanò|ME|15|38.0731|14.7423|0
+Fregona|TV|20|46.0034|12.3401|0
+Fresagrandinaria|CH|01|41.9790|14.6635|0
+Fresonara|AL|12|44.7829|8.6861|0
+Frigento|AV|04|41.0113|15.0998|0
+Frignano|CE|04|40.9981|14.1791|0
+Frinco|AT|12|45.0040|8.1719|0
+Frisa|CH|01|42.2612|14.3694|0
+Frisanco|PN|06|46.2123|12.7255|0
+Front|TO|12|45.2809|7.6636|0
+Frontino|PU|10|43.7646|12.3767|0
+Frontone|PU|10|43.5161|12.7413|0
+Frosinone|FR|07|41.6400|13.3401|1
+Frosolone|IS|11|41.6006|14.4465|0
+Frossasco|TO|12|44.9330|7.3500|0
+Frugarolo|AL|12|44.8372|8.6815|0
+Fubine Monferrato|AL|12|44.9627|8.4299|0
+Fucecchio|FI|16|43.7278|10.8101|0
+Fuipiano Valle Imagna|BG|09|45.8543|9.5284|0
+Fumane|VR|20|45.5383|10.8834|0
+Fumone|FR|07|41.7275|13.2725|0
+Funes/Villnöß|BZ|17|46.6428|11.6783|0
+Furci Siculo|ME|15|37.9604|15.3794|0
+Furci|CH|01|42.0094|14.5876|0
+Furnari|ME|15|38.1049|15.1250|0
+Furore|SA|04|40.6206|14.5490|0
+Furtei|SU|14|39.5627|8.9476|0
+Fuscaldo|CS|03|39.4143|16.0298|0
+Fusignano|RA|05|44.4651|11.9571|0
+Fusine|SO|09|46.1495|9.7498|0
+Futani|SA|04|40.1507|15.3232|0
+Gabbioneta-Binanuova|CR|09|45.2163|10.2203|0
+Gabiano|AL|12|45.1568|8.1952|0
+Gabicce Mare|PU|10|43.9629|12.7587|0
+Gaby|AO|19|45.7122|7.8828|0
+Gadesco-Pieve Delmona|CR|09|45.1577|10.1157|0
+Gadoni|NU|14|39.9134|9.1858|0
+Gaeta|LT|07|41.2183|13.5628|0
+Gaggi|ME|15|37.8595|15.2223|0
+Gaggiano|MI|09|45.4064|9.0366|0
+Gaggio Montano|BO|05|44.1970|10.9329|0
+Gaglianico|BI|12|45.5379|8.0750|0
+Gagliano Aterno|AQ|01|42.1265|13.7000|0
+Gagliano Castelferrato|EN|15|37.7120|14.5368|0
+Gagliano del Capo|LE|13|39.8432|18.3696|0
+Gagliato|CZ|03|38.6758|16.4606|0
+Gagliole|MC|10|43.2373|13.0677|0
+Gaiarine|TV|20|45.8786|12.4798|0
+Gaiba|RO|20|44.9462|11.4802|0
+Gaiola|CN|12|44.3352|7.4069|0
+Gaiole in Chianti|SI|16|43.4654|11.4356|0
+Gairo|NU|14|39.8471|9.5072|0
+Gais/Gais|BZ|17|46.8369|11.9498|0
+Galati Mamertino|ME|15|38.0320|14.7709|0
+Galatina|LE|13|40.1740|18.1682|0
+Galatone|LE|13|40.1429|18.0704|0
+Galatro|RC|03|38.4604|16.1106|0
+Galbiate|LC|09|45.8162|9.3780|0
+Galeata|FC|05|43.9980|11.9132|0
+Galgagnano|LO|09|45.3580|9.4453|0
+Gallarate|VA|09|45.6640|8.7903|0
+Gallese|VT|07|42.3737|12.3990|0
+Galliate Lombardo|VA|09|45.7849|8.7704|0
+Galliate|NO|12|45.4816|8.6967|0
+Galliavola|PV|09|45.0976|8.8188|0
+Gallicano nel Lazio|RM|07|41.8688|12.8241|0
+Gallicano|LU|16|44.0573|10.4452|0
+Gallicchio|PZ|02|40.2890|16.1391|0
+Galliera Veneta|PD|20|45.6635|11.8309|0
+Galliera|BO|05|44.7493|11.3937|0
+Gallinaro|FR|07|41.6534|13.7978|0
+Gallio|VI|20|45.8862|11.5368|0
+Gallipoli|LE|13|40.0567|17.9964|0
+Gallo Matese|CE|04|41.4645|14.2250|0
+Gallodoro|ME|15|37.9021|15.2936|0
+Galluccio|CE|04|41.3523|13.9537|0
+Galtellì|NU|14|40.3853|9.6146|0
+Galzignano Terme|PD|20|45.3064|11.7342|0
+Gamalero|AL|12|44.8090|8.5417|0
+Gambara|BS|09|45.2553|10.2935|0
+Gambarana|PV|09|45.0284|8.7634|0
+Gambasca|CN|12|44.6287|7.3473|0
+Gambassi Terme|FI|16|43.5369|10.9523|0
+Gambatesa|CB|11|41.5089|14.9135|0
+Gambellara|VI|20|45.4598|11.3401|0
+Gamberale|CH|01|41.9060|14.2073|0
+Gambettola|FC|05|44.1169|12.3384|0
+Gambolò|PV|09|45.2642|8.8572|0
+Gandellino|BG|09|45.9911|9.9461|0
+Gandino|BG|09|45.8079|9.8965|0
+Gandosso|BG|09|45.6589|9.8889|0
+Gangi|PA|15|37.7957|14.2044|0
+Garaguso|MT|02|40.5484|16.2272|0
+Garbagna Novarese|NO|12|45.3888|8.6612|0
+Garbagna|AL|12|44.7805|8.9979|0
+Garbagnate Milanese|MI|09|45.5765|9.0717|0
+Garbagnate Monastero|LC|09|45.7734|9.3014|0
+Garda|VR|20|45.5778|10.7124|0
+Gardone Riviera|BS|09|45.6250|10.5653|0
+Gardone Val Trompia|BS|09|45.6942|10.1870|0
+Garessio|CN|12|44.2029|8.0192|0
+Gargallo|NO|12|45.7288|8.4253|0
+Gargazzone/Gargazon|BZ|17|46.5848|11.2036|0
+Gargnano|BS|09|45.6891|10.6609|0
+Garlasco|PV|09|45.1974|8.9238|0
+Garlate|LC|09|45.8121|9.3996|0
+Garlenda|SV|08|44.0342|8.0956|0
+Garniga Terme|TN|17|46.0031|11.0874|0
+Garzeno|CO|09|46.1341|9.2496|0
+Garzigliana|TO|12|44.8372|7.3744|0
+Gasperina|CZ|03|38.7409|16.5061|0
+Gassino Torinese|TO|12|45.1317|7.8276|0
+Gattatico|RE|05|44.8046|10.4733|0
+Gatteo|FC|05|44.1095|12.3860|0
+Gattico-Veruno|NO|12|45.7058|8.5246|0
+Gattinara|VC|12|45.6179|8.3674|0
+Gavardo|BS|09|45.5894|10.4426|0
+Gavello|RO|20|45.0217|11.9151|0
+Gaverina Terme|BG|09|45.7558|9.8867|0
+Gavi|AL|12|44.6876|8.8094|0
+Gavignano|RM|07|41.6991|13.0518|0
+Gavirate|VA|09|45.8401|8.7198|0
+Gavoi|NU|14|40.1618|9.1951|0
+Gavorrano|GR|16|42.9242|10.9092|0
+Gazoldo degli Ippoliti|MN|09|45.2003|10.5794|0
+Gazzada Schianno|VA|09|45.7795|8.8356|0
+Gazzaniga|BG|09|45.7934|9.8298|0
+Gazzo Veronese|VR|20|45.1402|11.0769|0
+Gazzo|PD|20|45.5806|11.7042|0
+Gazzola|PC|05|44.9601|9.5490|0
+Gazzuolo|MN|09|45.0642|10.5786|0
+Gela|CL|15|37.0803|14.2307|0
+Gemmano|RN|05|43.9040|12.5816|0
+Gemona del Friuli|UD|06|46.2758|13.1249|0
+Gemonio|VA|09|45.8770|8.6770|0
+Genazzano|RM|07|41.8252|12.9708|0
+Genga|AN|10|43.4297|12.9350|0
+Genivolta|CR|09|45.3326|9.8773|0
+Genola|CN|12|44.5889|7.6645|0
+Genoni|SU|14|39.7946|9.0080|0
+Genova|GE|08|44.4129|8.9573|1
+Genuri|SU|14|39.7443|8.9233|0
+Genzano di Lucania|PZ|02|40.8479|16.0308|0
+Genzano di Roma|RM|07|41.7013|12.6918|0
+Gera Lario|CO|09|46.1710|9.3676|0
+Gerace|RC|03|38.2714|16.2207|0
+Geraci Siculo|PA|15|37.8597|14.1536|0
+Gerano|RM|07|41.9330|12.9943|0
+Gerenzago|PV|09|45.2066|9.3597|0
+Gerenzano|VA|09|45.6397|9.0010|0
+Gergei|SU|14|39.6996|9.1004|0
+Germagnano|TO|12|45.2638|7.4695|0
+Germagno|VB|12|45.8926|8.3877|0
+Germignaga|VA|09|45.9913|8.7240|0
+Gerocarne|VV|03|38.5879|16.2187|0
+Gerola Alta|SO|09|46.0609|9.5507|0
+Gerre de' Caprioli|CR|09|45.0903|10.0513|0
+Gesico|SU|14|39.6163|9.1065|0
+Gessate|MI|09|45.5484|9.4377|0
+Gessopalena|CH|01|42.0566|14.2731|0
+Gesturi|SU|14|39.7341|9.0205|0
+Gesualdo|AV|04|41.0067|15.0724|0
+Ghedi|BS|09|45.4011|10.2793|0
+Ghemme|NO|12|45.5996|8.4215|0
+Ghiffa|VB|12|45.9582|8.6169|0
+Ghilarza|OR|14|40.1197|8.8349|0
+Ghisalba|BG|09|45.5948|9.7593|0
+Ghislarengo|VC|12|45.5291|8.3851|0
+Giacciano con Baruchella|RO|20|45.0672|11.4504|0
+Giaglione|TO|12|45.1402|7.0107|0
+Gianico|BS|09|45.8656|10.1749|0
+Giano dell'Umbria|PG|18|42.8338|12.5778|0
+Giano Vetusto|CE|04|41.2027|14.1934|0
+Giardinello|PA|15|38.0881|13.1570|0
+Giardini-Naxos|ME|15|37.8223|15.2675|0
+Giarole|AL|12|45.0606|8.5665|0
+Giarratana|RG|15|37.0486|14.7942|0
+Giarre|CT|15|37.7269|15.1877|0
+Giave|SS|14|40.4520|8.7522|0
+Giaveno|TO|12|45.0470|7.3492|0
+Giavera del Montello|TV|20|45.7939|12.1685|0
+Giba|SU|14|39.0718|8.6356|0
+Gibellina|TP|15|37.8070|12.8695|0
+Gifflenga|BI|12|45.4931|8.2322|0
+Giffone|RC|03|38.4382|16.1500|0
+Giffoni Sei Casali|SA|04|40.7185|14.9047|0
+Giffoni Valle Piana|SA|04|40.7181|14.9423|0
+Gignese|VB|12|45.8607|8.5099|0
+Gignod|AO|19|45.7800|7.2964|0
+Gildone|CB|11|41.5101|14.7392|0
+Gimigliano|CZ|03|38.9745|16.5305|0
+Ginestra degli Schiavoni|BN|04|41.2799|15.0437|0
+Ginestra|PZ|02|40.9298|15.7346|0
+Ginosa|TA|13|40.5801|16.7561|0
+Gioi|SA|04|40.2897|15.2181|0
+Gioia dei Marsi|AQ|01|41.9578|13.6899|0
+Gioia del Colle|BA|13|40.7967|16.9236|0
+Gioia Sannitica|CE|04|41.3001|14.4441|0
+Gioia Tauro|RC|03|38.4240|15.8990|0
+Gioiosa Ionica|RC|03|38.3222|16.3026|0
+Gioiosa Marea|ME|15|38.1728|14.8956|0
+Giove|TR|18|42.5093|12.3307|0
+Giovinazzo|BA|13|41.1864|16.6674|0
+Giovo|TN|17|46.1558|11.1528|0
+Girasole|NU|14|39.9521|9.6618|0
+Girifalco|CZ|03|38.8243|16.4241|0
+Gissi|CH|01|42.0166|14.5443|0
+Giuggianello|LE|13|40.0944|18.3689|0
+Giugliano in Campania|NA|04|40.9274|14.1910|0
+Giuliana|PA|15|37.6734|13.2370|0
+Giuliano di Roma|FR|07|41.5397|13.2795|0
+Giuliano Teatino|CH|01|42.3070|14.2788|0
+Giulianova|TE|01|42.7612|13.9537|0
+Giungano|SA|04|40.3947|15.1072|0
+Giurdignano|LE|13|40.1215|18.4327|0
+Giussago|PV|09|45.2848|9.1408|0
+Giussano|MB|09|45.6941|9.2112|0
+Giustenice|SV|08|44.1729|8.2431|0
+Giustino|TN|17|46.1513|10.7678|0
+Giusvalla|SV|08|44.4479|8.3941|0
+Givoletto|TO|12|45.1623|7.4964|0
+Gizzeria|CZ|03|38.9800|16.2033|0
+Glorenza/Glurns|BZ|17|46.6702|10.5549|0
+Godega di Sant'Urbano|TV|20|45.9298|12.3982|0
+Godiasco Salice Terme|PV|09|44.8976|9.0568|0
+Godrano|PA|15|37.9034|13.4292|0
+Goito|MN|09|45.2549|10.6721|0
+Golasecca|VA|09|45.6968|8.6661|0
+Golferenzo|PV|09|44.9611|9.3060|0
+Golfo Aranci|SS|14|41.0065|9.6145|0
+Gombito|CR|09|45.2619|9.7286|0
+Gonars|UD|06|45.8959|13.2371|0
+Goni|SU|14|39.5802|9.2818|0
+Gonnesa|SU|14|39.2661|8.4723|0
+Gonnoscodina|OR|14|39.7001|8.8354|0
+Gonnosfanadiga|SU|14|39.4956|8.6616|0
+Gonnosnò|OR|14|39.7600|8.8719|0
+Gonnostramatza|OR|14|39.6812|8.8343|0
+Gonzaga|MN|09|44.9498|10.8209|0
+Gordona|SO|09|46.2923|9.3653|0
+Gorga|RM|07|41.6550|13.1091|0
+Gorgo al Monticano|TV|20|45.7882|12.5558|0
+Gorgoglione|MT|02|40.3944|16.1446|0
+Gorgonzola|MI|09|45.5316|9.4047|0
+Goriano Sicoli|AQ|01|42.0808|13.7748|0
+Gorizia|GO|06|45.9343|13.6183|1
+Gorla Maggiore|VA|09|45.6659|8.8920|0
+Gorla Minore|VA|09|45.6412|8.9026|0
+Gorlago|BG|09|45.6741|9.8230|0
+Gorle|BG|09|45.7002|9.7127|0
+Gornate Olona|VA|09|45.7416|8.8599|0
+Gorno|BG|09|45.8625|9.8415|0
+Goro|FE|05|44.8509|12.2949|0
+Gorreto|GE|08|44.6048|9.2913|0
+Gorzegno|CN|12|44.5128|8.1351|0
+Gosaldo|BL|20|46.2214|11.9557|0
+Gossolengo|PC|05|45.0023|9.6165|0
+Gottasecca|CN|12|44.4601|8.1675|0
+Gottolengo|BS|09|45.2919|10.2724|0
+Govone|CN|12|44.8045|8.0940|0
+Gozzano|NO|12|45.7465|8.4367|0
+Gradara|PU|10|43.9389|12.7713|0
+Gradisca d'Isonzo|GO|06|45.8893|13.4964|0
+Grado|GO|06|45.6774|13.3948|0
+Gradoli|VT|07|42.6435|11.8549|0
+Graffignana|LO|09|45.2065|9.4544|0
+Graffignano|VT|07|42.5725|12.2017|0
+Graglia|BI|12|45.5586|7.9780|0
+Gragnano Trebbiense|PC|05|45.0132|9.5690|0
+Gragnano|NA|04|40.6956|14.5123|0
+Grammichele|CT|15|37.2123|14.6397|0
+Grana Monferrato|AT|12|44.9984|8.2994|0
+Granarolo dell'Emilia|BO|05|44.5533|11.4429|0
+Grandate|CO|09|45.7752|9.0578|0
+Grandola ed Uniti|CO|09|46.0249|9.2127|0
+Graniti|ME|15|37.8899|15.2246|0
+Granozzo con Monticello|NO|12|45.3602|8.5733|0
+Grantola|VA|09|45.9492|8.7743|0
+Grantorto|PD|20|45.6009|11.7316|0
+Granze|PD|20|45.1565|11.7147|0
+Grassano|MT|02|40.6326|16.2828|0
+Grassobbio|BG|09|45.6569|9.7256|0
+Gratteri|PA|15|37.9656|13.9723|0
+Gravedona ed Uniti|CO|09|46.1464|9.3009|0
+Gravellona Lomellina|PV|09|45.3277|8.7641|0
+Gravellona Toce|VB|12|45.9302|8.4312|0
+Gravere|TO|12|45.1253|7.0175|0
+Gravina di Catania|CT|15|37.5555|15.0630|0
+Gravina in Puglia|BA|13|40.8197|16.4228|0
+Grazzanise|CE|04|41.0894|14.1003|0
+Grazzano Badoglio|AT|12|45.0403|8.3106|0
+Greccio|RI|07|42.4435|12.7514|0
+Greci|AV|04|41.2518|15.1692|0
+Greggio|VC|12|45.4507|8.3830|0
+Gremiasco|AL|12|44.7963|9.1069|0
+Gressan|AO|19|45.7207|7.2869|0
+Gressoney-La-Trinité|AO|19|45.8297|7.8232|0
+Gressoney-Saint-Jean|AO|19|45.7751|7.8266|0
+Greve in Chianti|FI|16|43.5866|11.3163|0
+Grezzago|MI|09|45.5911|9.4972|0
+Grezzana|VR|20|45.5203|11.0177|0
+Griante|CO|09|45.9953|9.2355|0
+Gricignano di Aversa|CE|04|40.9802|14.2310|0
+Grignasco|NO|12|45.6798|8.3430|0
+Grigno|TN|17|46.0160|11.6369|0
+Grimacco|UD|06|46.1561|13.5934|0
+Grimaldi|CS|03|39.1420|16.2357|0
+Grinzane Cavour|CN|12|44.6533|7.9950|0
+Grisignano di Zocco|VI|20|45.4750|11.6983|0
+Grisolia|CS|03|39.7245|15.8542|0
+Grizzana Morandi|BO|05|44.2582|11.1524|0
+Grognardo|AL|12|44.6303|8.4926|0
+Gromo|BG|09|45.9640|9.9270|0
+Grondona|AL|12|44.6964|8.9655|0
+Grone|BG|09|45.7273|9.9084|0
+Grontardo|CR|09|45.2019|10.1508|0
+Gropello Cairoli|PV|09|45.1786|8.9927|0
+Gropparello|PC|05|44.8340|9.7277|0
+Groscavallo|TO|12|45.3680|7.2580|0
+Grosio|SO|09|46.2979|10.2743|0
+Grosotto|SO|09|46.2830|10.2598|0
+Grosseto|GR|16|42.7714|11.1079|1
+Grosso|TO|12|45.2565|7.5573|0
+Grottaferrata|RM|07|41.7836|12.6757|0
+Grottaglie|TA|13|40.5392|17.4337|0
+Grottaminarda|AV|04|41.0697|15.0589|0
+Grottammare|AP|10|42.9888|13.8649|0
+Grottazzolina|FM|10|43.1170|13.6052|0
+Grotte di Castro|VT|07|42.6745|11.8722|0
+Grotte|AG|15|37.4046|13.7002|0
+Grotteria|RC|03|38.3655|16.2649|0
+Grottole|MT|02|40.6010|16.3793|0
+Grottolella|AV|04|40.9727|14.7870|0
+Gruaro|VE|20|45.8317|12.8450|0
+Grugliasco|TO|12|45.0680|7.5776|0
+Grumello Cremonese ed Uniti|CR|09|45.1931|9.8659|0
+Grumello del Monte|BG|09|45.6372|9.8768|0
+Grumento Nova|PZ|02|40.2828|15.8888|0
+Grumo Appula|BA|13|41.0135|16.7085|0
+Grumo Nevano|NA|04|40.9359|14.2598|0
+Grumolo delle Abbadesse|VI|20|45.5195|11.6583|0
+Guagnano|LE|13|40.4012|17.9490|0
+Gualdo Cattaneo|PG|18|42.9118|12.5558|0
+Gualdo Tadino|PG|18|43.2317|12.7810|0
+Gualdo|MC|10|43.0658|13.3433|0
+Gualtieri Sicaminò|ME|15|38.1627|15.3170|0
+Gualtieri|RE|05|44.8990|10.6304|0
+Guamaggiore|SU|14|39.5686|9.0740|0
+Guanzate|CO|09|45.7276|9.0198|0
+Guarcino|FR|07|41.7990|13.3134|0
+Guarda Veneta|RO|20|44.9806|11.8004|0
+Guardabosone|VC|12|45.7019|8.2493|0
+Guardamiglio|LO|09|45.1076|9.6814|0
+Guardavalle|CZ|03|38.5050|16.5035|0
+Guardea|TR|18|42.6230|12.3005|0
+Guardia Lombardi|AV|04|40.9537|15.2088|0
+Guardia Perticara|PZ|02|40.3605|16.0989|0
+Guardia Piemontese|CS|03|39.4662|15.9993|0
+Guardia Sanframondi|BN|04|41.2579|14.5976|0
+Guardiagrele|CH|01|42.1954|14.2198|0
+Guardialfiera|CB|11|41.8042|14.7929|0
+Guardiaregia|CB|11|41.4350|14.5417|0
+Guardistallo|PI|16|43.3127|10.6326|0
+Guarene|CN|12|44.7400|8.0351|0
+Guasila|SU|14|39.5618|9.0454|0
+Guastalla|RE|05|44.9132|10.6609|0
+Guazzora|AL|12|45.0137|8.8514|0
+Gubbio|PG|18|43.3544|12.5725|0
+Gudo Visconti|MI|09|45.3741|9.0001|0
+Guglionesi|CB|11|41.9144|14.9172|0
+Guidizzolo|MN|09|45.3207|10.5805|0
+Guidonia Montecelio|RM|07|41.9999|12.7263|0
+Guiglia|MO|05|44.4241|10.9621|0
+Guilmi|CH|01|41.9970|14.4784|0
+Gurro|VB|12|46.0850|8.5677|0
+Guspini|SU|14|39.5413|8.6331|0
+Gussago|BS|09|45.5836|10.1572|0
+Gussola|CR|09|45.0131|10.3464|0
+Hône|AO|19|45.6136|7.7385|0
+Idro|BS|09|45.7333|10.4833|0
+Iglesias|SU|14|39.3053|8.5399|0
+Igliano|CN|12|44.4429|8.0133|0
+Ilbono|NU|14|39.8927|9.5489|0
+Illasi|VR|20|45.4672|11.1824|0
+Illorai|SS|14|40.3539|9.0010|0
+Imbersago|LC|09|45.7059|9.4444|0
+Imer|TN|17|46.1493|11.7892|0
+Imola|BO|05|44.3523|11.7158|0
+Imperia|IM|08|43.8833|8.0222|1
+Impruneta|FI|16|43.6870|11.2548|0
+Inarzo|VA|09|45.7858|8.7356|0
+Incisa Scapaccino|AT|12|44.8081|8.3758|0
+Incudine|BS|09|46.2203|10.3588|0
+Induno Olona|VA|09|45.8480|8.8366|0
+Ingria|TO|12|45.4666|7.5722|0
+Intragna|VB|12|45.9947|8.5739|0
+Introbio|LC|09|45.9740|9.4516|0
+Introd|AO|19|45.6931|7.1824|0
+Introdacqua|AQ|01|42.0074|13.8983|0
+Inverigo|CO|09|45.7372|9.2177|0
+Inverno e Monteleone|PV|09|45.1947|9.3974|0
+Inverso Pinasca|TO|12|44.9456|7.2184|0
+Inveruno|MI|09|45.5108|8.8507|0
+Invorio|NO|12|45.7570|8.4883|0
+Inzago|MI|09|45.5405|9.4820|0
+Ionadi|VV|03|38.6299|16.0610|0
+Irgoli|NU|14|40.4105|9.6305|0
+Irma|BS|09|45.7713|10.2846|0
+Irsina|MT|02|40.7496|16.2358|0
+Isasca|CN|12|44.5876|7.3816|0
+Isca sullo Ionio|CZ|03|38.6013|16.5196|0
+Ischia di Castro|VT|07|42.5440|11.7562|0
+Ischia|NA|04|40.7379|13.9486|0
+Ischitella|FG|13|41.9043|15.8994|0
+Iseo|BS|09|45.6568|10.0528|0
+Isera|TN|17|45.8876|11.0092|0
+Isernia|IS|11|41.6002|14.2382|1
+Isili|SU|14|39.7405|9.1087|0
+Isnello|PA|15|37.9440|14.0058|0
+Isola d'Asti|AT|12|44.8332|8.1802|0
+Isola del Cantone|GE|08|44.6457|8.9576|0
+Isola del Giglio|GR|16|42.3579|10.9073|0
+Isola del Gran Sasso d'Italia|TE|01|42.5064|13.6569|0
+Isola del Liri|FR|07|41.6862|13.5823|0
+Isola del Piano|PU|10|43.7378|12.7841|0
+Isola della Scala|VR|20|45.2722|11.0090|0
+Isola delle Femmine|PA|15|38.1934|13.2488|0
+Isola di Capo Rizzuto|KR|03|38.9600|17.0933|0
+Isola di Fondra|BG|09|45.9786|9.7474|0
+Isola Dovarese|CR|09|45.1743|10.3111|0
+Isola Rizza|VR|20|45.2923|11.1990|0
+Isola Sant'Antonio|AL|12|45.0302|8.8499|0
+Isola Vicentina|VI|20|45.6309|11.4467|0
+Isolabella|TO|12|44.9064|7.9090|0
+Isolabona|IM|08|43.8796|7.6397|0
+Isole Tremiti|FG|13|42.1159|15.4898|0
+Isorella|BS|09|45.3083|10.3223|0
+Ispani|SA|04|40.0873|15.5583|0
+Ispica|RG|15|36.7844|14.9063|0
+Ispra|VA|09|45.8198|8.6214|0
+Issiglio|TO|12|45.4463|7.7532|0
+Issime|AO|19|45.6855|7.8541|0
+Isso|BG|09|45.4768|9.7587|0
+Issogne|AO|19|45.6550|7.6857|0
+Istrana|TV|20|45.6768|12.1031|0
+Itala|ME|15|38.0512|15.4380|0
+Itri|LT|07|41.2892|13.5264|0
+Ittireddu|SS|14|40.5440|8.9023|0
+Ittiri|SS|14|40.5929|8.5684|0
+Ivrea|TO|12|45.4669|7.8762|0
+Izano|CR|09|45.3560|9.7502|0
+Jacurso|CZ|03|38.8465|16.3798|0
+Jelsi|CB|11|41.5179|14.7987|0
+Jenne|RM|07|41.8888|13.1696|0
+Jerago con Orago|VA|09|45.7047|8.7959|0
+Jerzu|NU|14|39.7912|9.5184|0
+Jesi|AN|10|43.5250|13.2031|0
+Jesolo|VE|20|45.5347|12.6358|0
+Jolanda di Savoia|FE|05|44.8840|11.9768|0
+Joppolo Giancaxio|AG|15|37.3870|13.5553|0
+Joppolo|VV|03|38.5834|15.8971|0
+Jovençan|AO|19|45.7149|7.2726|0
+L'Aquila|AQ|01|42.3650|13.3935|1
+La Cassa|TO|12|45.1803|7.5163|0
+La Loggia|TO|12|44.9577|7.6673|0
+La Maddalena|SS|14|41.2209|9.4116|0
+La Magdeleine|AO|19|45.8100|7.6187|0
+La Morra|CN|12|44.6384|7.9325|0
+La Salle|AO|19|45.7463|7.0740|0
+La Spezia|SP|08|44.1106|9.8434|1
+La Thuile|AO|19|45.7137|6.9510|0
+La Valle Agordina|BL|20|46.2804|12.0650|0
+La Valle/Wengen|BZ|17|46.6576|11.9240|0
+La Valletta Brianza|LC|09|45.7317|9.3665|0
+Labico|RM|07|41.7895|12.8809|0
+Labro|RI|07|42.5260|12.8007|0
+Lacchiarella|MI|09|45.3243|9.1390|0
+Lacco Ameno|NA|04|40.7506|13.8903|0
+Lacedonia|AV|04|41.0512|15.4238|0
+Laces/Latsch|BZ|17|46.6169|10.8564|0
+Laconi|OR|14|39.8526|9.0504|0
+Ladispoli|RM|07|41.9537|12.0735|0
+Laerru|SS|14|40.8171|8.8354|0
+Laganadi|RC|03|38.1734|15.7414|0
+Laghi|VI|20|45.8245|11.2725|0
+Laglio|CO|09|45.8877|9.1414|0
+Lagnasco|CN|12|44.6250|7.5548|0
+Lago|CS|03|39.1694|16.1506|0
+Lagonegro|PZ|02|40.1283|15.7615|0
+Lagosanto|FE|05|44.7620|12.1428|0
+Lagundo/Algund|BZ|17|46.6828|11.1230|0
+Laigueglia|SV|08|43.9788|8.1573|0
+Lainate|MI|09|45.5759|9.0171|0
+Laino Borgo|CS|03|39.9543|15.9735|0
+Laino Castello|CS|03|39.9363|15.9766|0
+Laino|CO|09|45.9845|9.0754|0
+Laion/Lajen|BZ|17|46.6087|11.5660|0
+Laives/Leifers|BZ|17|46.4228|11.3348|0
+Lajatico|PI|16|43.4713|10.7287|0
+Lallio|BG|09|45.6664|9.6301|0
+Lama dei Peligni|CH|01|42.0415|14.1862|0
+Lama Mocogno|MO|05|44.3073|10.7306|0
+Lambrugo|CO|09|45.7588|9.2395|0
+Lamezia Terme|CZ|03|38.9659|16.3092|0
+Lamon|BL|20|46.0469|11.7523|0
+Lampedusa e Linosa|AG|15|35.5018|12.6115|0
+Lamporecchio|PT|16|43.8088|10.8886|0
+Lamporo|VC|12|45.2319|8.1016|0
+Lana/Lana|BZ|17|46.6124|11.1559|0
+Lanciano|CH|01|42.2167|14.3882|0
+Landiona|NO|12|45.4965|8.4223|0
+Landriano|PV|09|45.3120|9.2600|0
+Langhirano|PR|05|44.6127|10.2656|0
+Langosco|PV|09|45.2149|8.5628|0
+Lanusei|NU|14|39.8796|9.5404|0
+Lanuvio|RM|07|41.6728|12.6976|0
+Lanzada|SO|09|46.2693|9.8692|0
+Lanzo Torinese|TO|12|45.2734|7.4796|0
+Lapedona|FM|10|43.1099|13.7726|0
+Lapio|AV|04|40.9811|14.9463|0
+Lappano|CS|03|39.3198|16.3127|0
+Larciano|PT|16|43.8336|10.8900|0
+Lardirago|PV|09|45.2351|9.2320|0
+Lariano|RM|07|41.7191|12.8211|0
+Larino|CB|11|41.8055|14.9193|0
+Las Plassas|SU|14|39.6801|8.9849|0
+Lasa/Laas|BZ|17|46.6166|10.7002|0
+Lascari|PA|15|38.0001|13.9415|0
+Lasnigo|CO|09|45.8820|9.2664|0
+Lastebasse|VI|20|45.9151|11.2739|0
+Lastra a Signa|FI|16|43.7713|11.1028|0
+Latera|VT|07|42.6290|11.8275|0
+Laterina Pergine Valdarno|AR|16|43.4782|11.6880|0
+Laterza|TA|13|40.6295|16.7997|0
+Latiano|BR|13|40.5529|17.7205|0
+Latina|LT|07|41.4644|12.8973|1
+Latisana|UD|06|45.7820|12.9994|0
+Latronico|PZ|02|40.0898|16.0118|0
+Lattarico|CS|03|39.4499|16.1291|0
+Lauco|UD|06|46.4245|12.9327|0
+Laureana Cilento|SA|04|40.3011|15.0388|0
+Laureana di Borrello|RC|03|38.4926|16.0821|0
+Lauregno/Laurein|BZ|17|46.4543|11.0618|0
+Laurenzana|PZ|02|40.4605|15.9710|0
+Lauria|PZ|02|40.0465|15.8358|0
+Lauriano|TO|12|45.1583|7.9916|0
+Laurino|SA|04|40.3365|15.3372|0
+Laurito|SA|04|40.1686|15.4060|0
+Lauro|AV|04|40.8782|14.6322|0
+Lavagna|GE|08|44.3079|9.3422|0
+Lavagno|VR|20|45.4387|11.1341|0
+Lavarone|TN|17|45.9363|11.2721|0
+Lavello|PZ|02|41.0456|15.7908|0
+Lavena Ponte Tresa|VA|09|45.9591|8.8653|0
+Laveno-Mombello|VA|09|45.9044|8.6192|0
+Lavenone|BS|09|45.7397|10.4391|0
+Laviano|SA|04|40.7860|15.3096|0
+Lavis|TN|17|46.1395|11.1129|0
+Lazise|VR|20|45.5000|10.7408|0
+Lazzate|MB|09|45.6721|9.0842|0
+Lecce nei Marsi|AQ|01|41.9338|13.6870|0
+Lecce|LE|13|40.3570|18.1720|1
+Lecco|LC|09|45.8533|9.3905|1
+Ledro|TN|17|45.8868|10.7356|0
+Leffe|BG|09|45.8007|9.8855|0
+Leggiuno|VA|09|45.8759|8.6206|0
+Legnago|VR|20|45.1832|11.3091|0
+Legnano|MI|09|45.5960|8.9078|0
+Legnaro|PD|20|45.3398|11.9657|0
+Lei|NU|14|40.3046|8.9181|0
+Leini|TO|12|45.1827|7.7142|0
+Leivi|GE|08|44.3525|9.3017|0
+Lemie|TO|12|45.2287|7.2941|0
+Lendinara|RO|20|45.0843|11.5997|0
+Leni|ME|15|38.5545|14.8255|0
+Lenna|BG|09|45.9425|9.6768|0
+Leno|BS|09|45.3725|10.2166|0
+Lenola|LT|07|41.4061|13.4594|0
+Lenta|VC|12|45.5575|8.3841|0
+Lentate sul Seveso|MB|09|45.6807|9.1173|0
+Lentella|CH|01|41.9959|14.6778|0
+Lentini|SR|15|37.2854|14.9996|0
+Leonessa|RI|07|42.5655|12.9614|0
+Leonforte|EN|15|37.6444|14.4007|0
+Leporano|TA|13|40.3839|17.3349|0
+Lequile|LE|13|40.3058|18.1402|0
+Lequio Berria|CN|12|44.6058|8.0981|0
+Lequio Tanaro|CN|12|44.5599|7.8821|0
+Lercara Friddi|PA|15|37.7469|13.6049|0
+Lerici|SP|08|44.0744|9.9147|0
+Lerma|AL|12|44.6360|8.7155|0
+Lesa|NO|12|45.8204|8.5560|0
+Lesegno|CN|12|44.4022|7.9708|0
+Lesignano de' Bagni|PR|05|44.6435|10.3004|0
+Lesina|FG|13|41.8594|15.3527|0
+Lesmo|MB|09|45.6486|9.3073|0
+Lessolo|TO|12|45.4783|7.8147|0
+Lessona|BI|12|45.5852|8.1951|0
+Lestizza|UD|06|45.9563|13.1447|0
+Letino|CE|04|41.4530|14.2554|0
+Letojanni|ME|15|37.8833|15.3000|0
+Lettere|NA|04|40.7000|14.5500|0
+Lettomanoppello|PE|01|42.2437|14.0366|0
+Lettopalena|CH|01|42.0040|14.1568|0
+Levanto|SP|08|44.1701|9.6123|0
+Levate|BG|09|45.6252|9.6242|0
+Leverano|LE|13|40.2890|18.0000|0
+Levice|CN|12|44.5382|8.1550|0
+Levico Terme|TN|17|46.0129|11.3072|0
+Levone|TO|12|45.3167|7.6063|0
+Lezzeno|CO|09|45.9452|9.1889|0
+Liberi|CE|04|41.2278|14.2900|0
+Librizzi|ME|15|38.0958|14.9582|0
+Licata|AG|15|37.1071|13.9461|0
+Licciana Nardi|MS|16|44.2660|10.0356|0
+Licenza|RM|07|42.0741|12.9001|0
+Licodia Eubea|CT|15|37.1571|14.7061|0
+Lierna|LC|09|45.9595|9.3056|0
+Lignana|VC|12|45.2861|8.3439|0
+Lignano Sabbiadoro|UD|06|45.6755|13.1152|0
+Lillianes|AO|19|45.6304|7.8408|0
+Limana|BL|20|46.1028|12.1863|0
+Limatola|BN|04|41.1408|14.3929|0
+Limbadi|VV|03|38.5575|15.9659|0
+Limbiate|MB|09|45.5968|9.1290|0
+Limena|PD|20|45.4723|11.8437|0
+Limido Comasco|CO|09|45.6892|8.9798|0
+Limina|ME|15|37.9408|15.2720|0
+Limone Piemonte|CN|12|44.2027|7.5763|0
+Limone sul Garda|BS|09|45.8075|10.7867|0
+Limosano|CB|11|41.6763|14.6224|0
+Linarolo|PV|09|45.1624|9.2699|0
+Linguaglossa|CT|15|37.8432|15.1388|0
+Lioni|AV|04|40.8765|15.1877|0
+Lipari|ME|15|38.4638|14.9535|0
+Lipomo|CO|09|45.7929|9.1202|0
+Lirio|PV|09|44.9945|9.2566|0
+Liscate|MI|09|45.4805|9.4125|0
+Liscia|CH|01|41.9552|14.5553|0
+Lisciano Niccone|PG|18|43.2468|12.1431|0
+Lisio|CN|12|44.3071|7.9787|0
+Lissone|MB|09|45.6156|9.2465|0
+Liveri|NA|04|40.9047|14.5659|0
+Livigno|SO|09|46.5347|10.1337|0
+Livinallongo del Col di Lana|BL|20|46.4816|11.9540|0
+Livo|CO|09|46.1685|9.3041|0
+Livo|TN|17|46.4047|11.0193|0
+Livorno Ferraris|VC|12|45.2841|8.0774|0
+Livorno|LI|16|43.5426|10.3160|1
+Livraga|LO|09|45.1923|9.5465|0
+Lizzanello|LE|13|40.3041|18.2225|0
+Lizzano in Belvedere|BO|05|44.1619|10.8940|0
+Lizzano|TA|13|40.3910|17.4476|0
+Loano|SV|08|44.1330|8.2513|0
+Loazzolo|AT|12|44.6690|8.2584|0
+Locana|TO|12|45.4177|7.4589|0
+Locate di Triulzi|MI|09|45.3582|9.2265|0
+Locate Varesino|CO|09|45.6915|8.9315|0
+Locatello|BG|09|45.8352|9.5341|0
+Loceri|NU|14|39.8591|9.5839|0
+Locorotondo|BA|13|40.7552|17.3265|0
+Locri|RC|03|38.2414|16.2623|0
+Loculi|NU|14|40.4068|9.6113|0
+Lodè|NU|14|40.5914|9.5387|0
+Lodi Vecchio|LO|09|45.3024|9.4176|0
+Lodi|LO|09|45.3136|9.5029|1
+Lodine|NU|14|40.1493|9.2187|0
+Lodrino|BS|09|45.7197|10.2777|0
+Lograto|BS|09|45.4843|10.0533|0
+Loiano|BO|05|44.2681|11.3284|0
+Loiri Porto San Paolo|SS|14|40.8440|9.4976|0
+Lomagna|LC|09|45.6680|9.3760|0
+Lomazzo|CO|09|45.6992|9.0343|0
+Lombardore|TO|12|45.2355|7.7403|0
+Lombriasco|TO|12|44.8409|7.6359|0
+Lomello|PV|09|45.1211|8.7963|0
+Lona-Lases|TN|17|46.1442|11.2196|0
+Lonate Ceppino|VA|09|45.7048|8.8787|0
+Lonate Pozzolo|VA|09|45.5968|8.7547|0
+Lonato del Garda|BS|09|45.4648|10.4739|0
+Londa|FI|16|43.8618|11.5691|0
+Longano|IS|11|41.5216|14.2456|0
+Longare|VI|20|45.4733|11.6112|0
+Longarone|BL|20|46.2663|12.3021|0
+Longhena|BS|09|45.4377|10.0597|0
+Longi|ME|15|38.0274|14.7523|0
+Longiano|FC|05|44.0745|12.3275|0
+Longobardi|CS|03|39.2071|16.0765|0
+Longobucco|CS|03|39.4483|16.6105|0
+Longone al Segrino|CO|09|45.8159|9.2504|0
+Longone Sabino|RI|07|42.2731|12.9674|0
+Lonigo|VI|20|45.3875|11.3890|0
+Loranzè|TO|12|45.4417|7.8127|0
+Loreggia|PD|20|45.5941|11.9451|0
+Loreglia|VB|12|45.9069|8.3713|0
+Lorenzago di Cadore|BL|20|46.4796|12.4594|0
+Loreo|RO|20|45.0616|12.1884|0
+Loreto Aprutino|PE|01|42.4292|13.9809|0
+Loreto|AN|10|43.4354|13.6098|0
+Loria|TV|20|45.7300|11.8654|0
+Loro Ciuffenna|AR|16|43.5857|11.6275|0
+Loro Piceno|MC|10|43.1668|13.4178|0
+Lorsica|GE|08|44.4342|9.2768|0
+Losine|BS|09|45.9835|10.3162|0
+Lotzorai|NU|14|39.9697|9.6646|0
+Lovere|BG|09|45.8117|10.0690|0
+Lovero|SO|09|46.2314|10.2286|0
+Lozio|BS|09|45.9857|10.2610|0
+Lozza|VA|09|45.7757|8.8577|0
+Lozzo Atestino|PD|20|45.2851|11.6157|0
+Lozzo di Cadore|BL|20|46.4857|12.4438|0
+Lozzolo|VC|12|45.6196|8.3222|0
+Lu e Cuccaro Monferrato|AL|12|45.0083|8.4881|0
+Lubriano|VT|07|42.6362|12.1088|0
+Lucca Sicula|AG|15|37.5794|13.3070|0
+Lucca|LU|16|43.8482|10.5070|1
+Lucera|FG|13|41.5082|15.3351|0
+Lucignano|AR|16|43.2736|11.7448|0
+Lucinasco|IM|08|43.9660|7.9600|0
+Lucito|CB|11|41.7319|14.6872|0
+Luco dei Marsi|AQ|01|41.9570|13.4736|0
+Lucoli|AQ|01|42.2909|13.3380|0
+Lugagnano Val d'Arda|PC|05|44.8233|9.8272|0
+Lugnano in Teverina|TR|18|42.5760|12.3328|0
+Lugo di Vicenza|VI|20|45.7455|11.5287|0
+Lugo|RA|05|44.4271|11.9076|0
+Luino|VA|09|46.0012|8.7496|0
+Luisago|CO|09|45.7629|9.0354|0
+Lula|NU|14|40.4704|9.4864|0
+Lumarzo|GE|08|44.4337|9.1396|0
+Lumezzane|BS|09|45.6500|10.2500|0
+Lunamatrona|SU|14|39.6505|8.8993|0
+Lunano|PU|10|43.7312|12.4436|0
+Lungavilla|PV|09|45.0407|9.0814|0
+Lungro|CS|03|39.7383|16.1246|0
+Luni|SP|08|44.0887|10.0544|0
+Luogosano|AV|04|40.9872|14.9909|0
+Luogosanto|SS|14|41.0495|9.2060|0
+Lupara|CB|11|41.7602|14.7354|0
+Lurago d'Erba|CO|09|45.7518|9.2197|0
+Lurago Marinone|CO|09|45.7058|8.9813|0
+Lurano|BG|09|45.5657|9.6402|0
+Luras|SS|14|40.9353|9.1753|0
+Lurate Caccivio|CO|09|45.7667|9.0000|0
+Lusciano|CE|04|40.9700|14.1904|0
+Luserna San Giovanni|TO|12|44.8154|7.2513|0
+Luserna|TN|17|45.9226|11.3229|0
+Lusernetta|TO|12|44.8031|7.2467|0
+Lusevera|UD|06|46.2758|13.2693|0
+Lusia|RO|20|45.0985|11.6651|0
+Lusiana Conco|VI|20|45.8049|11.5963|0
+Lusigliè|TO|12|45.3184|7.7646|0
+Luson/Lüsen|BZ|17|46.7462|11.7610|0
+Lustra|SA|04|40.2883|15.0683|0
+Luvinate|VA|09|45.8396|8.7719|0
+Luzzana|BG|09|45.7162|9.8832|0
+Luzzara|RE|05|44.9576|10.6904|0
+Luzzi|CS|03|39.4461|16.2883|0
+Maccagno con Pino e Veddasca|VA|09|46.0490|8.7388|0
+Maccastorna|LO|09|45.1467|9.8546|0
+Macchia d'Isernia|IS|11|41.5616|14.1671|0
+Macchia Valfortore|CB|11|41.5950|14.9117|0
+Macchiagodena|IS|11|41.5598|14.4078|0
+Macello|TO|12|44.8511|7.3980|0
+Macerata Campania|CE|04|41.0633|14.2737|0
+Macerata Feltria|PU|10|43.8030|12.4403|0
+Macerata|MC|10|43.2982|13.4411|1
+Macherio|MB|09|45.6336|9.2548|0
+Maclodio|BS|09|45.4778|10.0422|0
+Macomer|NU|14|40.2619|8.7699|0
+Macra|CN|12|44.5001|7.1795|0
+Macugnaga|VB|12|45.9699|7.9660|0
+Maddaloni|CE|04|41.0400|14.3768|0
+Madesimo|SO|09|46.4394|9.3595|0
+Madignano|CR|09|45.3457|9.7233|0
+Madone|BG|09|45.6503|9.5502|0
+Madonna del Sasso|VB|12|45.7922|8.3695|0
+Madruzzo|TN|17|46.0368|10.9849|0
+Maenza|LT|07|41.5237|13.1815|0
+Mafalda|CB|11|41.9417|14.7132|0
+Magasa|BS|09|45.7814|10.6160|0
+Magenta|MI|09|45.4646|8.8826|0
+Maggiora|NO|12|45.6894|8.4223|0
+Magherno|PV|09|45.2236|9.3293|0
+Magione|PG|18|43.1439|12.2068|0
+Magisano|CZ|03|39.0134|16.6279|0
+Magliano Alfieri|CN|12|44.7692|8.0701|0
+Magliano Alpi|CN|12|44.4596|7.8053|0
+Magliano de' Marsi|AQ|01|42.0915|13.3638|0
+Magliano di Tenna|FM|10|43.1379|13.5872|0
+Magliano in Toscana|GR|16|42.5980|11.2923|0
+Magliano Romano|RM|07|42.1585|12.4368|0
+Magliano Sabina|RI|07|42.3613|12.4805|0
+Magliano Vetere|SA|04|40.3470|15.2367|0
+Maglie|LE|13|40.1184|18.2989|0
+Magliolo|SV|08|44.1925|8.2493|0
+Maglione|TO|12|45.3467|8.0133|0
+Magnacavallo|MN|09|45.0056|11.1811|0
+Magnago|MI|09|45.5808|8.8061|0
+Magnano in Riviera|UD|06|46.2284|13.1910|0
+Magnano|BI|12|45.4634|8.0030|0
+Magomadas|OR|14|40.2647|8.5227|0
+Magrè sulla strada del vino/Margreid an der Weinstraße|BZ|17|46.2879|11.2107|0
+Magreglio|CO|09|45.9210|9.2626|0
+Maida|CZ|03|38.8602|16.3630|0
+Maierà|CS|03|39.7168|15.8508|0
+Maierato|VV|03|38.7078|16.1865|0
+Maiolati Spontini|AN|10|43.4777|13.1218|0
+Maiolo|RN|05|43.8740|12.3111|0
+Maiori|SA|04|40.6561|14.6620|0
+Mairago|LO|09|45.2518|9.5784|0
+Mairano|BS|09|45.4492|10.0796|0
+Maissana|SP|08|44.3368|9.5359|0
+Majano|UD|06|46.1875|13.0616|0
+Malagnino|CR|09|45.1348|10.1148|0
+Malalbergo|BO|05|44.7187|11.5322|0
+Malborghetto Valbruna|UD|06|46.5070|13.4391|0
+Malcesine|VR|20|45.7637|10.8109|0
+Malé|TN|17|46.3516|10.9129|0
+Malegno|BS|09|45.9508|10.2741|0
+Maleo|LO|09|45.1675|9.7615|0
+Malesco|VB|12|46.1264|8.4998|0
+Maletto|CT|15|37.8300|14.8625|0
+Malfa|ME|15|38.5760|14.8355|0
+Malgrate|LC|09|45.8477|9.3770|0
+Malito|CS|03|39.1550|16.2486|0
+Mallare|SV|08|44.2893|8.2970|0
+Malles Venosta/Mals|BZ|17|46.6879|10.5465|0
+Malnate|VA|09|45.7908|8.8819|0
+Malo|VI|20|45.6603|11.4075|0
+Malonno|BS|09|46.1241|10.3207|0
+Maltignano|AP|10|42.8323|13.6880|0
+Malvagna|ME|15|37.9185|15.0562|0
+Malvicino|AL|12|44.5593|8.4131|0
+Malvito|CS|03|39.5997|16.0533|0
+Mammola|RC|03|38.3636|16.2394|0
+Mamoiada|NU|14|40.2157|9.2804|0
+Manciano|GR|16|42.5879|11.5162|0
+Mandanici|ME|15|38.0036|15.3167|0
+Mandas|SU|14|39.6557|9.1287|0
+Mandatoriccio|CS|03|39.4672|16.8348|0
+Mandela|RM|07|42.0265|12.9209|0
+Mandello del Lario|LC|09|45.9192|9.3193|0
+Mandello Vitta|NO|12|45.4957|8.4598|0
+Manduria|TA|13|40.4018|17.6335|0
+Manerba del Garda|BS|09|45.5500|10.5500|0
+Manerbio|BS|09|45.3558|10.1352|0
+Manfredonia|FG|13|41.6259|15.9094|0
+Mango|CN|12|44.6864|8.1502|0
+Mangone|CS|03|39.2056|16.3320|0
+Maniace|CT|15|37.8831|14.7981|0
+Maniago|PN|06|46.1667|12.7167|0
+Manocalzati|AV|04|40.9416|14.8497|0
+Manoppello|PE|01|42.2576|14.0600|0
+Mansuè|TV|20|45.8223|12.5346|0
+Manta|CN|12|44.6158|7.4870|0
+Mantello|SO|09|46.1525|9.4889|0
+Mantova|MN|09|45.1521|10.7738|1
+Manzano|UD|06|45.9905|13.3748|0
+Manziana|RM|07|42.1321|12.1264|0
+Mapello|BG|09|45.7144|9.5550|0
+Mappano|TO|12|45.1491|7.7043|0
+Mara|SS|14|40.4096|8.6388|0
+Maracalagonis|CA|14|39.2853|9.2294|0
+Maranello|MO|05|44.5248|10.8655|0
+Marano di Napoli|NA|04|40.8976|14.1905|0
+Marano di Valpolicella|VR|20|45.5558|10.9152|0
+Marano Equo|RM|07|41.9940|13.0160|0
+Marano Lagunare|UD|06|45.7640|13.1664|0
+Marano Marchesato|CS|03|39.3160|16.1738|0
+Marano Principato|CS|03|39.2996|16.1751|0
+Marano sul Panaro|MO|05|44.4565|10.9711|0
+Marano Ticino|NO|12|45.6299|8.6316|0
+Marano Vicentino|VI|20|45.6931|11.4273|0
+Maranzana|AT|12|44.7604|8.4785|0
+Maratea|PZ|02|39.9967|15.7224|0
+Marcallo con Casone|MI|09|45.4833|8.8719|0
+Marcaria|MN|09|45.1206|10.5328|0
+Marcedusa|CZ|03|39.0278|16.8363|0
+Marcellina|RM|07|42.0251|12.8058|0
+Marcellinara|CZ|03|38.9250|16.4849|0
+Marcetelli|RI|07|42.2266|13.0459|0
+Marcheno|BS|09|45.7043|10.2125|0
+Marchirolo|VA|09|45.9479|8.8334|0
+Marciana Marina|LI|16|42.8027|10.1963|0
+Marciana|LI|16|42.7928|10.1684|0
+Marcianise|CE|04|41.0322|14.3009|0
+Marciano della Chiana|AR|16|43.3056|11.7849|0
+Marcignago|PV|09|45.2531|9.0793|0
+Marcon|VE|20|45.5606|12.2983|0
+Marebbe/Enneberg|BZ|17|46.6979|11.9354|0
+Marene|CN|12|44.6616|7.7322|0
+Mareno di Piave|TV|20|45.8436|12.3417|0
+Marentino|TO|12|45.0551|7.8770|0
+Maretto|AT|12|44.9449|8.0341|0
+Margarita|CN|12|44.4034|7.6849|0
+Margherita di Savoia|BT|13|41.3742|16.1502|0
+Margno|LC|09|46.0310|9.3816|0
+Mariana Mantovana|MN|09|45.1929|10.4869|0
+Mariano Comense|CO|09|45.6921|9.1797|0
+Mariano del Friuli|GO|06|45.9160|13.4590|0
+Marianopoli|CL|15|37.5975|13.9158|0
+Mariglianella|NA|04|40.9295|14.4358|0
+Marigliano|NA|04|40.9263|14.4581|0
+Marina di Gioiosa Ionica|RC|03|38.3073|16.3206|0
+Marineo|PA|15|37.9500|13.4169|0
+Marino|RM|07|41.7624|12.6444|0
+Marlengo/Marling|BZ|17|46.6554|11.1429|0
+Marliana|PT|16|43.9338|10.7702|0
+Marmentino|BS|09|45.7550|10.2847|0
+Marmirolo|MN|09|45.2193|10.7561|0
+Marmora|CN|12|44.4583|7.0940|0
+Marnate|VA|09|45.6258|8.9101|0
+Marone|BS|09|45.7361|10.0938|0
+Maropati|RC|03|38.4418|16.0975|0
+Marostica|VI|20|45.7468|11.6579|0
+Marradi|FI|16|44.0746|11.6121|0
+Marrubiu|OR|14|39.7521|8.6372|0
+Marsaglia|CN|12|44.4528|7.9799|0
+Marsala|TP|15|37.8036|12.4379|0
+Marsciano|PG|18|42.9059|12.3359|0
+Marsico Nuovo|PZ|02|40.4230|15.7349|0
+Marsicovetere|PZ|02|40.3782|15.8253|0
+Marta|VT|07|42.5336|11.9251|0
+Martano|LE|13|40.2034|18.3028|0
+Martellago|VE|20|45.5442|12.1607|0
+Martello/Martell|BZ|17|46.5667|10.7833|0
+Martignacco|UD|06|46.0979|13.1368|0
+Martignana di Po|CR|09|45.0111|10.3798|0
+Martignano|LE|13|40.2374|18.2552|0
+Martina Franca|TA|13|40.7031|17.3339|0
+Martinengo|BG|09|45.5731|9.7671|0
+Martiniana Po|CN|12|44.6272|7.3628|0
+Martinsicuro|TE|01|42.8811|13.9145|0
+Martirano Lombardo|CZ|03|39.0747|16.2320|0
+Martirano|CZ|03|39.0812|16.2483|0
+Martis|SS|14|40.7787|8.8081|0
+Martone|RC|03|38.3540|16.2883|0
+Marudo|LO|09|45.2530|9.3772|0
+Maruggio|TA|13|40.3219|17.5728|0
+Marzabotto|BO|05|44.3409|11.2047|0
+Marzano Appio|CE|04|41.3177|14.0450|0
+Marzano di Nola|AV|04|40.9027|14.5838|0
+Marzano|PV|09|45.2480|9.2950|0
+Marzi|CS|03|39.1708|16.3064|0
+Marzio|VA|09|45.9382|8.8581|0
+Masainas|SU|14|39.0510|8.6279|0
+Masate|MI|09|45.5671|9.4642|0
+Mascali|CT|15|37.7558|15.1959|0
+Mascalucia|CT|15|37.5921|15.0299|0
+Maschito|PZ|02|40.9089|15.8295|0
+Masciago Primo|VA|09|45.9178|8.7811|0
+Maser|TV|20|45.8074|11.9750|0
+Maserà di Padova|PD|20|45.3191|11.8672|0
+Masera|VB|12|46.1400|8.3234|0
+Maserada sul Piave|TV|20|45.7493|12.3194|0
+Masi Torello|FE|05|44.7946|11.8018|0
+Masi|PD|20|45.1089|11.4892|0
+Masio|AL|12|44.8697|8.4077|0
+Maslianico|CO|09|45.8433|9.0513|0
+Masone|GE|08|44.5013|8.7164|0
+Massa d'Albe|AQ|01|42.1072|13.3943|0
+Massa di Somma|NA|04|40.8455|14.3751|0
+Massa e Cozzile|PT|16|43.9093|10.7444|0
+Massa Fermana|FM|10|43.1480|13.4734|0
+Massa Lombarda|RA|05|44.4469|11.8260|0
+Massa Lubrense|NA|04|40.6053|14.3667|0
+Massa Marittima|GR|16|43.0490|10.8928|0
+Massa Martana|PG|18|42.7731|12.5250|0
+Massa|MS|16|44.0220|10.1141|1
+Massafra|TA|13|40.5888|17.1170|0
+Massalengo|LO|09|45.2650|9.4902|0
+Massanzago|PD|20|45.5563|12.0073|0
+Massarosa|LU|16|43.8676|10.3397|0
+Massazza|BI|12|45.4914|8.1645|0
+Massello|TO|12|44.9587|7.0567|0
+Masserano|BI|12|45.5970|8.2167|0
+Massignano|AP|10|43.0508|13.7972|0
+Massimeno|TN|17|46.1407|10.7732|0
+Massimino|SV|08|44.2995|8.0713|0
+Massino Visconti|NO|12|45.8242|8.5413|0
+Massiola|VB|12|45.9125|8.3201|0
+Masullas|OR|14|39.6995|8.7827|0
+Matelica|MC|10|43.2540|13.0106|0
+Matera|MT|02|40.6685|16.6016|1
+Mathi|TO|12|45.2552|7.5420|0
+Matino|LE|13|40.0322|18.1318|0
+Matrice|CB|11|41.6139|14.7101|0
+Mattie|TO|12|45.1181|7.1151|0
+Mattinata|FG|13|41.7101|16.0516|0
+Mazara del Vallo|TP|15|37.6641|12.5880|0
+Mazzano Romano|RM|07|42.2089|12.3973|0
+Mazzano|BS|09|45.5201|10.3539|0
+Mazzarino|CL|15|37.3043|14.2141|0
+Mazzarrà Sant'Andrea|ME|15|38.0885|15.1336|0
+Mazzarrone|CT|15|37.0883|14.5613|0
+Mazzè|TO|12|45.3002|7.9327|0
+Mazzin|TN|17|46.4574|11.7002|0
+Mazzo di Valtellina|SO|09|46.2586|10.2567|0
+Meana di Susa|TO|12|45.1220|7.0647|0
+Meana Sardo|NU|14|39.9442|9.0723|0
+Meda|MB|09|45.6582|9.1597|0
+Mede|PV|09|45.0979|8.7359|0
+Medea|GO|06|45.9177|13.4225|0
+Medesano|PR|05|44.7576|10.1398|0
+Medicina|BO|05|44.4787|11.6381|0
+Mediglia|MI|09|45.3954|9.3316|0
+Medolago|BG|09|45.6686|9.4956|0
+Medole|MN|09|45.3243|10.5131|0
+Medolla|MO|05|44.8467|11.0676|0
+Meduna di Livenza|TV|20|45.8059|12.6138|0
+Meduno|PN|06|46.2172|12.8007|0
+Megliadino San Vitale|PD|20|45.1965|11.5260|0
+Meina|NO|12|45.7888|8.5388|0
+Melara|RO|20|45.0638|11.1982|0
+Melazzo|AL|12|44.6439|8.4250|0
+Meldola|FC|05|44.1313|12.0616|0
+Mele|GE|08|44.4475|8.7478|0
+Melegnano|MI|09|45.3588|9.3239|0
+Melendugno|LE|13|40.2747|18.3368|0
+Meleti|LO|09|45.1189|9.8370|0
+Melfi|PZ|02|40.9965|15.6514|0
+Melicuccà|RC|03|38.3038|15.8813|0
+Melicucco|RC|03|38.4340|16.0599|0
+Melilli|SR|15|37.1797|15.1255|0
+Melissa|KR|03|39.3086|17.0298|0
+Melissano|LE|13|39.9740|18.1214|0
+Melito di Napoli|NA|04|40.9205|14.2300|0
+Melito di Porto Salvo|RC|03|37.9222|15.7714|0
+Melito Irpino|AV|04|41.1031|15.0524|0
+Melizzano|BN|04|41.1625|14.5043|0
+Melle|CN|12|44.5627|7.3202|0
+Mello|SO|09|46.1553|9.5472|0
+Melpignano|LE|13|40.1579|18.2922|0
+Meltina/Mölten|BZ|17|46.5880|11.2548|0
+Melzo|MI|09|45.5013|9.4253|0
+Menaggio|CO|09|46.0216|9.2382|0
+Menconico|PV|09|44.7966|9.2795|0
+Mendatica|IM|08|44.0771|7.8056|0
+Mendicino|CS|03|39.2636|16.1960|0
+Menfi|AG|15|37.6066|12.9678|0
+Mentana|RM|07|42.0349|12.6424|0
+Meolo|VE|20|45.6194|12.4549|0
+Merana|AL|12|44.5188|8.2982|0
+Merano/Meran|BZ|17|46.6681|11.1613|0
+Merate|LC|09|45.6987|9.4116|0
+Mercallo|VA|09|45.7501|8.6713|0
+Mercatello sul Metauro|PU|10|43.6474|12.3367|0
+Mercatino Conca|PU|10|43.8702|12.4911|0
+Mercato San Severino|SA|04|40.7812|14.7569|0
+Mercato Saraceno|FC|05|43.9638|12.1975|0
+Mercenasco|TO|12|45.3566|7.8801|0
+Mercogliano|AV|04|40.9221|14.7418|0
+Mereto di Tomba|UD|06|46.0520|13.0414|0
+Mergo|AN|10|43.4724|13.0368|0
+Mergozzo|VB|12|45.9613|8.4495|0
+Merì|ME|15|38.1659|15.2499|0
+Merlara|PD|20|45.1664|11.4413|0
+Merlino|LO|09|45.4334|9.4299|0
+Merone|CO|09|45.7872|9.2440|0
+Mesagne|BR|13|40.5588|17.8083|0
+Mese|SO|09|46.3063|9.3823|0
+Mesenzana|VA|09|45.9516|8.7645|0
+Mesero|MI|09|45.5023|8.8554|0
+Mesola|FE|05|44.9208|12.2292|0
+Mesoraca|KR|03|39.0768|16.7889|0
+Messina|ME|15|38.1933|15.5497|1
+Mestrino|PD|20|45.4409|11.7605|0
+Meta|NA|04|40.6392|14.4182|0
+Mezzago|MB|09|45.6290|9.4449|0
+Mezzana Bigli|PV|09|45.0599|8.8484|0
+Mezzana Mortigliengo|BI|12|45.6266|8.1895|0
+Mezzana Rabattone|PV|09|45.0949|9.0313|0
+Mezzana|TN|17|46.3167|10.8001|0
+Mezzane di Sotto|VR|20|45.4820|11.1273|0
+Mezzanego|GE|08|44.3828|9.3767|0
+Mezzanino|PV|09|45.1240|9.2089|0
+Mezzano|TN|17|46.1547|11.8080|0
+Mezzenile|TO|12|45.2948|7.3956|0
+Mezzocorona|TN|17|46.2134|11.1187|0
+Mezzojuso|PA|15|37.8667|13.4667|0
+Mezzoldo|BG|09|46.0126|9.6655|0
+Mezzolombardo|TN|17|46.2090|11.0968|0
+Mezzomerico|NO|12|45.6187|8.6055|0
+Miagliano|BI|12|45.6163|8.0453|0
+Miane|TV|20|45.9447|12.0954|0
+Miasino|NO|12|45.8020|8.4297|0
+Miazzina|VB|12|45.9764|8.5222|0
+Micigliano|RI|07|42.4520|13.0532|0
+Miggiano|LE|13|39.9597|18.3116|0
+Miglianico|CH|01|42.3583|14.2916|0
+Miglierina|CZ|03|38.9520|16.4712|0
+Miglionico|MT|02|40.5684|16.5025|0
+Mignanego|GE|08|44.5230|8.9132|0
+Mignano Monte Lungo|CE|04|41.4059|13.9855|0
+Milano|MI|09|45.4642|9.1920|1
+Milazzo|ME|15|38.2212|15.2383|0
+Milena|CL|15|37.4696|13.7352|0
+Mileto|VV|03|38.6096|16.0696|0
+Milis|OR|14|40.0504|8.6370|0
+Militello in Val di Catania|CT|15|37.2749|14.7934|0
+Militello Rosmarino|ME|15|38.0462|14.6765|0
+Millesimo|SV|08|44.3675|8.2018|0
+Milo|CT|15|37.7233|15.1159|0
+Milzano|BS|09|45.2736|10.1993|0
+Mineo|CT|15|37.2653|14.6901|0
+Minerbe|VR|20|45.2411|11.3348|0
+Minerbio|BO|05|44.6168|11.4707|0
+Minervino di Lecce|LE|13|40.0884|18.4204|0
+Minervino Murge|BT|13|41.0843|16.0784|0
+Minori|SA|04|40.6527|14.6249|0
+Minturno|LT|07|41.2576|13.7237|0
+Minucciano|LU|16|44.1705|10.2076|0
+Mioglia|SV|08|44.4921|8.4144|0
+Mira|VE|20|45.4358|12.1348|0
+Mirabella Eclano|AV|04|41.0449|14.9987|0
+Mirabella Imbaccari|CT|15|37.3276|14.4463|0
+Mirabello Monferrato|AL|12|45.0356|8.5232|0
+Mirabello Sannitico|CB|11|41.5156|14.6729|0
+Miradolo Terme|PV|09|45.1720|9.4456|0
+Miranda|IS|11|41.6451|14.2463|0
+Mirandola|MO|05|44.8868|11.0662|0
+Mirano|VE|20|45.4917|12.1109|0
+Mirto|ME|15|38.0847|14.7515|0
+Misano Adriatico|RN|05|43.9794|12.6937|0
+Misano di Gera d'Adda|BG|09|45.4710|9.6225|0
+Misiliscemi|TP|15|37.9381|12.5260|0
+Misilmeri|PA|15|38.0339|13.4518|0
+Misinto|MB|09|45.6624|9.0839|0
+Missaglia|LC|09|45.7089|9.3370|0
+Missanello|PZ|02|40.2820|16.1660|0
+Misterbianco|CT|15|37.5171|15.0121|0
+Mistretta|ME|15|37.9271|14.3575|0
+Moasca|AT|12|44.7636|8.2783|0
+Moconesi|GE|08|44.4207|9.2098|0
+Modena|MO|05|44.6559|10.9192|1
+Modica|RG|15|36.8459|14.7740|0
+Modigliana|FC|05|44.1612|11.7935|0
+Modolo|OR|14|40.2754|8.5300|0
+Modugno|BA|13|41.0974|16.7780|0
+Moena|TN|17|46.3773|11.6611|0
+Moggio Udinese|UD|06|46.4076|13.1972|0
+Moggio|LC|09|45.9335|9.4848|0
+Moglia|MN|09|44.9372|10.9134|0
+Mogliano Veneto|TV|20|45.5572|12.2478|0
+Mogliano|MC|10|43.1827|13.4731|0
+Mogorella|OR|14|39.8644|8.8587|0
+Mogoro|OR|14|39.6847|8.7773|0
+Moiano|BN|04|41.0800|14.5432|0
+Moimacco|UD|06|46.0913|13.3770|0
+Moio Alcantara|ME|15|37.9001|15.0515|0
+Moio de' Calvi|BG|09|45.9518|9.7007|0
+Moio della Civitella|SA|04|40.2471|15.2689|0
+Moiola|CN|12|44.3211|7.3897|0
+Mola di Bari|BA|13|41.0609|17.0873|0
+Molare|AL|12|44.6187|8.6006|0
+Molazzana|LU|16|44.0718|10.4178|0
+Molfetta|BA|13|41.2002|16.5975|0
+Molina Aterno|AQ|01|42.1490|13.7354|0
+Molinara|BN|04|41.2935|14.9078|0
+Molinella|BO|05|44.6213|11.6686|0
+Molini di Triora|IM|08|43.9896|7.7743|0
+Molino dei Torti|AL|12|45.0243|8.8936|0
+Molise|CB|11|41.6308|14.4929|0
+Moliterno|PZ|02|40.2418|15.8635|0
+Mollia|VC|12|45.8167|8.0303|0
+Molochio|RC|03|38.3072|16.0293|0
+Molteno|LC|09|45.7804|9.3074|0
+Moltrasio|CO|09|45.8600|9.0984|0
+Molveno|TN|17|46.1421|10.9638|0
+Mombaldone|AT|12|44.5709|8.3346|0
+Mombarcaro|CN|12|44.4676|8.0882|0
+Mombaroccio|PU|10|43.7951|12.8548|0
+Mombaruzzo|AT|12|44.7715|8.4482|0
+Mombasiglio|CN|12|44.3666|7.9679|0
+Mombello di Torino|TO|12|45.0457|7.9208|0
+Mombello Monferrato|AL|12|45.1328|8.2503|0
+Mombercelli|AT|12|44.8178|8.2947|0
+Momo|NO|12|45.5756|8.5534|0
+Mompantero|TO|12|45.1474|7.0430|0
+Mompeo|RI|07|42.2480|12.7509|0
+Momperone|AL|12|44.8385|9.0343|0
+Monacilioni|CB|11|41.6099|14.8085|0
+Monale|AT|12|44.9376|8.0724|0
+Monasterace|RC|03|38.4537|16.5520|0
+Monastero Bormida|AT|12|44.6485|8.3266|0
+Monastero di Lanzo|TO|12|45.3019|7.4397|0
+Monastero di Vasco|CN|12|44.3403|7.8226|0
+Monasterolo Casotto|CN|12|44.3282|7.9432|0
+Monasterolo del Castello|BG|09|45.7632|9.9317|0
+Monasterolo di Savigliano|CN|12|44.6863|7.6195|0
+Monastier di Treviso|TV|20|45.6517|12.4375|0
+Monastir|SU|14|39.3847|9.0448|0
+Moncalieri|TO|12|44.9963|7.6903|0
+Moncalvo|AT|12|45.0502|8.2652|0
+Moncenisio|TO|12|45.2040|6.9846|0
+Moncestino|AL|12|45.1546|8.1614|0
+Monchiero|CN|12|44.5705|7.9202|0
+Monchio delle Corti|PR|05|44.4130|10.1242|0
+Moncrivello|VC|12|45.3324|7.9955|0
+Moncucco Torinese|AT|12|45.0682|7.9326|0
+Mondaino|RN|05|43.8580|12.6684|0
+Mondavio|PU|10|43.6730|12.9687|0
+Mondolfo|PU|10|43.7494|13.0979|0
+Mondovì|CN|12|44.3960|7.8176|0
+Mondragone|CE|04|41.1141|13.8935|0
+Moneglia|GE|08|44.2380|9.4935|0
+Monesiglio|CN|12|44.4650|8.1185|0
+Monfalcone|GO|06|45.8079|13.5251|0
+Monforte d'Alba|CN|12|44.5824|7.9696|0
+Monforte San Giorgio|ME|15|38.1565|15.3813|0
+Monfumo|TV|20|45.8308|11.9203|0
+Mongardino|AT|12|44.8471|8.2139|0
+Monghidoro|BO|05|44.2265|11.3275|0
+Mongiana|VV|03|38.5129|16.3195|0
+Mongiardino Ligure|AL|12|44.6400|9.0618|0
+Mongiuffi Melia|ME|15|37.9034|15.2754|0
+Mongrando|BI|12|45.5283|8.0071|0
+Mongrassano|CS|03|39.5269|16.1106|0
+Monguelfo-Tesido/Welsberg-Taisten|BZ|17|46.7557|12.1053|0
+Monguzzo|CO|09|45.7802|9.2302|0
+Moniga del Garda|BS|09|45.5263|10.5381|0
+Monleale|AL|12|44.8843|8.9740|0
+Monno|BS|09|46.2127|10.3398|0
+Monopoli|BA|13|40.9559|17.2896|0
+Monreale|PA|15|38.0800|13.2885|0
+Monrupino-Repentabor|TS|06|45.7333|13.7833|0
+Monsampietro Morico|FM|10|43.0677|13.5557|0
+Monsampolo del Tronto|AP|10|42.8969|13.7939|0
+Monsano|AN|10|43.5626|13.2501|0
+Monselice|PD|20|45.2424|11.7490|0
+Monserrato|CA|14|39.2643|9.1353|0
+Monsummano Terme|PT|16|43.8704|10.8123|0
+Montà|CN|12|44.8136|7.9572|0
+Montabone|AT|12|44.6987|8.3906|0
+Montacuto|AL|12|44.7664|9.1050|0
+Montafia|AT|12|44.9892|8.0246|0
+Montagano|CB|11|41.6449|14.6751|0
+Montagna in Valtellina|SO|09|46.1785|9.9030|0
+Montagna sulla Strada del Vino/Montan an der Weinstraße|BZ|17|46.3305|11.3009|0
+Montagnana|PD|20|45.2327|11.4635|0
+Montagnareale|ME|15|38.1322|14.9466|0
+Montaguto|AV|04|41.2487|15.2485|0
+Montaione|FI|16|43.5525|10.9107|0
+Montalbano Elicona|ME|15|38.0247|15.0127|0
+Montalbano Jonico|MT|02|40.2879|16.5788|0
+Montalcino|SI|16|43.0594|11.4882|0
+Montaldeo|AL|12|44.6671|8.7302|0
+Montaldo Bormida|AL|12|44.6827|8.5878|0
+Montaldo di Mondovì|CN|12|44.3217|7.8671|0
+Montaldo Roero|CN|12|44.7683|7.9248|0
+Montaldo Scarampi|AT|12|44.8304|8.2590|0
+Montaldo Torinese|TO|12|45.0654|7.8502|0
+Montale|PT|16|43.9355|11.0171|0
+Montalenghe|TO|12|45.3374|7.8388|0
+Montallegro|AG|15|37.3929|13.3507|0
+Montalto Carpasio|IM|08|43.9462|7.8504|0
+Montalto delle Marche|AP|10|42.9898|13.6092|0
+Montalto di Castro|VT|07|42.3504|11.6069|0
+Montalto Dora|TO|12|45.4908|7.8628|0
+Montalto Pavese|PV|09|44.9778|9.2155|0
+Montalto Uffugo|CS|03|39.4048|16.1580|0
+Montanaro|TO|12|45.2336|7.8533|0
+Montanaso Lombardo|LO|09|45.3358|9.4687|0
+Montanera|CN|12|44.4622|7.6656|0
+Montano Antilia|SA|04|40.1623|15.3655|0
+Montano Lucino|CO|09|45.7838|9.0424|0
+Montappone|FM|10|43.1365|13.4685|0
+Montaquila|IS|11|41.5667|14.1126|0
+Montasola|RI|07|42.3864|12.6819|0
+Montauro|CZ|03|38.7487|16.5132|0
+Montazzoli|CH|01|41.9483|14.4291|0
+Monte Argentario|GR|16|42.4167|11.1667|0
+Monte Castello di Vibio|PG|18|42.8402|12.3516|0
+Monte Cavallo|MC|10|42.9833|13.0000|0
+Monte Cerignone|PU|10|43.8405|12.4147|0
+Monte Compatri|RM|07|41.8089|12.7378|0
+Monte Cremasco|CR|09|45.3746|9.5714|0
+Monte di Malo|VI|20|45.6333|11.3667|0
+Monte di Procida|NA|04|40.8009|14.0518|0
+Monte Giberto|FM|10|43.0913|13.6307|0
+Monte Grimano Terme|PU|10|43.8677|12.4712|0
+Monte Isola|BS|09|45.7162|10.0799|0
+Monte Marenzo|LC|09|45.7708|9.4547|0
+Monte Porzio Catone|RM|07|41.8149|12.7185|0
+Monte Porzio|PU|10|43.6912|13.0469|0
+Monte Rinaldo|FM|10|43.0282|13.5820|0
+Monte Roberto|AN|10|43.4806|13.1380|0
+Monte Romano|VT|07|42.2665|11.8938|0
+Monte San Biagio|LT|07|41.3525|13.3522|0
+Monte San Giacomo|SA|04|40.3444|15.5405|0
+Monte San Giovanni Campano|FR|07|41.6406|13.5137|0
+Monte San Giovanni in Sabina|RI|07|42.3270|12.7786|0
+Monte San Giusto|MC|10|43.2358|13.5953|0
+Monte San Martino|MC|10|43.0320|13.4387|0
+Monte San Pietrangeli|FM|10|43.1893|13.5754|0
+Monte San Pietro|BO|05|44.4578|11.1987|0
+Monte San Savino|AR|16|43.3292|11.7297|0
+Monte San Vito|AN|10|43.6006|13.2682|0
+Monte Sant'Angelo|FG|13|41.7054|15.9677|0
+Monte Santa Maria Tiberina|PG|18|43.4359|12.1623|0
+Monte Urano|FM|10|43.2027|13.6729|0
+Monte Vidon Combatte|FM|10|43.0489|13.6312|0
+Monte Vidon Corrado|FM|10|43.1206|13.4876|0
+Montebello della Battaglia|PV|09|45.0010|9.1035|0
+Montebello di Bertona|PE|01|42.4179|13.8719|0
+Montebello Jonico|RC|03|37.9828|15.7580|0
+Montebello sul Sangro|CH|01|41.9866|14.3240|0
+Montebello Vicentino|VI|20|45.4565|11.3835|0
+Montebelluna|TV|20|45.7780|12.0487|0
+Montebruno|GE|08|44.5258|9.2476|0
+Montebuono|RI|07|42.3672|12.5965|0
+Montecalvo in Foglia|PU|10|43.8116|12.6311|0
+Montecalvo Irpino|AV|04|41.1956|15.0334|0
+Montecalvo Versiggia|PV|09|44.9721|9.2854|0
+Montecarlo|LU|16|43.8513|10.6683|0
+Montecarotto|AN|10|43.5280|13.0629|0
+Montecassiano|MC|10|43.3674|13.4388|0
+Montecastello|AL|12|44.9494|8.6858|0
+Montecastrilli|TR|18|42.6524|12.4886|0
+Montecatini Val di Cecina|PI|16|43.3928|10.7488|0
+Montecatini-Terme|PT|16|43.8835|10.7736|0
+Montecchia di Crosara|VR|20|45.4845|11.2544|0
+Montecchio Emilia|RE|05|44.7014|10.4471|0
+Montecchio Maggiore|VI|20|45.5037|11.4120|0
+Montecchio Precalcino|VI|20|45.6657|11.5636|0
+Montecchio|TR|18|42.6635|12.2869|0
+Montechiaro d'Acqui|AL|12|44.5944|8.3787|0
+Montechiaro d'Asti|AT|12|45.0072|8.1114|0
+Montechiarugolo|PR|05|44.6933|10.4222|0
+Montecilfone|CB|11|41.9025|14.8364|0
+Montecopiolo|RN|05|43.8358|12.3499|0
+Montecorice|SA|04|40.2349|14.9862|0
+Montecorvino Pugliano|SA|04|40.6792|14.9448|0
+Montecorvino Rovella|SA|04|40.6918|14.9779|0
+Montecosaro|MC|10|43.3185|13.6368|0
+Montecrestese|VB|12|46.1645|8.3262|0
+Montecreto|MO|05|44.2460|10.7176|0
+Montedinove|AP|10|42.9716|13.5885|0
+Montedoro|CL|15|37.4532|13.8168|0
+Montefalcione|AV|04|40.9615|14.8839|0
+Montefalco|PG|18|42.8908|12.6483|0
+Montefalcone Appennino|FM|10|42.9900|13.4569|0
+Montefalcone di Val Fortore|BN|04|41.3247|15.0099|0
+Montefalcone nel Sannio|CB|11|41.8666|14.6382|0
+Montefano|MC|10|43.4112|13.4384|0
+Montefelcino|PU|10|43.7348|12.8340|0
+Monteferrante|CH|01|41.9547|14.3884|0
+Montefiascone|VT|07|42.5393|12.0362|0
+Montefino|TE|01|42.5445|13.8837|0
+Montefiore Conca|RN|05|43.8892|12.6114|0
+Montefiore dell'Aso|AP|10|43.0519|13.7528|0
+Montefiorino|MO|05|44.3529|10.6256|0
+Monteflavio|RM|07|42.1080|12.8304|0
+Monteforte Cilento|SA|04|40.3648|15.1949|0
+Monteforte d'Alpone|VR|20|45.4173|11.2837|0
+Monteforte Irpino|AV|04|40.8918|14.7185|0
+Montefortino|FM|10|42.9432|13.3456|0
+Montefranco|TR|18|42.5983|12.7654|0
+Montefredane|AV|04|40.9628|14.8106|0
+Montefusco|AV|04|41.0376|14.8549|0
+Montegabbione|TR|18|42.9214|12.0921|0
+Montegalda|VI|20|45.4461|11.6750|0
+Montegaldella|VI|20|45.4361|11.6706|0
+Montegallo|AP|10|42.8426|13.3307|0
+Montegioco|AL|12|44.8421|8.9627|0
+Montegiordano|CS|03|40.0430|16.5344|0
+Montegiorgio|FM|10|43.1322|13.5364|0
+Montegranaro|FM|10|43.2355|13.6310|0
+Montegridolfo|RN|05|43.8583|12.6899|0
+Montegrino Valtravaglia|VA|09|45.9740|8.7674|0
+Montegrosso d'Asti|AT|12|44.8207|8.2375|0
+Montegrosso Pian Latte|IM|08|44.0667|7.8170|0
+Montegrotto Terme|PD|20|45.3315|11.7912|0
+Monteiasi|TA|13|40.4999|17.3826|0
+Montelabbate|PU|10|43.8489|12.7880|0
+Montelanico|RM|07|41.6511|13.0399|0
+Montelapiano|CH|01|41.9613|14.3427|0
+Monteleone d'Orvieto|TR|18|42.9237|12.0562|0
+Monteleone di Fermo|FM|10|43.0478|13.5295|0
+Monteleone di Puglia|FG|13|41.1654|15.2581|0
+Monteleone di Spoleto|PG|18|42.6508|12.9523|0
+Monteleone Rocca Doria|SS|14|40.4716|8.5605|0
+Monteleone Sabino|RI|07|42.2331|12.8581|0
+Montelepre|PA|15|38.0904|13.1743|0
+Montelibretti|RM|07|42.1355|12.7387|0
+Montella|AV|04|40.8500|15.0167|0
+Montello|BG|09|45.6721|9.8057|0
+Montelongo|CB|11|41.7365|14.9527|0
+Montelparo|FM|10|43.0175|13.5370|0
+Montelupo Albese|CN|12|44.6214|8.0480|0
+Montelupo Fiorentino|FI|16|43.7308|11.0196|0
+Montelupone|MC|10|43.3430|13.5701|0
+Montemaggiore Belsito|PA|15|37.8464|13.7613|0
+Montemagno Monferrato|AT|12|44.9830|8.3253|0
+Montemale di Cuneo|CN|12|44.4374|7.3753|0
+Montemarano|AV|04|40.9152|14.9977|0
+Montemarciano|AN|10|43.6389|13.3075|0
+Montemarzino|AL|12|44.8484|8.9937|0
+Montemesola|TA|13|40.5645|17.3376|0
+Montemezzo|CO|09|46.1788|9.3709|0
+Montemignaio|AR|16|43.7398|11.6188|0
+Montemiletto|AV|04|41.0117|14.9073|0
+Montemilone|PZ|02|41.0300|15.9693|0
+Montemitro|CB|11|41.8863|14.6462|0
+Montemonaco|AP|10|42.8984|13.3329|0
+Montemurlo|PO|16|43.9216|11.0311|0
+Montemurro|PZ|02|40.2969|15.9913|0
+Montenars|UD|06|46.2550|13.1788|0
+Montenero di Bisaccia|CB|11|41.9651|14.7814|0
+Montenero Sabino|RI|07|42.2812|12.8136|0
+Montenero Val Cocchiara|IS|11|41.7168|14.0694|0
+Montenerodomo|CH|01|41.9756|14.2528|0
+Monteodorisio|CH|01|42.0859|14.6526|0
+Montepaone|CZ|03|38.7226|16.4972|0
+Monteparano|TA|13|40.4440|17.4151|0
+Monteprandone|AP|10|42.9201|13.8426|0
+Montepulciano|SI|16|43.1017|11.7868|0
+Monterchi|AR|16|43.4883|12.1112|0
+Montereale Valcellina|PN|06|46.1466|12.6556|0
+Montereale|AQ|01|42.5218|13.2476|0
+Monterenzio|BO|05|44.3264|11.4056|0
+Monteriggioni|SI|16|43.3899|11.2232|0
+Monteroduni|IS|11|41.5211|14.1770|0
+Monteroni d'Arbia|SI|16|43.2293|11.4209|0
+Monteroni di Lecce|LE|13|40.3246|18.0971|0
+Monterosi|VT|07|42.1958|12.3085|0
+Monterosso al Mare|SP|08|44.1601|9.6618|0
+Monterosso Almo|RG|15|37.0896|14.7646|0
+Monterosso Calabro|VV|03|38.7169|16.2910|0
+Monterosso Grana|CN|12|44.4082|7.3229|0
+Monterotondo Marittimo|GR|16|43.1451|10.8564|0
+Monterotondo|RM|07|42.0525|12.6187|0
+Monterubbiano|FM|10|43.0847|13.7199|0
+Montesano Salentino|LE|13|39.9756|18.3214|0
+Montesano sulla Marcellana|SA|04|40.2760|15.7047|0
+Montesarchio|BN|04|41.0654|14.6402|0
+Montescaglioso|MT|02|40.5522|16.6669|0
+Montescano|PV|09|45.0320|9.2837|0
+Montescheno|VB|12|46.0666|8.2319|0
+Montescudaio|PI|16|43.3260|10.6260|0
+Montescudo-Monte Colombo|RN|05|43.9265|12.5515|0
+Montese|MO|05|44.2720|10.9440|0
+Montesegale|PV|09|44.9070|9.1264|0
+Montesilvano|PE|01|42.5039|14.1380|0
+Montespertoli|FI|16|43.6442|11.0737|0
+Monteu da Po|TO|12|45.1508|8.0171|0
+Monteu Roero|CN|12|44.7793|7.9364|0
+Montevago|AG|15|37.7022|12.9858|0
+Montevarchi|AR|16|43.5277|11.5689|0
+Montevecchia|LC|09|45.7055|9.3809|0
+Monteverde|AV|04|40.9989|15.5342|0
+Monteverdi Marittimo|PI|16|43.1772|10.7145|0
+Monteviale|VI|20|45.5605|11.4580|0
+Montezemolo|CN|12|44.3770|8.1411|0
+Monti|SS|14|40.8060|9.3255|0
+Montiano|FC|05|44.0830|12.3044|0
+Monticelli Brusati|BS|09|45.6348|10.1003|0
+Monticelli d'Ongina|PC|05|45.0900|9.9366|0
+Monticelli Pavese|PV|09|45.1111|9.5128|0
+Monticello Brianza|LC|09|45.7095|9.3156|0
+Monticello Conte Otto|VI|20|45.5987|11.5727|0
+Monticello d'Alba|CN|12|44.7189|7.9426|0
+Montichiari|BS|09|45.4152|10.3907|0
+Monticiano|SI|16|43.1395|11.1761|0
+Montieri|GR|16|43.1311|11.0166|0
+Montiglio Monferrato|AT|12|45.0652|8.0972|0
+Montignoso|MS|16|44.0241|10.1726|0
+Montirone|BS|09|45.4464|10.2288|0
+Montjovet|AO|19|45.7080|7.6741|0
+Montodine|CR|09|45.2852|9.7073|0
+Montoggio|GE|08|44.5174|9.0482|0
+Montone|PG|18|43.3612|12.3263|0
+Montopoli di Sabina|RI|07|42.2459|12.6921|0
+Montopoli in Val d'Arno|PI|16|43.6735|10.7495|0
+Montorfano|CO|09|45.7864|9.1437|0
+Montorio al Vomano|TE|01|42.5831|13.6383|0
+Montorio nei Frentani|CB|11|41.7596|14.9327|0
+Montorio Romano|RM|07|42.1390|12.8015|0
+Montoro|AV|04|40.8212|14.7823|0
+Montorso Vicentino|VI|20|45.4909|11.3602|0
+Montottone|FM|10|43.0620|13.5901|0
+Montresta|OR|14|40.3736|8.4996|0
+Montù Beccaria|PV|09|45.0371|9.3155|0
+Monvalle|VA|09|45.8583|8.6333|0
+Monza|MB|09|45.5825|9.2749|1
+Monzambano|MN|09|45.3867|10.6920|0
+Monzuno|BO|05|44.2793|11.2664|0
+Morano Calabro|CS|03|39.8398|16.1413|0
+Morano sul Po|AL|12|45.1673|8.3661|0
+Moransengo-Tonengo|AT|12|45.1150|8.0078|0
+Moraro|GO|06|45.9298|13.4950|0
+Morazzone|VA|09|45.7645|8.8281|0
+Morbegno|SO|09|46.1383|9.5700|0
+Morbello|AL|12|44.6050|8.5107|0
+Morciano di Leuca|LE|13|39.8478|18.3124|0
+Morciano di Romagna|RN|05|43.9141|12.6506|0
+Morcone|BN|04|41.3431|14.6676|0
+Mordano|BO|05|44.3980|11.8118|0
+Morengo|BG|09|45.5315|9.7059|0
+Mores|SS|14|40.5484|8.8312|0
+Moresco|FM|10|43.0855|13.7310|0
+Moretta|CN|12|44.7638|7.5371|0
+Morfasso|PC|05|44.7228|9.7029|0
+Morgano|TV|20|45.6482|12.1028|0
+Morgex|AO|19|45.7570|7.0370|0
+Morgongiori|OR|14|39.7466|8.7701|0
+Mori|TN|17|45.8504|10.9807|0
+Moriago della Battaglia|TV|20|45.8666|12.1036|0
+Moricone|RM|07|42.1111|12.7740|0
+Morigerati|SA|04|40.1395|15.5549|0
+Morimondo|MI|09|45.3544|8.9566|0
+Morino|AQ|01|41.8644|13.4570|0
+Moriondo Torinese|TO|12|45.0376|7.9400|0
+Morlupo|RM|07|42.1461|12.4974|0
+Mormanno|CS|03|39.8883|15.9868|0
+Mornago|VA|09|45.7458|8.7512|0
+Mornese|AL|12|44.6392|8.7561|0
+Mornico al Serio|BG|09|45.5914|9.8093|0
+Mornico Losana|PV|09|45.0102|9.2062|0
+Morolo|FR|07|41.6382|13.1971|0
+Morozzo|CN|12|44.4239|7.7133|0
+Morra De Sanctis|AV|04|40.9290|15.2429|0
+Morro d'Alba|AN|10|43.6013|13.2135|0
+Morro d'Oro|TE|01|42.6630|13.9205|0
+Morro Reatino|RI|07|42.5266|12.8324|0
+Morrone del Sannio|CB|11|41.7115|14.7798|0
+Morrovalle|MC|10|43.3165|13.5885|0
+Morsano al Tagliamento|PN|06|45.8617|12.9297|0
+Morsasco|AL|12|44.6653|8.5509|0
+Mortara|PV|09|45.2473|8.7355|0
+Mortegliano|UD|06|45.9457|13.1722|0
+Morterone|LC|09|45.8756|9.4822|0
+Moruzzo|UD|06|46.1215|13.1241|0
+Moscazzano|CR|09|45.2923|9.6835|0
+Moschiano|AV|04|40.8731|14.6559|0
+Mosciano Sant'Angelo|TE|01|42.7469|13.8883|0
+Moscufo|PE|01|42.4281|14.0543|0
+Moso in Passiria/Moos in Passeier|BZ|17|46.8321|11.1665|0
+Mossa|GO|06|45.9370|13.5522|0
+Motta Baluffi|CR|09|45.0561|10.2568|0
+Motta Camastra|ME|15|37.8938|15.1718|0
+Motta d'Affermo|ME|15|37.9810|14.3034|0
+Motta de' Conti|VC|12|45.1936|8.5209|0
+Motta di Livenza|TV|20|45.7766|12.6077|0
+Motta Montecorvino|FG|13|41.5074|15.1141|0
+Motta San Giovanni|RC|03|38.0032|15.6951|0
+Motta Sant'Anastasia|CT|15|37.5132|14.9659|0
+Motta Santa Lucia|CZ|03|39.0919|16.2924|0
+Motta Visconti|MI|09|45.2891|8.9945|0
+Mottafollone|CS|03|39.6487|16.0634|0
+Mottalciata|BI|12|45.5051|8.2067|0
+Motteggiana|MN|09|45.0331|10.7627|0
+Mottola|TA|13|40.6332|17.0372|0
+Mozzagrogna|CH|01|42.2148|14.4392|0
+Mozzanica|BG|09|45.4761|9.6893|0
+Mozzate|CO|09|45.6722|8.9552|0
+Mozzecane|VR|20|45.3075|10.8187|0
+Mozzo|BG|09|45.7000|9.6000|0
+Muccia|MC|10|43.0812|13.0437|0
+Muggia|TS|06|45.6000|13.7667|0
+Muggiò|MB|09|45.5884|9.2263|0
+Mugnano del Cardinale|AV|04|40.9430|14.6356|0
+Mugnano di Napoli|NA|04|40.9113|14.2051|0
+Mulazzano|LO|09|45.3724|9.3977|0
+Mulazzo|MS|16|44.3162|9.8896|0
+Mura|BS|09|45.7133|10.3427|0
+Muravera|SU|14|39.4209|9.5735|0
+Murazzano|CN|12|44.4747|8.0218|0
+Murello|CN|12|44.7521|7.6009|0
+Murialdo|SV|08|44.3169|8.1682|0
+Murisengo|AL|12|45.0819|8.1349|0
+Murlo|SI|16|43.1611|11.3879|0
+Muro Leccese|LE|13|40.1023|18.3381|0
+Muro Lucano|PZ|02|40.7525|15.4858|0
+Muros|SS|14|40.6781|8.6173|0
+Muscoline|BS|09|45.5625|10.4619|0
+Musei|SU|14|39.3021|8.6677|0
+Musile di Piave|VE|20|45.6169|12.5640|0
+Musso|CO|09|46.1112|9.2746|0
+Mussolente|VI|20|45.7792|11.8062|0
+Mussomeli|CL|15|37.5778|13.7513|0
+Muzzana del Turgnano|UD|06|45.8191|13.1295|0
+Muzzano|BI|12|45.5608|7.9889|0
+Nago-Torbole|TN|17|45.8729|10.8734|0
+Nalles/Nals|BZ|17|46.5433|11.2095|0
+Nanto|VI|20|45.4343|11.5776|0
+Napoli|NA|04|40.8333|14.2500|1
+Narbolia|OR|14|40.0504|8.5775|0
+Narcao|SU|14|39.1676|8.6749|0
+Nardò|LE|13|40.1751|18.0297|0
+Nardodipace|VV|03|38.4723|16.3425|0
+Narni|TR|18|42.5171|12.5231|0
+Naro|AG|15|37.2935|13.7936|0
+Narzole|CN|12|44.5954|7.8698|0
+Nasino|SV|08|44.1136|8.0320|0
+Naso|ME|15|38.1231|14.7869|0
+Naturno/Naturns|BZ|17|46.6487|11.0051|0
+Nave|BS|09|45.5875|10.2900|0
+Navelli|AQ|01|42.2377|13.7286|0
+Naz-Sciaves/Natz-Schabs|BZ|17|46.7688|11.6656|0
+Nazzano|RM|07|42.2311|12.5963|0
+Ne|GE|08|44.3461|9.4022|0
+Nebbiuno|NO|12|45.8036|8.5271|0
+Negrar di Valpolicella|VR|20|45.5288|10.9380|0
+Neirone|GE|08|44.4554|9.1917|0
+Neive|CN|12|44.7271|8.1126|0
+Nembro|BG|09|45.7463|9.7629|0
+Nemi|RM|07|41.7211|12.7174|0
+Nemoli|PZ|02|40.0675|15.8003|0
+Neoneli|OR|14|40.0647|8.9467|0
+Nepi|VT|07|42.2428|12.3456|0
+Nereto|TE|01|42.8190|13.8160|0
+Nerola|RM|07|42.1609|12.7849|0
+Nervesa della Battaglia|TV|20|45.8222|12.2049|0
+Nerviano|MI|09|45.5567|8.9777|0
+Nespolo|RI|07|42.1556|13.0700|0
+Nesso|CO|09|45.9124|9.1567|0
+Netro|BI|12|45.5381|7.9453|0
+Nettuno|RM|07|41.4826|12.6790|0
+Neviano degli Arduini|PR|05|44.5824|10.3157|0
+Neviano|LE|13|40.1077|18.1140|0
+Neviglie|CN|12|44.6919|8.1168|0
+Niardo|BS|09|45.9760|10.3333|0
+Nibbiola|NO|12|45.3724|8.6567|0
+Nibionno|LC|09|45.7465|9.2689|0
+Nichelino|TO|12|44.9940|7.6418|0
+Nicolosi|CT|15|37.6159|15.0255|0
+Nicorvo|PV|09|45.2857|8.6679|0
+Nicosia|EN|15|37.7475|14.3973|0
+Nicotera|VV|03|38.5546|15.9367|0
+Niella Belbo|CN|12|44.5127|8.0793|0
+Niella Tanaro|CN|12|44.4057|7.9279|0
+Nimis|UD|06|46.1994|13.2706|0
+Niscemi|CL|15|37.1486|14.3913|0
+Nissoria|EN|15|37.6551|14.4474|0
+Nizza di Sicilia|ME|15|37.9950|15.4119|0
+Nizza Monferrato|AT|12|44.7739|8.3539|0
+Noale|VE|20|45.5495|12.0711|0
+Noasca|TO|12|45.4534|7.3157|0
+Nocara|CS|03|40.0994|16.4819|0
+Nocciano|PE|01|42.3330|13.9841|0
+Nocera Inferiore|SA|04|40.7522|14.6401|0
+Nocera Superiore|SA|04|40.7421|14.6729|0
+Nocera Terinese|CZ|03|39.0344|16.1686|0
+Nocera Umbra|PG|18|43.1116|12.7872|0
+Noceto|PR|05|44.8114|10.1713|0
+Noci|BA|13|40.7907|17.1317|0
+Nociglia|LE|13|40.0392|18.3260|0
+Noepoli|PZ|02|40.0868|16.3297|0
+Nogara|VR|20|45.1731|11.0658|0
+Nogaredo|TN|17|45.9130|11.0239|0
+Nogarole Rocca|VR|20|45.2919|10.8838|0
+Nogarole Vicentino|VI|20|45.5602|11.2883|0
+Noicattaro|BA|13|41.0338|16.9896|0
+Nola|NA|04|40.9220|14.5329|0
+Nole|TO|12|45.2413|7.5731|0
+Noli|SV|08|44.2064|8.4137|0
+Nomaglio|TO|12|45.5362|7.8603|0
+Nomi|TN|17|45.9286|11.0719|0
+Nonantola|MO|05|44.6761|11.0321|0
+None|TO|12|44.9331|7.5401|0
+Nonio|VB|12|45.8458|8.3775|0
+Noragugume|NU|14|40.2246|8.9207|0
+Norbello|OR|14|40.1347|8.8320|0
+Norcia|PG|18|42.7931|13.0954|0
+Norma|LT|07|41.5880|12.9694|0
+Nosate|MI|09|45.5509|8.7265|0
+Notaresco|TE|01|42.6541|13.8947|0
+Noto|SR|15|36.8901|15.0693|0
+Nova Levante/Welschnofen|BZ|17|46.4300|11.5378|0
+Nova Milanese|MB|09|45.5904|9.1996|0
+Nova Ponente/Deutschnofen|BZ|17|46.4129|11.4305|0
+Nova Siri|MT|02|40.1482|16.5389|0
+Novafeltria|RN|05|43.8949|12.2889|0
+Novaledo|TN|17|46.0220|11.3658|0
+Novalesa|TO|12|45.1918|7.0145|0
+Novara di Sicilia|ME|15|38.0160|15.1319|0
+Novara|NO|12|45.4406|8.6168|1
+Novate Mezzola|SO|09|46.2216|9.4498|0
+Novate Milanese|MI|09|45.5310|9.1348|0
+Nove|VI|20|45.7222|11.6777|0
+Novedrate|CO|09|45.6981|9.1207|0
+Novella|TN|17|46.3908|11.0586|0
+Novellara|RE|05|44.8430|10.7275|0
+Novello|CN|12|44.5877|7.9269|0
+Noventa di Piave|VE|20|45.6598|12.5336|0
+Noventa Padovana|PD|20|45.4167|11.9500|0
+Noventa Vicentina|VI|20|45.2957|11.5469|0
+Novi di Modena|MO|05|44.8905|10.9014|0
+Novi Ligure|AL|12|44.7608|8.7896|0
+Novi Velia|SA|04|40.2251|15.2884|0
+Noviglio|MI|09|45.3591|9.0521|0
+Novoli|LE|13|40.3785|18.0492|0
+Nucetto|CN|12|44.3403|8.0603|0
+Nughedu San Nicolò|SS|14|40.5574|9.0214|0
+Nughedu Santa Vittoria|OR|14|40.1013|8.9531|0
+Nule|SS|14|40.4616|9.1898|0
+Nulvi|SS|14|40.7838|8.7437|0
+Numana|AN|10|43.5103|13.6205|0
+Nuoro|NU|14|40.3211|9.3297|1
+Nurachi|OR|14|39.9755|8.5399|0
+Nuragus|SU|14|39.7762|9.0381|0
+Nurallao|SU|14|39.7888|9.0786|0
+Nuraminis|SU|14|39.4429|9.0147|0
+Nureci|OR|14|39.8233|8.9738|0
+Nurri|SU|14|39.7120|9.2298|0
+Nus|AO|19|45.7403|7.4666|0
+Nusco|AV|04|40.8871|15.0883|0
+Nuvolento|BS|09|45.5458|10.3868|0
+Nuvolera|BS|09|45.5322|10.3692|0
+Nuxis|SU|14|39.1529|8.7381|0
+Occhieppo Inferiore|BI|12|45.5501|8.0210|0
+Occhieppo Superiore|BI|12|45.5651|8.0013|0
+Occhiobello|RO|20|44.9207|11.5802|0
+Occimiano|AL|12|45.0603|8.5076|0
+Ocre|AQ|01|42.2859|13.4753|0
+Odalengo Grande|AL|12|45.1091|8.1669|0
+Odalengo Piccolo|AL|12|45.0716|8.2060|0
+Oderzo|TV|20|45.7882|12.5019|0
+Odolo|BS|09|45.6452|10.3836|0
+Ofena|AQ|01|42.3258|13.7587|0
+Offagna|AN|10|43.5269|13.4407|0
+Offanengo|CR|09|45.3789|9.7424|0
+Offida|AP|10|42.9357|13.7004|0
+Offlaga|BS|09|45.3862|10.1155|0
+Oggebbio|VB|12|45.9977|8.6504|0
+Oggiona con Santo Stefano|VA|09|45.7043|8.8165|0
+Oggiono|LC|09|45.7919|9.3468|0
+Oglianico|TO|12|45.3426|7.6937|0
+Ogliastro Cilento|SA|04|40.3524|15.0432|0
+Olbia|SS|14|40.9214|9.4856|0
+Olcenengo|VC|12|45.3635|8.3098|0
+Oldenico|VC|12|45.4028|8.3810|0
+Oleggio Castello|NO|12|45.7489|8.5271|0
+Oleggio|NO|12|45.6015|8.6434|0
+Olevano di Lomellina|PV|09|45.2138|8.7166|0
+Olevano Romano|RM|07|41.8606|13.0331|0
+Olevano sul Tusciano|SA|04|40.6572|15.0230|0
+Olgiate Comasco|CO|09|45.7854|8.9676|0
+Olgiate Molgora|LC|09|45.7281|9.4025|0
+Olgiate Olona|VA|09|45.6222|8.8808|0
+Olginate|LC|09|45.7927|9.4155|0
+Oliena|NU|14|40.2723|9.4030|0
+Oliva Gessi|PV|09|45.0036|9.1793|0
+Olivadi|CZ|03|38.7256|16.4237|0
+Oliveri|ME|15|38.1258|15.0628|0
+Oliveto Citra|SA|04|40.6903|15.2300|0
+Oliveto Lario|LC|09|45.9310|9.2838|0
+Oliveto Lucano|MT|02|40.5353|16.1846|0
+Olivetta San Michele|IM|08|43.8802|7.5161|0
+Olivola|AL|12|45.0373|8.3678|0
+Ollastra|OR|14|39.9509|8.7342|0
+Ollolai|NU|14|40.1685|9.1785|0
+Ollomont|AO|19|45.8498|7.3106|0
+Olmedo|SS|14|40.6516|8.3802|0
+Olmeneta|CR|09|45.2359|10.0223|0
+Olmo al Brembo|BG|09|45.9723|9.6491|0
+Olmo Gentile|AT|12|44.5857|8.2469|0
+Oltre il Colle|BG|09|45.8895|9.7692|0
+Oltressenda Alta|BG|09|45.9152|9.9449|0
+Oltrona di San Mamette|CO|09|45.7560|8.9779|0
+Olzai|NU|14|40.1829|9.1483|0
+Ome|BS|09|45.6273|10.1214|0
+Omegna|VB|12|45.8798|8.4080|0
+Omignano|SA|04|40.2482|15.0852|0
+Onanì|NU|14|40.4853|9.4420|0
+Onano|VT|07|42.6914|11.8163|0
+Oncino|CN|12|44.6768|7.1903|0
+Oneta|BG|09|45.8715|9.8194|0
+Onifai|NU|14|40.4070|9.6513|0
+Oniferi|NU|14|40.2720|9.1703|0
+Ono San Pietro|BS|09|46.0169|10.3284|0
+Onore|BG|09|45.8916|10.0108|0
+Onzo|SV|08|44.0701|8.0523|0
+Opera|MI|09|45.3731|9.2111|0
+Opi|AQ|01|41.7769|13.8292|0
+Oppeano|VR|20|45.3046|11.1796|0
+Oppido Lucano|PZ|02|40.7618|15.9867|0
+Oppido Mamertina|RC|03|38.2934|15.9839|0
+Ora/Auer|BZ|17|46.3448|11.2954|0
+Orani|NU|14|40.2502|9.1806|0
+Oratino|CB|11|41.5848|14.5901|0
+Orbassano|TO|12|45.0038|7.5399|0
+Orbetello|GR|16|42.4419|11.2239|0
+Orciano Pisano|PI|16|43.4944|10.5115|0
+Orco Feglino|SV|08|44.2202|8.3246|0
+Ordona|FG|13|41.3155|15.6273|0
+Orero|GE|08|44.4083|9.2671|0
+Orgiano|VI|20|45.3479|11.4631|0
+Orgosolo|NU|14|40.2048|9.3549|0
+Oria|BR|13|40.4973|17.6413|0
+Oricola|AQ|01|42.0492|13.0394|0
+Origgio|VA|09|45.5962|9.0175|0
+Orino|VA|09|45.8815|8.7156|0
+Orio al Serio|BG|09|45.6761|9.6927|0
+Orio Canavese|TO|12|45.3293|7.8617|0
+Orio Litta|LO|09|45.1599|9.5546|0
+Oriolo Romano|VT|07|42.1581|12.1380|0
+Oriolo|CS|03|40.0538|16.4461|0
+Oristano|OR|14|39.9025|8.5948|1
+Ormea|CN|12|44.1557|7.9244|0
+Ormelle|TV|20|45.7793|12.4220|0
+Ornago|MB|09|45.6007|9.4201|0
+Ornavasso|VB|12|45.9680|8.4151|0
+Ornica|BG|09|45.9894|9.5793|0
+Orosei|NU|14|40.3798|9.6929|0
+Orotelli|NU|14|40.3059|9.1129|0
+Orria|SA|04|40.2997|15.1712|0
+Orroli|SU|14|39.6936|9.2503|0
+Orsago|TV|20|45.9287|12.4270|0
+Orsara Bormida|AL|12|44.6902|8.5627|0
+Orsara di Puglia|FG|13|41.2816|15.2645|0
+Orsenigo|CO|09|45.7774|9.1817|0
+Orsogna|CH|01|42.2189|14.2791|0
+Orsomarso|CS|03|39.7991|15.9075|0
+Orta di Atella|CE|04|40.9665|14.2680|0
+Orta Nova|FG|13|41.3299|15.7107|0
+Orta San Giulio|NO|12|45.7979|8.4186|0
+Ortacesus|SU|14|39.5386|9.0843|0
+Orte|VT|07|42.4593|12.3854|0
+Ortelle|LE|13|40.0342|18.3913|0
+Ortezzano|FM|10|43.0301|13.6060|0
+Ortignano Raggiolo|AR|16|43.6809|11.7495|0
+Ortisei/St. Ulrich|BZ|17|46.5743|11.6675|0
+Ortona dei Marsi|AQ|01|41.9973|13.7281|0
+Ortona|CH|01|42.3511|14.4022|0
+Ortovero|SV|08|44.0534|8.0967|0
+Ortucchio|AQ|01|41.9550|13.6458|0
+Ortueri|NU|14|40.0354|8.9871|0
+Orune|NU|14|40.4079|9.3696|0
+Orvieto|TR|18|42.7195|12.1116|0
+Orvinio|RI|07|42.1321|12.9397|0
+Orzinuovi|BS|09|45.4040|9.9216|0
+Orzivecchi|BS|09|45.4206|9.9633|0
+Osasco|TO|12|44.8494|7.3430|0
+Osasio|TO|12|44.8714|7.6080|0
+Oschiri|SS|14|40.7198|9.1010|0
+Osidda|NU|14|40.5239|9.2193|0
+Osiglia|SV|08|44.2759|8.1966|0
+Osilo|SS|14|40.7441|8.6711|0
+Osimo|AN|10|43.4828|13.4875|0
+Osini|NU|14|39.8227|9.4962|0
+Osio Sopra|BG|09|45.6291|9.5846|0
+Osio Sotto|BG|09|45.6161|9.5891|0
+Osnago|LC|09|45.6757|9.3911|0
+Osoppo|UD|06|46.2551|13.0818|0
+Ospedaletti|IM|08|43.8022|7.7182|0
+Ospedaletto d'Alpinolo|AV|04|40.9394|14.7435|0
+Ospedaletto Euganeo|PD|20|45.2168|11.6132|0
+Ospedaletto Lodigiano|LO|09|45.1688|9.5787|0
+Ospedaletto|TN|17|46.0436|11.5526|0
+Ospitale di Cadore|BL|20|46.3269|12.3220|0
+Ospitaletto|BS|09|45.5540|10.0797|0
+Ossago Lodigiano|LO|09|45.2457|9.5371|0
+Ossana|TN|17|46.3065|10.7376|0
+Ossi|SS|14|40.6749|8.5917|0
+Ossimo|BS|09|45.9644|10.2360|0
+Ossona|MI|09|45.5054|8.8925|0
+Ostana|CN|12|44.6926|7.1894|0
+Ostellato|FE|05|44.7457|11.9435|0
+Ostiano|CR|09|45.2208|10.2521|0
+Ostiglia|MN|09|45.0712|11.1374|0
+Ostra Vetere|AN|10|43.6044|13.0599|0
+Ostra|AN|10|43.6139|13.1582|0
+Ostuni|BR|13|40.7276|17.5764|0
+Otranto|LE|13|40.1478|18.4859|0
+Otricoli|TR|18|42.4215|12.4773|0
+Ottana|NU|14|40.2337|9.0429|0
+Ottati|SA|04|40.4629|15.3153|0
+Ottaviano|NA|04|40.8498|14.4901|0
+Ottiglio|AL|12|45.0543|8.3385|0
+Ottobiano|PV|09|45.1539|8.8299|0
+Ottone|PC|05|44.6232|9.3327|0
+Oulx|TO|12|45.0355|6.8338|0
+Ovada|AL|12|44.6384|8.6453|0
+Ovaro|UD|06|46.4808|12.8665|0
+Oviglio|AL|12|44.8612|8.4877|0
+Ovindoli|AQ|01|42.1370|13.5161|0
+Ovodda|NU|14|40.0956|9.1623|0
+Oyace|AO|19|45.8512|7.3830|0
+Ozegna|TO|12|45.3490|7.7452|0
+Ozieri|SS|14|40.5860|9.0012|0
+Ozzano dell'Emilia|BO|05|44.4428|11.4714|0
+Ozzano Monferrato|AL|12|45.1082|8.3720|0
+Ozzero|MI|09|45.3674|8.9231|0
+Pabillonis|SU|14|39.5911|8.7207|0
+Pace del Mela|ME|15|38.1886|15.3059|0
+Paceco|TP|15|37.9787|12.5566|0
+Pacentro|AQ|01|42.0504|13.9915|0
+Pachino|SR|15|36.7186|15.0907|0
+Paciano|PG|18|43.0236|12.0680|0
+Padenghe sul Garda|BS|09|45.5096|10.5064|0
+Paderna|AL|12|44.8205|8.8912|0
+Paderno d'Adda|LC|09|45.6799|9.4451|0
+Paderno Dugnano|MI|09|45.5731|9.1634|0
+Paderno Franciacorta|BS|09|45.5879|10.0801|0
+Paderno Ponchielli|CR|09|45.2389|9.9303|0
+Padova|PD|20|45.4152|11.8818|1
+Padria|SS|14|40.3963|8.6299|0
+Padru|SS|14|40.7658|9.5202|0
+Padula|SA|04|40.3369|15.6551|0
+Paduli|BN|04|41.1661|14.8850|0
+Paesana|CN|12|44.6872|7.2734|0
+Paese|TV|20|45.6759|12.1610|0
+Pagani|SA|04|40.7515|14.6133|0
+Paganico Sabino|RI|07|42.1896|12.9969|0
+Pagazzano|BG|09|45.5343|9.6712|0
+Pagliara|ME|15|37.9855|15.3597|0
+Paglieta|CH|01|42.1630|14.4973|0
+Pagnacco|UD|06|46.1184|13.1800|0
+Pagno|CN|12|44.6117|7.4257|0
+Pagnona|LC|09|46.0597|9.4027|0
+Pago del Vallo di Lauro|AV|04|40.8972|14.6076|0
+Pago Veiano|BN|04|41.2479|14.8713|0
+Paisco Loveno|BS|09|46.0833|10.2833|0
+Paitone|BS|09|45.5521|10.4023|0
+Paladina|BG|09|45.7307|9.6059|0
+Palagano|MO|05|44.3210|10.6461|0
+Palagianello|TA|13|40.6098|16.9760|0
+Palagiano|TA|13|40.5782|17.0374|0
+Palagonia|CT|15|37.3282|14.7448|0
+Palaia|PI|16|43.6050|10.7720|0
+Palanzano|PR|05|44.4373|10.1945|0
+Palata|CB|11|41.8885|14.7868|0
+Palau|SS|14|41.1782|9.3925|0
+Palazzago|BG|09|45.7530|9.5336|0
+Palazzo Adriano|PA|15|37.6810|13.3790|0
+Palazzo Canavese|TO|12|45.4593|7.9789|0
+Palazzo Pignano|CR|09|45.3901|9.5696|0
+Palazzo San Gervasio|PZ|02|40.9313|15.9808|0
+Palazzolo Acreide|SR|15|37.0623|14.9035|0
+Palazzolo dello Stella|UD|06|45.8069|13.0915|0
+Palazzolo sull'Oglio|BS|09|45.6037|9.8972|0
+Palazzolo Vercellese|VC|12|45.1863|8.2326|0
+Palazzuolo sul Senio|FI|16|44.1139|11.5474|0
+Palena|CH|01|41.9830|14.1377|0
+Palermiti|CZ|03|38.7487|16.4522|0
+Palermo|PA|15|38.1157|13.3614|1
+Palestrina|RM|07|41.8355|12.8890|0
+Palestro|PV|09|45.3018|8.5334|0
+Paliano|FR|07|41.8056|13.0576|0
+Palizzi|RC|03|37.9667|15.9867|0
+Pallagorio|KR|03|39.3089|16.9083|0
+Pallanzeno|VB|12|46.0420|8.2581|0
+Pallare|SV|08|44.3272|8.2753|0
+Palma Campania|NA|04|40.8649|14.5487|0
+Palma di Montechiaro|AG|15|37.1926|13.7650|0
+Palmanova|UD|06|45.9062|13.3100|0
+Palmariggi|LE|13|40.1306|18.3794|0
+Palmas Arborea|OR|14|39.8766|8.6431|0
+Palmi|RC|03|38.3653|15.8615|0
+Palmiano|AP|10|42.9001|13.4596|0
+Palmoli|CH|01|41.9394|14.5814|0
+Palo del Colle|BA|13|41.0575|16.7008|0
+Palombara Sabina|RM|07|42.0667|12.7680|0
+Palombaro|CH|01|42.1248|14.2306|0
+Palomonte|SA|04|40.6625|15.2919|0
+Palosco|BG|09|45.5893|9.8365|0
+Palù del Fersina|TN|17|46.1295|11.3509|0
+Palù|VR|20|45.3255|11.1553|0
+Paludi|CS|03|39.5301|16.6828|0
+Paluzza|UD|06|46.5334|13.0176|0
+Pamparato|CN|12|44.2767|7.9130|0
+Pancalieri|TO|12|44.8334|7.5859|0
+Pancarana|PV|09|45.0746|9.0506|0
+Panchià|TN|17|46.2857|11.5425|0
+Pandino|CR|09|45.4071|9.5535|0
+Panettieri|CS|03|39.0600|16.4567|0
+Panicale|PG|18|43.0295|12.0993|0
+Pannarano|BN|04|41.0098|14.7019|0
+Panni|FG|13|41.2220|15.2746|0
+Pantelleria|TP|15|36.8279|11.9424|0
+Pantigliate|MI|09|45.4368|9.3536|0
+Paola|CS|03|39.3599|16.0396|0
+Paolisi|BN|04|41.0371|14.5764|0
+Papasidero|CS|03|39.8715|15.9079|0
+Papozze|RO|20|44.9858|12.0309|0
+Parabiago|MI|09|45.5550|8.9456|0
+Parabita|LE|13|40.0519|18.1295|0
+Paratico|BS|09|45.6569|9.9596|0
+Parcines/Partschins|BZ|17|46.6842|11.0734|0
+Parella|TO|12|45.4307|7.7932|0
+Parenti|CS|03|39.1622|16.4105|0
+Parete|CE|04|40.9589|14.1619|0
+Pareto|AL|12|44.5164|8.3819|0
+Parghelia|VV|03|38.6809|15.9225|0
+Parlasco|LC|09|46.0179|9.3449|0
+Parma|PR|05|44.8027|10.3290|1
+Parodi Ligure|AL|12|44.6698|8.7586|0
+Paroldo|CN|12|44.4320|8.0724|0
+Parolise|AV|04|40.9315|14.8831|0
+Parona|PV|09|45.2825|8.7508|0
+Parrano|TR|18|42.8662|12.1103|0
+Parre|BG|09|45.8746|9.8909|0
+Partanna|TP|15|37.7278|12.8885|0
+Partinico|PA|15|38.0440|13.1200|0
+Paruzzaro|NO|12|45.7502|8.5178|0
+Parzanica|BG|09|45.7385|10.0341|0
+Pasian di Prato|UD|06|46.0481|13.1928|0
+Pasiano di Pordenone|PN|06|45.8465|12.6271|0
+Paspardo|BS|09|46.0310|10.3710|0
+Passerano Marmorito|AT|12|45.0558|8.0187|0
+Passignano sul Trasimeno|PG|18|43.1941|12.1293|0
+Passirano|BS|09|45.5987|10.0667|0
+Pastena|FR|07|41.4689|13.4916|0
+Pastorano|CE|04|41.1808|14.1982|0
+Pastrengo|VR|20|45.4931|10.7998|0
+Pasturana|AL|12|44.7508|8.7492|0
+Pasturo|LC|09|45.9517|9.4441|0
+Paterno Calabro|CS|03|39.2285|16.2649|0
+Paternò|CT|15|37.5710|14.9027|0
+Paterno|PZ|02|40.3783|15.7328|0
+Paternopoli|AV|04|40.9733|15.0320|0
+Patrica|FR|07|41.5922|13.2440|0
+Pattada|SS|14|40.5818|9.1129|0
+Patti|ME|15|38.1468|14.9696|0
+Patù|LE|13|39.8412|18.3389|0
+Pau|OR|14|39.7916|8.8023|0
+Paularo|UD|06|46.5283|13.1201|0
+Pauli Arbarei|SU|14|39.6607|8.9220|0
+Paulilatino|OR|14|40.0840|8.7635|0
+Paullo|MI|09|45.4187|9.3977|0
+Paupisi|BN|04|41.1953|14.6652|0
+Pavarolo|TO|12|45.0725|7.8346|0
+Pavia di Udine|UD|06|45.9821|13.2797|0
+Pavia|PV|09|45.1845|9.1615|1
+Pavone Canavese|TO|12|45.4376|7.8517|0
+Pavone del Mella|BS|09|45.3038|10.2091|0
+Pavullo nel Frignano|MO|05|44.3315|10.8350|0
+Pazzano|RC|03|38.4752|16.4526|0
+Peccioli|PI|16|43.5495|10.7200|0
+Pecetto di Valenza|AL|12|44.9898|8.6709|0
+Pecetto Torinese|TO|12|45.0184|7.7515|0
+Pedara|CT|15|37.6168|15.0567|0
+Pedaso|FM|10|43.0992|13.8408|0
+Pedavena|BL|20|46.0395|11.8831|0
+Pedemonte|VI|20|45.9121|11.3316|0
+Pederobba|TV|20|45.8763|11.9523|0
+Pedesina|SO|09|46.0819|9.5494|0
+Pedivigliano|CS|03|39.1095|16.3029|0
+Pedrengo|BG|09|45.6960|9.7349|0
+Peglio|CO|09|46.1604|9.2947|0
+Peglio|PU|10|43.6965|12.4978|0
+Pegognaga|MN|09|44.9927|10.8597|0
+Peia|BG|09|45.7995|9.8993|0
+Peio|TN|17|46.3629|10.6730|0
+Pelago|FI|16|43.7730|11.5039|0
+Pella|NO|12|45.7984|8.3849|0
+Pellegrino Parmense|PR|05|44.7301|9.9328|0
+Pellezzano|SA|04|40.7252|14.7574|0
+Pellizzano|TN|17|46.3099|10.7599|0
+Pelugo|TN|17|46.0885|10.7239|0
+Penango|AT|12|45.0329|8.2517|0
+Penna in Teverina|TR|18|42.4921|12.3576|0
+Penna San Giovanni|MC|10|43.0562|13.4260|0
+Penna Sant'Andrea|TE|01|42.5934|13.7722|0
+Pennabilli|RN|05|43.8181|12.2656|0
+Pennadomo|CH|01|42.0048|14.3243|0
+Pennapiedimonte|CH|01|42.1525|14.1956|0
+Penne|PE|01|42.4538|13.9299|0
+Pentone|CZ|03|38.9858|16.5825|0
+Perano|CH|01|42.1031|14.3940|0
+Perarolo di Cadore|BL|20|46.3968|12.3554|0
+Perca/Percha|BZ|17|46.7934|11.9834|0
+Percile|RM|07|42.0946|12.9101|0
+Perdasdefogu|NU|14|39.6767|9.4404|0
+Perdaxius|SU|14|39.1610|8.6114|0
+Perdifumo|SA|04|40.2682|15.0150|0
+Pereto|AQ|01|42.0589|13.1014|0
+Perfugas|SS|14|40.8334|8.8828|0
+Pergine Valsugana|TN|17|46.0650|11.2380|0
+Pergola|PU|10|43.5566|12.8349|0
+Perinaldo|IM|08|43.8670|7.6695|0
+Perito|SA|04|40.2977|15.1477|0
+Perledo|LC|09|46.0173|9.2944|0
+Perletto|CN|12|44.5993|8.2130|0
+Perlo|CN|12|44.3318|8.0855|0
+Perloz|AO|19|45.6139|7.8081|0
+Pernumia|PD|20|45.2590|11.7872|0
+Pero|MI|09|45.5102|9.0870|0
+Perosa Argentina|TO|12|44.9574|7.1909|0
+Perosa Canavese|TO|12|45.3971|7.8308|0
+Perrero|TO|12|44.9382|7.1137|0
+Persico Dosimo|CR|09|45.1859|10.1052|0
+Pertengo|VC|12|45.2356|8.4175|0
+Pertica Alta|BS|09|45.7424|10.3442|0
+Pertica Bassa|BS|09|45.7534|10.3725|0
+Pertosa|SA|04|40.5436|15.4489|0
+Pertusio|TO|12|45.3556|7.6415|0
+Perugia|PG|18|43.0967|12.3829|1
+Pesaro|PU|10|43.9036|12.8903|1
+Pescaglia|LU|16|43.9663|10.4111|0
+Pescantina|VR|20|45.4837|10.8685|0
+Pescara|PE|01|42.4602|14.2102|1
+Pescarolo ed Uniti|CR|09|45.1939|10.1865|0
+Pescasseroli|AQ|01|41.8040|13.7889|0
+Pescate|LC|09|45.8335|9.3940|0
+Pesche|IS|11|41.6061|14.2776|0
+Peschici|FG|13|41.9460|16.0159|0
+Peschiera Borromeo|MI|09|45.4398|9.3062|0
+Peschiera del Garda|VR|20|45.4378|10.6891|0
+Pescia|PT|16|43.8971|10.6904|0
+Pescina|AQ|01|42.0254|13.6579|0
+Pesco Sannita|BN|04|41.2326|14.8121|0
+Pescocostanzo|AQ|01|41.8863|14.0656|0
+Pescolanciano|IS|11|41.6784|14.3372|0
+Pescopagano|PZ|02|40.8356|15.3989|0
+Pescopennataro|IS|11|41.8789|14.2933|0
+Pescorocchiano|RI|07|42.2064|13.1462|0
+Pescosansonesco|PE|01|42.2552|13.8848|0
+Pescosolido|FR|07|41.7481|13.6566|0
+Pessano con Bornago|MI|09|45.5494|9.3814|0
+Pessina Cremonese|CR|09|45.1855|10.2487|0
+Pessinetto|TO|12|45.2867|7.4153|0
+Petacciato|CB|11|42.0114|14.8609|0
+Petilia Policastro|KR|03|39.1139|16.7855|0
+Petina|SA|04|40.5321|15.3735|0
+Petralia Soprana|PA|15|37.8006|14.1076|0
+Petralia Sottana|PA|15|37.8094|14.0925|0
+Petrella Salto|RI|07|42.2954|13.0683|0
+Petrella Tifernina|CB|11|41.6915|14.6962|0
+Petriano|PU|10|43.7792|12.7333|0
+Petriolo|MC|10|43.2214|13.4645|0
+Petritoli|FM|10|43.0686|13.6631|0
+Petrizzi|CZ|03|38.7014|16.4730|0
+Petronà|CZ|03|39.0437|16.7559|0
+Petrosino|TP|15|37.7077|12.4999|0
+Petruro Irpino|AV|04|41.0319|14.7975|0
+Pettenasco|NO|12|45.8166|8.4070|0
+Pettinengo|BI|12|45.6131|8.1042|0
+Pettineo|ME|15|37.9673|14.2919|0
+Pettoranello del Molise|IS|11|41.5731|14.2775|0
+Pettorano sul Gizio|AQ|01|41.9745|13.9587|0
+Pettorazza Grimani|RO|20|45.1361|11.9868|0
+Peveragno|CN|12|44.3315|7.6198|0
+Pezzana|VC|12|45.2621|8.4850|0
+Pezzaze|BS|09|45.7763|10.2360|0
+Pezzolo Valle Uzzone|CN|12|44.5387|8.1939|0
+Piacenza d'Adige|PD|20|45.1287|11.5465|0
+Piacenza|PC|05|45.0468|9.6994|1
+Piadena Drizzona|CR|09|45.1346|10.3669|0
+Piaggine|SA|04|40.3448|15.3787|0
+Pian Camuno|BS|09|45.8439|10.1511|0
+Piana Crixia|SV|08|44.4850|8.3080|0
+Piana degli Albanesi|PA|15|37.9980|13.2797|0
+Piana di Monte Verna|CE|04|41.1671|14.3337|0
+Piancastagnaio|SI|16|42.8506|11.6850|0
+Piancogno|BS|09|45.9197|10.2253|0
+Piandimeleto|PU|10|43.7242|12.4110|0
+Piane Crati|CS|03|39.2341|16.3255|0
+Pianella|PE|01|42.4003|14.0499|0
+Pianello del Lario|CO|09|46.1028|9.2769|0
+Pianello Val Tidone|PC|05|44.9467|9.4052|0
+Pianengo|CR|09|45.4022|9.6948|0
+Pianezza|TO|12|45.1058|7.5434|0
+Pianezze|VI|20|45.7398|11.6269|0
+Pianfei|CN|12|44.3720|7.7114|0
+Pianico|BG|09|45.8099|10.0431|0
+Pianiga|VE|20|45.4574|12.0070|0
+Piano di Sorrento|NA|04|40.6310|14.4160|0
+Pianopoli|CZ|03|38.9542|16.3884|0
+Pianoro|BO|05|44.3930|11.3423|0
+Piansano|VT|07|42.5242|11.8298|0
+Piantedo|SO|09|46.1342|9.4293|0
+Piario|BG|09|45.8965|9.9273|0
+Piasco|CN|12|44.5630|7.4538|0
+Piateda|SO|09|46.1596|9.9350|0
+Piatto|BI|12|45.5899|8.1353|0
+Piazza al Serchio|LU|16|44.1846|10.2969|0
+Piazza Armerina|EN|15|37.3860|14.3672|0
+Piazza Brembana|BG|09|45.9467|9.6740|0
+Piazzatorre|BG|09|45.9912|9.6869|0
+Piazzola sul Brenta|PD|20|45.5415|11.7844|0
+Piazzolo|BG|09|45.9798|9.6706|0
+Picciano|PE|01|42.4756|13.9893|0
+Picerno|PZ|02|40.6403|15.6433|0
+Picinisco|FR|07|41.6463|13.8676|0
+Pico|FR|07|41.4508|13.5596|0
+Piea|AT|12|45.0241|8.0706|0
+Piedicavallo|BI|12|45.6899|7.9548|0
+Piedimonte Etneo|CT|15|37.8069|15.1766|0
+Piedimonte Matese|CE|04|41.3508|14.3680|0
+Piedimonte San Germano|FR|07|41.4983|13.7523|0
+Piedimulera|VB|12|46.0253|8.2614|0
+Piegaro|PG|18|42.9669|12.0834|0
+Pienza|SI|16|43.0778|11.6779|0
+Pieranica|CR|09|45.4262|9.6103|0
+Pietra de' Giorgi|PV|09|45.0214|9.2304|0
+Pietra Ligure|SV|08|44.1529|8.2866|0
+Pietra Marazzi|AL|12|44.9427|8.6685|0
+Pietrabbondante|IS|11|41.7471|14.3844|0
+Pietrabruna|IM|08|43.8897|7.9029|0
+Pietracamela|TE|01|42.5235|13.5554|0
+Pietracatella|CB|11|41.5797|14.8726|0
+Pietracupa|CB|11|41.6825|14.5193|0
+Pietradefusi|AV|04|41.0415|14.8855|0
+Pietraferrazzana|CH|01|41.9688|14.3740|0
+Pietrafitta|CS|03|39.2614|16.3386|0
+Pietragalla|PZ|02|40.7468|15.8794|0
+Pietralunga|PG|18|43.4368|12.4312|0
+Pietramelara|CE|04|41.2721|14.1866|0
+Pietramontecorvino|FG|13|41.5416|15.1275|0
+Pietranico|PE|01|42.2762|13.9104|0
+Pietrapaola|CS|03|39.4875|16.8158|0
+Pietrapertosa|PZ|02|40.5181|16.0625|0
+Pietraperzia|EN|15|37.4199|14.1371|0
+Pietraporzio|CN|12|44.3437|7.0353|0
+Pietraroja|BN|04|41.3478|14.5496|0
+Pietrarubbia|PU|10|43.8048|12.3768|0
+Pietrasanta|LU|16|43.9522|10.2248|0
+Pietrastornina|AV|04|40.9923|14.7289|0
+Pietravairano|CE|04|41.3252|14.1659|0
+Pietrelcina|BN|04|41.1994|14.8441|0
+Pieve a Nievole|PT|16|43.8810|10.8003|0
+Pieve Albignola|PV|09|45.1129|8.9614|0
+Pieve d'Olmi|CR|09|45.0896|10.1237|0
+Pieve del Cairo|PV|09|45.0500|8.8041|0
+Pieve del Grappa|TV|20|45.8567|11.8307|0
+Pieve di Bono-Prezzo|TN|17|45.9411|10.6571|0
+Pieve di Cadore|BL|20|46.4230|12.3610|0
+Pieve di Cento|BO|05|44.7123|11.3076|0
+Pieve di Soligo|TV|20|45.8967|12.1745|0
+Pieve di Teco|IM|08|44.0470|7.9150|0
+Pieve Emanuele|MI|09|45.3475|9.2000|0
+Pieve Fissiraga|LO|09|45.2633|9.4584|0
+Pieve Fosciana|LU|16|44.1320|10.4110|0
+Pieve Ligure|GE|08|44.3762|9.0862|0
+Pieve Porto Morone|PV|09|45.1094|9.4358|0
+Pieve San Giacomo|CR|09|45.1303|10.1863|0
+Pieve Santo Stefano|AR|16|43.6715|12.0412|0
+Pieve Tesino|TN|17|46.0682|11.6103|0
+Pieve Torina|MC|10|43.0421|13.0459|0
+Pieve Vergonte|VB|12|46.0130|8.2608|0
+Pievepelago|MO|05|44.2047|10.6166|0
+Piglio|FR|07|41.8284|13.1224|0
+Pigna|IM|08|43.9322|7.6607|0
+Pignataro Interamna|FR|07|41.4392|13.7862|0
+Pignataro Maggiore|CE|04|41.1908|14.1723|0
+Pignola|PZ|02|40.5731|15.7832|0
+Pignone|SP|08|44.1782|9.7241|0
+Pigra|CO|09|45.9567|9.1260|0
+Pila|VC|12|45.7700|8.0812|0
+Pimentel|SU|14|39.4855|9.0655|0
+Pimonte|NA|04|40.6736|14.5098|0
+Pinarolo Po|PV|09|45.0699|9.1672|0
+Pinasca|TO|12|44.9426|7.2291|0
+Pincara|RO|20|44.9914|11.6088|0
+Pinerolo|TO|12|44.8839|7.3331|0
+Pineto|TE|01|42.6097|14.0660|0
+Pino d'Asti|AT|12|45.0575|7.9862|0
+Pino Torinese|TO|12|45.0395|7.7771|0
+Pinzano al Tagliamento|PN|06|46.1829|12.9456|0
+Pinzolo|TN|17|46.1580|10.7631|0
+Piobbico|PU|10|43.5878|12.5101|0
+Piobesi d'Alba|CN|12|44.7351|7.9796|0
+Piobesi Torinese|TO|12|44.9329|7.6101|0
+Piode|VC|12|45.7710|8.0506|0
+Pioltello|MI|09|45.4980|9.3244|0
+Piombino Dese|PD|20|45.6058|11.9969|0
+Piombino|LI|16|42.9348|10.5221|0
+Pioraco|MC|10|43.1790|12.9857|0
+Piossasco|TO|12|44.9905|7.4637|0
+Piovà Massaia|AT|12|45.0551|8.0501|0
+Piove di Sacco|PD|20|45.2977|12.0368|0
+Piovene Rocchette|VI|20|45.7576|11.4349|0
+Piozzano|PC|05|44.9263|9.4961|0
+Piozzo|CN|12|44.5138|7.8925|0
+Piraino|ME|15|38.1607|14.8626|0
+Pisa|PI|16|43.7108|10.4137|1
+Pisano|NO|12|45.7928|8.5076|0
+Piscina|TO|12|44.9187|7.4253|0
+Piscinas|SU|14|39.0744|8.6659|0
+Pisciotta|SA|04|40.1089|15.2346|0
+Pisogne|BS|09|45.8101|10.1073|0
+Pisoniano|RM|07|41.9051|12.9589|0
+Pisticci|MT|02|40.3906|16.5568|0
+Pistoia|PT|16|43.9213|10.9236|1
+Pitigliano|GR|16|42.6348|11.6736|0
+Piubega|MN|09|45.2278|10.5343|0
+Piuro|SO|09|46.3298|9.4206|0
+Piverone|TO|12|45.4463|8.0057|0
+Pizzale|PV|09|45.0386|9.0500|0
+Pizzighettone|CR|09|45.1891|9.7899|0
+Pizzo|VV|03|38.7384|16.1658|0
+Pizzoferrato|CH|01|41.9214|14.2357|0
+Pizzoli|AQ|01|42.4321|13.3117|0
+Pizzone|IS|11|41.6725|14.0364|0
+Pizzoni|VV|03|38.6231|16.2519|0
+Placanica|RC|03|38.4119|16.4525|0
+Plataci|CS|03|39.9004|16.4320|0
+Platania|CZ|03|39.0054|16.3201|0
+Platì|RC|03|38.2200|16.0465|0
+Plaus/Plaus|BZ|17|46.6567|11.0414|0
+Plesio|CO|09|46.0486|9.2245|0
+Ploaghe|SS|14|40.6643|8.7418|0
+Plodio|SV|08|44.3577|8.2444|0
+Pocapaglia|CN|12|44.7152|7.8829|0
+Pocenia|UD|06|45.8355|13.1008|0
+Podenzana|MS|16|44.2062|9.9420|0
+Podenzano|PC|05|44.9564|9.6850|0
+Pofi|FR|07|41.5654|13.4146|0
+Poggiardo|LE|13|40.0542|18.3791|0
+Poggibonsi|SI|16|43.4724|11.1456|0
+Poggio a Caiano|PO|16|43.8137|11.0507|0
+Poggio Bustone|RI|07|42.5018|12.8882|0
+Poggio Catino|RI|07|42.2954|12.6922|0
+Poggio Imperiale|FG|13|41.8250|15.3652|0
+Poggio Mirteto|RI|07|42.2661|12.6878|0
+Poggio Moiano|RI|07|42.2026|12.8794|0
+Poggio Nativo|RI|07|42.2154|12.7966|0
+Poggio Picenze|AQ|01|42.3206|13.5411|0
+Poggio Renatico|FE|05|44.7660|11.4901|0
+Poggio Rusco|MN|09|44.9749|11.1187|0
+Poggio San Lorenzo|RI|07|42.2524|12.8442|0
+Poggio San Marcello|AN|10|43.5112|13.0737|0
+Poggio San Vicino|MC|10|43.3751|13.0791|0
+Poggio Sannita|IS|11|41.7806|14.4162|0
+Poggio Torriana|RN|05|44.0191|12.4046|0
+Poggiodomo|PG|18|42.7112|12.9339|0
+Poggiofiorito|CH|01|42.2549|14.3223|0
+Poggiomarino|NA|04|40.8031|14.5390|0
+Poggioreale|TP|15|37.7640|13.0359|0
+Poggiorsini|BA|13|40.9171|16.2548|0
+Poggiridenti|SO|09|46.1748|9.9261|0
+Pogliano Milanese|MI|09|45.5413|9.0006|0
+Pognana Lario|CO|09|45.8785|9.1579|0
+Pognano|BG|09|45.5864|9.6400|0
+Pogno|NO|12|45.7556|8.3846|0
+Poirino|TO|12|44.9205|7.8445|0
+Pojana Maggiore|VI|20|45.2904|11.5025|0
+Polaveno|BS|09|45.6615|10.1240|0
+Polcenigo|PN|06|46.0356|12.4911|0
+Polesella|RO|20|44.9624|11.7528|0
+Polesine Zibello|PR|05|45.0137|10.1189|0
+Poli|RM|07|41.8888|12.8920|0
+Polia|VV|03|38.7512|16.3122|0
+Policoro|MT|02|40.2115|16.6726|0
+Polignano a Mare|BA|13|40.9959|17.2159|0
+Polinago|MO|05|44.3448|10.7235|0
+Polino|TR|18|42.5842|12.8444|0
+Polistena|RC|03|38.4060|16.0800|0
+Polizzi Generosa|PA|15|37.8118|14.0034|0
+Polla|SA|04|40.5171|15.4980|0
+Pollein|AO|19|45.7273|7.3522|0
+Pollena Trocchia|NA|04|40.8548|14.3819|0
+Pollenza|MC|10|43.2659|13.3479|0
+Pollica|SA|04|40.1907|15.0572|0
+Pollina|PA|15|37.9937|14.1453|0
+Pollone|BI|12|45.5798|8.0059|0
+Pollutri|CH|01|42.1378|14.5917|0
+Polonghera|CN|12|44.8023|7.5957|0
+Polpenazze del Garda|BS|09|45.5502|10.5029|0
+Polverara|PD|20|45.3094|11.9560|0
+Polverigi|AN|10|43.5256|13.3921|0
+Pomarance|PI|16|43.2989|10.8728|0
+Pomaretto|TO|12|44.9561|7.1836|0
+Pomarico|MT|02|40.5178|16.5473|0
+Pomaro Monferrato|AL|12|45.0625|8.5960|0
+Pomarolo|TN|17|45.9281|11.0431|0
+Pombia|NO|12|45.6530|8.6336|0
+Pomezia|RM|07|41.6670|12.5052|0
+Pomigliano d'Arco|NA|04|40.9079|14.3862|0
+Pompei|NA|04|40.7461|14.4973|0
+Pompeiana|IM|08|43.8537|7.8899|0
+Pompiano|BS|09|45.4320|9.9893|0
+Pomponesco|MN|09|44.9314|10.6013|0
+Pompu|OR|14|39.7245|8.7954|0
+Poncarale|BS|09|45.4610|10.1768|0
+Ponderano|BI|12|45.5385|8.0559|0
+Ponna|CO|09|45.9894|9.0946|0
+Ponsacco|PI|16|43.6238|10.6291|0
+Ponso|PD|20|45.1907|11.5876|0
+Pont Canavese|TO|12|45.4228|7.5962|0
+Pont-Saint-Martin|AO|19|45.5954|7.7945|0
+Pontassieve|FI|16|43.7737|11.4282|0
+Pontboset|AO|19|45.6073|7.6864|0
+Ponte Buggianese|PT|16|43.8428|10.7476|0
+Ponte dell'Olio|PC|05|44.8674|9.6423|0
+Ponte di Legno|BS|09|46.2586|10.5087|0
+Ponte di Piave|TV|20|45.7196|12.4627|0
+Ponte Gardena/Waidbruck|BZ|17|46.5971|11.5309|0
+Ponte in Valtellina|SO|09|46.1750|9.9779|0
+Ponte Lambro|CO|09|45.8266|9.2254|0
+Ponte nelle Alpi|BL|20|46.1821|12.2781|0
+Ponte Nizza|PV|09|44.8526|9.0969|0
+Ponte Nossa|BG|09|45.8657|9.8833|0
+Ponte San Nicolò|PD|20|45.3705|11.9211|0
+Ponte San Pietro|BG|09|45.6963|9.5848|0
+Ponte|BN|04|41.2151|14.6989|0
+Pontebba|UD|06|46.5078|13.3061|0
+Pontecagnano Faiano|SA|04|40.6276|14.8878|0
+Pontecchio Polesine|RO|20|45.0198|11.8138|0
+Pontechianale|CN|12|44.6212|7.0300|0
+Pontecorvo|FR|07|41.4616|13.6667|0
+Pontecurone|AL|12|44.9602|8.9338|0
+Pontedassio|IM|08|43.9403|8.0138|0
+Pontedera|PI|16|43.6616|10.6317|0
+Pontelandolfo|BN|04|41.2932|14.6890|0
+Pontelatone|CE|04|41.1935|14.2517|0
+Pontelongo|PD|20|45.2471|12.0247|0
+Pontenure|PC|05|44.9992|9.7886|0
+Ponteranica|BG|09|45.7325|9.6517|0
+Pontestura|AL|12|45.1424|8.3332|0
+Pontevico|BS|09|45.2744|10.0925|0
+Pontey|AO|19|45.7389|7.5883|0
+Ponti sul Mincio|MN|09|45.4121|10.6851|0
+Ponti|AL|12|44.6278|8.3654|0
+Pontida|BG|09|45.7324|9.4986|0
+Pontinia|LT|07|41.4109|13.0441|0
+Pontinvrea|SV|08|44.4434|8.4360|0
+Pontirolo Nuovo|BG|09|45.5692|9.5694|0
+Pontoglio|BS|09|45.5694|9.8535|0
+Pontremoli|MS|16|44.3751|9.8789|0
+Ponza|LT|07|40.8938|12.9625|0
+Ponzano di Fermo|FM|10|43.1046|13.6614|0
+Ponzano Monferrato|AL|12|45.0849|8.2655|0
+Ponzano Romano|RM|07|42.2569|12.5705|0
+Ponzano Veneto|TV|20|45.7187|12.2004|0
+Ponzone|AL|12|44.5881|8.4594|0
+Popoli Terme|PE|01|42.1699|13.8308|0
+Poppi|AR|16|43.7349|11.7607|0
+Porano|TR|18|42.6818|12.1019|0
+Porcari|LU|16|43.8441|10.6164|0
+Porcia|PN|06|45.9655|12.6135|0
+Pordenone|PN|06|45.9617|12.6553|1
+Porlezza|CO|09|46.0384|9.1298|0
+Pornassio|IM|08|44.0705|7.8695|0
+Porpetto|UD|06|45.8582|13.2178|0
+Portacomaro|AT|12|44.9567|8.2580|0
+Portalbera|PV|09|45.0976|9.3189|0
+Porte di Rendena|TN|17|46.0620|10.7147|0
+Porte|TO|12|44.8871|7.2698|0
+Portici|NA|04|40.8189|14.3404|0
+Portico di Caserta|CE|04|41.0565|14.2794|0
+Portico e San Benedetto|FC|05|44.0167|11.7500|0
+Portigliola|RC|03|38.2277|16.2022|0
+Porto Azzurro|LI|16|42.7669|10.3957|0
+Porto Ceresio|VA|09|45.9027|8.8992|0
+Porto Cesareo|LE|13|40.2628|17.8984|0
+Porto Empedocle|AG|15|37.2934|13.5264|0
+Porto Mantovano|MN|09|45.1922|10.7929|0
+Porto Recanati|MC|10|43.4365|13.6613|0
+Porto San Giorgio|FM|10|43.1827|13.7934|0
+Porto Sant'Elpidio|FM|10|43.2583|13.7583|0
+Porto Tolle|RO|20|44.9497|12.3245|0
+Porto Torres|SS|14|40.8335|8.4090|0
+Porto Valtravaglia|VA|09|45.9593|8.6816|0
+Porto Viro|RO|20|45.0167|12.2167|0
+Portobuffolè|TV|20|45.8546|12.5381|0
+Portocannone|CB|11|41.9159|15.0074|0
+Portoferraio|LI|16|42.8115|10.3146|0
+Portofino|GE|08|44.3037|9.2094|0
+Portogruaro|VE|20|45.7793|12.8366|0
+Portomaggiore|FE|05|44.6985|11.8068|0
+Portopalo di Capo Passero|SR|15|36.6823|15.1346|0
+Portoscuso|SU|14|39.2070|8.3809|0
+Portovenere|SP|08|44.0586|9.8388|0
+Portula|BI|12|45.6738|8.1793|0
+Posada|NU|14|40.6320|9.7164|0
+Posina|VI|20|45.7903|11.2602|0
+Positano|SA|04|40.6287|14.4852|0
+Possagno|TV|20|45.8525|11.8731|0
+Posta Fibreno|FR|07|41.6903|13.6974|0
+Posta|RI|07|42.5263|13.0981|0
+Postal/Burgstall|BZ|17|46.6114|11.1935|0
+Postalesio|SO|09|46.1741|9.7754|0
+Postiglione|SA|04|40.5590|15.2324|0
+Postua|VC|12|45.7129|8.2306|0
+Potenza Picena|MC|10|43.3684|13.6223|0
+Potenza|PZ|02|40.6443|15.8086|1
+Pove del Grappa|VI|20|45.7982|11.7299|0
+Povegliano Veronese|VR|20|45.3495|10.8811|0
+Povegliano|TV|20|45.7587|12.2083|0
+Poviglio|RE|05|44.8442|10.5342|0
+Povoletto|UD|06|46.1165|13.2922|0
+Pozzaglia Sabina|RI|07|42.1586|12.9643|0
+Pozzaglio ed Uniti|CR|09|45.2003|10.0506|0
+Pozzallo|RG|15|36.7305|14.8499|0
+Pozzilli|IS|11|41.5114|14.0625|0
+Pozzo d'Adda|MI|09|45.5726|9.5030|0
+Pozzol Groppo|AL|12|44.8781|9.0298|0
+Pozzolengo|BS|09|45.4063|10.6330|0
+Pozzoleone|VI|20|45.6486|11.6735|0
+Pozzolo Formigaro|AL|12|44.7951|8.7849|0
+Pozzomaggiore|SS|14|40.3988|8.6602|0
+Pozzonovo|PD|20|45.1963|11.7917|0
+Pozzuoli|NA|04|40.8322|14.1045|0
+Pozzuolo del Friuli|UD|06|45.9860|13.1950|0
+Pozzuolo Martesana|MI|09|45.5140|9.4563|0
+Pradalunga|BG|09|45.7459|9.7822|0
+Pradamano|UD|06|46.0338|13.3026|0
+Pradleves|CN|12|44.4191|7.2815|0
+Pragelato|TO|12|45.0134|6.9391|0
+Praia a Mare|CS|03|39.9009|15.7793|0
+Praiano|SA|04|40.6111|14.5313|0
+Pralboino|BS|09|45.2656|10.2176|0
+Prali|TO|12|44.9000|7.0500|0
+Pralormo|TO|12|44.8597|7.9014|0
+Pralungo|BI|12|45.5902|8.0385|0
+Pramaggiore|VE|20|45.8144|12.7361|0
+Pramollo|TO|12|44.9081|7.1907|0
+Prarolo|VC|12|45.2821|8.4781|0
+Prarostino|TO|12|44.8663|7.2676|0
+Prasco|AL|12|44.6392|8.5519|0
+Prascorsano|TO|12|45.3678|7.6169|0
+Prata Camportaccio|SO|09|46.3072|9.3952|0
+Prata d'Ansidonia|AQ|01|42.2779|13.6083|0
+Prata di Pordenone|PN|06|45.8909|12.5945|0
+Prata di Principato Ultra|AV|04|40.9872|14.8372|0
+Prata Sannita|CE|04|41.4328|14.2027|0
+Pratella|CE|04|41.4046|14.1777|0
+Pratiglione|TO|12|45.3528|7.5960|0
+Prato allo Stelvio/Prad am Stilfserjoch|BZ|17|46.6190|10.5914|0
+Prato Carnico|UD|06|46.5203|12.8025|0
+Prato Sesia|NO|12|45.6507|8.3729|0
+Prato|PO|16|43.8805|11.0969|1
+Pratola Peligna|AQ|01|42.0983|13.8739|0
+Pratola Serra|AV|04|40.9870|14.8526|0
+Pratovecchio Stia|AR|16|43.8132|11.7088|0
+Pravisdomini|PN|06|45.8191|12.6920|0
+Pray|BI|12|45.6747|8.2043|0
+Prazzo|CN|12|44.4838|7.0554|0
+Pré-Saint-Didier|AO|19|45.7642|6.9858|0
+Precenicco|UD|06|45.7889|13.0774|0
+Preci|PG|18|42.8795|13.0356|0
+Predaia|TN|17|46.3242|11.0770|0
+Predappio|FC|05|44.1000|11.9833|0
+Predazzo|TN|17|46.3088|11.5997|0
+Predoi/Prettau|BZ|17|47.0407|12.1059|0
+Predore|BG|09|45.6808|10.0144|0
+Predosa|AL|12|44.7514|8.6555|0
+Preganziol|TV|20|45.6061|12.2356|0
+Pregnana Milanese|MI|09|45.5160|9.0070|0
+Prelà|IM|08|43.9269|7.9356|0
+Premana|LC|09|46.0520|9.4231|0
+Premariacco|UD|06|46.0620|13.3968|0
+Premeno|VB|12|45.9791|8.5978|0
+Premia|VB|12|46.2630|8.3278|0
+Premilcuore|FC|05|43.9819|11.7836|0
+Premolo|BG|09|45.8702|9.8747|0
+Premosello-Chiovenda|VB|12|46.0042|8.3289|0
+Preone|UD|06|46.3945|12.8665|0
+Prepotto|UD|06|46.0457|13.4794|0
+Preseglie|BS|09|45.6683|10.3968|0
+Presenzano|CE|04|41.3766|14.0764|0
+Presezzo|BG|09|45.6921|9.5703|0
+Presicce-Acquarica|LE|13|39.9032|18.2579|0
+Pressana|VR|20|45.2840|11.4048|0
+Pretoro|CH|01|42.2176|14.1418|0
+Prevalle|BS|09|45.5514|10.4221|0
+Prezza|AQ|01|42.0593|13.8346|0
+Priero|CN|12|44.3760|8.0933|0
+Prignano Cilento|SA|04|40.3309|15.0686|0
+Prignano sulla Secchia|MO|05|44.4384|10.6919|0
+Primaluna|LC|09|45.9848|9.4359|0
+Primiero San Martino di Castrozza|TN|17|46.2431|11.8276|0
+Priocca|CN|12|44.7862|8.0642|0
+Priola|CN|12|44.2436|8.0212|0
+Priolo Gargallo|SR|15|37.1572|15.1802|0
+Priverno|LT|07|41.4691|13.1856|0
+Prizzi|PA|15|37.7214|13.4328|0
+Proceno|VT|07|42.7572|11.8297|0
+Procida|NA|04|40.7569|14.0144|0
+Propata|GE|08|44.5656|9.1857|0
+Proserpio|CO|09|45.8283|9.2455|0
+Prossedi|LT|07|41.5162|13.2607|0
+Provaglio d'Iseo|BS|09|45.6354|10.0447|0
+Provaglio Val Sabbia|BS|09|45.6888|10.4340|0
+Proves/Proveis|BZ|17|46.4766|11.0225|0
+Provvidenti|CB|11|41.7172|14.8254|0
+Prunetto|CN|12|44.4889|8.1437|0
+Puegnago del Garda|BS|09|45.5668|10.5098|0
+Puglianello|BN|04|41.2234|14.4504|0
+Pula|CA|14|39.0074|9.0016|0
+Pulfero|UD|06|46.1730|13.4841|0
+Pulsano|TA|13|40.3821|17.3564|0
+Pumenengo|BG|09|45.4793|9.8696|0
+Pusiano|CO|09|45.8139|9.2818|0
+Putifigari|SS|14|40.5623|8.4611|0
+Putignano|BA|13|40.8518|17.1213|0
+Quadrelle|AV|04|40.9485|14.6393|0
+Quadri|CH|01|41.9249|14.2882|0
+Quagliuzzo|TO|12|45.4268|7.7816|0
+Qualiano|NA|04|40.9226|14.1501|0
+Quaranti|AT|12|44.7510|8.4491|0
+Quaregna Cerreto|BI|12|45.5776|8.1624|0
+Quargnento|AL|12|44.9449|8.4870|0
+Quarna Sopra|VB|12|45.8737|8.3726|0
+Quarna Sotto|VB|12|45.8692|8.3633|0
+Quarona|VC|12|45.7579|8.2657|0
+Quarrata|PT|16|43.8499|10.9807|0
+Quart|AO|19|45.7410|7.4152|0
+Quarto d'Altino|VE|20|45.5777|12.3717|0
+Quarto|NA|04|40.8768|14.1394|0
+Quartu Sant'Elena|CA|14|39.2420|9.1832|0
+Quartucciu|CA|14|39.2541|9.1789|0
+Quassolo|TO|12|45.5229|7.8323|0
+Quattordio|AL|12|44.8963|8.4049|0
+Quattro Castella|RE|05|44.6350|10.4743|0
+Quiliano|SV|08|44.2925|8.4126|0
+Quincinetto|TO|12|45.5630|7.8073|0
+Quindici|AV|04|40.8633|14.6475|0
+Quingentole|MN|09|45.0391|11.0458|0
+Quintano|CR|09|45.4205|9.6186|0
+Quinto di Treviso|TV|20|45.6481|12.1716|0
+Quinto Vercellese|VC|12|45.3797|8.3617|0
+Quinto Vicentino|VI|20|45.5741|11.6330|0
+Quinzano d'Oglio|BS|09|45.3109|10.0086|0
+Quistello|MN|09|45.0056|10.9823|0
+Rabbi|TN|17|46.4003|10.8457|0
+Racale|LE|13|39.9631|18.0938|0
+Racalmuto|AG|15|37.4071|13.7338|0
+Racconigi|CN|12|44.7698|7.6789|0
+Raccuja|ME|15|38.0553|14.9096|0
+Racines/Ratschings|BZ|17|46.8818|11.3783|0
+Radda in Chianti|SI|16|43.4856|11.3781|0
+Raddusa|CT|15|37.4757|14.5339|0
+Radicofani|SI|16|42.8955|11.7700|0
+Radicondoli|SI|16|43.2609|11.0436|0
+Raffadali|AG|15|37.4036|13.5331|0
+Ragalna|CT|15|37.6345|14.9470|0
+Ragogna|UD|06|46.1735|12.9824|0
+Ragusa|RG|15|36.9282|14.7172|1
+Raiano|AQ|01|42.1023|13.8146|0
+Ramacca|CT|15|37.3880|14.6927|0
+Rancio Valcuvia|VA|09|45.9157|8.7727|0
+Ranco|VA|09|45.7983|8.5714|0
+Randazzo|CT|15|37.8761|14.9497|0
+Ranica|BG|09|45.7233|9.7134|0
+Ranzanico|BG|09|45.7884|9.9351|0
+Ranzo|IM|08|44.0596|8.0150|0
+Rapagnano|FM|10|43.1615|13.5944|0
+Rapallo|GE|08|44.3511|9.2297|0
+Rapino|CH|01|42.2107|14.1839|0
+Rapolano Terme|SI|16|43.2895|11.6052|0
+Rapolla|PZ|02|40.9757|15.6713|0
+Rapone|PZ|02|40.8467|15.5012|0
+Rassa|VC|12|45.7686|8.0130|0
+Rasun-Anterselva/Rasen-Antholz|BZ|17|46.8333|12.0833|0
+Rasura|SO|09|46.1006|9.5527|0
+Ravanusa|AG|15|37.2667|13.9690|0
+Ravarino|MO|05|44.7212|11.0984|0
+Ravascletto|UD|06|46.5229|12.9221|0
+Ravello|SA|04|40.6473|14.6128|0
+Ravenna|RA|05|44.4170|12.1987|1
+Raveo|UD|06|46.4344|12.8711|0
+Raviscanina|CE|04|41.3702|14.2427|0
+Re|VB|12|46.1319|8.5479|0
+Rea|PV|09|45.1134|9.1547|0
+Realmonte|AG|15|37.3091|13.4619|0
+Reana del Rojale|UD|06|46.1432|13.2465|0
+Reano|TO|12|45.0530|7.4271|0
+Recale|CE|04|41.0551|14.3040|0
+Recanati|MC|10|43.4039|13.5598|0
+Recco|GE|08|44.3632|9.1372|0
+Recetto|NO|12|45.4604|8.4357|0
+Recoaro Terme|VI|20|45.7042|11.2245|0
+Redavalle|PV|09|45.0380|9.2022|0
+Redondesco|MN|09|45.1664|10.5123|0
+Refrancore|AT|12|44.9363|8.3408|0
+Refrontolo|TV|20|45.9240|12.2089|0
+Regalbuto|EN|15|37.6527|14.6409|0
+Reggello|FI|16|43.6801|11.5293|0
+Reggio di Calabria|RC|03|38.1105|15.6613|1
+Reggio nell'Emilia|RE|05|44.7087|10.6195|1
+Reggiolo|RE|05|44.9185|10.8108|0
+Reino|BN|04|41.2916|14.8229|0
+Reitano|ME|15|37.9721|14.3433|0
+Remanzacco|UD|06|46.0865|13.3268|0
+Remedello|BS|09|45.2784|10.3720|0
+Renate|MB|09|45.7244|9.2799|0
+Rende|CS|03|39.3320|16.1844|0
+Renon/Ritten|BZ|17|46.5415|11.4573|0
+Resana|TV|20|45.6352|11.9586|0
+Rescaldina|MI|09|45.6165|8.9538|0
+Resia|UD|06|46.3740|13.3049|0
+Resiutta|UD|06|46.3935|13.2184|0
+Resuttano|CL|15|37.6786|14.0295|0
+Retorbido|PV|09|44.9495|9.0361|0
+Revello|CN|12|44.6546|7.3915|0
+Revigliasco d'Asti|AT|12|44.8576|8.1604|0
+Revine Lago|TV|20|45.9904|12.2277|0
+Rezzago|CO|09|45.8668|9.2497|0
+Rezzato|BS|09|45.5142|10.3167|0
+Rezzo|IM|08|44.0214|7.8714|0
+Rezzoaglio|GE|08|44.5262|9.3883|0
+Rhêmes-Notre-Dame|AO|19|45.5697|7.1187|0
+Rhêmes-Saint-Georges|AO|19|45.6523|7.1544|0
+Rho|MI|09|45.5309|9.0401|0
+Riace|RC|03|38.4183|16.4812|0
+Rialto|SV|08|44.2265|8.2614|0
+Riano|RM|07|42.1001|12.5057|0
+Riardo|CE|04|41.2627|14.1519|0
+Ribera|AG|15|37.4984|13.2642|0
+Ribordone|TO|12|45.4325|7.5023|0
+Ricadi|VV|03|38.6254|15.8673|0
+Ricaldone|AL|12|44.7333|8.4667|0
+Riccia|CB|11|41.4819|14.8332|0
+Riccione|RN|05|43.9980|12.6559|0
+Riccò del Golfo di Spezia|SP|08|44.1540|9.7646|0
+Ricengo|CR|09|45.4057|9.7240|0
+Ricigliano|SA|04|40.6672|15.4785|0
+Riese Pio X|TV|20|45.7333|11.9167|0
+Riesi|CL|15|37.2819|14.0823|0
+Rieti|RI|07|42.4072|12.8592|1
+Rifiano/Riffian|BZ|17|46.7037|11.1817|0
+Rifreddo|CN|12|44.6507|7.3464|0
+Rignano Flaminio|RM|07|42.2063|12.4794|0
+Rignano Garganico|FG|13|41.6793|15.5884|0
+Rignano sull'Arno|FI|16|43.7210|11.4514|0
+Rigolato|UD|06|46.5528|12.8521|0
+Rimella|VC|12|45.9081|8.1822|0
+Rimini|RN|05|44.0684|12.5556|1
+Rio di Pusteria/Mühlbach|BZ|17|46.7978|11.6681|0
+Rio Saliceto|RE|05|44.8116|10.8026|0
+Rio|LI|16|42.8240|10.4093|0
+Riofreddo|RM|07|42.0598|12.9972|0
+Riola Sardo|OR|14|39.9939|8.5385|0
+Riolo Terme|RA|05|44.2754|11.7278|0
+Riolunato|MO|05|44.2298|10.6516|0
+Riomaggiore|SP|08|44.1002|9.7387|0
+Rionero in Vulture|PZ|02|40.9257|15.6700|0
+Rionero Sannitico|IS|11|41.7119|14.1386|0
+Ripa Teatina|CH|01|42.3586|14.2341|0
+Ripabottoni|CB|11|41.6892|14.8083|0
+Ripacandida|PZ|02|40.9119|15.7248|0
+Ripalimosani|CB|11|41.6110|14.6627|0
+Ripalta Arpina|CR|09|45.3019|9.7290|0
+Ripalta Cremasca|CR|09|45.3325|9.6927|0
+Ripalta Guerina|CR|09|45.3061|9.7040|0
+Riparbella|PI|16|43.3647|10.5993|0
+Ripatransone|AP|10|42.9999|13.7621|0
+Ripe San Ginesio|MC|10|43.1427|13.3676|0
+Ripi|FR|07|41.6122|13.4258|0
+Riposto|CT|15|37.7306|15.2009|0
+Rittana|CN|12|44.3510|7.3984|0
+Riva del Garda|TN|17|45.8858|10.8412|0
+Riva del Po|FE|05|44.9400|12.0803|0
+Riva di Solto|BG|09|45.7770|10.0436|0
+Riva Ligure|IM|08|43.8379|7.8796|0
+Riva presso Chieri|TO|12|44.9849|7.8723|0
+Rivalba|TO|12|45.1183|7.8881|0
+Rivalta Bormida|AL|12|44.7097|8.5518|0
+Rivalta di Torino|TO|12|45.0340|7.5184|0
+Rivamonte Agordino|BL|20|46.2530|12.0229|0
+Rivanazzano Terme|PV|09|44.9258|9.0130|0
+Rivara|TO|12|45.3325|7.6329|0
+Rivarolo Canavese|TO|12|45.3312|7.7170|0
+Rivarolo del Re ed Uniti|CR|09|45.0280|10.4698|0
+Rivarolo Mantovano|MN|09|45.0700|10.4337|0
+Rivarone|AL|12|44.9769|8.7157|0
+Rivarossa|TO|12|45.2516|7.7148|0
+Rive d'Arcano|UD|06|46.1253|13.0270|0
+Rive|VC|12|45.2142|8.4175|0
+Rivello|PZ|02|40.0780|15.7561|0
+Rivergaro|PC|05|44.9096|9.5973|0
+Rivignano Teor|UD|06|45.8687|13.0449|0
+Rivisondoli|AQ|01|41.8702|14.0667|0
+Rivodutri|RI|07|42.5164|12.8550|0
+Rivoli Veronese|VR|20|45.5725|10.8118|0
+Rivoli|TO|12|45.0716|7.5262|0
+Rivolta d'Adda|CR|09|45.4702|9.5114|0
+Rizziconi|RC|03|38.4108|15.9582|0
+Roana|VI|20|45.8824|11.4624|0
+Roaschia|CN|12|44.2702|7.4557|0
+Roascio|CN|12|44.4171|8.0223|0
+Roasio|VC|12|45.6046|8.2848|0
+Roatto|AT|12|44.9520|8.0269|0
+Robassomero|TO|12|45.2000|7.5689|0
+Robbiate|LC|09|45.6915|9.4368|0
+Robbio|PV|09|45.2906|8.5911|0
+Robecchetto con Induno|MI|09|45.5293|8.7669|0
+Robecco d'Oglio|CR|09|45.2594|10.0766|0
+Robecco Pavese|PV|09|45.0484|9.1502|0
+Robecco sul Naviglio|MI|09|45.4391|8.8855|0
+Robella|AT|12|45.1016|8.1019|0
+Robilante|CN|12|44.2935|7.5124|0
+Roburent|CN|12|44.3063|7.8922|0
+Rocca Canavese|TO|12|45.3098|7.5762|0
+Rocca Canterano|RM|07|41.9565|13.0218|0
+Rocca Cigliè|CN|12|44.4452|7.9509|0
+Rocca d'Arazzo|AT|12|44.8721|8.2846|0
+Rocca d'Arce|FR|07|41.5871|13.5851|0
+Rocca d'Evandro|CE|04|41.3890|13.9081|0
+Rocca de' Baldi|CN|12|44.4236|7.7611|0
+Rocca de' Giorgi|PV|09|44.9714|9.2532|0
+Rocca di Botte|AQ|01|42.0262|13.0677|0
+Rocca di Cambio|AQ|01|42.2361|13.4890|0
+Rocca di Cave|RM|07|41.8464|12.9455|0
+Rocca di Mezzo|AQ|01|42.2047|13.5193|0
+Rocca di Neto|KR|03|39.1843|17.0089|0
+Rocca di Papa|RM|07|41.7696|12.7021|0
+Rocca Grimalda|AL|12|44.6715|8.6485|0
+Rocca Imperiale|CS|03|40.1097|16.5802|0
+Rocca Massima|LT|07|41.6793|12.9194|0
+Rocca Pia|AQ|01|41.9334|13.9770|0
+Rocca Pietore|BL|20|46.4339|11.9768|0
+Rocca Priora|RM|07|41.7786|12.7482|0
+Rocca San Casciano|FC|05|44.0592|11.8431|0
+Rocca San Felice|AV|04|40.9503|15.1652|0
+Rocca San Giovanni|CH|01|42.2460|14.4616|0
+Rocca Santa Maria|TE|01|42.6833|13.5000|0
+Rocca Santo Stefano|RM|07|41.9105|13.0238|0
+Rocca Sinibalda|RI|07|42.2744|12.9256|0
+Rocca Susella|PV|09|44.9139|9.0973|0
+Roccabascerana|AV|04|41.0184|14.7168|0
+Roccabernarda|KR|03|39.1357|16.8705|0
+Roccabianca|PR|05|45.0094|10.2194|0
+Roccabruna|CN|12|44.4745|7.3437|0
+Roccacasale|AQ|01|42.1229|13.8881|0
+Roccadaspide|SA|04|40.4254|15.1921|0
+Roccafiorita|ME|15|37.9309|15.2674|0
+Roccafluvione|AP|10|42.8500|13.4833|0
+Roccaforte del Greco|RC|03|38.0473|15.8947|0
+Roccaforte Ligure|AL|12|44.6775|9.0286|0
+Roccaforte Mondovì|CN|12|44.3179|7.7447|0
+Roccaforzata|TA|13|40.4374|17.3896|0
+Roccafranca|BS|09|45.4644|9.9145|0
+Roccagiovine|RM|07|42.0500|12.8994|0
+Roccagloriosa|SA|04|40.1070|15.4356|0
+Roccagorga|LT|07|41.5251|13.1551|0
+Roccalbegna|GR|16|42.7861|11.5091|0
+Roccalumera|ME|15|37.9763|15.3952|0
+Roccamandolfi|IS|11|41.4971|14.3538|0
+Roccamena|PA|15|37.8372|13.1547|0
+Roccamonfina|CE|04|41.2882|13.9831|0
+Roccamontepiano|CH|01|42.2429|14.1289|0
+Roccamorice|PE|01|42.2127|14.0253|0
+Roccanova|PZ|02|40.2120|16.2032|0
+Roccantica|RI|07|42.3207|12.6940|0
+Roccapalumba|PA|15|37.8060|13.6385|0
+Roccapiemonte|SA|04|40.7607|14.6926|0
+Roccarainola|NA|04|40.9694|14.5598|0
+Roccaraso|AQ|01|41.8501|14.0784|0
+Roccaromana|CE|04|41.2741|14.2213|0
+Roccascalegna|CH|01|42.0625|14.3068|0
+Roccasecca dei Volsci|LT|07|41.4785|13.2128|0
+Roccasecca|FR|07|41.5513|13.6671|0
+Roccasicura|IS|11|41.6966|14.2344|0
+Roccasparvera|CN|12|44.3421|7.4415|0
+Roccaspinalveti|CH|01|41.9423|14.4709|0
+Roccastrada|GR|16|43.0099|11.1665|0
+Roccavaldina|ME|15|38.1833|15.3727|0
+Roccaverano|AT|12|44.5922|8.2721|0
+Roccavignale|SV|08|44.3612|8.1905|0
+Roccavione|CN|12|44.3146|7.4824|0
+Roccavivara|CB|11|41.8342|14.5999|0
+Roccella Ionica|RC|03|38.3220|16.4009|0
+Roccella Valdemone|ME|15|37.9335|15.0097|0
+Rocchetta a Volturno|IS|11|41.6258|14.0890|0
+Rocchetta Belbo|CN|12|44.6360|8.1753|0
+Rocchetta di Vara|SP|08|44.2512|9.7579|0
+Rocchetta e Croce|CE|04|41.2365|14.1572|0
+Rocchetta Ligure|AL|12|44.7066|9.0505|0
+Rocchetta Nervina|IM|08|43.8906|7.5996|0
+Rocchetta Palafea|AT|12|44.7074|8.3453|0
+Rocchetta Sant'Antonio|FG|13|41.1035|15.4618|0
+Rocchetta Tanaro|AT|12|44.8586|8.3456|0
+Rodano|MI|09|45.4761|9.3531|0
+Roddi|CN|12|44.6796|7.9754|0
+Roddino|CN|12|44.5738|8.0191|0
+Rodello|CN|12|44.6285|8.0568|0
+Rodengo Saiano|BS|09|45.5996|10.1072|0
+Rodengo/Rodeneck|BZ|17|46.7795|11.6905|0
+Rodero|CO|09|45.8240|8.9152|0
+Rodi Garganico|FG|13|41.9287|15.8811|0
+Rodì Milici|ME|15|38.1089|15.1693|0
+Rodigo|MN|09|45.1996|10.6250|0
+Roè Volciano|BS|09|45.6120|10.4886|0
+Rofrano|SA|04|40.2114|15.4279|0
+Rogeno|LC|09|45.7824|9.2740|0
+Roggiano Gravina|CS|03|39.6182|16.1597|0
+Roghudi|RC|03|37.9276|15.7660|0
+Rogliano|CS|03|39.1812|16.3210|0
+Rognano|PV|09|45.2885|9.0902|0
+Rogno|BG|09|45.8566|10.1322|0
+Rogolo|SO|09|46.1361|9.4843|0
+Roiate|RM|07|41.8723|13.0673|0
+Roio del Sangro|CH|01|41.9115|14.3738|0
+Roisan|AO|19|45.7840|7.3131|0
+Roletto|TO|12|44.9244|7.3323|0
+Rolo|RE|05|44.8857|10.8602|0
+Roma|RM|07|41.9004|12.4957|1
+Romagnano al Monte|SA|04|40.6280|15.4563|0
+Romagnano Sesia|NO|12|45.6311|8.3886|0
+Romagnese|PV|09|44.8395|9.3298|0
+Romana|SS|14|40.4841|8.5874|0
+Romanengo|CR|09|45.3774|9.7817|0
+Romano Canavese|TO|12|45.3887|7.8665|0
+Romano d'Ezzelino|VI|20|45.7964|11.7563|0
+Romano di Lombardia|BG|09|45.5246|9.7484|0
+Romans d'Isonzo|GO|06|45.8886|13.4419|0
+Rombiolo|VV|03|38.5918|16.0017|0
+Romeno|TN|17|46.3948|11.1185|0
+Romentino|NO|12|45.4640|8.7190|0
+Rometta|ME|15|38.1701|15.4143|0
+Roncà|VR|20|45.4809|11.2876|0
+Roncade|TV|20|45.6237|12.3756|0
+Roncadelle|BS|09|45.5272|10.1541|0
+Roncaro|PV|09|45.2282|9.2754|0
+Roncegno Terme|TN|17|46.0498|11.4083|0
+Roncello|MB|09|45.6024|9.4550|0
+Ronchi dei Legionari|GO|06|45.8283|13.5042|0
+Ronchi Valsugana|TN|17|46.0684|11.4352|0
+Ronchis|UD|06|45.8066|12.9978|0
+Ronciglione|VT|07|42.2904|12.2133|0
+Ronco all'Adige|VR|20|45.3367|11.2430|0
+Ronco Biellese|BI|12|45.5785|8.0907|0
+Ronco Briantino|MB|09|45.6663|9.4054|0
+Ronco Canavese|TO|12|45.5014|7.5478|0
+Ronco Scrivia|GE|08|44.6135|8.9527|0
+Roncobello|BG|09|45.9557|9.7523|0
+Roncoferraro|MN|09|45.1406|10.9395|0
+Roncofreddo|FC|05|44.0414|12.3177|0
+Roncola|BG|09|45.7687|9.5607|0
+Rondanina|GE|08|44.5632|9.2181|0
+Rondissone|TO|12|45.2469|7.9631|0
+Ronsecco|VC|12|45.2522|8.2769|0
+Ronzo-Chienis|TN|17|45.8896|10.9501|0
+Ronzone|TN|17|46.4226|11.1503|0
+Roppolo|BI|12|45.4206|8.0697|0
+Rorà|TO|12|44.7921|7.1990|0
+Rosà|VI|20|45.7196|11.7634|0
+Rosarno|RC|03|38.4841|15.9790|0
+Rosasco|PV|09|45.2511|8.5789|0
+Rosate|MI|09|45.3529|9.0173|0
+Rosazza|BI|12|45.6758|7.9771|0
+Rosciano|PE|01|42.3239|14.0462|0
+Roscigno|SA|04|40.3992|15.3463|0
+Rose|CS|03|39.3985|16.2872|0
+Rosello|CH|01|41.9008|14.3498|0
+Roseto Capo Spulico|CS|03|39.9870|16.6017|0
+Roseto degli Abruzzi|TE|01|42.6664|14.0227|0
+Roseto Valfortore|FG|13|41.3724|15.0961|0
+Rosignano Marittimo|LI|16|43.4079|10.4729|0
+Rosignano Monferrato|AL|12|45.0806|8.3997|0
+Rosolina|RO|20|45.0749|12.2422|0
+Rosolini|SR|15|36.8242|14.9478|0
+Rosora|AN|10|43.4833|13.0689|0
+Rossa|VC|12|45.8333|8.1243|0
+Rossana|CN|12|44.5433|7.4338|0
+Rossano Veneto|VI|20|45.7058|11.8060|0
+Rossiglione|GE|08|44.5639|8.6682|0
+Rosta|TO|12|45.0680|7.4651|0
+Rota d'Imagna|BG|09|45.8309|9.5122|0
+Rota Greca|CS|03|39.4685|16.1126|0
+Rotella|AP|10|42.9543|13.5585|0
+Rotello|CB|11|41.7483|15.0062|0
+Rotonda|PZ|02|39.9527|16.0391|0
+Rotondella|MT|02|40.1713|16.5256|0
+Rotondi|AV|04|41.0314|14.5950|0
+Rottofreno|PC|05|45.0575|9.5478|0
+Rotzo|VI|20|45.8619|11.3962|0
+Roure|TO|12|45.0021|7.1316|0
+Rovasenda|VC|12|45.5388|8.3175|0
+Rovato|BS|09|45.5658|10.0001|0
+Rovegno|GE|08|44.5767|9.2792|0
+Rovellasca|CO|09|45.6645|9.0511|0
+Rovello Porro|CO|09|45.6551|9.0404|0
+Roverbella|MN|09|45.2681|10.7688|0
+Roverchiara|VR|20|45.2680|11.2451|0
+Roverè della Luna|TN|17|46.2499|11.1708|0
+Roverè Veronese|VR|20|45.5933|11.0700|0
+Roveredo di Guà|VR|20|45.2731|11.4442|0
+Roveredo in Piano|PN|06|46.0089|12.6223|0
+Rovereto|TN|17|45.8896|11.0387|0
+Rovescala|PV|09|45.0070|9.3459|0
+Rovetta|BG|09|45.8930|9.9835|0
+Roviano|RM|07|42.0255|12.9963|0
+Rovigo|RO|20|45.0800|11.7930|1
+Rovito|CS|03|39.3080|16.3211|0
+Rovolon|PD|20|45.3667|11.6638|0
+Rozzano|MI|09|45.3819|9.1606|0
+Rubano|PD|20|45.4209|11.8072|0
+Rubiana|TO|12|45.1377|7.3839|0
+Rubiera|RE|05|44.6541|10.7787|0
+Ruda|UD|06|45.8405|13.4046|0
+Rudiano|BS|09|45.4886|9.8871|0
+Rueglio|TO|12|45.4683|7.7546|0
+Ruffano|LE|13|39.9829|18.2464|0
+Ruffia|CN|12|44.7066|7.6040|0
+Ruffrè-Mendola|TN|17|46.4148|11.1778|0
+Rufina|FI|16|43.8242|11.4850|0
+Ruinas|OR|14|39.9072|8.8976|0
+Rumo|TN|17|46.4414|11.0186|0
+Ruoti|PZ|02|40.7180|15.6790|0
+Russi|RA|05|44.3762|12.0300|0
+Rutigliano|BA|13|41.0111|17.0055|0
+Rutino|SA|04|40.2997|15.0728|0
+Ruviano|CE|04|41.2103|14.4092|0
+Ruvo del Monte|PZ|02|40.8488|15.5414|0
+Ruvo di Puglia|BA|13|41.1136|16.4878|0
+Sabaudia|LT|07|41.2991|13.0308|0
+Sabbio Chiese|BS|09|45.6586|10.4206|0
+Sabbioneta|MN|09|44.9979|10.4885|0
+Sacco|SA|04|40.3781|15.3780|0
+Saccolongo|PD|20|45.4043|11.7460|0
+Sacile|PN|06|45.9541|12.5029|0
+Sacrofano|RM|07|42.1046|12.4464|0
+Sadali|SU|14|39.8132|9.2719|0
+Sagama|OR|14|40.2615|8.5775|0
+Sagliano Micca|BI|12|45.6258|8.0433|0
+Sagrado|GO|06|45.8722|13.4834|0
+Sagron Mis|TN|17|46.1947|11.9432|0
+Saint-Christophe|AO|19|45.7541|7.3472|0
+Saint-Denis|AO|19|45.7526|7.5553|0
+Saint-Marcel|AO|19|45.7315|7.4482|0
+Saint-Nicolas|AO|19|45.7166|7.1667|0
+Saint-Oyen|AO|19|45.8248|7.2156|0
+Saint-Pierre|AO|19|45.7098|7.2273|0
+Saint-Rhémy-en-Bosses|AO|19|45.8218|7.1756|0
+Saint-Vincent|AO|19|45.7513|7.6486|0
+Sala Baganza|PR|05|44.7203|10.2318|0
+Sala Biellese|BI|12|45.5082|7.9584|0
+Sala Bolognese|BO|05|44.6290|11.2760|0
+Sala Comacina|CO|09|45.9642|9.1660|0
+Sala Consilina|SA|04|40.3912|15.5989|0
+Sala Monferrato|AL|12|45.0752|8.3587|0
+Salandra|MT|02|40.5275|16.3192|0
+Salaparuta|TP|15|37.7579|13.0097|0
+Salara|RO|20|44.9833|11.4262|0
+Salasco|VC|12|45.3256|8.2642|0
+Salassa|TO|12|45.3556|7.6892|0
+Salbertrand|TO|12|45.0720|6.8832|0
+Salcedo|VI|20|45.7577|11.5672|0
+Salcito|CB|11|41.7475|14.5101|0
+Sale delle Langhe|CN|12|44.3952|8.0801|0
+Sale Marasino|BS|09|45.7033|10.1136|0
+Sale San Giovanni|CN|12|44.3991|8.0779|0
+Sale|AL|12|44.9807|8.8094|0
+Salemi|TP|15|37.8231|12.8056|0
+Salento|SA|04|40.2486|15.1901|0
+Salerano Canavese|TO|12|45.4581|7.8511|0
+Salerano sul Lambro|LO|09|45.2966|9.3851|0
+Salerno|SA|04|40.6830|14.7637|1
+Salgareda|TV|20|45.7052|12.4903|0
+Sali Vercellese|VC|12|45.3099|8.3289|0
+Salice Salentino|LE|13|40.3870|17.9607|0
+Saliceto|CN|12|44.4133|8.1686|0
+Salisano|RI|07|42.2593|12.7458|0
+Salizzole|VR|20|45.2444|11.0886|0
+Salle|PE|01|42.1769|13.9612|0
+Salmour|CN|12|44.5780|7.7918|0
+Salò|BS|09|45.6086|10.5310|0
+Salorno sulla strada del vino/Salurn an der Weinstraße|BZ|17|46.2392|11.2121|0
+Salsomaggiore Terme|PR|05|44.8148|9.9796|0
+Saltrio|VA|09|45.8704|8.9205|0
+Saludecio|RN|05|43.8752|12.6670|0
+Saluggia|VC|12|45.2375|8.0110|0
+Salussola|BI|12|45.4468|8.1123|0
+Saluzzo|CN|12|44.6464|7.4862|0
+Salve|LE|13|39.8613|18.2933|0
+Salvirola|CR|09|45.3567|9.7797|0
+Salvitelle|SA|04|40.5909|15.4588|0
+Salza di Pinerolo|TO|12|44.9400|7.0524|0
+Salza Irpina|AV|04|40.9194|14.8894|0
+Salzano|VE|20|45.5197|12.1049|0
+Samarate|VA|09|45.6254|8.7834|0
+Samassi|SU|14|39.4813|8.9076|0
+Samatzai|SU|14|39.4832|9.0346|0
+Sambuca di Sicilia|AG|15|37.6494|13.1109|0
+Sambuca Pistoiese|PT|16|44.1000|11.0000|0
+Sambuci|RM|07|41.9861|12.9380|0
+Sambuco|CN|12|44.3350|7.0799|0
+Sammichele di Bari|BA|13|40.8867|16.9478|0
+Samo|RC|03|38.0738|16.0570|0
+Samolaco|SO|09|46.2425|9.3940|0
+Samone|TN|17|46.0816|11.5226|0
+Samone|TO|12|45.4484|7.8405|0
+Sampeyre|CN|12|44.5796|7.1845|0
+Samugheo|OR|14|39.9462|8.9405|0
+San Bartolomeo al Mare|IM|08|43.9229|8.1012|0
+San Bartolomeo in Galdo|BN|04|41.4164|15.0174|0
+San Bartolomeo Val Cavargna|CO|09|46.0835|9.1491|0
+San Basile|CS|03|39.8096|16.1633|0
+San Basilio|SU|14|39.5371|9.1982|0
+San Bassano|CR|09|45.2424|9.8070|0
+San Bellino|RO|20|45.0299|11.5889|0
+San Benedetto Belbo|CN|12|44.4901|8.0578|0
+San Benedetto dei Marsi|AQ|01|42.0082|13.6227|0
+San Benedetto del Tronto|AP|10|42.9348|13.8857|0
+San Benedetto in Perillis|AQ|01|42.1843|13.7708|0
+San Benedetto Po|MN|09|45.0382|10.9314|0
+San Benedetto Ullano|CS|03|39.4271|16.1238|0
+San Benedetto Val di Sambro|BO|05|44.2153|11.2329|0
+San Benigno Canavese|TO|12|45.2270|7.7850|0
+San Bernardino Verbano|VB|12|45.9564|8.5192|0
+San Biagio della Cima|IM|08|43.8179|7.6492|0
+San Biagio di Callalta|TV|20|45.6858|12.3805|0
+San Biagio Platani|AG|15|37.5090|13.5256|0
+San Biagio Saracinisco|FR|07|41.6129|13.9286|0
+San Biase|CB|11|41.7177|14.5906|0
+San Bonifacio|VR|20|45.3969|11.2844|0
+San Buono|CH|01|41.9808|14.5699|0
+San Calogero|VV|03|38.5756|16.0203|0
+San Candido/Innichen|BZ|17|46.7330|12.2789|0
+San Canzian d'Isonzo|GO|06|45.7982|13.4676|0
+San Carlo Canavese|TO|12|45.2445|7.6057|0
+San Casciano dei Bagni|SI|16|42.8709|11.8756|0
+San Casciano in Val di Pesa|FI|16|43.6591|11.1895|0
+San Cassiano|LE|13|40.0564|18.3342|0
+San Cataldo|CL|15|37.4884|13.9931|0
+San Cesareo|RM|07|41.8209|12.8156|0
+San Cesario di Lecce|LE|13|40.3029|18.1599|0
+San Cesario sul Panaro|MO|05|44.5611|11.0332|0
+San Chirico Nuovo|PZ|02|40.6765|16.0791|0
+San Chirico Raparo|PZ|02|40.1920|16.0772|0
+San Cipirello|PA|15|37.9622|13.1761|0
+San Cipriano d'Aversa|CE|04|40.9988|14.1317|0
+San Cipriano Picentino|SA|04|40.7208|14.8705|0
+San Cipriano Po|PV|09|45.1090|9.2830|0
+San Clemente|RN|05|43.9330|12.6258|0
+San Colombano al Lambro|MI|09|45.1841|9.4868|0
+San Colombano Belmonte|TO|12|45.3822|7.6210|0
+San Colombano Certenoli|GE|08|44.3721|9.3121|0
+San Cono|CT|15|37.2914|14.3661|0
+San Cosmo Albanese|CS|03|39.5831|16.4202|0
+San Costantino Albanese|PZ|02|40.0358|16.3047|0
+San Costantino Calabro|VV|03|38.6323|16.0739|0
+San Costanzo|PU|10|43.7662|13.0728|0
+San Cristoforo|AL|12|44.6923|8.7501|0
+San Damiano al Colle|PV|09|45.0249|9.3466|0
+San Damiano d'Asti|AT|12|44.8334|8.0635|0
+San Damiano Macra|CN|12|44.4887|7.2584|0
+San Daniele del Friuli|UD|06|46.1602|13.0100|0
+San Daniele Po|CR|09|45.0638|10.1823|0
+San Demetrio Corone|CS|03|39.5699|16.3615|0
+San Demetrio ne' Vestini|AQ|01|42.2896|13.5552|0
+San Didero|TO|12|45.1354|7.2130|0
+San Donà di Piave|VE|20|45.6355|12.5644|0
+San Donaci|BR|13|40.4506|17.9251|0
+San Donato di Lecce|LE|13|40.2681|18.1842|0
+San Donato di Ninea|CS|03|39.7116|16.0485|0
+San Donato Milanese|MI|09|45.4181|9.2716|0
+San Donato Val di Comino|FR|07|41.7081|13.8126|0
+San Dorligo della Valle-Dolina|TS|06|45.6000|13.8333|0
+San Fele|PZ|02|40.8172|15.5395|0
+San Felice a Cancello|CE|04|41.0058|14.4558|0
+San Felice Circeo|LT|07|41.2441|13.0973|0
+San Felice del Benaco|BS|09|45.5895|10.5517|0
+San Felice del Molise|CB|11|41.8910|14.7005|0
+San Felice sul Panaro|MO|05|44.8332|11.1426|0
+San Ferdinando di Puglia|BT|13|41.3026|16.0705|0
+San Ferdinando|RC|03|38.4856|15.9189|0
+San Fermo della Battaglia|CO|09|45.8087|9.0474|0
+San Fili|CS|03|39.3389|16.1435|0
+San Filippo del Mela|ME|15|38.1701|15.2734|0
+San Fior|TV|20|45.9206|12.3599|0
+San Fiorano|LO|09|45.1364|9.7222|0
+San Floriano del Collio-Števerjan|GO|06|45.9843|13.5918|0
+San Floro|CZ|03|38.8380|16.5187|0
+San Francesco al Campo|TO|12|45.2291|7.6537|0
+San Fratello|ME|15|38.0171|14.5982|0
+San Gavino Monreale|SU|14|39.5509|8.7919|0
+San Gemini|TR|18|42.6090|12.5431|0
+San Genesio Atesino/Jenesien|BZ|17|46.5358|11.3296|0
+San Genesio ed Uniti|PV|09|45.2348|9.1785|0
+San Gennaro Vesuviano|NA|04|40.8589|14.5250|0
+San Germano Chisone|TO|12|44.9020|7.2366|0
+San Germano Vercellese|VC|12|45.3504|8.2478|0
+San Gervasio Bresciano|BS|09|45.3074|10.1487|0
+San Giacomo degli Schiavoni|CB|11|41.9632|14.9464|0
+San Giacomo delle Segnate|MN|09|44.9726|11.0331|0
+San Giacomo Filippo|SO|09|46.3377|9.3712|0
+San Giacomo Vercellese|VC|12|45.4982|8.3267|0
+San Gillio|TO|12|45.1427|7.5358|0
+San Gimignano|SI|16|43.4692|11.0427|0
+San Ginesio|MC|10|43.1067|13.3255|0
+San Giorgio a Cremano|NA|04|40.8307|14.3376|0
+San Giorgio a Liri|FR|07|41.4041|13.7613|0
+San Giorgio Albanese|CS|03|39.5823|16.4535|0
+San Giorgio Bigarello|MN|09|45.1630|10.8441|0
+San Giorgio Canavese|TO|12|45.3342|7.7968|0
+San Giorgio del Sannio|BN|04|41.0696|14.8522|0
+San Giorgio della Richinvelda|PN|06|46.0458|12.8723|0
+San Giorgio delle Pertiche|PD|20|45.5410|11.8940|0
+San Giorgio di Lomellina|PV|09|45.1749|8.7901|0
+San Giorgio di Nogaro|UD|06|45.8287|13.2089|0
+San Giorgio di Piano|BO|05|44.6497|11.3756|0
+San Giorgio in Bosco|PD|20|45.5897|11.8064|0
+San Giorgio Ionico|TA|13|40.4566|17.3787|0
+San Giorgio La Molara|BN|04|41.2730|14.9303|0
+San Giorgio Lucano|MT|02|40.1119|16.3880|0
+San Giorgio Monferrato|AL|12|45.1073|8.4161|0
+San Giorgio Morgeto|RC|03|38.3902|16.0855|0
+San Giorgio Piacentino|PC|05|44.9542|9.7369|0
+San Giorgio Scarampi|AT|12|44.6109|8.2424|0
+San Giorgio su Legnano|MI|09|45.5738|8.9137|0
+San Giorio di Susa|TO|12|45.1281|7.1782|0
+San Giovanni a Piro|SA|04|40.0503|15.4510|0
+San Giovanni al Natisone|UD|06|45.9739|13.3999|0
+San Giovanni Bianco|BG|09|45.8739|9.6534|0
+San Giovanni del Dosso|MN|09|44.9685|11.0839|0
+San Giovanni di Fassa-Sèn Jan|TN|17|46.4238|11.7041|0
+San Giovanni di Gerace|RC|03|38.3651|16.2777|0
+San Giovanni Gemini|AG|15|37.6281|13.6408|0
+San Giovanni Ilarione|VR|20|45.5206|11.2362|0
+San Giovanni in Croce|CR|09|45.0789|10.3752|0
+San Giovanni in Fiore|CS|03|39.2633|16.6996|0
+San Giovanni in Galdo|CB|11|41.5900|14.7503|0
+San Giovanni in Marignano|RN|05|43.9342|12.7013|0
+San Giovanni in Persiceto|BO|05|44.6400|11.1841|0
+San Giovanni Incarico|FR|07|41.5017|13.5579|0
+San Giovanni la Punta|CT|15|37.5761|15.0981|0
+San Giovanni Lipioni|CH|01|41.8452|14.5630|0
+San Giovanni Lupatoto|VR|20|45.3879|11.0380|0
+San Giovanni Rotondo|FG|13|41.7049|15.7190|0
+San Giovanni Suergiu|SU|14|39.1000|8.5333|0
+San Giovanni Teatino|CH|01|42.4091|14.2010|0
+San Giovanni Valdarno|AR|16|43.5635|11.5318|0
+San Giuliano del Sannio|CB|11|41.4562|14.6408|0
+San Giuliano di Puglia|CB|11|41.6870|14.9623|0
+San Giuliano Milanese|MI|09|45.3943|9.2919|0
+San Giuliano Terme|PI|16|43.7616|10.4404|0
+San Giuseppe Jato|PA|15|37.9734|13.1881|0
+San Giuseppe Vesuviano|NA|04|40.8298|14.5044|0
+San Giustino|PG|18|43.5495|12.1736|0
+San Giusto Canavese|TO|12|45.3152|7.8091|0
+San Godenzo|FI|16|43.9256|11.6184|0
+San Gregorio d'Ippona|VV|03|38.6446|16.1070|0
+San Gregorio da Sassola|RM|07|41.9171|12.8708|0
+San Gregorio di Catania|CT|15|37.5652|15.1118|0
+San Gregorio Magno|SA|04|40.6580|15.4019|0
+San Gregorio Matese|CE|04|41.3852|14.3716|0
+San Gregorio nelle Alpi|BL|20|46.1039|12.0267|0
+San Lazzaro di Savena|BO|05|44.4678|11.4140|0
+San Leo|RN|05|43.8970|12.3436|0
+San Leonardo in Passiria/St. Leonhard in Passeier|BZ|17|46.8128|11.2458|0
+San Leonardo|UD|06|46.1186|13.5316|0
+San Leucio del Sannio|BN|04|41.0744|14.7574|0
+San Lorenzello|BN|04|41.2760|14.5417|0
+San Lorenzo al Mare|IM|08|43.8547|7.9638|0
+San Lorenzo Bellizzi|CS|03|39.8892|16.3303|0
+San Lorenzo del Vallo|CS|03|39.6682|16.2974|0
+San Lorenzo di Sebato/St. Lorenzen|BZ|17|46.7859|11.9094|0
+San Lorenzo Dorsino|TN|17|46.1098|10.9035|0
+San Lorenzo in Campo|PU|10|43.6039|12.9458|0
+San Lorenzo Isontino|GO|06|45.9312|13.5285|0
+San Lorenzo Maggiore|BN|04|41.2474|14.6234|0
+San Lorenzo Nuovo|VT|07|42.6867|11.9067|0
+San Lorenzo|RC|03|38.0110|15.8344|0
+San Luca|RC|03|38.1484|16.0660|0
+San Lucido|CS|03|39.3089|16.0508|0
+San Lupo|BN|04|41.2619|14.6345|0
+San Mango d'Aquino|CZ|03|39.0606|16.1947|0
+San Mango Piemonte|SA|04|40.7019|14.8338|0
+San Mango sul Calore|AV|04|40.9581|14.9727|0
+San Marcellino|CE|04|40.9900|14.1758|0
+San Marcello Piteglio|PT|16|44.0529|10.7965|0
+San Marcello|AN|10|43.5761|13.2061|0
+San Marco Argentano|CS|03|39.5583|16.1201|0
+San Marco d'Alunzio|ME|15|38.0719|14.7007|0
+San Marco dei Cavoti|BN|04|41.3100|14.8797|0
+San Marco Evangelista|CE|04|41.0386|14.3418|0
+San Marco in Lamis|FG|13|41.7131|15.6398|0
+San Marco la Catola|FG|13|41.5248|15.0059|0
+San Martino al Tagliamento|PN|06|46.0133|12.8698|0
+San Martino Alfieri|AT|12|44.8180|8.1099|0
+San Martino Buon Albergo|VR|20|45.4217|11.0969|0
+San Martino Canavese|TO|12|45.3951|7.8167|0
+San Martino d'Agri|PZ|02|40.2397|16.0531|0
+San Martino dall'Argine|MN|09|45.0975|10.5189|0
+San Martino del Lago|CR|09|45.0733|10.3169|0
+San Martino di Finita|CS|03|39.4906|16.1098|0
+San Martino di Lupari|PD|20|45.6548|11.8584|0
+San Martino di Venezze|RO|20|45.1315|11.8697|0
+San Martino in Badia/St. Martin in Thurn|BZ|17|46.6815|11.8981|0
+San Martino in Passiria/St. Martin in Passeier|BZ|17|46.7839|11.2273|0
+San Martino in Pensilis|CB|11|41.8733|15.0140|0
+San Martino in Rio|RE|05|44.7320|10.7821|0
+San Martino in Strada|LO|09|45.2750|9.5264|0
+San Martino Sannita|BN|04|41.0662|14.8358|0
+San Martino Siccomario|PV|09|45.1610|9.1359|0
+San Martino sulla Marrucina|CH|01|42.2250|14.2140|0
+San Martino Valle Caudina|AV|04|41.0256|14.6645|0
+San Marzano di San Giuseppe|TA|13|40.4544|17.5056|0
+San Marzano Oliveto|AT|12|44.7544|8.2953|0
+San Marzano sul Sarno|SA|04|40.7749|14.5817|0
+San Massimo|CB|11|41.4929|14.4102|0
+San Maurizio Canavese|TO|12|45.2171|7.6305|0
+San Maurizio d'Opaglio|NO|12|45.7712|8.3976|0
+San Mauro Castelverde|PA|15|37.9154|14.1896|0
+San Mauro Cilento|SA|04|40.2279|15.0437|0
+San Mauro di Saline|VR|20|45.5657|11.1146|0
+San Mauro Forte|MT|02|40.4871|16.2481|0
+San Mauro la Bruca|SA|04|40.1239|15.2895|0
+San Mauro Marchesato|KR|03|39.1056|16.9256|0
+San Mauro Pascoli|FC|05|44.1038|12.4153|0
+San Mauro Torinese|TO|12|45.1058|7.7545|0
+San Michele al Tagliamento|VE|20|45.7676|12.9932|0
+San Michele all'Adige|TN|17|46.1929|11.1336|0
+San Michele di Ganzaria|CT|15|37.2814|14.4255|0
+San Michele di Serino|AV|04|40.8756|14.8546|0
+San Michele Mondovì|CN|12|44.3770|7.9110|0
+San Michele Salentino|BR|13|40.6316|17.6315|0
+San Miniato|PI|16|43.6799|10.8502|0
+San Nazzaro Sesia|NO|12|45.4379|8.4243|0
+San Nazzaro Val Cavargna|CO|09|46.0894|9.1274|0
+San Nazzaro|BN|04|41.0517|14.8572|0
+San Nicandro Garganico|FG|13|41.8384|15.5654|0
+San Nicola Arcella|CS|03|39.8459|15.7934|0
+San Nicola Baronia|AV|04|41.0585|15.1991|0
+San Nicola da Crissa|VV|03|38.6636|16.2848|0
+San Nicola dell'Alto|KR|03|39.2893|16.9729|0
+San Nicola la Strada|CE|04|41.0518|14.3313|0
+San Nicola Manfredi|BN|04|41.0741|14.8249|0
+San Nicolò d'Arcidano|OR|14|39.6821|8.6477|0
+San Nicolò di Comelico|BL|20|46.5825|12.5273|0
+San Nicolò Gerrei|SU|14|39.4974|9.3072|0
+San Pancrazio Salentino|BR|13|40.4191|17.8305|0
+San Pancrazio/St. Pankraz|BZ|17|46.5852|11.0862|0
+San Paolo Albanese|PZ|02|40.0367|16.3346|0
+San Paolo Bel Sito|NA|04|40.9148|14.5467|0
+San Paolo d'Argon|BG|09|45.6884|9.8023|0
+San Paolo di Civitate|FG|13|41.7383|15.2602|0
+San Paolo di Jesi|AN|10|43.4546|13.1728|0
+San Paolo Solbrito|AT|12|44.9507|7.9707|0
+San Paolo|BS|09|45.3706|10.0268|0
+San Pellegrino Terme|BG|09|45.8384|9.6646|0
+San Pier d'Isonzo|GO|06|45.8469|13.4601|0
+San Pier Niceto|ME|15|38.1613|15.3482|0
+San Piero Patti|ME|15|38.0529|14.9702|0
+San Pietro a Maida|CZ|03|38.8460|16.3435|0
+San Pietro al Natisone|UD|06|46.1267|13.4852|0
+San Pietro al Tanagro|SA|04|40.4568|15.4807|0
+San Pietro Apostolo|CZ|03|39.0044|16.4684|0
+San Pietro Avellana|IS|11|41.7906|14.1822|0
+San Pietro Clarenza|CT|15|37.5688|15.0229|0
+San Pietro di Cadore|BL|20|46.5732|12.5878|0
+San Pietro di Caridà|RC|03|38.5237|16.1353|0
+San Pietro di Feletto|TV|20|45.9139|12.2510|0
+San Pietro di Morubio|VR|20|45.2425|11.2270|0
+San Pietro in Amantea|CS|03|39.1364|16.1116|0
+San Pietro in Cariano|VR|20|45.5203|10.8830|0
+San Pietro in Casale|BO|05|44.6996|11.4022|0
+San Pietro in Cerro|PC|05|45.0214|9.9499|0
+San Pietro in Gu|PD|20|45.6093|11.6769|0
+San Pietro in Guarano|CS|03|39.3422|16.3115|0
+San Pietro in Lama|LE|13|40.3084|18.1286|0
+San Pietro Infine|CE|04|41.4459|13.9615|0
+San Pietro Mosezzo|NO|12|45.4536|8.5455|0
+San Pietro Mussolino|VI|20|45.5855|11.2586|0
+San Pietro Val Lemina|TO|12|44.9065|7.3109|0
+San Pietro Vernotico|BR|13|40.4915|17.9989|0
+San Pietro Viminario|PD|20|45.2434|11.8163|0
+San Pio delle Camere|AQ|01|42.2862|13.6577|0
+San Polo d'Enza|RE|05|44.6272|10.4240|0
+San Polo dei Cavalieri|RM|07|42.0097|12.8401|0
+San Polo di Piave|TV|20|45.7915|12.3933|0
+San Polo Matese|CB|11|41.4593|14.4934|0
+San Ponso|TO|12|45.3507|7.6703|0
+San Possidonio|MO|05|44.8938|11.0013|0
+San Potito Sannitico|CE|04|41.3385|14.3921|0
+San Potito Ultra|AV|04|40.9276|14.8703|0
+San Prisco|CE|04|41.0871|14.2782|0
+San Procopio|RC|03|38.2812|15.8904|0
+San Prospero|MO|05|44.7897|11.0221|0
+San Quirico d'Orcia|SI|16|43.0566|11.6048|0
+San Quirino|PN|06|46.0351|12.6785|0
+San Raffaele Cimena|TO|12|45.1467|7.8493|0
+San Roberto|RC|03|38.2113|15.7366|0
+San Rocco al Porto|LO|09|45.0820|9.6972|0
+San Romano in Garfagnana|LU|16|44.1694|10.3469|0
+San Rufo|SA|04|40.4345|15.4637|0
+San Salvatore di Fitalia|ME|15|38.0583|14.7785|0
+San Salvatore Monferrato|AL|12|44.9941|8.5659|0
+San Salvatore Telesino|BN|04|41.2360|14.4991|0
+San Salvo|CH|01|42.0433|14.7272|0
+San Sebastiano al Vesuvio|NA|04|40.8445|14.3676|0
+San Sebastiano Curone|AL|12|44.7867|9.0649|0
+San Sebastiano da Po|TO|12|45.1675|7.9572|0
+San Secondo di Pinerolo|TO|12|44.8664|7.2984|0
+San Secondo Parmense|PR|05|44.9217|10.2293|0
+San Severino Lucano|PZ|02|40.0206|16.1379|0
+San Severino Marche|MC|10|43.2281|13.1802|0
+San Severo|FG|13|41.6897|15.3760|0
+San Siro|CO|09|46.0656|9.2688|0
+San Sossio Baronia|AV|04|41.0712|15.2005|0
+San Sostene|CZ|03|38.6379|16.4871|0
+San Sosti|CS|03|39.6590|16.0276|0
+San Sperate|SU|14|39.3587|9.0067|0
+San Stino di Livenza|VE|20|45.7299|12.6823|0
+San Tammaro|CE|04|41.0758|14.2336|0
+San Teodoro|ME|15|37.8487|14.6983|0
+San Teodoro|SS|14|40.7704|9.6734|0
+San Tomaso Agordino|BL|20|46.3807|11.9744|0
+San Valentino in Abruzzo Citeriore|PE|01|42.2330|13.9856|0
+San Valentino Torio|SA|04|40.7930|14.5980|0
+San Venanzo|TR|18|42.8693|12.2699|0
+San Vendemiano|TV|20|45.8857|12.3505|0
+San Vero Milis|OR|14|40.0145|8.5982|0
+San Vincenzo La Costa|CS|03|39.3652|16.1517|0
+San Vincenzo Valle Roveto|AQ|01|41.8167|13.5333|0
+San Vincenzo|LI|16|43.0928|10.5408|0
+San Vitaliano|NA|04|40.9272|14.4801|0
+San Vito al Tagliamento|PN|06|45.9129|12.8600|0
+San Vito al Torre|UD|06|45.8968|13.3758|0
+San Vito Chietino|CH|01|42.2960|14.4445|0
+San Vito dei Normanni|BR|13|40.6573|17.7072|0
+San Vito di Cadore|BL|20|46.4602|12.2072|0
+San Vito di Fagagna|UD|06|46.0906|13.0670|0
+San Vito di Leguzzano|VI|20|45.6822|11.3777|0
+San Vito Lo Capo|TP|15|38.1724|12.7349|0
+San Vito Romano|RM|07|41.8798|12.9794|0
+San Vito sullo Ionio|CZ|03|38.7118|16.4097|0
+San Vito|SU|14|39.4432|9.5407|0
+San Vittore del Lazio|FR|07|41.4615|13.9327|0
+San Vittore Olona|MI|09|45.5858|8.9413|0
+San Zeno di Montagna|VR|20|45.6375|10.7322|0
+San Zeno Naviglio|BS|09|45.4926|10.2185|0
+San Zenone al Lambro|MI|09|45.3273|9.3552|0
+San Zenone al Po|PV|09|45.1086|9.3618|0
+San Zenone degli Ezzelini|TV|20|45.7791|11.8350|0
+Sanarica|LE|13|40.0891|18.3487|0
+Sandigliano|BI|12|45.5186|8.0775|0
+Sandrigo|VI|20|45.6561|11.5920|0
+Sanfrè|CN|12|44.7499|7.8026|0
+Sanfront|CN|12|44.6470|7.3210|0
+Sangano|TO|12|45.0261|7.4481|0
+Sangiano|VA|09|45.8751|8.6333|0
+Sangineto|CS|03|39.6048|15.9149|0
+Sanguinetto|VR|20|45.1838|11.1446|0
+Sanluri|SU|14|39.5626|8.8986|0
+Sannazzaro de' Burgondi|PV|09|45.1023|8.9063|0
+Sannicandro di Bari|BA|13|41.0015|16.7962|0
+Sannicola|LE|13|40.0919|18.0661|0
+Sanremo|IM|08|43.8182|7.7611|0
+Sansepolcro|AR|16|43.5746|12.1431|0
+Sant'Agapito|IS|11|41.5445|14.2224|0
+Sant'Agata Bolognese|BO|05|44.6642|11.1340|0
+Sant'Agata de' Goti|BN|04|41.0893|14.4974|0
+Sant'Agata del Bianco|RC|03|38.0931|16.0816|0
+Sant'Agata di Esaro|CS|03|39.6228|15.9838|0
+Sant'Agata di Militello|ME|15|38.0679|14.6327|0
+Sant'Agata di Puglia|FG|13|41.1518|15.3803|0
+Sant'Agata Feltria|RN|05|43.8619|12.2064|0
+Sant'Agata Fossili|AL|12|44.7848|8.9212|0
+Sant'Agata li Battiati|CT|15|37.5575|15.0800|0
+Sant'Agata sul Santerno|RA|05|44.4422|11.8601|0
+Sant'Agnello|NA|04|40.6300|14.3971|0
+Sant'Albano Stura|CN|12|44.5089|7.7223|0
+Sant'Alessio con Vialone|PV|09|45.2224|9.2261|0
+Sant'Alessio in Aspromonte|RC|03|38.1726|15.7578|0
+Sant'Alessio Siculo|ME|15|37.9246|15.3491|0
+Sant'Alfio|CT|15|37.7424|15.1418|0
+Sant'Ambrogio di Torino|TO|12|45.0994|7.3623|0
+Sant'Ambrogio di Valpolicella|VR|20|45.5209|10.8362|0
+Sant'Ambrogio sul Garigliano|FR|07|41.3890|13.8715|0
+Sant'Anastasia|NA|04|40.8669|14.4048|0
+Sant'Anatolia di Narco|PG|18|42.7365|12.8361|0
+Sant'Andrea Apostolo dello Ionio|CZ|03|38.6226|16.5283|0
+Sant'Andrea del Garigliano|FR|07|41.3672|13.8409|0
+Sant'Andrea di Conza|AV|04|40.8448|15.3697|0
+Sant'Andrea Frius|SU|14|39.4788|9.1686|0
+Sant'Angelo a Cupolo|BN|04|41.0691|14.8037|0
+Sant'Angelo a Fasanella|SA|04|40.4568|15.3415|0
+Sant'Angelo a Scala|AV|04|40.9754|14.7394|0
+Sant'Angelo all'Esca|AV|04|41.0066|14.9931|0
+Sant'Angelo d'Alife|CE|04|41.3592|14.2635|0
+Sant'Angelo dei Lombardi|AV|04|40.9293|15.1762|0
+Sant'Angelo del Pesco|IS|11|41.8826|14.2549|0
+Sant'Angelo di Brolo|ME|15|38.1135|14.8835|0
+Sant'Angelo di Piove di Sacco|PD|20|45.3452|12.0067|0
+Sant'Angelo in Pontano|MC|10|43.0986|13.3967|0
+Sant'Angelo in Vado|PU|10|43.6655|12.4157|0
+Sant'Angelo Le Fratte|PZ|02|40.5459|15.5590|0
+Sant'Angelo Limosano|CB|11|41.6933|14.6034|0
+Sant'Angelo Lodigiano|LO|09|45.2381|9.4087|0
+Sant'Angelo Lomellina|PV|09|45.2471|8.6444|0
+Sant'Angelo Muxaro|AG|15|37.4796|13.5456|0
+Sant'Angelo Romano|RM|07|42.0351|12.7127|0
+Sant'Anna Arresi|SU|14|39.0018|8.6463|0
+Sant'Anna d'Alfaedo|VR|20|45.6272|10.9517|0
+Sant'Antimo|NA|04|40.9457|14.2314|0
+Sant'Antioco|SU|14|39.0633|8.4541|0
+Sant'Antonino di Susa|TO|12|45.1070|7.2736|0
+Sant'Antonio Abate|NA|04|40.7237|14.5465|0
+Sant'Antonio di Gallura|SS|14|40.9911|9.3020|0
+Sant'Apollinare|FR|07|41.4027|13.8316|0
+Sant'Arcangelo Trimonte|BN|04|41.1669|14.9400|0
+Sant'Arcangelo|PZ|02|40.2473|16.2712|0
+Sant'Arpino|CE|04|40.9595|14.2489|0
+Sant'Arsenio|SA|04|40.4729|15.4846|0
+Sant'Egidio alla Vibrata|TE|01|42.8210|13.7179|0
+Sant'Egidio del Monte Albino|SA|04|40.7387|14.5945|0
+Sant'Elena Sannita|IS|11|41.5767|14.4729|0
+Sant'Elena|PD|20|45.1862|11.7118|0
+Sant'Elia a Pianisi|CB|11|41.6204|14.8752|0
+Sant'Elia Fiumerapido|FR|07|41.5285|13.8524|0
+Sant'Elpidio a Mare|FM|10|43.2299|13.6861|0
+Sant'Eufemia a Maiella|PE|01|42.1261|14.0265|0
+Sant'Eufemia d'Aspromonte|RC|03|38.2635|15.8548|0
+Sant'Eusanio del Sangro|CH|01|42.1689|14.3271|0
+Sant'Eusanio Forconese|AQ|01|42.2878|13.5243|0
+Sant'Ilario d'Enza|RE|05|44.7625|10.4481|0
+Sant'Ilario dello Ionio|RC|03|38.2188|16.1956|0
+Sant'Ippolito|PU|10|43.6867|12.8711|0
+Sant'Olcese|GE|08|44.4828|8.9647|0
+Sant'Omero|TE|01|42.7912|13.7867|0
+Sant'Omobono Terme|BG|09|45.8084|9.5363|0
+Sant'Onofrio|VV|03|38.6950|16.1441|0
+Sant'Oreste|RM|07|42.2347|12.5194|0
+Sant'Orsola Terme|TN|17|46.1088|11.3024|0
+Sant'Urbano|PD|20|45.1257|11.6312|0
+Santa Brigida|BG|09|45.9849|9.6212|0
+Santa Caterina Albanese|CS|03|39.5859|16.0704|0
+Santa Caterina d'Este|PD|20|45.1838|11.6282|0
+Santa Caterina dello Ionio|CZ|03|38.5327|16.5220|0
+Santa Caterina Villarmosa|CL|15|37.5911|14.0363|0
+Santa Cesarea Terme|LE|13|40.0363|18.4568|0
+Santa Cristina d'Aspromonte|RC|03|38.2554|15.9705|0
+Santa Cristina e Bissone|PV|09|45.1576|9.3998|0
+Santa Cristina Gela|PA|15|37.9843|13.3282|0
+Santa Cristina Valgardena/St. Christina in Gröden|BZ|17|46.5589|11.7192|0
+Santa Croce Camerina|RG|15|36.8289|14.5268|0
+Santa Croce del Sannio|BN|04|41.3884|14.7322|0
+Santa Croce di Magliano|CB|11|41.7128|14.9906|0
+Santa Croce sull'Arno|PI|16|43.7192|10.7717|0
+Santa Domenica Talao|CS|03|39.8195|15.8546|0
+Santa Domenica Vittoria|ME|15|37.9173|14.9620|0
+Santa Elisabetta|AG|15|37.4346|13.5569|0
+Santa Fiora|GR|16|42.8373|11.6027|0
+Santa Flavia|PA|15|38.0851|13.5351|0
+Santa Giuletta|PV|09|45.0340|9.1836|0
+Santa Giusta|OR|14|39.8783|8.6103|0
+Santa Giustina in Colle|PD|20|45.5637|11.9064|0
+Santa Giustina|BL|20|46.0831|12.0422|0
+Santa Luce|PI|16|43.4723|10.5635|0
+Santa Lucia del Mela|ME|15|38.1428|15.2823|0
+Santa Lucia di Piave|TV|20|45.8458|12.2919|0
+Santa Lucia di Serino|AV|04|40.8704|14.8759|0
+Santa Margherita di Belice|AG|15|37.6918|13.0201|0
+Santa Margherita di Staffora|PV|09|44.7702|9.2406|0
+Santa Margherita Ligure|GE|08|44.3339|9.2110|0
+Santa Maria a Monte|PI|16|43.6999|10.6890|0
+Santa Maria a Vico|CE|04|41.0255|14.4654|0
+Santa Maria Capua Vetere|CE|04|41.0802|14.2565|0
+Santa Maria Coghinas|SS|14|40.9043|8.8686|0
+Santa Maria del Cedro|CS|03|39.7462|15.8364|0
+Santa Maria del Molise|IS|11|41.5527|14.3682|0
+Santa Maria della Versa|PV|09|44.9892|9.2962|0
+Santa Maria di Licodia|CT|15|37.6148|14.8906|0
+Santa Maria di Sala|VE|20|45.5080|12.0353|0
+Santa Maria Hoè|LC|09|45.7443|9.3744|0
+Santa Maria Imbaro|CH|01|42.2177|14.4492|0
+Santa Maria la Carità|NA|04|40.7161|14.5098|0
+Santa Maria la Fossa|CE|04|41.0917|14.1282|0
+Santa Maria la Longa|UD|06|45.9345|13.2884|0
+Santa Maria Maggiore|VB|12|46.1351|8.4623|0
+Santa Maria Nuova|AN|10|43.4941|13.3117|0
+Santa Marina Salina|ME|15|38.5612|14.8708|0
+Santa Marina|SA|04|40.1043|15.5405|0
+Santa Marinella|RM|07|42.0384|11.8738|0
+Santa Ninfa|TP|15|37.7713|12.8776|0
+Santa Paolina|AV|04|41.0217|14.8472|0
+Santa Severina|KR|03|39.1478|16.9100|0
+Santa Sofia d'Epiro|CS|03|39.5465|16.3290|0
+Santa Sofia|FC|05|43.9445|11.9087|0
+Santa Teresa di Riva|ME|15|37.9470|15.3677|0
+Santa Teresa Gallura|SS|14|41.2414|9.1885|0
+Santa Venerina|CT|15|37.6874|15.1383|0
+Santa Vittoria d'Alba|CN|12|44.6986|7.9373|0
+Santa Vittoria in Matenano|FM|10|43.0198|13.4962|0
+Santadi|SU|14|39.0918|8.7164|0
+Santarcangelo di Romagna|RN|05|44.0636|12.4487|0
+Sante Marie|AQ|01|42.1035|13.2006|0
+Santena|TO|12|44.9462|7.7730|0
+Santeramo in Colle|BA|13|40.7930|16.7553|0
+Santhià|VC|12|45.3663|8.1726|0
+Santi Cosma e Damiano|LT|07|41.2986|13.8141|0
+Santo Stefano al Mare|IM|08|43.8437|7.9019|0
+Santo Stefano Belbo|CN|12|44.7065|8.2260|0
+Santo Stefano d'Aveto|GE|08|44.5455|9.4482|0
+Santo Stefano del Sole|AV|04|40.8939|14.8685|0
+Santo Stefano di Cadore|BL|20|46.5574|12.5509|0
+Santo Stefano di Camastra|ME|15|38.0146|14.3486|0
+Santo Stefano di Magra|SP|08|44.1514|9.9241|0
+Santo Stefano di Rogliano|CS|03|39.1925|16.3182|0
+Santo Stefano di Sessanio|AQ|01|42.3447|13.6442|0
+Santo Stefano in Aspromonte|RC|03|38.1692|15.7892|0
+Santo Stefano Lodigiano|LO|09|45.1186|9.7353|0
+Santo Stefano Quisquina|AG|15|37.6255|13.4913|0
+Santo Stefano Roero|CN|12|44.7884|7.9409|0
+Santo Stefano Ticino|MI|09|45.4871|8.9181|0
+Santomenna|SA|04|40.8083|15.3215|0
+Santopadre|FR|07|41.6025|13.6349|0
+Santorso|VI|20|45.7351|11.3918|0
+Santu Lussurgiu|OR|14|40.1412|8.6545|0
+Sanza|SA|04|40.2446|15.5527|0
+Sanzeno|TN|17|46.3668|11.0766|0
+Saonara|PD|20|45.3653|11.9848|0
+Saponara|ME|15|38.1944|15.4328|0
+Sappada|UD|06|46.5643|12.6857|0
+Sapri|SA|04|40.0751|15.6296|0
+Saracena|CS|03|39.7788|16.1567|0
+Saracinesco|RM|07|42.0033|12.9533|0
+Sarcedo|VI|20|45.7002|11.5296|0
+Sarconi|PZ|02|40.2500|15.8872|0
+Sardara|SU|14|39.6164|8.8206|0
+Sardigliano|AL|12|44.7537|8.8961|0
+Sarego|VI|20|45.4077|11.4019|0
+Sarentino/Sarntal|BZ|17|46.6435|11.3558|0
+Sarezzano|AL|12|44.8680|8.9132|0
+Sarezzo|BS|09|45.6617|10.1960|0
+Sarmato|PC|05|45.0570|9.4924|0
+Sarmede|TV|20|45.9767|12.3842|0
+Sarnano|MC|10|43.0348|13.2982|0
+Sarnico|BG|09|45.6734|9.9625|0
+Sarno|SA|04|40.8108|14.6198|0
+Sarnonico|TN|17|46.4194|11.1418|0
+Saronno|VA|09|45.6279|9.0346|0
+Sarre|AO|19|45.7183|7.2580|0
+Sarroch|CA|14|39.0672|9.0094|0
+Sarsina|FC|05|43.9204|12.1418|0
+Sarteano|SI|16|42.9898|11.8673|0
+Sartirana Lomellina|PV|09|45.1147|8.6644|0
+Sarule|NU|14|40.2289|9.1672|0
+Sarzana|SP|08|44.1114|9.9586|0
+Sassano|SA|04|40.3377|15.5631|0
+Sassari|SS|14|40.7296|8.5509|1
+Sassello|SV|08|44.4813|8.4947|0
+Sassetta|LI|16|43.1290|10.6441|0
+Sassinoro|BN|04|41.3747|14.6645|0
+Sasso di Castalda|PZ|02|40.4868|15.6774|0
+Sasso Marconi|BO|05|44.3995|11.2495|0
+Sassocorvaro Auditore|PU|10|43.7964|12.5345|0
+Sassofeltrio|RN|05|43.8911|12.4973|0
+Sassoferrato|AN|10|43.4327|12.8573|0
+Sassuolo|MO|05|44.5509|10.7847|0
+Satriano di Lucania|PZ|02|40.5439|15.6383|0
+Satriano|CZ|03|38.6669|16.4812|0
+Sauris|UD|06|46.4681|12.6829|0
+Sauze d'Oulx|TO|12|45.0253|6.8573|0
+Sauze di Cesana|TO|12|44.9407|6.8590|0
+Sava|TA|13|40.4034|17.5584|0
+Savelli|KR|03|39.3135|16.7764|0
+Saviano|NA|04|40.9056|14.5050|0
+Savigliano|CN|12|44.6440|7.6559|0
+Savignano Irpino|AV|04|41.2285|15.1792|0
+Savignano sul Panaro|MO|05|44.4804|11.0351|0
+Savignano sul Rubicone|FC|05|44.0884|12.3941|0
+Savignone|GE|08|44.5643|8.9873|0
+Saviore dell'Adamello|BS|09|46.0805|10.3997|0
+Savoca|ME|15|37.9533|15.3401|0
+Savogna d'Isonzo-Sovodnje ob Soči|GO|06|45.9064|13.5747|0
+Savogna|UD|06|46.1588|13.5319|0
+Savoia di Lucania|PZ|02|40.5698|15.5526|0
+Savona|SV|08|44.3081|8.4738|1
+Scafa|PE|01|42.2671|13.9998|0
+Scafati|SA|04|40.7528|14.5338|0
+Scagnello|CN|12|44.3333|7.9864|0
+Scala Coeli|CS|03|39.4498|16.8854|0
+Scala|SA|04|40.6562|14.6088|0
+Scaldasole|PV|09|45.1259|8.9096|0
+Scalea|CS|03|39.8130|15.7956|0
+Scalenghe|TO|12|44.8917|7.4925|0
+Scaletta Zanclea|ME|15|38.0480|15.4677|0
+Scampitella|AV|04|41.0925|15.3000|0
+Scandale|KR|03|39.1242|16.9608|0
+Scandiano|RE|05|44.5965|10.6907|0
+Scandicci|FI|16|43.7575|11.1904|0
+Scandolara Ravara|CR|09|45.0498|10.3056|0
+Scandolara Ripa d'Oglio|CR|09|45.2211|10.1598|0
+Scandriglia|RI|07|42.1600|12.8416|0
+Scanno|AQ|01|41.9010|13.8836|0
+Scano di Montiferro|OR|14|40.2152|8.5869|0
+Scansano|GR|16|42.6889|11.3339|0
+Scanzano Jonico|MT|02|40.2498|16.6984|0
+Scanzorosciate|BG|09|45.7108|9.7350|0
+Scapoli|IS|11|41.6155|14.0587|0
+Scarlino|GR|16|42.9071|10.8512|0
+Scarmagno|TO|12|45.3845|7.8411|0
+Scarnafigi|CN|12|44.6787|7.5659|0
+Scarperia e San Piero|FI|16|43.9742|11.3319|0
+Scena/Schenna|BZ|17|46.6901|11.1863|0
+Scerni|CH|01|42.1024|14.5687|0
+Scheggia e Pascelupo|PG|18|43.4034|12.6667|0
+Scheggino|PG|18|42.7130|12.8301|0
+Schiavi di Abruzzo|CH|01|41.8151|14.4858|0
+Schiavon|VI|20|45.6963|11.6450|0
+Schignano|CO|09|45.9298|9.1021|0
+Schilpario|BG|09|46.0088|10.1578|0
+Schio|VI|20|45.7124|11.3574|0
+Schivenoglia|MN|09|44.9950|11.0730|0
+Sciacca|AG|15|37.5082|13.0881|0
+Sciara|PA|15|37.9153|13.7629|0
+Scicli|RG|15|36.7902|14.7014|0
+Scido|RC|03|38.2436|15.9327|0
+Scigliano|CS|03|39.1279|16.3054|0
+Scilla|RC|03|38.2507|15.7190|0
+Scillato|PA|15|37.8565|13.9064|0
+Sciolze|TO|12|45.0932|7.8804|0
+Scisciano|NA|04|40.9160|14.4857|0
+Sclafani Bagni|PA|15|37.8218|13.8548|0
+Scontrone|AQ|01|41.7473|14.0394|0
+Scopa|VC|12|45.7930|8.1140|0
+Scopello|VC|12|45.7720|8.0963|0
+Scoppito|AQ|01|42.3730|13.2549|0
+Scordia|CT|15|37.2981|14.8408|0
+Scorrano|LE|13|40.0916|18.2996|0
+Scorzè|VE|20|45.5690|12.1099|0
+Scurcola Marsicana|AQ|01|42.0631|13.3392|0
+Scurelle|TN|17|46.0645|11.5057|0
+Scurzolengo|AT|12|44.9648|8.2791|0
+Seborga|IM|08|43.8264|7.6945|0
+Secinaro|AQ|01|42.1529|13.6807|0
+Seclì|LE|13|40.1202|18.1066|0
+Secugnago|LO|09|45.2329|9.5935|0
+Sedegliano|UD|06|46.0157|12.9781|0
+Sedico|BL|20|46.1082|12.0954|0
+Sedilo|OR|14|40.1722|8.9217|0
+Sedini|SS|14|40.8523|8.8157|0
+Sedriano|MI|09|45.4915|8.9687|0
+Sedrina|BG|09|45.7818|9.6241|0
+Sefro|MC|10|43.1465|12.9485|0
+Segariu|SU|14|39.5644|8.9816|0
+Seggiano|GR|16|42.9288|11.5582|0
+Segni|RM|07|41.6872|13.0152|0
+Segonzano|TN|17|46.1902|11.2599|0
+Segrate|MI|09|45.4942|9.3001|0
+Segusino|TV|20|45.9170|11.9556|0
+Selargius|CA|14|39.2566|9.1676|0
+Selci|RI|07|42.3107|12.6252|0
+Selegas|SU|14|39.5678|9.1041|0
+Sella Giudicarie|TN|17|46.0139|10.6377|0
+Sellano|PG|18|42.8887|12.9271|0
+Sellero|BS|09|46.0552|10.3469|0
+Sellia Marina|CZ|03|38.8860|16.7493|0
+Sellia|CZ|03|38.9819|16.6299|0
+Selva dei Molini/Mühlwald|BZ|17|46.8909|11.8602|0
+Selva di Cadore|BL|20|46.4521|12.0386|0
+Selva di Progno|VR|20|45.6114|11.1380|0
+Selva di Val Gardena/Wolkenstein in Gröden|BZ|17|46.5547|11.7604|0
+Selvazzano Dentro|PD|20|45.3914|11.8005|0
+Selvino|BG|09|45.7821|9.7512|0
+Semestene|SS|14|40.3985|8.7254|0
+Semiana|PV|09|45.1375|8.7326|0
+Seminara|RC|03|38.3338|15.8696|0
+Semproniano|GR|16|42.7292|11.5413|0
+Senago|MI|09|45.5763|9.1245|0
+Senale-San Felice/Unsere Liebe Frau im Walde-St. Felix|BZ|17|46.4926|11.1314|0
+Senales/Schnals|BZ|17|46.7060|10.9086|0
+Seneghe|OR|14|40.0823|8.6157|0
+Senerchia|AV|04|40.7407|15.2049|0
+Seniga|BS|09|45.2427|10.1780|0
+Senigallia|AN|10|43.7093|13.2167|0
+Senis|OR|14|39.8242|8.9400|0
+Senise|PZ|02|40.1471|16.2889|0
+Senna Comasco|CO|09|45.7630|9.1110|0
+Senna Lodigiana|LO|09|45.1517|9.5939|0
+Sennariolo|OR|14|40.2124|8.5557|0
+Sennori|SS|14|40.7888|8.5905|0
+Senorbì|SU|14|39.5350|9.1301|0
+Sepino|CB|11|41.4080|14.6183|0
+Sequals|PN|06|46.1658|12.8299|0
+Seravezza|LU|16|43.9950|10.2287|0
+Serdiana|SU|14|39.3742|9.1589|0
+Seregno|MB|09|45.6524|9.2003|0
+Seren del Grappa|BL|20|45.9935|11.8496|0
+Sergnano|CR|09|45.4289|9.7017|0
+Seriate|BG|09|45.6834|9.7228|0
+Serina|BG|09|45.8716|9.7312|0
+Serino|AV|04|40.8548|14.8722|0
+Serle|BS|09|45.5703|10.3661|0
+Sermide e Felonica|MN|09|45.0045|11.2940|0
+Sermoneta|LT|07|41.5493|12.9849|0
+Sernaglia della Battaglia|TV|20|45.8786|12.1381|0
+Sernio|SO|09|46.2242|10.2053|0
+Serole|AT|12|44.5540|8.2597|0
+Serra d'Aiello|CS|03|39.0903|16.1275|0
+Serra de' Conti|AN|10|43.5420|13.0357|0
+Serra Riccò|GE|08|44.5093|8.9373|0
+Serra San Bruno|VV|03|38.5754|16.3244|0
+Serra San Quirico|AN|10|43.4454|13.0193|0
+Serra Sant'Abbondio|PU|10|43.4911|12.7727|0
+Serracapriola|FG|13|41.8119|15.1602|0
+Serradifalco|CL|15|37.4538|13.8805|0
+Serralunga d'Alba|CN|12|44.6100|7.9994|0
+Serralunga di Crea|AL|12|45.1003|8.2820|0
+Serramanna|SU|14|39.4240|8.9231|0
+Serramazzoni|MO|05|44.4251|10.7865|0
+Serramezzana|SA|04|40.2446|15.0325|0
+Serramonacesca|PE|01|42.2488|14.0923|0
+Serrapetrona|MC|10|43.1760|13.1895|0
+Serrara Fontana|NA|04|40.7116|13.8934|0
+Serrastretta|CZ|03|39.0132|16.4163|0
+Serrata|RC|03|38.5129|16.1007|0
+Serravalle a Po|MN|09|45.0664|11.0818|0
+Serravalle di Chienti|MC|10|43.0718|12.9522|0
+Serravalle Langhe|CN|12|44.5592|8.0586|0
+Serravalle Pistoiese|PT|16|43.9061|10.8327|0
+Serravalle Scrivia|AL|12|44.7216|8.8591|0
+Serravalle Sesia|VC|12|45.6856|8.3109|0
+Serre|SA|04|40.5825|15.1855|0
+Serrenti|SU|14|39.4930|8.9779|0
+Serri|SU|14|39.7017|9.1441|0
+Serrone|FR|07|41.8421|13.0952|0
+Sersale|CZ|03|39.0109|16.7269|0
+Servigliano|FM|10|43.0806|13.4921|0
+Sessa Aurunca|CE|04|41.2408|13.9328|0
+Sessa Cilento|SA|04|40.2592|15.0758|0
+Sessame|AT|12|44.6706|8.3368|0
+Sessano del Molise|IS|11|41.6395|14.3285|0
+Sesta Godano|SP|08|44.2923|9.6710|0
+Sestino|AR|16|43.7097|12.2979|0
+Sesto al Reghena|PN|06|45.8477|12.8168|0
+Sesto Calende|VA|09|45.7288|8.6492|0
+Sesto Campano|IS|11|41.4204|14.0778|0
+Sesto ed Uniti|CR|09|45.1765|9.9141|0
+Sesto Fiorentino|FI|16|43.8346|11.1952|0
+Sesto San Giovanni|MI|09|45.5394|9.2417|0
+Sesto/Sexten|BZ|17|46.7024|12.3500|0
+Sestola|MO|05|44.2304|10.7714|0
+Sestri Levante|GE|08|44.2714|9.4128|0
+Sestriere|TO|12|44.9586|6.8775|0
+Sestu|CA|14|39.2943|9.0930|0
+Settala|MI|09|45.4536|9.3872|0
+Settefrati|FR|07|41.6696|13.8500|0
+Setteville|BL|20|45.9070|11.9219|0
+Settime|AT|12|44.9618|8.1143|0
+Settimo Milanese|MI|09|45.4823|9.0520|0
+Settimo Rottaro|TO|12|45.4078|7.9935|0
+Settimo San Pietro|CA|14|39.2917|9.1852|0
+Settimo Torinese|TO|12|45.1403|7.7680|0
+Settimo Vittone|TO|12|45.5498|7.8322|0
+Settingiano|CZ|03|38.9114|16.5139|0
+Setzu|SU|14|39.7229|8.9392|0
+Seui|SU|14|39.8407|9.3218|0
+Seulo|SU|14|39.8698|9.2357|0
+Seveso|MB|09|45.6424|9.1459|0
+Sezzadio|AL|12|44.7848|8.5725|0
+Sezze|LT|07|41.5033|13.0641|0
+Sfruz|TN|17|46.3396|11.1238|0
+Sgonico-Zgonik|TS|06|45.7333|13.7500|0
+Sgurgola|FR|07|41.6709|13.1490|0
+Siamaggiore|OR|14|39.9502|8.6360|0
+Siamanna|OR|14|39.9207|8.7610|0
+Siano|SA|04|40.8016|14.6936|0
+Siapiccia|OR|14|39.9280|8.7621|0
+Sicignano degli Alburni|SA|04|40.5603|15.3040|0
+Siculiana|AG|15|37.3344|13.4215|0
+Siddi|SU|14|39.6730|8.8871|0
+Siderno|RC|03|38.2724|16.2965|0
+Siena|SI|16|43.3200|11.3328|1
+Sigillo|PG|18|43.3302|12.7412|0
+Signa|FI|16|43.7923|11.0979|0
+Silandro/Schlanders|BZ|17|46.6284|10.7712|0
+Silanus|NU|14|40.2877|8.8917|0
+Silea|TV|20|45.6562|12.2984|0
+Siligo|SS|14|40.5762|8.7269|0
+Siliqua|SU|14|39.3002|8.8087|0
+Silius|SU|14|39.5168|9.2935|0
+Sillano Giuncugnano|LU|16|44.2431|10.3128|0
+Sillavengo|NO|12|45.5207|8.4410|0
+Silvano d'Orba|AL|12|44.6868|8.6755|0
+Silvano Pietra|PV|09|45.0404|8.9479|0
+Silvi|TE|01|42.5457|14.1220|0
+Simala|OR|14|39.7216|8.8267|0
+Simaxis|OR|14|39.9303|8.6921|0
+Simbario|VV|03|38.6121|16.3351|0
+Simeri Crichi|CZ|03|38.9538|16.6400|0
+Sinagra|ME|15|38.0797|14.8523|0
+Sinalunga|SI|16|43.2152|11.7495|0
+Sindia|NU|14|40.2966|8.6566|0
+Sini|OR|14|39.7542|8.9043|0
+Sinio|CN|12|44.6003|8.0199|0
+Siniscola|NU|14|40.5719|9.6922|0
+Sinnai|CA|14|39.3042|9.2035|0
+Sinopoli|RC|03|38.2638|15.8785|0
+Siracusa|SR|15|37.0851|15.2730|1
+Sirignano|AV|04|40.9500|14.6301|0
+Siris|OR|14|39.7126|8.7748|0
+Sirmione|BS|09|45.4686|10.6052|0
+Sirolo|AN|10|43.5219|13.6138|0
+Sirone|LC|09|45.7727|9.3221|0
+Sirtori|LC|09|45.7366|9.3308|0
+Sissa Trecasali|PR|05|44.9490|10.2686|0
+Siurgus Donigala|SU|14|39.5833|9.2000|0
+Siziano|PV|09|45.3144|9.2032|0
+Sizzano|NO|12|45.5775|8.4373|0
+Sluderno/Schluderns|BZ|17|46.6645|10.5850|0
+Smerillo|FM|10|43.0052|13.4450|0
+Soave|VR|20|45.4211|11.2466|0
+Socchieve|UD|06|46.4018|12.8283|0
+Soddì|OR|14|40.1305|8.8784|0
+Sogliano al Rubicone|FC|05|44.0047|12.3005|0
+Sogliano Cavour|LE|13|40.1488|18.1952|0
+Soglio|AT|12|44.9963|8.0784|0
+Soiano del Lago|BS|09|45.5278|10.5127|0
+Solagna|VI|20|45.8192|11.7154|0
+Solarino|SR|15|37.1020|15.1189|0
+Solaro|MI|09|45.6143|9.0830|0
+Solarolo Rainerio|CR|09|45.0816|10.3563|0
+Solarolo|RA|05|44.3604|11.8445|0
+Solarussa|OR|14|39.9558|8.6715|0
+Solbiate Arno|VA|09|45.7220|8.8143|0
+Solbiate con Cagno|CO|09|45.8006|8.9158|0
+Solbiate Olona|VA|09|45.6515|8.8853|0
+Soldano|IM|08|43.8291|7.6548|0
+Soleminis|SU|14|39.3475|9.1805|0
+Solero|AL|12|44.9183|8.5075|0
+Solesino|PD|20|45.1778|11.7449|0
+Soleto|LE|13|40.1884|18.2063|0
+Solferino|MN|09|45.3686|10.5667|0
+Soliera|MO|05|44.7380|10.9263|0
+Solignano|PR|05|44.6131|9.9755|0
+Solofra|AV|04|40.8295|14.8419|0
+Solonghello|AL|12|45.1290|8.2832|0
+Solopaca|BN|04|41.1946|14.5530|0
+Solto Collina|BG|09|45.7835|10.0277|0
+Solza|BG|09|45.6787|9.4908|0
+Somaglia|LO|09|45.1495|9.6335|0
+Somano|CN|12|44.5353|8.0078|0
+Somma Lombardo|VA|09|45.6830|8.7087|0
+Somma Vesuviana|NA|04|40.8716|14.4361|0
+Sommacampagna|VR|20|45.4066|10.8437|0
+Sommariva del Bosco|CN|12|44.7687|7.7853|0
+Sommariva Perno|CN|12|44.7456|7.9006|0
+Sommatino|CL|15|37.3359|13.9967|0
+Sommo|PV|09|45.1332|9.0866|0
+Sona|VR|20|45.4388|10.8255|0
+Soncino|CR|09|45.4001|9.8698|0
+Sondalo|SO|09|46.3301|10.3248|0
+Sondrio|SO|09|46.1690|9.8691|1
+Songavazzo|BG|09|45.8795|9.9896|0
+Sonico|BS|09|46.1655|10.3529|0
+Sonnino|LT|07|41.4135|13.2448|0
+Sora|FR|07|41.7157|13.6141|0
+Soraga di Fassa|TN|17|46.3946|11.6662|0
+Soragna|PR|05|44.9263|10.1242|0
+Sorano|GR|16|42.6812|11.7142|0
+Sorbo San Basile|CZ|03|39.0194|16.5691|0
+Sorbo Serpico|AV|04|40.9169|14.8877|0
+Sorbolo Mezzani|PR|05|44.8901|10.4360|0
+Sordevolo|BI|12|45.5735|7.9734|0
+Sordio|LO|09|45.3422|9.3638|0
+Soresina|CR|09|45.2865|9.8570|0
+Sorgà|VR|20|45.2133|10.9799|0
+Sorgono|NU|14|40.0260|9.1020|0
+Sori|GE|08|44.3698|9.1070|0
+Sorianello|VV|03|38.5933|16.2319|0
+Soriano Calabro|VV|03|38.5995|16.2277|0
+Soriano nel Cimino|VT|07|42.4187|12.2334|0
+Sorico|CO|09|46.1726|9.3840|0
+Soriso|NO|12|45.7404|8.4095|0
+Sorisole|BG|09|45.7363|9.6550|0
+Sormano|CO|09|45.8778|9.2487|0
+Sorradile|OR|14|40.1065|8.9330|0
+Sorrento|NA|04|40.6249|14.3748|0
+Sorso|SS|14|40.7968|8.5757|0
+Sortino|SR|15|37.1566|15.0260|0
+Sospiro|CR|09|45.1086|10.1577|0
+Sospirolo|BL|20|46.1407|12.0710|0
+Sossano|VI|20|45.3603|11.5120|0
+Sostegno|BI|12|45.6529|8.2698|0
+Sotto il Monte Giovanni XXIII|BG|09|45.7057|9.5035|0
+Sover|TN|17|46.2217|11.3157|0
+Soverato|CZ|03|38.6875|16.5415|0
+Sovere|BG|09|45.8143|10.0285|0
+Soveria Mannelli|CZ|03|39.0829|16.3719|0
+Soveria Simeri|CZ|03|38.9466|16.6801|0
+Soverzene|BL|20|46.2036|12.3031|0
+Sovicille|SI|16|43.2805|11.2262|0
+Sovico|MB|09|45.6500|9.2667|0
+Sovizzo|VI|20|45.5250|11.4533|0
+Sovramonte|BL|20|46.0586|11.7866|0
+Sozzago|NO|12|45.3986|8.7203|0
+Spadafora|ME|15|38.2238|15.3793|0
+Spadola|VV|03|38.6038|16.3370|0
+Sparanise|CE|04|41.1868|14.0937|0
+Sparone|TO|12|45.4138|7.5434|0
+Specchia|LE|13|39.9371|18.2976|0
+Spello|PG|18|42.9942|12.6655|0
+Sperlinga|EN|15|37.7659|14.3508|0
+Sperlonga|LT|07|41.2602|13.4331|0
+Sperone|AV|04|40.9525|14.6052|0
+Spessa|PV|09|45.1136|9.3486|0
+Spezzano Albanese|CS|03|39.6688|16.3105|0
+Spezzano della Sila|CS|03|39.3014|16.3398|0
+Spiazzo|TN|17|46.1036|10.7394|0
+Spigno Monferrato|AL|12|44.5431|8.3339|0
+Spigno Saturnia|LT|07|41.3115|13.7357|0
+Spilamberto|MO|05|44.5343|11.0195|0
+Spilimbergo|PN|06|46.1092|12.8927|0
+Spilinga|VV|03|38.6286|15.9070|0
+Spinadesco|CR|09|45.1492|9.9264|0
+Spinazzola|BT|13|40.9671|16.0916|0
+Spinea|VE|20|45.4887|12.1625|0
+Spineda|CR|09|45.0601|10.5149|0
+Spinete|CB|11|41.5449|14.4862|0
+Spineto Scrivia|AL|12|44.8374|8.8737|0
+Spinetoli|AP|10|42.8914|13.7702|0
+Spino d'Adda|CR|09|45.3989|9.4923|0
+Spinone al Lago|BG|09|45.7675|9.9242|0
+Spinoso|PZ|02|40.2692|15.9666|0
+Spirano|BG|09|45.5821|9.6689|0
+Spoleto|PG|18|42.7448|12.7374|0
+Spoltore|PE|01|42.4534|14.1410|0
+Spongano|LE|13|40.0178|18.3656|0
+Spormaggiore|TN|17|46.2197|11.0491|0
+Sporminore|TN|17|46.2368|11.0303|0
+Spotorno|SV|08|44.2285|8.4140|0
+Spresiano|TV|20|45.7805|12.2564|0
+Spriana|SO|09|46.2203|9.8643|0
+Squillace|CZ|03|38.7795|16.5122|0
+Squinzano|LE|13|40.4365|18.0418|0
+Staffolo|AN|10|43.4333|13.1849|0
+Stagno Lombardo|CR|09|45.0733|10.0880|0
+Staiti|RC|03|38.0001|16.0328|0
+Stalettì|CZ|03|38.7655|16.5376|0
+Stanghella|PD|20|45.1351|11.7574|0
+Staranzano|GO|06|45.8012|13.5043|0
+Statte|TA|13|40.5632|17.2098|0
+Stazzano|AL|12|44.7274|8.8699|0
+Stazzema|LU|16|43.9935|10.3109|0
+Stazzona|CO|09|46.1388|9.2752|0
+Stefanaconi|VV|03|38.6779|16.1242|0
+Stella Cilento|SA|04|40.2318|15.0929|0
+Stella|SV|08|44.3934|8.4979|0
+Stellanello|SV|08|43.9999|8.0602|0
+Stelvio/Stilfs|BZ|17|46.5980|10.5453|0
+Stenico|TN|17|46.0502|10.8537|0
+Sternatia|LE|13|40.2221|18.2252|0
+Stezzano|BG|09|45.6507|9.6493|0
+Stienta|RO|20|44.9411|11.5421|0
+Stigliano|MT|02|40.4009|16.2311|0
+Stignano|RC|03|38.3881|16.4868|0
+Stilo|RC|03|38.4771|16.4684|0
+Stimigliano|RI|07|42.3010|12.5634|0
+Stintino|SS|14|40.9392|8.2255|0
+Stio|SA|04|40.3099|15.2526|0
+Stornara|FG|13|41.2873|15.7698|0
+Stornarella|FG|13|41.2572|15.7314|0
+Storo|TN|17|45.8494|10.5798|0
+Stra|VE|20|45.4069|12.0169|0
+Stradella|PV|09|45.0731|9.3008|0
+Strambinello|TO|12|45.4231|7.7699|0
+Strambino|TO|12|45.3815|7.8857|0
+Strangolagalli|FR|07|41.6007|13.4939|0
+Stregna|UD|06|46.1269|13.5780|0
+Strembo|TN|17|46.1203|10.7509|0
+Stresa|VB|12|45.8835|8.5318|0
+Strevi|AL|12|44.6981|8.5219|0
+Striano|NA|04|40.8159|14.5765|0
+Strona|BI|12|45.6166|8.1691|0
+Stroncone|TR|18|42.5023|12.6600|0
+Strongoli|KR|03|39.2665|17.0544|0
+Stroppiana|VC|12|45.2303|8.4538|0
+Stroppo|CN|12|44.5065|7.1265|0
+Strozza|BG|09|45.7731|9.5775|0
+Sturno|AV|04|41.0201|15.1103|0
+Suardi|PV|09|45.0347|8.7430|0
+Subbiano|AR|16|43.5791|11.8711|0
+Subiaco|RM|07|41.9254|13.0941|0
+Succivo|CE|04|40.9680|14.2556|0
+Sueglio|LC|09|46.0858|9.3337|0
+Suelli|SU|14|39.5627|9.1321|0
+Suello|LC|09|45.8168|9.3115|0
+Suisio|BG|09|45.6571|9.5023|0
+Sulbiate|MB|09|45.6353|9.4261|0
+Sulmona|AQ|01|42.0479|13.9291|0
+Sulzano|BS|09|45.6904|10.1010|0
+Sumirago|VA|09|45.7377|8.7816|0
+Summonte|AV|04|40.9492|14.7453|0
+Suni|OR|14|40.2809|8.5494|0
+Suno|NO|12|45.6334|8.5428|0
+Supersano|LE|13|40.0177|18.2432|0
+Supino|FR|07|41.6152|13.2376|0
+Surano|LE|13|40.0283|18.3451|0
+Surbo|LE|13|40.3960|18.1334|0
+Susa|TO|12|45.1375|7.0546|0
+Susegana|TV|20|45.8562|12.2535|0
+Sustinente|MN|09|45.0699|11.0181|0
+Sutera|CL|15|37.5233|13.7345|0
+Sutri|VT|07|42.2470|12.2151|0
+Sutrio|UD|06|46.5115|12.9904|0
+Suvereto|LI|16|43.0772|10.6781|0
+Suzzara|MN|09|44.9919|10.7431|0
+Taceno|LC|09|46.0245|9.3639|0
+Tadasuni|OR|14|40.1099|8.8835|0
+Taggia|IM|08|43.8417|7.8517|0
+Tagliacozzo|AQ|01|42.0693|13.2547|0
+Taglio di Po|RO|20|45.0063|12.2109|0
+Tagliolo Monferrato|AL|12|44.6384|8.6659|0
+Taibon Agordino|BL|20|46.2987|12.0131|0
+Taino|VA|09|45.7659|8.6197|0
+Taipana|UD|06|46.2485|13.3409|0
+Talamello|RN|05|43.9057|12.2848|0
+Talamona|SO|09|46.1385|9.6129|0
+Talana|NU|14|40.0421|9.4965|0
+Taleggio|BG|09|45.8934|9.5648|0
+Talla|AR|16|43.6018|11.7871|0
+Talmassons|UD|06|45.9288|13.1167|0
+Tambre|BL|20|46.1263|12.4194|0
+Taormina|ME|15|37.8521|15.2870|0
+Tarano|RI|07|42.3559|12.5950|0
+Taranta Peligna|CH|01|42.0208|14.1705|0
+Tarantasca|CN|12|44.4935|7.5435|0
+Taranto|TA|13|40.4170|17.2401|1
+Tarcento|UD|06|46.2143|13.2139|0
+Tarquinia|VT|07|42.2482|11.7553|0
+Tarsia|CS|03|39.6209|16.2717|0
+Tartano|SO|09|46.1059|9.6786|0
+Tarvisio|UD|06|46.5037|13.5870|0
+Tarzo|TV|20|45.9718|12.2330|0
+Tassarolo|AL|12|44.7285|8.7715|0
+Taurano|AV|04|40.8837|14.6344|0
+Taurasi|AV|04|41.0087|14.9586|0
+Taurianova|RC|03|38.3563|16.0109|0
+Taurisano|LE|13|39.9566|18.2141|0
+Tavagnacco|UD|06|46.1271|13.2138|0
+Tavagnasco|TO|12|45.5450|7.8233|0
+Tavazzano con Villavesco|LO|09|45.3333|9.4000|0
+Tavenna|CB|11|41.9086|14.7625|0
+Taverna|CZ|03|39.0218|16.5818|0
+Tavernerio|CO|09|45.8007|9.1405|0
+Tavernola Bergamasca|BG|09|45.7094|10.0463|0
+Tavernole sul Mella|BS|09|45.7470|10.2406|0
+Taviano|LE|13|39.9835|18.0868|0
+Tavigliano|BI|12|45.6221|8.0517|0
+Tavoleto|PU|10|43.8447|12.5920|0
+Tavullia|PU|10|43.8979|12.7548|0
+Teana|PZ|02|40.1248|16.1518|0
+Teano|CE|04|41.2513|14.0665|0
+Teggiano|SA|04|40.3792|15.5405|0
+Teglio Veneto|VE|20|45.8175|12.8850|0
+Teglio|SO|09|46.1728|10.0648|0
+Telese Terme|BN|04|41.2173|14.5277|0
+Telgate|BG|09|45.6289|9.8517|0
+Telti|SS|14|40.8764|9.3528|0
+Telve di Sopra|TN|17|46.0713|11.4718|0
+Telve|TN|17|46.0713|11.4796|0
+Tempio Pausania|SS|14|40.8974|9.1035|0
+Temù|BS|09|46.2487|10.4680|0
+Tenna|TN|17|46.0157|11.2643|0
+Tenno|TN|17|45.9188|10.8328|0
+Teolo|PD|20|45.3485|11.6708|0
+Teora|AV|04|40.8528|15.2533|0
+Teramo|TE|01|42.6649|13.7179|1
+Terdobbiate|NO|12|45.3766|8.6952|0
+Terelle|FR|07|41.5521|13.7784|0
+Terento/Terenten|BZ|17|46.8305|11.7800|0
+Terenzo|PR|05|44.6100|10.0897|0
+Tergu|SS|14|40.8675|8.7167|0
+Terlano/Terlan|BZ|17|46.5324|11.2454|0
+Terlizzi|BA|13|41.1311|16.5453|0
+Terme Vigliatore|ME|15|38.1359|15.1566|0
+Termeno sulla strada del vino/Tramin an der Weinstraße|BZ|17|46.3415|11.2423|0
+Termini Imerese|PA|15|37.9836|13.6956|0
+Termoli|CB|11|41.9888|14.9895|0
+Ternate|VA|09|45.7817|8.6923|0
+Ternengo|BI|12|45.5890|8.1137|0
+Terni|TR|18|42.5671|12.6499|1
+Terno d'Isola|BG|09|45.6855|9.5310|0
+Terracina|LT|07|41.2863|13.2217|0
+Terragnolo|TN|17|45.8783|11.1547|0
+Terralba|OR|14|39.7174|8.6377|0
+Terranova da Sibari|CS|03|39.6569|16.3395|0
+Terranova dei Passerini|LO|09|45.2153|9.6619|0
+Terranova di Pollino|PZ|02|39.9781|16.2963|0
+Terranova Sappo Minulio|RC|03|38.3227|16.0075|0
+Terranuova Bracciolini|AR|16|43.5521|11.5884|0
+Terrasini|PA|15|38.1459|13.0844|0
+Terrassa Padovana|PD|20|45.2441|11.9027|0
+Terravecchia|CS|03|39.4649|16.9460|0
+Terrazzo|VR|20|45.1733|11.3934|0
+Terre d'Adige|TN|17|46.1574|11.0740|0
+Terre del Reno|FE|05|44.8069|11.4047|0
+Terre Roveresche|PU|10|43.7054|12.9592|0
+Terricciola|PI|16|43.5247|10.6801|0
+Terruggia|AL|12|45.0823|8.4432|0
+Tertenia|NU|14|39.6968|9.5772|0
+Terzigno|NA|04|40.8122|14.4964|0
+Terzo d'Aquileia|UD|06|45.7971|13.3464|0
+Terzo|AL|12|44.6705|8.4216|0
+Terzolas|TN|17|46.3611|10.9259|0
+Terzorio|IM|08|43.8523|7.8983|0
+Tesero|TN|17|46.2904|11.5120|0
+Tesimo/Tisens|BZ|17|46.5654|11.1694|0
+Tessennano|VT|07|42.4783|11.7904|0
+Testico|SV|08|44.0056|8.0292|0
+Teti|NU|14|40.0958|9.1181|0
+Teulada|SU|14|38.9674|8.7722|0
+Teverola|CE|04|40.9956|14.2076|0
+Tezze sul Brenta|VI|20|45.6866|11.7036|0
+Thiene|VI|20|45.7088|11.4796|0
+Thiesi|SS|14|40.5249|8.7164|0
+Tiana|NU|14|40.0684|9.1473|0
+Ticengo|CR|09|45.3693|9.8277|0
+Ticineto|AL|12|45.0962|8.5517|0
+Tiggiano|LE|13|39.9058|18.3644|0
+Tiglieto|GE|08|44.5232|8.6192|0
+Tigliole|AT|12|44.8862|8.0766|0
+Tignale|BS|09|45.7404|10.7225|0
+Tinnura|OR|14|40.2702|8.5495|0
+Tione degli Abruzzi|AQ|01|42.2039|13.6357|0
+Tione di Trento|TN|17|46.0360|10.7264|0
+Tirano|SO|09|46.2154|10.1678|0
+Tires/Tiers|BZ|17|46.4683|11.5277|0
+Tiriolo|CZ|03|38.9433|16.5083|0
+Tirolo/Tirol|BZ|17|46.6910|11.1543|0
+Tissi|SS|14|40.6767|8.5631|0
+Tito|PZ|02|40.5836|15.6755|0
+Tivoli|RM|07|41.9609|12.7989|0
+Tizzano Val Parma|PR|05|44.5206|10.1998|0
+Toano|RE|05|44.3764|10.5612|0
+Tocco Caudio|BN|04|41.1258|14.6312|0
+Tocco da Casauria|PE|01|42.2137|13.9135|0
+Toceno|VB|12|46.1447|8.4690|0
+Todi|PG|18|42.7799|12.4046|0
+Toffia|RI|07|42.2134|12.7561|0
+Toirano|SV|08|44.1275|8.2049|0
+Tolentino|MC|10|43.2126|13.2901|0
+Tolfa|RM|07|42.1514|11.9365|0
+Tollegno|BI|12|45.5875|8.0513|0
+Tollo|CH|01|42.3479|14.3181|0
+Tolmezzo|UD|06|46.3982|13.0209|0
+Tolve|PZ|02|40.6942|16.0163|0
+Tombolo|PD|20|45.6395|11.8254|0
+Ton|TN|17|46.2653|11.0880|0
+Tonara|NU|14|40.0251|9.1729|0
+Tonco|AT|12|45.0245|8.1900|0
+Tonezza del Cimone|VI|20|45.8567|11.3477|0
+Tora e Piccilli|CE|04|41.3382|14.0224|0
+Torano Castello|CS|03|39.5063|16.1456|0
+Torano Nuovo|TE|01|42.8231|13.7773|0
+Torbole Casaglia|BS|09|45.5126|10.1155|0
+Torcegno|TN|17|46.0743|11.4498|0
+Torchiara|SA|04|40.3216|15.0545|0
+Torchiarolo|BR|13|40.4840|18.0516|0
+Torella dei Lombardi|AV|04|40.9397|15.1151|0
+Torella del Sannio|CB|11|41.6398|14.5195|0
+Torgiano|PG|18|43.0285|12.4414|0
+Torgnon|AO|19|45.8062|7.5698|0
+Torino di Sangro|CH|01|42.1881|14.5408|0
+Torino|TO|12|45.0500|7.6667|1
+Toritto|BA|13|40.9982|16.6798|0
+Torlino Vimercati|CR|09|45.4175|9.5948|0
+Tornaco|NO|12|45.3576|8.7159|0
+Tornareccio|CH|01|42.0381|14.4161|0
+Tornata|CR|09|45.1044|10.4308|0
+Tornimparte|AQ|01|42.2833|13.3000|0
+Torno|CO|09|45.8549|9.1158|0
+Tornolo|PR|05|44.4853|9.6253|0
+Toro|CB|11|41.5724|14.7649|0
+Torpè|NU|14|40.6280|9.6773|0
+Torraca|SA|04|40.1116|15.6364|0
+Torralba|SS|14|40.5130|8.7653|0
+Torrazza Coste|PV|09|44.9770|9.0836|0
+Torrazza Piemonte|TO|12|45.2154|7.9767|0
+Torrazzo|BI|12|45.4988|7.9552|0
+Torre Annunziata|NA|04|40.7497|14.4646|0
+Torre Beretti e Castellaro|PV|09|45.0600|8.6709|0
+Torre Boldone|BG|09|45.7142|9.7102|0
+Torre Bormida|CN|12|44.5627|8.1544|0
+Torre Cajetani|FR|07|41.7867|13.2652|0
+Torre Canavese|TO|12|45.3921|7.7598|0
+Torre d'Arese|PV|09|45.2428|9.3173|0
+Torre d'Isola|PV|09|45.2175|9.0762|0
+Torre de' Busi|BG|09|45.7741|9.4802|0
+Torre de' Negri|PV|09|45.1497|9.3346|0
+Torre de' Passeri|PE|01|42.2432|13.9333|0
+Torre de' Picenardi|CR|09|45.1436|10.2869|0
+Torre de' Roveri|BG|09|45.6972|9.7633|0
+Torre del Greco|NA|04|40.7852|14.3724|0
+Torre di Mosto|VE|20|45.6851|12.7029|0
+Torre di Ruggiero|CZ|03|38.6534|16.3728|0
+Torre di Santa Maria|SO|09|46.2336|9.8515|0
+Torre Le Nocelle|AV|04|41.0231|14.9093|0
+Torre Mondovì|CN|12|44.3528|7.8996|0
+Torre Orsaia|SA|04|40.1333|15.4733|0
+Torre Pallavicina|BG|09|45.4464|9.8771|0
+Torre Pellice|TO|12|44.8197|7.2160|0
+Torre San Giorgio|CN|12|44.7357|7.5281|0
+Torre San Patrizio|FM|10|43.1829|13.6128|0
+Torre Santa Susanna|BR|13|40.4656|17.7356|0
+Torreano|UD|06|46.1285|13.4311|0
+Torrebelvicino|VI|20|45.7168|11.3195|0
+Torrebruna|CH|01|41.8681|14.5408|0
+Torrecuso|BN|04|41.1894|14.6793|0
+Torreglia|PD|20|45.3361|11.7384|0
+Torregrotta|ME|15|38.2032|15.3495|0
+Torremaggiore|FG|13|41.6907|15.2963|0
+Torrenova|ME|15|38.0938|14.6800|0
+Torresina|CN|12|44.4336|8.0367|0
+Torretta|PA|15|38.1303|13.2317|0
+Torrevecchia Pia|PV|09|45.2820|9.2964|0
+Torrevecchia Teatina|CH|01|42.3827|14.2133|0
+Torri del Benaco|VR|20|45.6030|10.6893|0
+Torri di Quartesolo|VI|20|45.5250|11.6123|0
+Torri in Sabina|RI|07|42.3530|12.6386|0
+Torrice|FR|07|41.6297|13.3984|0
+Torricella del Pizzo|CR|09|45.0190|10.2960|0
+Torricella in Sabina|RI|07|42.2633|12.8701|0
+Torricella Peligna|CH|01|42.0245|14.2591|0
+Torricella Sicura|TE|01|42.6590|13.6572|0
+Torricella Verzate|PV|09|45.0200|9.1736|0
+Torricella|TA|13|40.3566|17.4997|0
+Torriglia|GE|08|44.5202|9.1602|0
+Torrile|PR|05|44.8885|10.3594|0
+Torrioni|AV|04|41.0340|14.8125|0
+Torrita di Siena|SI|16|43.1702|11.7794|0
+Torrita Tiberina|RM|07|42.2391|12.6145|0
+Tortolì|NU|14|39.9299|9.6646|0
+Tortona|AL|12|44.8933|8.8645|0
+Tortora|CS|03|39.9413|15.8052|0
+Tortorella|SA|04|40.1422|15.6057|0
+Tortoreto|TE|01|42.8038|13.9124|0
+Tortorici|ME|15|38.0300|14.8235|0
+Torviscosa|UD|06|45.8222|13.2769|0
+Toscolano-Maderno|BS|09|45.6345|10.6084|0
+Tossicia|TE|01|42.5449|13.6475|0
+Tovo di Sant'Agata|SO|09|46.2461|10.2486|0
+Tovo San Giacomo|SV|08|44.1759|8.2705|0
+Trabia|PA|15|38.0065|13.6335|0
+Tradate|VA|09|45.7110|8.9076|0
+Tramatza|OR|14|40.0037|8.6495|0
+Trambileno|TN|17|45.8689|11.0734|0
+Tramonti di Sopra|PN|06|46.3102|12.7894|0
+Tramonti di Sotto|PN|06|46.2848|12.7960|0
+Tramonti|SA|04|40.6916|14.6455|0
+Tramutola|PZ|02|40.3166|15.7911|0
+Trana|TO|12|45.0390|7.4218|0
+Trani|BT|13|41.2727|16.4154|1
+Traona|SO|09|46.1502|9.5322|0
+Trapani|TP|15|38.0160|12.5444|1
+Trappeto|PA|15|38.0688|13.0379|0
+Trarego Viggiona|VB|12|46.0343|8.6736|0
+Trasacco|AQ|01|41.9569|13.5345|0
+Trasaghis|UD|06|46.2820|13.0765|0
+Trasquera|VB|12|46.2134|8.2127|0
+Tratalias|SU|14|39.1028|8.5788|0
+Travacò Siccomario|PV|09|45.1491|9.1596|0
+Travagliato|BS|09|45.5235|10.0789|0
+Travedona-Monate|VA|09|45.8043|8.6714|0
+Traversella|TO|12|45.5085|7.7494|0
+Traversetolo|PR|05|44.6422|10.3772|0
+Traves|TO|12|45.2679|7.4308|0
+Travesio|PN|06|46.1970|12.8690|0
+Travo|PC|05|44.8625|9.5454|0
+Tre Ville|TN|17|46.0608|10.7693|0
+Trebaseleghe|PD|20|45.5899|12.0496|0
+Trebisacce|CS|03|39.8708|16.5312|0
+Trecase|NA|04|40.7694|14.4377|0
+Trecastagni|CT|15|37.6186|15.0780|0
+Trecastelli|AN|10|43.7061|13.1022|0
+Trecate|NO|12|45.4348|8.7368|0
+Trecchina|PZ|02|40.0266|15.7747|0
+Trecenta|RO|20|45.0311|11.4598|0
+Tredozio|FC|05|44.0810|11.7441|0
+Treglio|CH|01|42.2677|14.4255|0
+Tregnago|VR|20|45.5105|11.1681|0
+Treia|MC|10|43.3106|13.3115|0
+Treiso|CN|12|44.6897|8.0881|0
+Tremestieri Etneo|CT|15|37.5812|15.0709|0
+Tremezzina|CO|09|45.9845|9.2089|0
+Tremosine sul Garda|BS|09|45.7715|10.7578|0
+Trentinara|SA|04|40.4007|15.1132|0
+Trento|TN|17|46.0704|11.1207|1
+Trentola Ducenta|CE|04|40.9754|14.1762|0
+Trenzano|BS|09|45.4773|10.0107|0
+Treppo Grande|UD|06|46.1906|13.1581|0
+Treppo Ligosullo|UD|06|46.5446|13.0583|0
+Trepuzzi|LE|13|40.4076|18.0758|0
+Trequanda|SI|16|43.1877|11.6675|0
+Tresana|MS|16|44.2542|9.9129|0
+Trescore Balneario|BG|09|45.6965|9.8426|0
+Trescore Cremasco|CR|09|45.4016|9.6250|0
+Tresignana|FE|05|44.8231|11.8839|0
+Tresivio|SO|09|46.1757|9.9426|0
+Tresnuraghes|OR|14|40.2518|8.5198|0
+Trevenzuolo|VR|20|45.2694|10.9344|0
+Trevi nel Lazio|FR|07|41.8630|13.2501|0
+Trevi|PG|18|42.8774|12.7477|0
+Trevico|AV|04|41.0484|15.2334|0
+Treviglio|BG|09|45.5238|9.5894|0
+Trevignano Romano|RM|07|42.1574|12.2408|0
+Trevignano|TV|20|45.7431|12.0911|0
+Treville|AL|12|45.0969|8.3595|0
+Treviolo|BG|09|45.6737|9.6120|0
+Treviso Bresciano|BS|09|45.7129|10.4614|0
+Treviso|TV|20|45.6714|12.2412|1
+Trezzano Rosa|MI|09|45.5828|9.4866|0
+Trezzano sul Naviglio|MI|09|45.4231|9.0664|0
+Trezzo sull'Adda|MI|09|45.6030|9.5199|0
+Trezzo Tinella|CN|12|44.6770|8.1075|0
+Trezzone|CO|09|46.1716|9.3518|0
+Tribano|PD|20|45.2137|11.8322|0
+Tribiano|MI|09|45.4134|9.3789|0
+Tribogna|GE|08|44.4166|9.1956|0
+Tricarico|MT|02|40.6176|16.1465|0
+Tricase|LE|13|39.9312|18.3609|0
+Tricerro|VC|12|45.2358|8.3253|0
+Tricesimo|UD|06|46.1567|13.2150|0
+Triei|NU|14|40.0368|9.6403|0
+Trieste|TS|06|45.6667|13.7667|1
+Triggiano|BA|13|41.0667|16.9260|0
+Trigolo|CR|09|45.3300|9.8149|0
+Trinità d'Agultu e Vignola|SS|14|40.9838|8.9156|0
+Trinità|CN|12|44.5085|7.7570|0
+Trinitapoli|BT|13|41.3572|16.0874|0
+Trino|VC|12|45.1921|8.2961|0
+Triora|IM|08|43.9925|7.7662|0
+Tripi|ME|15|38.0473|15.0974|0
+Trisobbio|AL|12|44.6617|8.5861|0
+Trissino|VI|20|45.5612|11.3717|0
+Triuggio|MB|09|45.6627|9.2693|0
+Trivento|CB|11|41.7811|14.5514|0
+Trivigliano|FR|07|41.7757|13.2723|0
+Trivignano Udinese|UD|06|45.9434|13.3406|0
+Trivigno|PZ|02|40.5810|15.9899|0
+Trivolzio|PV|09|45.2585|9.0427|0
+Trodena nel parco naturale/Truden im Naturpark|BZ|17|46.3223|11.3509|0
+Trofarello|TO|12|44.9836|7.7452|0
+Troia|FG|13|41.3631|15.3124|0
+Troina|EN|15|37.7854|14.5985|0
+Tromello|PV|09|45.2104|8.8696|0
+Trontano|VB|12|46.1225|8.3332|0
+Tronzano Lago Maggiore|VA|09|46.0903|8.7343|0
+Tronzano Vercellese|VC|12|45.3413|8.1730|0
+Tropea|VV|03|38.6754|15.8948|0
+Trovo|PV|09|45.2830|9.0355|0
+Truccazzano|MI|09|45.4839|9.4686|0
+Tubre/Taufers im Münstertal|BZ|17|46.6456|10.4642|0
+Tufara|CB|11|41.4820|14.9465|0
+Tufillo|CH|01|41.9175|14.6247|0
+Tufino|NA|04|40.9541|14.5659|0
+Tufo|AV|04|41.0129|14.8234|0
+Tuglie|LE|13|40.0738|18.0981|0
+Tuili|SU|14|39.7133|8.9608|0
+Tula|SS|14|40.7325|8.9839|0
+Tuoro sul Trasimeno|PG|18|43.2065|12.0747|0
+Turania|RI|07|42.1380|13.0093|0
+Turano Lodigiano|LO|09|45.2489|9.6215|0
+Turate|CO|09|45.6573|9.0042|0
+Turbigo|MI|09|45.5314|8.7418|0
+Turi|BA|13|40.9173|17.0212|0
+Turri|SU|14|39.7048|8.9165|0
+Turriaco|GO|06|45.8225|13.4422|0
+Turrivalignani|PE|01|42.2619|14.0267|0
+Tursi|MT|02|40.2452|16.4697|0
+Tusa|ME|15|37.9838|14.2361|0
+Tuscania|VT|07|42.4206|11.8712|0
+Ubiale Clanezzo|BG|09|45.7837|9.6194|0
+Uboldo|VA|09|45.6153|9.0039|0
+Ucria|ME|15|38.0458|14.8803|0
+Udine|UD|06|46.0610|13.2368|1
+Ugento|LE|13|39.9263|18.1574|0
+Uggiano la Chiesa|LE|13|40.1017|18.4493|0
+Uggiate con Ronago|CO|09|45.8260|8.9758|0
+Ulà Tirso|OR|14|40.0459|8.9040|0
+Ulassai|NU|14|39.8105|9.4991|0
+Ultimo/Ulten|BZ|17|46.5115|10.9074|0
+Umbertide|PG|18|43.3055|12.3366|0
+Umbriatico|KR|03|39.3536|16.9186|0
+Urago d'Oglio|BS|09|45.5160|9.8697|0
+Uras|OR|14|39.7006|8.7000|0
+Urbana|PD|20|45.1928|11.4449|0
+Urbania|PU|10|43.6697|12.5200|0
+Urbe|SV|08|44.4870|8.5875|0
+Urbino|PU|10|43.7298|12.6356|0
+Urbisaglia|MC|10|43.1913|13.3730|0
+Urgnano|BG|09|45.6006|9.6938|0
+Uri|SS|14|40.6395|8.4854|0
+Ururi|CB|11|41.8165|15.0161|0
+Urzulei|NU|14|40.0935|9.5075|0
+Uscio|GE|08|44.4133|9.1626|0
+Usellus|OR|14|39.8096|8.8507|0
+Usini|SS|14|40.6641|8.5405|0
+Usmate Velate|MB|09|45.6480|9.3625|0
+Ussana|SU|14|39.3946|9.0732|0
+Ussaramanna|SU|14|39.6928|8.9076|0
+Ussassai|NU|14|39.8103|9.3950|0
+Usseaux|TO|12|45.0489|7.0285|0
+Usseglio|TO|12|45.2326|7.2144|0
+Ussita|MC|10|42.9438|13.1362|0
+Ustica|PA|15|38.7108|13.1916|0
+Uta|CA|14|39.2911|8.9542|0
+Uzzano|PT|16|43.8826|10.7109|0
+Vaccarizzo Albanese|CS|03|39.5854|16.4329|0
+Vacone|RI|07|42.3851|12.6443|0
+Vacri|CH|01|42.2962|14.2303|0
+Vadena/Pfatten|BZ|17|46.4136|11.3050|0
+Vado Ligure|SV|08|44.2691|8.4337|0
+Vagli Sotto|LU|16|44.1093|10.2888|0
+Vaglia|FI|16|43.9104|11.2791|0
+Vaglio Basilicata|PZ|02|40.6675|15.9180|0
+Vaglio Serra|AT|12|44.7963|8.3389|0
+Vaiano Cremasco|CR|09|45.3720|9.5872|0
+Vaiano|PO|16|43.9490|11.1232|0
+Vaie|TO|12|45.1023|7.2894|0
+Vailate|CR|09|45.4634|9.6031|0
+Vairano Patenora|CE|04|41.3370|14.1311|0
+Vajont|PN|06|46.1462|12.6952|0
+Val Brembilla|BG|09|45.8303|9.5999|0
+Val della Torre|TO|12|45.1551|7.4450|0
+Val di Chy|TO|12|45.4554|7.7830|0
+Val di Nizza|PV|09|44.8791|9.1675|0
+Val di Vizze/Pfitsch|BZ|17|46.9500|11.5500|0
+Val di Zoldo|BL|20|46.3537|12.1530|0
+Val Liona|VI|20|45.4039|11.4688|0
+Val Masino|SO|09|46.2152|9.6380|0
+Val Rezzo|CO|09|46.0727|9.1118|0
+Valbondione|BG|09|46.0342|10.0059|0
+Valbrembo|BG|09|45.7186|9.6090|0
+Valbrenta|VI|20|45.8977|11.7293|0
+Valbrevenna|GE|08|44.5555|9.0682|0
+Valbrona|CO|09|45.8774|9.2988|0
+Valchiusa|TO|12|45.4995|7.7484|0
+Valdagno|VI|20|45.6483|11.3064|0
+Valdaone|TN|17|46.0174|10.5459|0
+Valdaora/Olang|BZ|17|46.7598|12.0310|0
+Valdastico|VI|20|45.8867|11.3616|0
+Valdengo|BI|12|45.5671|8.1383|0
+Valderice|TP|15|38.0333|12.6167|0
+Valdidentro|SO|09|46.4833|10.2833|0
+Valdieri|CN|12|44.2776|7.3976|0
+Valdilana|BI|12|45.6772|8.1243|0
+Valdina|ME|15|38.1946|15.3690|0
+Valdisotto|SO|09|46.4344|10.3569|0
+Valdobbiadene|TV|20|45.8993|11.9946|0
+Valduggia|VC|12|45.7284|8.3299|0
+Valeggio sul Mincio|VR|20|45.3523|10.7367|0
+Valeggio|PV|09|45.1507|8.8599|0
+Valentano|VT|07|42.5645|11.8261|0
+Valenza|AL|12|45.0140|8.6414|0
+Valenzano|BA|13|41.0453|16.8851|0
+Valera Fratta|LO|09|45.2572|9.3361|0
+Valfabbrica|PG|18|43.1833|12.6667|0
+Valfenera|AT|12|44.9017|7.9643|0
+Valfloriana|TN|17|46.2497|11.3431|0
+Valfornace|MC|10|43.0547|13.1123|0
+Valfurva|SO|09|46.4135|10.4899|0
+Valganna|VA|09|45.9023|8.8233|0
+Valgioie|TO|12|45.0761|7.3407|0
+Valgoglio|BG|09|45.9749|9.9136|0
+Valgrana|CN|12|44.4112|7.3801|0
+Valgreghentino|LC|09|45.7793|9.4134|0
+Valgrisenche|AO|19|45.6304|7.0640|0
+Valguarnera Caropepe|EN|15|37.4956|14.3888|0
+Vallada Agordina|BL|20|46.3644|11.9340|0
+Vallanzengo|BI|12|45.6033|8.1504|0
+Vallarsa|TN|17|45.7828|11.1179|0
+Vallata|AV|04|41.0372|15.2522|0
+Valle Agricola|CE|04|41.4250|14.2550|0
+Valle Aurina/Ahrntal|BZ|17|46.9962|11.9799|0
+Valle Cannobina|VB|12|46.0846|8.6121|0
+Valle Castellana|TE|01|42.7361|13.4971|0
+Valle dell'Angelo|SA|04|40.3438|15.3685|0
+Valle di Cadore|BL|20|46.4179|12.3346|0
+Valle di Casies/Gsies|BZ|17|46.7683|12.1794|0
+Valle di Maddaloni|CE|04|41.0795|14.4156|0
+Valle Lomellina|PV|09|45.1531|8.6685|0
+Valle Salimbene|PV|09|45.1720|9.2345|0
+Valle San Nicolao|BI|12|45.6071|8.1410|0
+Vallebona|IM|08|43.8127|7.6665|0
+Vallecorsa|FR|07|41.4446|13.4052|0
+Vallecrosia|IM|08|43.7897|7.6438|0
+Valledolmo|PA|15|37.7475|13.8279|0
+Valledoria|SS|14|40.9280|8.8214|0
+Vallefiorita|CZ|03|38.7764|16.4610|0
+Vallefoglia|PU|10|43.8441|12.7410|0
+Vallelaghi|TN|17|46.1016|11.0103|0
+Vallelonga|VV|03|38.6473|16.2949|0
+Vallelunga Pratameno|CL|15|37.6820|13.8316|0
+Vallemaio|FR|07|41.3644|13.8093|0
+Vallepietra|RM|07|41.9262|13.2314|0
+Vallerano|VT|07|42.3840|12.2635|0
+Vallermosa|SU|14|39.3644|8.7963|0
+Vallerotonda|FR|07|41.5505|13.9120|0
+Vallesaccarda|AV|04|41.0631|15.2521|0
+Valleve|BG|09|46.0282|9.7438|0
+Valli del Pasubio|VI|20|45.7408|11.2617|0
+Vallinfreda|RM|07|42.0838|12.9969|0
+Vallio Terme|BS|09|45.6104|10.3926|0
+Vallo della Lucania|SA|04|40.2297|15.2658|0
+Vallo di Nera|PG|18|42.7546|12.8641|0
+Vallo Torinese|TO|12|45.2236|7.4963|0
+Valloriate|CN|12|44.3376|7.3739|0
+Valmacca|AL|12|45.1003|8.5830|0
+Valmadrera|LC|09|45.8463|9.3582|0
+Valmontone|RM|07|41.7788|12.9175|0
+Valmorea|CO|09|45.8167|8.9333|0
+Valmozzola|PR|05|44.5685|9.8833|0
+Valnegra|BG|09|45.9491|9.6893|0
+Valpelline|AO|19|45.8249|7.3255|0
+Valperga|TO|12|45.3732|7.6580|0
+Valprato Soana|TO|12|45.5208|7.5490|0
+Valsamoggia|BO|05|44.5077|11.0983|0
+Valsavarenche|AO|19|45.5919|7.2100|0
+Valsinni|MT|02|40.1699|16.4435|0
+Valsolda|CO|09|46.0249|9.0546|0
+Valstrona|VB|12|45.9274|8.2836|0
+Valtopina|PG|18|43.0567|12.7531|0
+Valtorta|BG|09|45.9778|9.5350|0
+Valtournenche|AO|19|45.8761|7.6243|0
+Valva|SA|04|40.7382|15.2695|0
+Valvarrone|LC|09|46.0831|9.3631|0
+Valvasone Arzene|PN|06|45.9903|12.8642|0
+Valverde|CT|15|37.5769|15.1242|0
+Valvestino|BS|09|45.7607|10.5955|0
+Vandoies/Vintl|BZ|17|46.8163|11.7221|0
+Vanzaghello|MI|09|45.5792|8.7810|0
+Vanzago|MI|09|45.5270|8.9940|0
+Vanzone con San Carlo|VB|12|45.9788|8.1106|0
+Vaprio d'Adda|MI|09|45.5778|9.5247|0
+Vaprio d'Agogna|NO|12|45.6037|8.5535|0
+Varallo Pombia|NO|12|45.6669|8.6289|0
+Varallo|VC|12|45.8139|8.2590|0
+Varano Borghi|VA|09|45.7741|8.7040|0
+Varano de' Melegari|PR|05|44.6881|10.0115|0
+Varapodio|RC|03|38.3171|15.9844|0
+Varazze|SV|08|44.3595|8.5740|0
+Varco Sabino|RI|07|42.2398|13.0199|0
+Varedo|MB|09|45.5980|9.1567|0
+Varenna|LC|09|46.0109|9.2836|0
+Varese Ligure|SP|08|44.3764|9.5942|0
+Varese|VA|09|45.8291|8.8219|1
+Varisella|TO|12|45.2084|7.4838|0
+Varmo|UD|06|45.8870|12.9877|0
+Varna/Vahrn|BZ|17|46.7382|11.6386|0
+Varsi|PR|05|44.6622|9.8467|0
+Varzi|PV|09|44.8235|9.1953|0
+Varzo|VB|12|46.2067|8.2524|0
+Vasanello|VT|07|42.4137|12.3466|0
+Vasia|IM|08|43.9320|7.9530|0
+Vasto|CH|01|42.1243|14.7059|0
+Vastogirardi|IS|11|41.7741|14.2604|0
+Vauda Canavese|TO|12|45.2799|7.6202|0
+Vazzano|VV|03|38.6329|16.2480|0
+Vazzola|TV|20|45.8419|12.3823|0
+Vecchiano|PI|16|43.7833|10.3844|0
+Vedano al Lambro|MB|09|45.6088|9.2678|0
+Vedano Olona|VA|09|45.7760|8.8858|0
+Vedelago|TV|20|45.6876|12.0185|0
+Vedeseta|BG|09|45.8910|9.5398|0
+Veduggio con Colzano|MB|09|45.7339|9.2702|0
+Veggiano|PD|20|45.4472|11.7128|0
+Veglie|LE|13|40.3351|17.9652|0
+Veglio|BI|12|45.6406|8.1141|0
+Vejano|VT|07|42.2172|12.0956|0
+Veleso|CO|09|45.9084|9.1821|0
+Velezzo Lomellina|PV|09|45.1634|8.7372|0
+Velletri|RM|07|41.6833|12.7833|0
+Vellezzo Bellini|PV|09|45.2707|9.0992|0
+Velo d'Astico|VI|20|45.7884|11.3677|0
+Velo Veronese|VR|20|45.6067|11.0952|0
+Velturno/Feldthurns|BZ|17|46.6675|11.5951|0
+Venafro|IS|11|41.4834|14.0451|0
+Venaria Reale|TO|12|45.1238|7.6354|0
+Venarotta|AP|10|42.8830|13.4923|0
+Venasca|CN|12|44.5645|7.4009|0
+Venaus|TO|12|45.1584|7.0081|0
+Vendone|SV|08|44.0769|8.0711|0
+Venegono Inferiore|VA|09|45.7369|8.8969|0
+Venegono Superiore|VA|09|45.7542|8.8967|0
+Venetico|ME|15|38.1931|15.3812|0
+Venezia|VE|20|45.4389|12.3309|1
+Veniano|CO|09|45.7194|8.9897|0
+Venosa|PZ|02|40.9613|15.8149|0
+Ventasso|RE|05|44.3535|10.2819|0
+Venticano|AV|04|41.0472|14.9119|0
+Ventimiglia di Sicilia|PA|15|37.9245|13.5691|0
+Ventimiglia|IM|08|43.7935|7.6026|0
+Ventotene|LT|07|40.7960|13.4312|0
+Venzone|UD|06|46.3312|13.1394|0
+Verano Brianza|MB|09|45.6887|9.2245|0
+Verano/Vöran|BZ|17|46.6047|11.2261|0
+Verbania|VB|12|45.9413|8.5737|1
+Verbicaro|CS|03|39.7556|15.9136|0
+Vercana|CO|09|46.1595|9.3351|0
+Verceia|SO|09|46.1987|9.4547|0
+Vercelli|VC|12|45.3231|8.4153|1
+Vercurago|LC|09|45.8105|9.4241|0
+Verdellino|BG|09|45.6011|9.6081|0
+Verdello|BG|09|45.6048|9.6289|0
+Verderio|LC|09|45.6640|9.4405|0
+Verduno|CN|12|44.6661|7.9307|0
+Vergato|BO|05|44.2827|11.1073|0
+Verghereto|FC|05|43.7930|12.0039|0
+Vergiate|VA|09|45.7222|8.6961|0
+Vermezzo con Zelo|MI|09|45.3908|8.9815|0
+Vermiglio|TN|17|46.2969|10.6914|0
+Vernante|CN|12|44.2450|7.5338|0
+Vernasca|PC|05|44.7994|9.8306|0
+Vernate|MI|09|45.3164|9.0604|0
+Vernazza|SP|08|44.1352|9.6839|0
+Vernio|PO|16|44.0476|11.1505|0
+Vernole|LE|13|40.2895|18.3035|0
+Verolanuova|BS|09|45.3282|10.0759|0
+Verolavecchia|BS|09|45.3271|10.0572|0
+Verolengo|TO|12|45.1900|7.9682|0
+Veroli|FR|07|41.6911|13.4177|0
+Verona|VR|20|45.4342|10.9978|1
+Veronella|VR|20|45.3228|11.3247|0
+Verrayes|AO|19|45.7633|7.5346|0
+Verrès|AO|19|45.6666|7.6891|0
+Verretto|PV|09|45.0398|9.1131|0
+Verrone|BI|12|45.5037|8.1190|0
+Verrua Po|PV|09|45.1069|9.1753|0
+Verrua Savoia|TO|12|45.1568|8.0922|0
+Vertemate con Minoprio|CO|09|45.7244|9.0729|0
+Vertova|BG|09|45.8104|9.8533|0
+Verucchio|RN|05|43.9827|12.4230|0
+Vervio|SO|09|46.2540|10.2394|0
+Verzegnis|UD|06|46.3888|12.9908|0
+Verzino|KR|03|39.3111|16.8604|0
+Verzuolo|CN|12|44.5950|7.4835|0
+Vescovana|PD|20|45.1342|11.7165|0
+Vescovato|CR|09|45.1751|10.1646|0
+Vesime|AT|12|44.6357|8.2272|0
+Vespolate|NO|12|45.3504|8.6678|0
+Vessalico|IM|08|44.0452|7.9596|0
+Vestenanova|VR|20|45.5736|11.2285|0
+Vestignè|TO|12|45.3858|7.9548|0
+Vestone|BS|09|45.7089|10.3999|0
+Vetralla|VT|07|42.3098|12.0784|0
+Vetto|RE|05|44.4842|10.3375|0
+Vezza d'Alba|CN|12|44.7627|8.0079|0
+Vezza d'Oglio|BS|09|46.2380|10.3971|0
+Vezzano Ligure|SP|08|44.1403|9.8891|0
+Vezzano sul Crostolo|RE|05|44.6022|10.5490|0
+Vezzi Portio|SV|08|44.2293|8.3651|0
+Viadana|MN|09|44.9333|10.5333|0
+Viadanica|BG|09|45.6847|9.9615|0
+Viagrande|CT|15|37.6078|15.0966|0
+Viale|AT|12|45.0001|8.0499|0
+Vialfrè|TO|12|45.3808|7.8182|0
+Viano|RE|05|44.5459|10.6212|0
+Viareggio|LU|16|43.8735|10.2558|0
+Viarigi|AT|12|44.9806|8.3571|0
+Vibo Valentia|VV|03|38.6743|16.0951|1
+Vibonati|SA|04|40.0998|15.5829|0
+Vicalvi|FR|07|41.6767|13.7064|0
+Vicari|PA|15|37.8237|13.5662|0
+Vicchio|FI|16|43.9325|11.4585|0
+Vicenza|VI|20|45.5573|11.5409|1
+Vico del Gargano|FG|13|41.8983|15.9575|0
+Vico Equense|NA|04|40.6598|14.4317|0
+Vico nel Lazio|FR|07|41.7770|13.3407|0
+Vicoforte|CN|12|44.3639|7.8626|0
+Vicoli|PE|01|42.3414|13.8971|0
+Vicolungo|NO|12|45.4776|8.4627|0
+Vicopisano|PI|16|43.6872|10.5811|0
+Vicovaro|RM|07|42.0196|12.9009|0
+Viddalba|SS|14|40.9124|8.8894|0
+Vidigulfo|PV|09|45.2923|9.2366|0
+Vidor|TV|20|45.8708|12.0456|0
+Vidracco|TO|12|45.4307|7.7574|0
+Vieste|FG|13|41.8824|16.1750|0
+Vietri di Potenza|PZ|02|40.5997|15.5080|0
+Vietri sul Mare|SA|04|40.6687|14.7253|0
+Vigano San Martino|BG|09|45.7261|9.8962|0
+Viganò|LC|09|45.7247|9.3249|0
+Vigarano Mainarda|FE|05|44.8401|11.4947|0
+Vigasio|VR|20|45.3157|10.9401|0
+Vigevano|PV|09|45.3117|8.8611|0
+Viggianello|PZ|02|39.9738|16.0861|0
+Viggiano|PZ|02|40.3407|15.9008|0
+Viggiù|VA|09|45.8717|8.9104|0
+Vigliano Biellese|BI|12|45.5645|8.1045|0
+Vigliano d'Asti|AT|12|44.8340|8.2291|0
+Vignale Monferrato|AL|12|45.0112|8.3961|0
+Vignanello|VT|07|42.3838|12.2768|0
+Vignate|MI|09|45.4966|9.3766|0
+Vignola-Falesina|TN|17|46.0446|11.2763|0
+Vignola|MO|05|44.4830|11.0048|0
+Vignole Borbera|AL|12|44.7099|8.8912|0
+Vignolo|CN|12|44.3622|7.4727|0
+Vignone|VB|12|45.9612|8.5637|0
+Vigo di Cadore|BL|20|46.5003|12.4724|0
+Vigodarzere|PD|20|45.4580|11.8843|0
+Vigolo|BG|09|45.7164|10.0248|0
+Vigolzone|PC|05|44.9147|9.6694|0
+Vigone|TO|12|44.8444|7.4949|0
+Vigonovo|VE|20|45.3884|12.0052|0
+Vigonza|PD|20|45.4276|11.9594|0
+Viguzzolo|AL|12|44.9044|8.9227|0
+Villa Bartolomea|VR|20|45.1520|11.3537|0
+Villa Basilica|LU|16|43.9246|10.6449|0
+Villa Biscossi|PV|09|45.0907|8.7872|0
+Villa Carcina|BS|09|45.6341|10.1922|0
+Villa Castelli|BR|13|40.5845|17.4746|0
+Villa Celiera|PE|01|42.3818|13.8586|0
+Villa Collemandina|LU|16|44.1585|10.3976|0
+Villa Cortese|MI|09|45.5679|8.8877|0
+Villa d'Adda|BG|09|45.7140|9.4617|0
+Villa d'Almè|BG|09|45.7497|9.6144|0
+Villa d'Ogna|BG|09|45.9047|9.9308|0
+Villa del Bosco|BI|12|45.6206|8.2796|0
+Villa del Conte|PD|20|45.5866|11.8590|0
+Villa di Briano|CE|04|41.0000|14.1607|0
+Villa di Chiavenna|SO|09|46.3307|9.4811|0
+Villa di Serio|BG|09|45.7242|9.7362|0
+Villa di Tirano|SO|09|46.2039|10.1339|0
+Villa Estense|PD|20|45.1725|11.6697|0
+Villa Faraldi|IM|08|43.9684|8.0897|0
+Villa Guardia|CO|09|45.7765|9.0266|0
+Villa Lagarina|TN|17|45.9162|11.0306|0
+Villa Latina|FR|07|41.6152|13.8359|0
+Villa Literno|CE|04|41.0099|14.0805|0
+Villa Minozzo|RE|05|44.3651|10.4660|0
+Villa San Giovanni in Tuscia|VT|07|42.2788|12.0535|0
+Villa San Giovanni|RC|03|38.2276|15.6386|0
+Villa San Pietro|CA|14|39.0357|8.9993|0
+Villa San Secondo|AT|12|45.0065|8.1336|0
+Villa Sant'Angelo|AQ|01|42.2704|13.5371|0
+Villa Sant'Antonio|OR|14|39.8591|8.9015|0
+Villa Santa Lucia degli Abruzzi|AQ|01|42.3331|13.7770|0
+Villa Santa Lucia|FR|07|41.5124|13.7700|0
+Villa Santa Maria|CH|01|41.9524|14.3518|0
+Villa Santina|UD|06|46.4149|12.9219|0
+Villa Santo Stefano|FR|07|41.5174|13.3102|0
+Villa Verde|OR|14|39.7953|8.8211|0
+Villabassa/Niederdorf|BZ|17|46.7381|12.1714|0
+Villabate|PA|15|38.0763|13.4449|0
+Villachiara|BS|09|45.3554|9.9310|0
+Villacidro|SU|14|39.4575|8.7375|0
+Villadeati|AL|12|45.0722|8.1679|0
+Villadose|RO|20|45.0689|11.8933|0
+Villadossola|VB|12|46.0732|8.2674|0
+Villafalletto|CN|12|44.5437|7.5401|0
+Villafranca d'Asti|AT|12|44.9119|8.0316|0
+Villafranca di Verona|VR|20|45.3524|10.8402|0
+Villafranca in Lunigiana|MS|16|44.2948|9.9490|0
+Villafranca Padovana|PD|20|45.4919|11.7935|0
+Villafranca Piemonte|TO|12|44.7789|7.5004|0
+Villafranca Sicula|AG|15|37.5881|13.2892|0
+Villafranca Tirrena|ME|15|38.2401|15.4374|0
+Villafrati|PA|15|37.9070|13.4848|0
+Villaga|VI|20|45.4028|11.5338|0
+Villagrande Strisaili|NU|14|39.9613|9.5075|0
+Villalago|AQ|01|41.9347|13.8420|0
+Villalba|CL|15|37.6551|13.8429|0
+Villalfonsina|CH|01|42.1605|14.5716|0
+Villalvernia|AL|12|44.8154|8.8573|0
+Villamagna|CH|01|42.3289|14.2361|0
+Villamaina|AV|04|40.9694|15.0900|0
+Villamar|SU|14|39.6180|8.9588|0
+Villamarzana|RO|20|45.0136|11.6974|0
+Villamassargia|SU|14|39.2759|8.6414|0
+Villamiroglio|AL|12|45.1345|8.1710|0
+Villandro/Villanders|BZ|17|46.6308|11.5371|0
+Villanova Biellese|BI|12|45.4816|8.1943|0
+Villanova Canavese|TO|12|45.2435|7.5521|0
+Villanova d'Albenga|SV|08|44.0511|8.1468|0
+Villanova d'Ardenghi|PV|09|45.1717|9.0424|0
+Villanova d'Asti|AT|12|44.9419|7.9371|0
+Villanova del Battista|AV|04|41.1208|15.1587|0
+Villanova del Ghebbo|RO|20|45.0592|11.6390|0
+Villanova del Sillaro|LO|09|45.2380|9.4819|0
+Villanova di Camposampiero|PD|20|45.4889|11.9747|0
+Villanova Marchesana|RO|20|44.9923|11.9647|0
+Villanova Mondovì|CN|12|44.3469|7.7663|0
+Villanova Monferrato|AL|12|45.1829|8.4792|0
+Villanova Monteleone|SS|14|40.5037|8.4708|0
+Villanova Solaro|CN|12|44.7299|7.5744|0
+Villanova sull'Arda|PC|05|45.0265|9.9985|0
+Villanova Truschedu|OR|14|39.9886|8.7520|0
+Villanova Tulo|SU|14|39.7799|9.2142|0
+Villanovaforru|SU|14|39.6318|8.8690|0
+Villanovafranca|SU|14|39.6453|9.0029|0
+Villanterio|PV|09|45.2195|9.3644|0
+Villanuova sul Clisi|BS|09|45.6002|10.4528|0
+Villaperuccio|SU|14|39.1118|8.6700|0
+Villapiana|CS|03|39.8465|16.4552|0
+Villaputzu|SU|14|39.4410|9.5739|0
+Villar Dora|TO|12|45.1146|7.3835|0
+Villar Focchiardo|TO|12|45.1124|7.2384|0
+Villar Pellice|TO|12|44.8083|7.1521|0
+Villar Perosa|TO|12|44.9187|7.2492|0
+Villar San Costanzo|CN|12|44.4847|7.3822|0
+Villarbasse|TO|12|45.0451|7.4684|0
+Villarboit|VC|12|45.4374|8.3373|0
+Villareggia|TO|12|45.3101|7.9766|0
+Villaricca|NA|04|40.9216|14.1898|0
+Villaromagnano|AL|12|44.8496|8.8878|0
+Villarosa|EN|15|37.5887|14.1660|0
+Villasalto|SU|14|39.4922|9.3931|0
+Villasanta|MB|09|45.6080|9.3103|0
+Villasimius|SU|14|39.1431|9.5208|0
+Villasor|SU|14|39.3804|8.9428|0
+Villaspeciosa|SU|14|39.3122|8.9251|0
+Villastellone|TO|12|44.9172|7.7449|0
+Villata|VC|12|45.3878|8.4326|0
+Villaurbana|OR|14|39.8856|8.7774|0
+Villavallelonga|AQ|01|41.8714|13.6212|0
+Villaverla|VI|20|45.6517|11.4873|0
+Ville d'Anaunia|TN|17|46.2779|10.9629|0
+Ville di Fiemme|TN|17|46.3017|11.4505|0
+Villeneuve|AO|19|45.7018|7.2079|0
+Villesse|GO|06|45.8630|13.4404|0
+Villetta Barrea|AQ|01|41.7758|13.9385|0
+Villette|VB|12|46.1319|8.5342|0
+Villimpenta|MN|09|45.1472|11.0317|0
+Villongo|BG|09|45.6679|9.9298|0
+Villorba|TV|20|45.7140|12.2560|0
+Vilminore di Scalve|BG|09|45.9982|10.0938|0
+Vimercate|MB|09|45.6119|9.3671|0
+Vimodrone|MI|09|45.5154|9.2857|0
+Vinadio|CN|12|44.3090|7.1760|0
+Vinchiaturo|CB|11|41.4929|14.5907|0
+Vinchio|AT|12|44.8109|8.3209|0
+Vinci|FI|16|43.7788|10.9224|0
+Vinovo|TO|12|44.9500|7.6333|0
+Vinzaglio|NO|12|45.3230|8.5191|0
+Viola|CN|12|44.2920|7.9647|0
+Vione|BS|09|46.2484|10.4472|0
+Vipiteno/Sterzing|BZ|17|46.8925|11.4301|0
+Virle Piemonte|TO|12|44.8645|7.5701|0
+Visano|BS|09|45.3184|10.3724|0
+Vische|TO|12|45.3333|7.9333|0
+Visciano|NA|04|40.9254|14.5828|0
+Visco|UD|06|45.8914|13.3485|0
+Visone|AL|12|44.6618|8.5008|0
+Visso|MC|10|42.9293|13.0874|0
+Vistarino|PV|09|45.2108|9.3082|0
+Vistrorio|TO|12|45.4425|7.7680|0
+Vita|TP|15|37.8705|12.8250|0
+Viterbo|VT|07|42.4178|12.1086|1
+Viticuso|FR|07|41.5243|13.9711|0
+Vito d'Asio|PN|06|46.2329|12.9569|0
+Vitorchiano|VT|07|42.4654|12.1725|0
+Vittoria|RG|15|36.9537|14.5332|0
+Vittorio Veneto|TV|20|45.9728|12.3000|0
+Vittorito|AQ|01|42.1270|13.8167|0
+Vittuone|MI|09|45.4880|8.9524|0
+Vitulano|BN|04|41.1752|14.6413|0
+Vitulazio|CE|04|41.1641|14.2169|0
+Viù|TO|12|45.2392|7.3754|0
+Vivaro Romano|RM|07|42.0998|13.0067|0
+Vivaro|PN|06|46.0763|12.7768|0
+Viverone|BI|12|45.4273|8.0494|0
+Vizzini|CT|15|37.1609|14.7497|0
+Vizzola Ticino|VA|09|45.6317|8.6865|0
+Vizzolo Predabissi|MI|09|45.3559|9.3482|0
+Vo'|PD|20|45.3283|11.6415|0
+Vobarno|BS|09|45.6401|10.5035|0
+Vobbia|GE|08|44.6013|9.0387|0
+Vocca|VC|12|45.8334|8.1954|0
+Vodo Cadore|BL|20|46.4196|12.2449|0
+Voghera|PV|09|44.9893|9.0015|0
+Voghiera|FE|05|44.7556|11.7518|0
+Vogogna|VB|12|46.0090|8.2930|0
+Volano|TN|17|45.9180|11.0624|0
+Volla|NA|04|40.8784|14.3429|0
+Volongo|CR|09|45.2119|10.3014|0
+Volpago del Montello|TV|20|45.7773|12.1144|0
+Volpara|PV|09|44.9531|9.2969|0
+Volpedo|AL|12|44.8903|8.9818|0
+Volpeglino|AL|12|44.8930|8.9595|0
+Volpiano|TO|12|45.2015|7.7782|0
+Volta Mantovana|MN|09|45.3187|10.6585|0
+Voltaggio|AL|12|44.6217|8.8430|0
+Voltago Agordino|BL|20|46.2720|12.0052|0
+Volterra|PI|16|43.4003|10.8600|0
+Voltido|CR|09|45.1120|10.3330|0
+Volturara Appula|FG|13|41.4960|15.0522|0
+Volturara Irpina|AV|04|40.8824|14.9157|0
+Volturino|FG|13|41.4772|15.1242|0
+Volvera|TO|12|44.9548|7.5114|0
+Vottignasco|CN|12|44.5641|7.5791|0
+Zaccanopoli|VV|03|38.6648|15.9298|0
+Zafferana Etnea|CT|15|37.6822|15.1080|0
+Zagarise|CZ|03|38.9992|16.6632|0
+Zagarolo|RM|07|41.8431|12.8105|0
+Zambrone|VV|03|38.6992|15.9901|0
+Zandobbio|BG|09|45.6879|9.8534|0
+Zanè|VI|20|45.7234|11.4429|0
+Zanica|BG|09|45.6409|9.6857|0
+Zapponeta|FG|13|41.4570|15.9571|0
+Zavattarello|PV|09|44.8675|9.2652|0
+Zeccone|PV|09|45.2579|9.2012|0
+Zeddiani|OR|14|39.9900|8.5953|0
+Zelbio|CO|09|45.9046|9.1805|0
+Zelo Buon Persico|LO|09|45.4125|9.4327|0
+Zeme|PV|09|45.1973|8.6683|0
+Zenevredo|PV|09|45.0543|9.3257|0
+Zenson di Piave|TV|20|45.6778|12.4879|0
+Zerba|PC|05|44.6662|9.2872|0
+Zerbo|PV|09|45.1105|9.3961|0
+Zerbolò|PV|09|45.2072|9.0130|0
+Zerfaliu|OR|14|39.9597|8.7096|0
+Zeri|MS|16|44.3333|9.7667|0
+Zermeghedo|VI|20|45.4750|11.3695|0
+Zero Branco|TV|20|45.6017|12.1652|0
+Zevio|VR|20|45.3721|11.1293|0
+Ziano di Fiemme|TN|17|46.2865|11.5660|0
+Ziano Piacentino|PC|05|45.0015|9.4016|0
+Zibido San Giacomo|MI|09|45.3682|9.1190|0
+Zignago|SP|08|44.2972|9.7379|0
+Zimella|VR|20|45.3322|11.3753|0
+Zimone|BI|12|45.4493|8.0360|0
+Zinasco|PV|09|45.1284|9.0297|0
+Zoagli|GE|08|44.3366|9.2710|0
+Zocca|MO|05|44.3473|10.9904|0
+Zogno|BG|09|45.7919|9.6562|0
+Zola Predosa|BO|05|44.4899|11.2174|0
+Zollino|LE|13|40.2065|18.2487|0
+Zone|BS|09|45.7634|10.1159|0
+Zoppè di Cadore|BL|20|46.3862|12.1725|0
+Zoppola|PN|06|45.9666|12.7723|0
+Zovencedo|VI|20|45.4285|11.5032|0
+Zubiena|BI|12|45.4927|7.9955|0
+Zuccarello|SV|08|44.1110|8.1159|0
+Zugliano|VI|20|45.7298|11.5240|0
+Zuglio|UD|06|46.4598|13.0247|0
+Zumaglia|BI|12|45.5939|8.0894|0
+Zumpano|CS|03|39.3109|16.2921|0
+Zungoli|AV|04|41.1253|15.2036|0
+Zungri|VV|03|38.6567|15.9841|0`;

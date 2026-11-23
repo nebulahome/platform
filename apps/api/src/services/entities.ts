@@ -49,6 +49,9 @@ import { decodeCursor, toPage, type PageResult } from '../http/pagination.js';
 import { checkIcon, type IconLookup } from './icon-lookup.js';
 import { assertTagsExist, replaceEntityTags } from './tags.js';
 
+/** The capabilities whose value can be shown in a calendar (Show in calendar). */
+const CALENDAR_CAPABILITIES = new Set(['time_of_day', 'date', 'datetime']);
+
 /** One entity row before its capabilities, tags and state are attached. */
 type EntityRow = {
   rowId: string;
@@ -103,6 +106,9 @@ type EntityRow = {
 
   /** For an alias, the type it behaves as. */
   aliasBehavesAs: string | null;
+
+  /** Show in calendar: the calendar its value is shown in. */
+  calendarId: string | null;
 };
 
 /**
@@ -154,6 +160,7 @@ const ENTITY_COLUMNS = {
     ${schema.registry.devices.preferredTransport})`,
   kind: schema.registry.integrations.kind,
   instanceTransport: schema.registry.integrations.transport,
+  calendarId: schema.registry.entities.calendarId,
   aliasBehavesAs: sql<
     string | null
   >`(SELECT a.behaves_as FROM registry.aliases a WHERE a.entity_id = ${schema.registry.entities.id})`,
@@ -430,6 +437,7 @@ function toView(
     lastChanged: row.lastChanged,
     lastUpdated: row.lastUpdated,
     tagIds: tags.map((tag) => tag.id),
+    calendarId: row.calendarId,
   });
 }
 
@@ -958,7 +966,8 @@ export async function withSources(
  * @param detail - The entity as found, with the row the change addresses.
  * @param body - What to change.
  * @returns The entity as it now stands.
- * @throws {ValidationError} When the icon is not in the catalogue, or a tag id names no tag.
+ * @throws {ValidationError} When the icon is not in the catalogue, a tag id names no tag, or a
+ * calendar is asked of an entity that is no time or date.
  */
 export async function updateEntity(
   db: Database,
@@ -968,6 +977,15 @@ export async function updateEntity(
 ): Promise<EntityView> {
   if (body.icon !== undefined && body.icon !== null) {
     checkIcon(icons, body.icon);
+  }
+
+  if (
+    typeof body.calendarId === 'string' &&
+    !detail.view.capabilities.some((each) => CALENDAR_CAPABILITIES.has(each.capability))
+  ) {
+    throw new ValidationError('Only a time, a date or a date and time is shown in a calendar', {
+      details: { issues: [{ path: 'calendarId', message: 'Not a time or a date' }] },
+    });
   }
 
   if (
@@ -1006,7 +1024,8 @@ export async function updateEntity(
       body.icon !== undefined ||
       body.transport !== undefined ||
       body.shownAs !== undefined ||
-      body.isEnabled !== undefined
+      body.isEnabled !== undefined ||
+      body.calendarId !== undefined
     ) {
       await tx
         .update(schema.registry.entities)
@@ -1015,6 +1034,7 @@ export async function updateEntity(
           ...(body.icon === undefined ? {} : { icon: body.icon }),
           ...(body.transport === undefined ? {} : { transport: body.transport }),
           ...(body.isEnabled === undefined ? {} : { isEnabled: body.isEnabled }),
+          ...(body.calendarId === undefined ? {} : { calendarId: body.calendarId }),
           ...(body.shownAs === undefined
             ? {}
             : {

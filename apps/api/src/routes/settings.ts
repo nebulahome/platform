@@ -23,6 +23,7 @@ import { defineRoute, type RouteEnvironment } from '../http/route.js';
 import { auditOrigin } from '../services/audit.js';
 import { syncHouseOnCore } from '../services/automations-core.js';
 import { askBackup, BACKUP_REPLIES } from '../services/backup.js';
+import { syncCalendarsOnCore } from '../services/calendar-core.js';
 import {
   auditableChanges,
   readSettingValues,
@@ -140,6 +141,16 @@ export function registerSettingsRoutes(environment: RouteEnvironment, context: A
       // The house's zone is what automations keep time by; `core` reads it again now.
       if (accepted.has('house.timezone')) {
         await syncHouseOnCore({
+          bus: context.bus,
+          traceId: route.request.traceId,
+          timeoutMs: context.config.API_BUS_TIMEOUT_MS,
+          logger: context.logger,
+        });
+      }
+
+      // The holidays' place, the weekend and the hidden holidays decide `core`'s working days.
+      if ([...accepted.keys()].some((key) => key.startsWith('calendar.'))) {
+        await syncCalendarsOnCore({
           bus: context.bus,
           traceId: route.request.traceId,
           timeoutMs: context.config.API_BUS_TIMEOUT_MS,

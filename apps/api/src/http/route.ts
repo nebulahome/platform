@@ -89,6 +89,9 @@ export type RouteDefinition = {
 
   /** A budget of its own, tighter than the server's: for a route where a password is guessed. */
   readonly rateLimit?: { readonly max: number; readonly timeWindow: number };
+
+  /** The largest body it takes, in bytes, when not the server's: a file read in the browser. */
+  readonly bodyLimit?: number;
 };
 
 /**
@@ -196,6 +199,7 @@ export function defineRoute<TShapes extends Shapes>(
     method: definition.method,
     url: `${environment.basePath}${definition.url}`,
     ...rateLimitOf(definition),
+    ...(definition.bodyLimit === undefined ? {} : { bodyLimit: definition.bodyLimit }),
 
     /**
      * Validates, authorises and runs the route.

@@ -6,7 +6,8 @@
  * language; its data is CC BY-SA 4.0 (https://github.com/commenthol/date-holidays), credited here
  * and used unchanged. Only `public` holidays count: an observance (Mother's Day) or a bank holiday
  * is not a day off. Its third level (the cities of some regions) is not read: the patron comes
- * from `italian-patrons.ts`, or from the one the owner typed (`calendar.patron`).
+ * from `italian-patrons.ts`, through the town's name (`italian-capitals.ts`), or from the one the
+ * owner typed (`calendar.patron`).
  *
  * Not exported from the package's root: the data is large and the web UI never needs it. The API
  * and `core` import `@nebulahome/contracts/holidays`.
@@ -19,9 +20,11 @@ import type {
   CalendarRegionOption,
   HolidayKind,
 } from './calendar-schemas.js';
+import { ITALIAN_CAPITALS } from './italian-capitals.js';
 import { ITALIAN_PATRONS, type ItalianPatronDay } from './italian-patrons.js';
 import type { DayKey } from './zoned-time.js';
 
+export { ITALIAN_CAPITALS } from './italian-capitals.js';
 export { ITALIAN_PATRONS, type ItalianPatronDay } from './italian-patrons.js';
 
 /** A holiday as the rules make it; the API adds whether it is hidden. */
@@ -78,7 +81,8 @@ function ruleSlug(rule: string): string {
  * Stefano in Biella, Whit Monday in Bolzano) is not listed again.
  *
  * @param year - The year.
- * @param place - The country, the region, the town.
+ * @param place - The country, the region, the town by its name (`Milano`); a town with no listed
+ *   patron adds none.
  * @param language - The house's language, for the names; the country's own when it has none.
  * @param patron - The patron the owner typed, which comes before the listed one.
  * @returns The holidays.
@@ -106,6 +110,11 @@ export function holidaysOf(
   }));
   const rules = new Set(listed.map((holiday) => holiday.rule));
   const typed = patron ?? null;
+  // The settings keep the town's name; the patrons are keyed by province (`MI`) or city (`Forli`).
+  const listedKey =
+    place.country === 'IT' && place.town !== null && Object.hasOwn(ITALIAN_CAPITALS, place.town)
+      ? (ITALIAN_CAPITALS[place.town] ?? null)
+      : null;
   const days: readonly ItalianPatronDay[] =
     typed !== null
       ? [
@@ -114,10 +123,10 @@ export function holidaysOf(
             rule: `${String(typed.month).padStart(2, '0')}-${String(typed.day).padStart(2, '0')}`,
           },
         ]
-      : place.country === 'IT' && place.town !== null
-        ? (ITALIAN_PATRONS[place.town] ?? [])
-        : [];
-  const owner = typed !== null ? prefix : `${prefix}-${(place.town ?? '').toLowerCase()}`;
+      : listedKey === null
+        ? []
+        : (ITALIAN_PATRONS[listedKey] ?? []);
+  const owner = typed !== null ? prefix : `${prefix}-${(listedKey ?? '').toLowerCase()}`;
 
   for (const [index, day] of days.entries()) {
     if (rules.has(day.rule.replace(/ since \d{4}$/, ''))) {

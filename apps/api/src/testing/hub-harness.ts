@@ -23,6 +23,16 @@ import {
   CORE_REMOVE_AUTOMATION_METHOD,
   CORE_SYNC_AUTOMATION_METHOD,
   CORE_SYNC_HOUSE_METHOD,
+  calendarIcsRefreshRequestSchema,
+  calendarIcsTestRequestSchema,
+  CORE_CALENDAR_ICS_REFRESH_METHOD,
+  CORE_CALENDAR_ICS_TEST_METHOD,
+  CORE_SYNC_CALENDARS_METHOD,
+  syncCalendarsRequestSchema,
+  type CalendarIcsRefreshReply,
+  type CalendarIcsTestReply,
+  type CalendarIcsTestRequest,
+  type SyncCalendarsReply,
   CORE_TEST_AUTOMATION_BLOCK_METHOD,
   CORE_TRIGGER_AUTOMATION_METHOD,
   CORE_WEBHOOK_CALL_METHOD,
@@ -624,6 +634,12 @@ export const webhookCalls: WebhookCallRequest[] = [];
 /** How many times the fake `core` was asked to read the house again. */
 export const houseSyncs: { count: number } = { count: 0 };
 
+/** How many times the fake `core` was asked to read the calendars again. */
+export const calendarSyncs: { count: number } = { count: 0 };
+
+/** The sources the fake `core` was asked to test, in order. */
+export const icsTests: CalendarIcsTestRequest[] = [];
+
 /** Every command the fake `core` accepted, in order. */
 export const commanded: { entityId: string; capability: string; command: string }[] = [];
 
@@ -1132,6 +1148,52 @@ export async function buildTestServer(
 
         return { timeZone: 'UTC', hasPosition: false };
       },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_SYNC_CALENDARS_METHOD),
+      syncCalendarsRequestSchema,
+      (): SyncCalendarsReply => {
+        calendarSyncs.count += 1;
+
+        return { calendarCount: 0 };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_CALENDAR_ICS_TEST_METHOD),
+      calendarIcsTestRequestSchema,
+
+      // An address with `not-a-calendar` in it is a web page; anything else holds three events.
+      (request): CalendarIcsTestReply => {
+        icsTests.push(request);
+
+        return 'url' in request && request.url.includes('not-a-calendar')
+          ? { kind: 'error', code: 'not_calendar', detail: 'text/html' }
+          : {
+              kind: 'ok',
+              eventCount: 3,
+              rangeFrom: '2026-01-07',
+              rangeTo: '2026-12-30',
+              next: null,
+              matchedModels: 0,
+              calendarName: 'Raccolta',
+              allPast: false,
+            };
+      },
+    ),
+    core.serve(
+      busSubjects.service(CORE_SERVICE, CORE_CALENDAR_ICS_REFRESH_METHOD),
+      calendarIcsRefreshRequestSchema,
+      (): CalendarIcsRefreshReply => ({
+        lastAttemptAt: new Date('2026-11-22T10:00:00Z'),
+        lastSuccessAt: new Date('2026-11-22T10:00:00Z'),
+        etag: null,
+        lastModified: null,
+        error: null,
+        eventCount: 3,
+        rangeFrom: '2026-01-07',
+        rangeTo: '2026-12-30',
+        matchedModels: 0,
+      }),
     ),
     core.serve(
       busSubjects.service(CORE_SERVICE, CORE_APPLY_SCENE_METHOD),

@@ -28,6 +28,7 @@ const PREFIXES: readonly (readonly [prefix: string, kind: LibraryKind])[] = [
   ['icon.', 'icons'],
   ['backup_location.', 'backups'],
   ['integration.', 'vendors'],
+  ['calendar.', 'calendar'],
 ];
 
 /** Actions under those prefixes that change nothing another page lists. */
@@ -37,6 +38,9 @@ const UNCHANGING = new Set([
   'automation.trigger',
   'area.map.fetch',
   'user.password_change',
+
+  // A tested file sits on no calendar until one takes it, which is its own write.
+  'calendar.ics_file.upload',
 ]);
 
 /**
