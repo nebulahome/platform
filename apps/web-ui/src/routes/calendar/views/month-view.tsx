@@ -301,6 +301,7 @@ export function MonthView(props: MonthViewProps) {
                               icon={look.icon}
                               color={look.tokenColor}
                               size={18}
+                              className="calendar-appear"
                             />
                           );
                         })}

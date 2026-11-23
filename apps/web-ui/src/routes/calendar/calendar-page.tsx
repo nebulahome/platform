@@ -18,6 +18,7 @@ import { AppIcon, Button, PageHeader, toast } from '@nebulahome/ui';
 
 import { toMessage } from '@/lib/error-message';
 import { useMediaQuery } from '@/lib/use-media-query';
+import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { momentOf } from '@/library/time-values';
 import { SearchField } from '@/routes/library/search-field';
 import { usePreferences } from '@/settings/preferences';
@@ -35,13 +36,14 @@ import {
   type CalendarPageView,
 } from './calendar-time';
 import { CalendarToolbar } from './calendar-toolbar';
+import { crossFade } from './cross-fade';
 import { DayPopover } from './day-popover';
 import { useDeleteEvent } from './delete-event';
 import { EventDialog, type EventSeed } from './dialogs/event-dialog';
 import { SeriesDialog } from './dialogs/series-dialog';
 import { EventPopover, PickupsPopover } from './event-popover';
 import { SearchResults } from './search-results';
-import { SidePanel } from './side-panel';
+import { PanelSlot, SidePanel } from './side-panel';
 import { daysOffOf, LOOK_AHEAD_DAYS } from './today-card';
 import { useCalendarBook } from './use-calendars';
 import { useOccurrences, useShown } from './use-occurrences';
@@ -72,6 +74,18 @@ export function CalendarPage() {
   const isNarrow = useMediaQuery(NARROW_QUERY);
   const panel = usePreferences((state) => state.calendarPanel);
   const setPreferences = usePreferences((state) => state.set);
+  const isReduced = useReducedMotion();
+
+  /**
+   * Switches calendars off and on, cross-fading the view so their events fade rather than blink.
+   *
+   * @param hiddenCalendars - The calendars to keep off.
+   */
+  const setHidden = (hiddenCalendars: readonly string[]): void => {
+    crossFade(() => {
+      setPreferences({ hiddenCalendars: [...hiddenCalendars] });
+    }, isReduced);
+  };
 
   const asked = params.get('view');
   const wanted: CalendarPageView = CALENDAR_PAGE_VIEWS.find((each) => each === asked) ?? 'month';
@@ -382,7 +396,15 @@ export function CalendarPage() {
       />
     );
   } else if (view === 'year') {
-    body = <YearView book={book} day={day} occurrences={shown} daysOff={daysOff} />;
+    body = (
+      <YearView
+        book={book}
+        day={day}
+        occurrences={shown}
+        daysOff={daysOff}
+        isPanelOpen={panel === 'open'}
+      />
+    );
   } else if (view === 'agenda') {
     body = (
       <AgendaView
@@ -392,7 +414,7 @@ export function CalendarPage() {
           setSeed({ mode: 'new', day });
         }}
         onShowAll={() => {
-          setPreferences({ hiddenCalendars: [] });
+          setHidden([]);
         }}
       />
     );
@@ -411,7 +433,7 @@ export function CalendarPage() {
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 grow flex-col gap-5 overflow-y-auto px-8 pt-6 pb-10">
+    <div className="entity-stagger flex min-h-0 min-w-0 grow flex-col gap-5 overflow-y-auto px-8 pt-6 pb-10">
       <PageHeader
         title={t('calendar.page.title', 'Calendar')}
         meta={
@@ -480,7 +502,7 @@ export function CalendarPage() {
         onViewChange={(next) => {
           go({ view: next });
         }}
-        isPanelOpen={isNarrow || view === 'year' ? undefined : panel === 'open'}
+        isPanelOpen={isNarrow ? undefined : panel === 'open'}
         onPanelToggle={() => {
           setPreferences({ calendarPanel: panel === 'open' ? 'closed' : 'open' });
         }}
@@ -509,7 +531,7 @@ export function CalendarPage() {
             variant="ghost"
             size="compact"
             onClick={() => {
-              setPreferences({ hiddenCalendars: [] });
+              setHidden([]);
             }}
           >
             {t('calendar.list.showAll', 'Show all')}
@@ -518,20 +540,23 @@ export function CalendarPage() {
       ) : null}
 
       <div className="flex min-w-0 items-start gap-5">
-        {body}
-        {isPanelOpen ? (
-          <SidePanel
-            book={book}
-            ahead={ahead.data ?? []}
-            onOpen={open}
-            onShowDay={(each) => {
-              go({ date: each });
-            }}
-            onHiddenChange={(hiddenCalendars) => {
-              setPreferences({ hiddenCalendars: [...hiddenCalendars] });
-            }}
-          />
-        ) : null}
+        {/* Keyed by the view, so a view switched to fades up into place. */}
+        <div key={view} className="calendar-view-in flex min-w-0 grow">
+          {body}
+        </div>
+        {isNarrow || view === 'year' ? null : (
+          <PanelSlot isOpen={isPanelOpen}>
+            <SidePanel
+              book={book}
+              ahead={ahead.data ?? []}
+              onOpen={open}
+              onShowDay={(each) => {
+                go({ date: each });
+              }}
+              onHiddenChange={setHidden}
+            />
+          </PanelSlot>
+        )}
       </div>
 
       <SearchResults

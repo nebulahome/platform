@@ -427,19 +427,24 @@ export function WeekView(props: WeekViewProps) {
 
   const nowMinute = minutesOf(new Date(now).toISOString(), zone);
   const todayIndex = days.indexOf(today);
-  const sunDays = days.map((each) => {
-    if (book.position === null) {
-      return null;
-    }
-
-    const sun = sunTimes(new Date(Date.parse(`${each}T12:00:00Z`)), book.position);
-
-    return {
-      rise: sun.sunrise === null ? null : minutesOf(sun.sunrise.toISOString(), zone),
-      set: sun.sunset === null ? null : minutesOf(sun.sunset.toISOString(), zone),
-    };
-  });
-  const sun = sunDays[Math.max(0, todayIndex)] ?? null;
+  // One day's sunrise and sunset for the whole week - today's, or the week's first - so the
+  // dashed lines run straight across it and meet the gutter's icons: a minute a day apart, the
+  // days' own times drew a staircase.
+  const sunTimesOf =
+    book.position === null
+      ? null
+      : sunTimes(
+          new Date(Date.parse(`${days[Math.max(0, todayIndex)] ?? today}T12:00:00Z`)),
+          book.position,
+        );
+  const sun =
+    sunTimesOf === null
+      ? null
+      : {
+          rise:
+            sunTimesOf.sunrise === null ? null : minutesOf(sunTimesOf.sunrise.toISOString(), zone),
+          set: sunTimesOf.sunset === null ? null : minutesOf(sunTimesOf.sunset.toISOString(), zone),
+        };
 
   return (
     <section
@@ -572,6 +577,7 @@ export function WeekView(props: WeekViewProps) {
                         icon={look.icon}
                         color={look.tokenColor}
                         size={20}
+                        className="calendar-appear"
                       />
                     );
                   })}
@@ -631,14 +637,13 @@ export function WeekView(props: WeekViewProps) {
               setDrag(null);
             }}
           >
-            {days.map((each, index) => {
+            {days.map((each) => {
               const timed = visible.filter(
                 (occurrence) =>
                   !occurrence.isAllDay &&
                   occurrence.startsAt !== null &&
                   isOn(occurrence, each, zone),
               );
-              const sunOf = sunDays[index];
               const isOff = daysOff.names.has(each) || isWeekend(each);
 
               return (
@@ -656,7 +661,7 @@ export function WeekView(props: WeekViewProps) {
                       : undefined
                   }
                 >
-                  {sunOf?.rise == null ? null : (
+                  {sun?.rise == null ? null : (
                     <span
                       aria-hidden="true"
                       className={cn(
@@ -664,10 +669,10 @@ export function WeekView(props: WeekViewProps) {
                         isOff ? 'bg-rail' : 'bg-well',
                       )}
                       /* eslint-disable-next-line react/forbid-dom-props -- the night before sunrise. */
-                      style={{ height: (sunOf.rise / 60) * HOUR }}
+                      style={{ height: (sun.rise / 60) * HOUR }}
                     />
                   )}
-                  {sunOf?.set == null ? null : (
+                  {sun?.set == null ? null : (
                     <span
                       aria-hidden="true"
                       className={cn(
@@ -675,7 +680,7 @@ export function WeekView(props: WeekViewProps) {
                         isOff ? 'bg-rail' : 'bg-well',
                       )}
                       /* eslint-disable-next-line react/forbid-dom-props -- the night after sunset. */
-                      style={{ top: (sunOf.set / 60) * HOUR }}
+                      style={{ top: (sun.set / 60) * HOUR }}
                     />
                   )}
                   {Array.from({ length: 23 }, (unused, hour) => (
@@ -712,7 +717,7 @@ export function WeekView(props: WeekViewProps) {
                           }
                         }}
                         className={cn(
-                          'absolute flex cursor-pointer touch-none flex-col gap-px overflow-hidden rounded-field border text-left select-none',
+                          'calendar-appear absolute flex cursor-pointer touch-none flex-col gap-px overflow-hidden rounded-field border text-left select-none',
                           'focus-visible:shadow-focus focus-visible:outline-none',
                           height < 34 ? 'px-2 py-0.75' : 'px-2 py-1.5',
                           isOver

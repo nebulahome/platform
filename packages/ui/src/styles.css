@@ -1901,3 +1901,53 @@
     transition: none;
   }
 }
+
+/*
+ * The calendar page's motion. The page arrives in a short stagger (`entity-stagger`); a view
+ * switched to fades up into place (`calendar-view-in`); an event that comes into view - shown
+ * again, a month stepped to, a block moved - fades in from a shade smaller (`calendar-appear`).
+ * Switching a calendar off or on cross-fades the view, with the browser's view transition, so
+ * what leaves fades out too. Where less motion was asked for, everything is simply there.
+ */
+@keyframes calendar-appear {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@keyframes calendar-view-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+.calendar-appear {
+  animation: calendar-appear 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.calendar-view-in {
+  animation: calendar-view-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* The page under a cross-fade still takes clicks: a second calendar switched straight after. */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-motion='reduced'] :is(.calendar-appear, .calendar-view-in) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) :is(.calendar-appear, .calendar-view-in) {
+    animation: none;
+  }
+}

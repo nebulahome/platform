@@ -2,7 +2,7 @@
  * The year (CAL-Year): twelve months, three a row, each the kit's calendar drawn small and read
  * only - holidays filled red, the one day off that makes a long weekend ringed, events over days as
  * a band, a dot under a day with something on it. Beside them, the year's long weekends and the
- * holidays that fall on a weekend, and what the marks mean.
+ * holidays that fall on a weekend, and what the marks mean, in a panel the toolbar folds away.
  */
 import { useTranslation } from 'react-i18next';
 
@@ -19,6 +19,7 @@ import { dateTimeFormat, listFormat } from '@/i18n/formatters';
 
 import { isOn, lengthInDays, weekdayWords } from '../calendar-time';
 import { LANE_CLASSES } from '../model-token';
+import { PanelSlot } from '../side-panel';
 import type { DaysOff } from '../today-card';
 import { isPickup, lookOf, type CalendarBook } from '../use-calendars';
 
@@ -30,6 +31,9 @@ export type YearViewProps = {
   /** The occurrences of the year, of the calendars on. */
   readonly occurrences: readonly CalendarOccurrence[];
   readonly daysOff: DaysOff;
+
+  /** Whether the panel beside the months is open: the toolbar's button. */
+  readonly isPanelOpen: boolean;
 };
 
 /**
@@ -50,7 +54,7 @@ function noonOf(day: string): number {
  */
 export function YearView(props: YearViewProps) {
   const { t } = useTranslation();
-  const { book, day, occurrences, daysOff } = props;
+  const { book, day, occurrences, daysOff, isPanelOpen } = props;
   const year = day.slice(0, 4);
   const marks = longWeekendsOf(
     `${year}-01-01`,
@@ -139,113 +143,115 @@ export function YearView(props: YearViewProps) {
         ))}
       </div>
 
-      <aside className="hidden w-70 shrink-0 flex-col gap-4 lg:flex">
-        <section className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-4.5">
-          <div className="flex flex-col gap-1">
-            <span className="text-title font-medium">
-              {t('calendar.year.longWeekends', 'Long weekends')}
-            </span>
-            <span className="text-caption text-foreground-subtle">
-              {t('calendar.year.fromHolidays', 'From the house’s holidays and days off.')}
-            </span>
-          </div>
-
-          {marks.longWeekends.map((weekend) => {
-            const isBridged = weekend.bridge !== null;
-            // Every holiday in it, the ones on its weekend too: Easter with Easter Monday.
-            const names = [
-              ...new Set(
-                Array.from({ length: weekend.days }, (unused, index) =>
-                  daysOff.names.get(addDays(weekend.from, index)),
-                ),
-              ),
-            ].filter((name) => name !== undefined);
-
-            return (
-              <div
-                key={weekend.from}
-                className={cn(
-                  'flex flex-col gap-1.5 rounded-inner border px-4 py-3.5',
-                  isBridged ? 'border-tag-red/30 bg-tag-red/7' : 'border-border bg-well',
-                )}
-              >
-                <div className="flex items-baseline justify-between gap-2.5">
-                  <span className="text-title font-medium whitespace-nowrap">
-                    {rangeWords(weekend.from, weekend.to)}
-                  </span>
-                  <span
-                    className={cn(
-                      'font-mono text-caption',
-                      isBridged ? 'text-tag-red' : 'text-foreground-muted',
-                    )}
-                  >
-                    {t('calendar.year.days', {
-                      count: weekend.days,
-                      defaultValue_one: '{{count}} day',
-                      defaultValue_other: '{{count}} days',
-                    })}
-                  </span>
-                </div>
-                <span className="text-ui-sm text-foreground-muted">
-                  {listFormat({ type: 'conjunction' }).format(names)}
-                </span>
-                {weekend.bridge === null ? null : (
-                  <span className="flex items-center gap-1.5 text-caption text-tag-red">
-                    <AppIcon id="briefcase" size={13} />
-                    {t('calendar.year.withDayOff', 'with one day off: {{day}}', {
-                      day: `${weekdayWords(weekend.bridge)} ${String(Number(weekend.bridge.slice(8)))}`,
-                    })}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-
-          {marks.weekendHolidays.length === 0 ? null : (
-            <div className="flex flex-col gap-2 pt-1.5">
-              <span className="text-ui-sm text-foreground-muted">
-                {t('calendar.year.onWeekend', 'On a weekend')}
+      <PanelSlot isOpen={isPanelOpen}>
+        <aside className="flex w-70 flex-col gap-4">
+          <section className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-4.5">
+            <div className="flex flex-col gap-1">
+              <span className="text-title font-medium">
+                {t('calendar.year.longWeekends', 'Long weekends')}
               </span>
-              <div className="flex flex-wrap gap-1.5">
-                {marks.weekendHolidays.map((each) => (
-                  <span
-                    key={each}
-                    title={daysOff.names.get(each)}
-                    className="inline-flex h-6.5 items-center rounded-pill bg-surface-raised px-2.5 font-mono text-caption whitespace-nowrap text-foreground-muted"
-                  >
-                    {`${dateTimeFormat({ day: 'numeric', month: 'short', timeZone: 'UTC' }).format(noonOf(each))} · ${weekdayWords(each, 'short')}`}
-                  </span>
-                ))}
-              </div>
+              <span className="text-caption text-foreground-subtle">
+                {t('calendar.year.fromHolidays', 'From the house’s holidays and days off.')}
+              </span>
             </div>
-          )}
-        </section>
 
-        <section className="flex flex-col gap-2.5 rounded-panel border border-border bg-surface px-4.5 py-4">
-          <span className="flex items-center gap-2.5 text-caption text-foreground-muted">
-            <span className="inline-flex size-5.5 items-center justify-center rounded-full bg-tag-red/18 text-label font-semibold text-tag-red">
-              7
+            {marks.longWeekends.map((weekend) => {
+              const isBridged = weekend.bridge !== null;
+              // Every holiday in it, the ones on its weekend too: Easter with Easter Monday.
+              const names = [
+                ...new Set(
+                  Array.from({ length: weekend.days }, (unused, index) =>
+                    daysOff.names.get(addDays(weekend.from, index)),
+                  ),
+                ),
+              ].filter((name) => name !== undefined);
+
+              return (
+                <div
+                  key={weekend.from}
+                  className={cn(
+                    'flex flex-col gap-1.5 rounded-inner border px-4 py-3.5',
+                    isBridged ? 'border-tag-red/30 bg-tag-red/7' : 'border-border bg-well',
+                  )}
+                >
+                  <div className="flex items-baseline justify-between gap-2.5">
+                    <span className="text-title font-medium whitespace-nowrap">
+                      {rangeWords(weekend.from, weekend.to)}
+                    </span>
+                    <span
+                      className={cn(
+                        'font-mono text-caption',
+                        isBridged ? 'text-tag-red' : 'text-foreground-muted',
+                      )}
+                    >
+                      {t('calendar.year.days', {
+                        count: weekend.days,
+                        defaultValue_one: '{{count}} day',
+                        defaultValue_other: '{{count}} days',
+                      })}
+                    </span>
+                  </div>
+                  <span className="text-ui-sm text-foreground-muted">
+                    {listFormat({ type: 'conjunction' }).format(names)}
+                  </span>
+                  {weekend.bridge === null ? null : (
+                    <span className="flex items-center gap-1.5 text-caption text-tag-red">
+                      <AppIcon id="briefcase" size={13} />
+                      {t('calendar.year.withDayOff', 'with one day off: {{day}}', {
+                        day: `${weekdayWords(weekend.bridge)} ${String(Number(weekend.bridge.slice(8)))}`,
+                      })}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+
+            {marks.weekendHolidays.length === 0 ? null : (
+              <div className="flex flex-col gap-2 pt-1.5">
+                <span className="text-ui-sm text-foreground-muted">
+                  {t('calendar.year.onWeekend', 'On a weekend')}
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {marks.weekendHolidays.map((each) => (
+                    <span
+                      key={each}
+                      title={daysOff.names.get(each)}
+                      className="inline-flex h-6.5 items-center rounded-pill bg-surface-raised px-2.5 font-mono text-caption whitespace-nowrap text-foreground-muted"
+                    >
+                      {`${dateTimeFormat({ day: 'numeric', month: 'short', timeZone: 'UTC' }).format(noonOf(each))} · ${weekdayWords(each, 'short')}`}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-2.5 rounded-panel border border-border bg-surface px-4.5 py-4">
+            <span className="flex items-center gap-2.5 text-caption text-foreground-muted">
+              <span className="inline-flex size-5.5 items-center justify-center rounded-full bg-tag-red/18 text-label font-semibold text-tag-red">
+                7
+              </span>
+              {t('calendar.year.legendHoliday', 'Holiday: a day off')}
             </span>
-            {t('calendar.year.legendHoliday', 'Holiday: a day off')}
-          </span>
-          <span className="flex items-center gap-2.5 text-caption text-foreground-muted">
-            <span className="inline-flex size-5.5 items-center justify-center rounded-full text-label ring-2 ring-tag-red/60 ring-inset">
-              6
+            <span className="flex items-center gap-2.5 text-caption text-foreground-muted">
+              <span className="inline-flex size-5.5 items-center justify-center rounded-full text-label ring-2 ring-tag-red/60 ring-inset">
+                6
+              </span>
+              {t('calendar.year.legendBridge', 'One day off makes a long weekend')}
             </span>
-            {t('calendar.year.legendBridge', 'One day off makes a long weekend')}
-          </span>
-          <span className="flex items-center gap-2.5 text-caption text-foreground-muted">
-            <span className="h-3.5 w-5.5 rounded-check bg-primary/20" />
-            {t('calendar.year.legendBand', 'Several days of one event')}
-          </span>
-          <span className="flex items-center gap-2.5 text-caption text-foreground-muted">
-            <span className="flex w-5.5 justify-center">
-              <span className="size-1.25 rounded-full bg-primary" />
+            <span className="flex items-center gap-2.5 text-caption text-foreground-muted">
+              <span className="h-3.5 w-5.5 rounded-check bg-primary/20" />
+              {t('calendar.year.legendBand', 'Several days of one event')}
             </span>
-            {t('calendar.year.legendDot', 'Something on that day')}
-          </span>
-        </section>
-      </aside>
+            <span className="flex items-center gap-2.5 text-caption text-foreground-muted">
+              <span className="flex w-5.5 justify-center">
+                <span className="size-1.25 rounded-full bg-primary" />
+              </span>
+              {t('calendar.year.legendDot', 'Something on that day')}
+            </span>
+          </section>
+        </aside>
+      </PanelSlot>
     </div>
   );
 }

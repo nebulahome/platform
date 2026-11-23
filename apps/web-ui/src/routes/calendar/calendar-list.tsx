@@ -94,7 +94,7 @@ export function CalendarList(props: CalendarListProps) {
                   }}
                   className={cn(
                     'flex h-8.5 w-full cursor-pointer items-center gap-2.75 rounded-field px-2 text-left text-ui-sm',
-                    'hover:bg-surface-raised focus-visible:shadow-focus focus-visible:outline-none',
+                    'transition-colors hover:bg-surface-raised focus-visible:shadow-focus focus-visible:outline-none',
                     isOn ? 'text-foreground' : 'text-foreground-subtle',
                   )}
                 >
@@ -124,7 +124,7 @@ export function CalendarList(props: CalendarListProps) {
       })}
 
       {offCount === 0 ? null : (
-        <div className="mt-1 flex items-center justify-between border-t border-border px-2 pt-2 pb-0.5">
+        <div className="mt-1 flex animate-rise items-center justify-between border-t border-border px-2 pt-2 pb-0.5">
           <span className="font-mono text-caption text-foreground-subtle">
             {t('calendar.list.shownOf', '{{shown}} of {{count}}', {
               shown: calendars.length - offCount,

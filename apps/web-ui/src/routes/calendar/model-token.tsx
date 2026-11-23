@@ -81,10 +81,13 @@ export function ModelToken(props: ModelTokenProps) {
   );
 }
 
-/** The sides a calendar's mark is drawn at, and the classes for each. */
+/**
+ * The sides a calendar's mark is drawn at, and the classes for each. The icon is even on an even
+ * side, so it sits on whole pixels: 11 in 18 left it half a pixel off its middle.
+ */
 const MARK_SIZES = {
-  18: { box: 'size-4.5 text-label', square: 'rounded-check', icon: 11 },
-  22: { box: 'size-5.5 text-caption', square: 'rounded-chip', icon: 13 },
+  18: { box: 'size-4.5 text-label', square: 'rounded-check', icon: 12 },
+  22: { box: 'size-5.5 text-caption', square: 'rounded-chip', icon: 14 },
 } as const;
 
 /** What a calendar's mark needs. */
@@ -98,7 +101,7 @@ export type CalendarMarkProps = {
   /** Whether it is a person's: a round with the initial. */
   readonly isPerson: boolean;
 
-  /** False draws it in outline: a calendar switched off. */
+  /** False draws it pale and a shade smaller: a calendar switched off. */
   readonly isOn?: boolean;
   readonly size?: keyof typeof MARK_SIZES;
 };
@@ -119,9 +122,13 @@ export function CalendarMark(props: CalendarMarkProps) {
       aria-hidden="true"
       className={cn(
         'inline-flex shrink-0 items-center justify-center font-bold',
+        // Switched on it springs back to size and fills; off it pales into its colour's tint.
+        'transition-[background-color,color,scale] duration-220 ease-[cubic-bezier(0.34,1.56,0.64,1)]',
         look.box,
         isPerson ? 'rounded-full' : look.square,
-        isOn ? 'bg-[var(--lane)] text-canvas' : 'border-2 border-[var(--lane)] text-[var(--lane)]',
+        isOn
+          ? 'bg-[var(--lane)] text-canvas'
+          : 'scale-90 bg-[color-mix(in_srgb,var(--lane)_18%,transparent)] text-[color-mix(in_srgb,var(--lane)_75%,transparent)]',
         LANE_CLASSES[color],
       )}
     >

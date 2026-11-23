@@ -89,7 +89,7 @@ export function EventChip(props: EventChipProps) {
         onOpen(occurrence, event.currentTarget);
       }}
       className={cn(
-        'flex h-5 w-full min-w-0 shrink-0 cursor-pointer items-center gap-1.5 text-left text-caption whitespace-nowrap',
+        'calendar-appear flex h-5 w-full min-w-0 shrink-0 cursor-pointer items-center gap-1.5 text-left text-caption whitespace-nowrap',
         'focus-visible:shadow-focus focus-visible:outline-none',
         time === null
           ? 'rounded-check bg-[color-mix(in_srgb,var(--lane)_16%,transparent)] px-1.75 font-medium text-[var(--lane)] hover:bg-[color-mix(in_srgb,var(--lane)_24%,transparent)]'
@@ -155,7 +155,7 @@ export function EventBar(props: EventBarProps) {
       // eslint-disable-next-line react/forbid-dom-props -- the caller's measured grid place.
       style={style}
       className={cn(
-        'pointer-events-auto flex h-5 min-w-0 cursor-pointer items-center gap-1.5 px-2 text-left text-caption font-medium whitespace-nowrap',
+        'calendar-appear pointer-events-auto flex h-5 min-w-0 cursor-pointer items-center gap-1.5 px-2 text-left text-caption font-medium whitespace-nowrap',
         'bg-[color-mix(in_srgb,var(--lane)_20%,transparent)] text-[var(--lane)] hover:bg-[color-mix(in_srgb,var(--lane)_28%,transparent)]',
         'focus-visible:shadow-focus focus-visible:outline-none',
         startsBefore ? 'rounded-l-none' : 'ml-1.75 rounded-l-check',

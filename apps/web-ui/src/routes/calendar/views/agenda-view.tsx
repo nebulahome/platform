@@ -85,7 +85,7 @@ function Row(props: {
         props.onPress(event.currentTarget);
       }}
       className={cn(
-        'flex w-full cursor-pointer items-center border-t border-border text-left first:border-t-0',
+        'calendar-appear flex w-full cursor-pointer items-center border-t border-border text-left first:border-t-0',
         props.isCompact ? 'min-h-12 gap-3 px-4 py-1' : 'min-h-13 gap-4 py-1.5',
         'hover:bg-surface-raised/40 focus-visible:shadow-focus focus-visible:outline-none',
         props.isDim && 'opacity-50',
