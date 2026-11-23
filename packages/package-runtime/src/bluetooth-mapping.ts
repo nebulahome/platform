@@ -9,9 +9,9 @@
  *
  * A BTHome sensor says what it measures in every advertisement, so its entities are the readings
  * of the advertisement it was recognised from: a numeric one a sensor of the platform's class in
- * its canonical unit, an on/off a binary sensor, a button or a dimmer a text sensor saying the last
- * event. Each reading's entity is its key - `temperature`, `window` - and `_2`, `_3` for the second
- * and third of one key, as a four-button remote sends.
+ * its canonical unit, an on/off a binary sensor, a button or a dimmer an event entity. Each
+ * reading's entity is its key - `temperature`, `window` - and `_2`, `_3` for the second and third
+ * of one key, as a four-button remote sends.
  */
 import { z } from 'zod';
 
@@ -77,18 +77,21 @@ function snapshotOf(value: unknown): BluetoothDeviceSnapshot | undefined {
  * The readings of an advertisement, each with the entity it is: the second of a key `_2`.
  *
  * @param advert - The advertisement.
- * @returns Its readings, none when it carries no BTHome or only encrypted.
+ * @returns Its packet's id, null when it sends none, and its readings, none when it carries no
+ * BTHome or only encrypted.
  */
-function readingsOf(advert: BluetoothAdvert): ReadingEntity[] {
+function readingsOf(advert: BluetoothAdvert): {
+  packetId: number | null;
+  entities: ReadingEntity[];
+} {
   const packet = decodeBthome(advert.serviceData?.[BTHOME_SERVICE_UUID] ?? '');
 
   if (packet === null || packet.isEncrypted) {
-    return [];
+    return { packetId: null, entities: [] };
   }
 
   const seen = new Map<string, number>();
-
-  return packet.readings.map((reading) => {
+  const entities = packet.readings.map((reading) => {
     const count = (seen.get(reading.key) ?? 0) + 1;
 
     seen.set(reading.key, count);
@@ -101,6 +104,8 @@ function readingsOf(advert: BluetoothAdvert): ReadingEntity[] {
           reading,
         };
   });
+
+  return { packetId: packet.packetId, entities };
 }
 
 /**
@@ -123,7 +128,13 @@ function descriptorOf(entity: ReadingEntity): EntityDescriptor {
   }
 
   if (reading.kind === 'event') {
-    return { domain: 'sensor', objectId, name, capabilities: { sensor_text: {} } };
+    return {
+      domain: 'event',
+      objectId,
+      name,
+      capabilities: { event: { eventTypes: [...(reading.eventTypes ?? [])] } },
+      ...(reading.key === 'button' ? { deviceClass: 'button' } : {}),
+    };
   }
 
   const canonical = resolveCanonicalUnit(reading.deviceClass);
@@ -148,15 +159,18 @@ function descriptorOf(entity: ReadingEntity): EntityDescriptor {
  * A reading's state, in its class's canonical unit.
  *
  * @param reading - The reading.
+ * @param at - When it was heard: an event's moment, which makes each one a change of its own.
  * @returns The state, or undefined for an event that did not happen.
  */
-function stateOf(reading: BthomeReading): CapabilityState | undefined {
+function stateOf(reading: BthomeReading, at: Date): CapabilityState | undefined {
   if (typeof reading.value === 'boolean') {
     return { sensor_binary: { isOn: reading.value } };
   }
 
   if (typeof reading.value === 'string') {
-    return reading.value === 'none' ? undefined : { sensor_text: { value: reading.value } };
+    return reading.value === 'none'
+      ? undefined
+      : { event: { eventType: reading.value, at: at.toISOString() } };
   }
 
   const canonical =
@@ -175,6 +189,9 @@ function stateOf(reading: BthomeReading): CapabilityState | undefined {
  * @returns The integration.
  */
 export function createBthomeIntegration(manifest: { readonly id: string }): Integration {
+  // The last packet heard from each device: BLE sends a packet several times, one event each.
+  const lastPackets = new Map<string, number>();
+
   return {
     id: manifest.id,
     transport: BLUETOOTH_TRANSPORT,
@@ -227,7 +244,7 @@ export function createBthomeIntegration(manifest: { readonly id: string }): Inte
         // shortcut: a reading first heard after the device was added has no entity until the hub
         // describes the device again from a later advertisement; describe from every one heard
         // if sensors turn out to leave readings out of some.
-        entities: readingsOf(device.advert).map(descriptorOf),
+        entities: readingsOf(device.advert).entities.map(descriptorOf),
       };
     },
 
@@ -245,13 +262,20 @@ export function createBthomeIntegration(manifest: { readonly id: string }): Inte
         return [];
       }
 
-      return readingsOf(advert.data).flatMap((entity): ReportedState[] => {
-        const entityId = context.entities.get(entity.objectId);
-        const state = stateOf(entity.reading);
+      const { packetId, entities } = readingsOf(advert.data);
+      const isRepeat = packetId !== null && lastPackets.get(message.deviceKey) === packetId;
 
-        // shortcut: an event is the last one's name as text, so the same event twice in a row is
-        // one change; move to an event entity once the platform has one.
-        return entityId === undefined || state === undefined
+      if (packetId !== null) {
+        lastPackets.set(message.deviceKey, packetId);
+      }
+
+      return entities.flatMap((entity): ReportedState[] => {
+        const entityId = context.entities.get(entity.objectId);
+        const state = stateOf(entity.reading, advert.data.at);
+
+        return entityId === undefined ||
+          state === undefined ||
+          (isRepeat && entity.reading.kind === 'event')
           ? []
           : [
               {

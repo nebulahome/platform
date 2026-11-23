@@ -41,7 +41,21 @@ describe('decodeBthome', () => {
           decimals: 1,
           deviceClass: 'temperature',
         },
-        { key: 'button', name: 'Button', kind: 'event', value: 'none' },
+        {
+          key: 'button',
+          name: 'Button',
+          kind: 'event',
+          value: 'none',
+          eventTypes: [
+            'press',
+            'double_press',
+            'triple_press',
+            'long_press',
+            'long_double_press',
+            'long_triple_press',
+            'hold_press',
+          ],
+        },
       ],
     });
   });
@@ -84,7 +98,14 @@ describe('decodeBthome', () => {
       buttons?.isEncrypted === false ? buttons.readings.map((each) => each.value) : null,
     ).toEqual(['press', 'none', 'long_press', 'hold_press']);
     expect(dimmer?.isEncrypted === false ? dimmer.readings : null).toEqual([
-      { key: 'dimmer', name: 'Dimmer', kind: 'event', value: 'rotate_right', steps: 3 },
+      {
+        key: 'dimmer',
+        name: 'Dimmer',
+        kind: 'event',
+        value: 'rotate_right',
+        steps: 3,
+        eventTypes: ['rotate_left', 'rotate_right'],
+      },
     ]);
   });
 

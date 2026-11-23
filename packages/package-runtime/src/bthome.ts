@@ -41,6 +41,9 @@ export type BthomeReading = {
 
   /** How many steps a dimmer was turned. */
   readonly steps?: number;
+
+  /** For an event, every one it may be: a button's presses, a dimmer's turns. */
+  readonly eventTypes?: readonly string[];
 };
 
 /** One advertisement's service data, decoded. */
@@ -217,6 +220,19 @@ const DIMMER_EVENTS: Readonly<Record<number, string>> = {
 };
 
 /**
+ * The events a table names, `none` left out: it is sent while nothing happened.
+ *
+ * @param events - The table.
+ * @returns Its events, in the order of their bytes.
+ */
+function eventTypesOf(events: Readonly<Record<number, string>>): readonly string[] {
+  return Object.values(events).filter((name) => name !== 'none');
+}
+
+const BUTTON_EVENT_TYPES = eventTypesOf(BUTTON_EVENTS);
+const DIMMER_EVENT_TYPES = eventTypesOf(DIMMER_EVENTS);
+
+/**
  * How many decimals a factor leaves: 2 for 0.01.
  *
  * @param factor - The factor.
@@ -279,7 +295,11 @@ export function decodeBthome(hex: string): BthomePacket | null {
         readings.push({ ...describe(object), value: raw !== 0 });
         break;
       case 'event':
-        readings.push({ ...describe(object), value: BUTTON_EVENTS[raw] ?? 'none' });
+        readings.push({
+          ...describe(object),
+          value: BUTTON_EVENTS[raw] ?? 'none',
+          eventTypes: BUTTON_EVENT_TYPES,
+        });
         break;
       case 'dimmer':
         readings.push({
@@ -287,6 +307,7 @@ export function decodeBthome(hex: string): BthomePacket | null {
           kind: 'event',
           value: DIMMER_EVENTS[bytes[at] ?? 0] ?? 'none',
           steps: bytes[at + 1] ?? 0,
+          eventTypes: DIMMER_EVENT_TYPES,
         });
         break;
       default: {

@@ -54,8 +54,8 @@ function contextOf(): MappingContext {
       ['battery', formatEntityId('sensor', 'h_t_battery')],
       ['pressure', formatEntityId('sensor', 'h_t_pressure')],
       ['temperature', formatEntityId('sensor', 'h_t_temperature')],
-      ['button', formatEntityId('sensor', 'h_t_button')],
-      ['button_2', formatEntityId('sensor', 'h_t_button_2')],
+      ['button', formatEntityId('event', 'h_t_button')],
+      ['button_2', formatEntityId('event', 'h_t_button_2')],
     ]),
     lastState: () => undefined,
   };
@@ -75,6 +75,23 @@ describe('createBthomeIntegration', () => {
   });
 
   it('describes an entity per reading, in its class and canonical unit, a second key numbered', () => {
+    const button = {
+      domain: 'event',
+      capabilities: {
+        event: {
+          eventTypes: [
+            'press',
+            'double_press',
+            'triple_press',
+            'long_press',
+            'long_double_press',
+            'long_triple_press',
+            'hold_press',
+          ],
+        },
+      },
+      deviceClass: 'button',
+    };
     const claim = integration.claim({ deviceKey: ADDRESS, payload: device }, {});
 
     expect(claim === null ? null : integration.describe(claim, {})).toEqual({
@@ -111,13 +128,8 @@ describe('createBthomeIntegration', () => {
           stateClass: 'measurement',
           displayPrecision: 1,
         },
-        { domain: 'sensor', objectId: 'button', name: 'Button', capabilities: { sensor_text: {} } },
-        {
-          domain: 'sensor',
-          objectId: 'button_2',
-          name: 'Button 2',
-          capabilities: { sensor_text: {} },
-        },
+        { ...button, objectId: 'button', name: 'Button' },
+        { ...button, objectId: 'button_2', name: 'Button 2' },
       ],
     });
   });
@@ -155,13 +167,34 @@ describe('createBthomeIntegration', () => {
         observedAt: HEARD_AT,
       },
       {
-        entityId: 'sensor.h_t_button_2',
-        state: { sensor_text: { value: 'double_press' } },
+        entityId: 'event.h_t_button_2',
+        state: { event: { eventType: 'double_press', at: '2026-10-27T10:00:00.000Z' } },
         attributes: {},
         isAvailable: true,
         observedAt: HEARD_AT,
       },
     ]);
+  });
+
+  it('reports an event once however many times its packet is sent, and the next packet again', () => {
+    const bthome = createBthomeIntegration({ id: 'bluetooth/bthome' });
+    /**
+     * The event entities' reports of an advertisement.
+     *
+     * @param data - Its BTHome service data.
+     * @returns Them.
+     */
+    const events = (data: string) =>
+      bthome
+        .toState(
+          { connectionKey: 'bluetooth', deviceKey: ADDRESS, payload: advertOf(data) },
+          contextOf(),
+        )
+        .filter((report) => 'event' in report.state);
+
+    expect(events('4000a43a01')).toHaveLength(1);
+    expect(events('4000a43a01')).toEqual([]);
+    expect(events('4000a53a01')).toHaveLength(1);
   });
 
   it('reads nothing of an encrypted or foreign advertisement, and takes no command', () => {
