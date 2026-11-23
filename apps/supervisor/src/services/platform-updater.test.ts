@@ -244,7 +244,8 @@ describe('updatePlatform', () => {
     });
 
     expect(outcome.status).toBe('rolled_back');
-    expect(outcome.error).toMatch(/exited with 1$/u);
+    // What the copy said comes with the code.
+    expect(outcome.error).toMatch(/exited with 1: › migration failed$/u);
     expect(calls.slice(calls.indexOf('start copy-2') + 1)).toEqual([
       'tag sha256:old nebulahome/platform:latest',
       'start old-id',

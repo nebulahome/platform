@@ -142,7 +142,12 @@ async function copy(options: PlatformUpdateOptions, from: string, to: string): P
     const code = await engine.wait(id);
 
     if (code !== 0) {
-      throw new Error(`Copying ${from} to ${to} exited with ${String(code)}`);
+      // What cp said (a full disk, a permission): the code alone tells the owner nothing.
+      const said = (await lastLinesOf(options, id)).slice(-3).join(' ');
+
+      throw new Error(
+        `Copying ${from} to ${to} exited with ${String(code)}${said === '' ? '' : `: ${said}`}`,
+      );
     }
   } finally {
     await engine.removeContainer(id).catch(() => undefined);
