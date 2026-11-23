@@ -65,6 +65,7 @@ describe('the migration set', () => {
       '0015_device_parents.sql',
       '0016_drop_package_routes.sql',
       '0017_calendar.sql',
+      '0018_entity_event_capability.sql',
     ]);
   });
 
