@@ -180,6 +180,7 @@ export const ALIAS_TYPE_IDS = [
   'cover',
   'lock',
   'button',
+  'event',
   'select',
   'number',
   'time_of_day',
@@ -730,6 +731,19 @@ export const ALIAS_TYPES: readonly AliasTypeDef[] = [
         initial: null,
       }),
     ],
+  },
+  // Its events come from the alias's code: no part holds or reads one.
+  {
+    id: 'event',
+    domain: 'event',
+    group: 'readings',
+    label: 'Event',
+    plural: 'Events',
+    icon: 'zap',
+    words: 'event press doorbell ring remote scene',
+    capabilities: ['event'],
+    optionalCapabilities: [],
+    parts: [],
   },
   {
     id: 'select',

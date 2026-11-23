@@ -50,6 +50,7 @@ export const CAPABILITIES = [
   'date',
   'datetime',
   'calendar',
+  'event',
   'vacuum',
   'fan',
   'location',
@@ -1044,6 +1045,30 @@ export const calendarParamsSchema = z.object({
   color: tagColorSchema.nullable().default(null),
 });
 
+// --- event -------------------------------------------------------------------------------
+
+/** The longest name of a type of event: `double_press`, `ring`. */
+export const EVENT_TYPE_MAXIMUM_LENGTH = 64;
+
+/** A type of event, named as the device names it. */
+const eventTypeSchema = z.string().min(1).max(EVENT_TYPE_MAXIMUM_LENGTH);
+
+/**
+ * Something that happens and is over: a button pressed twice, the doorbell. Its state is the last
+ * one, its type and the moment it came, both null before the first. Each one is reported with a
+ * fresh `at`, so the same type twice in a row is two changes, and a state repeated as it was (a
+ * hub reconnecting) is none.
+ */
+export const eventStateSchema = z.object({
+  eventType: eventTypeSchema.nullable().default(null),
+  at: momentSchema.nullable().default(null),
+});
+
+/** The types of event it reports, in the device's order. */
+export const eventParamsSchema = z.object({
+  eventTypes: z.array(eventTypeSchema).max(64).default([]),
+});
+
 // --- fan ---------------------------------------------------------------------------------
 
 /** Which way a fan's blades turn. */
@@ -1197,6 +1222,7 @@ export const CAPABILITY_DEFINITIONS = {
     commands: datetimeCommandSchema,
   },
   calendar: { state: calendarStateSchema, params: calendarParamsSchema, commands: NO_COMMANDS },
+  event: { state: eventStateSchema, params: eventParamsSchema, commands: NO_COMMANDS },
   vacuum: { state: vacuumStateSchema, params: vacuumParamsSchema, commands: vacuumCommandSchema },
   fan: { state: fanStateSchema, params: fanParamsSchema, commands: fanCommandSchema },
   location: { state: locationStateSchema, params: locationParamsSchema, commands: NO_COMMANDS },
@@ -1234,6 +1260,7 @@ export const capabilityStateSchema = z.object({
   date: dateStateSchema.optional(),
   datetime: datetimeStateSchema.optional(),
   calendar: calendarStateSchema.optional(),
+  event: eventStateSchema.optional(),
   vacuum: vacuumStateSchema.optional(),
   fan: fanStateSchema.optional(),
   location: locationStateSchema.optional(),

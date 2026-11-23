@@ -15,8 +15,8 @@ import { DOMAIN_CAPABILITIES, ENTITY_DOMAINS } from './entity-id.js';
 /** State fields an alias works out itself rather than taking from a part. */
 const WORKED_OUT = new Set(['color_hs.isActive', 'color_temp.isActive']);
 
-/** Capabilities whose whole state is one part (a picture) or none (a press). */
-const WHOLE_STATE = new Set(['image', 'button', 'custom']);
+/** Capabilities whose whole state is one part (a picture) or none (a press, an event). */
+const WHOLE_STATE = new Set(['image', 'button', 'event', 'custom']);
 
 describe('alias types', () => {
   it('has a type for every domain but the alias domain itself', () => {

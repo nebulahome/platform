@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 
+import { EVENT_TYPE_MAXIMUM_LENGTH } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { changeContextSchema, sourceRefSchema } from './entity-state.js';
 import { jsonObjectSchema } from './json.js';
@@ -184,6 +185,7 @@ export const AUTOMATION_RUN_TRIGGER_KINDS = [
   'sun',
   'quiet',
   'calendar',
+  'event',
   'manual',
   'automation',
   'alias',
@@ -211,8 +213,8 @@ export const automationRunTriggerSchema = z.object({
   /** The reading that crossed, for a numeric trigger. */
   value: z.number().optional(),
 
-  /** The sun event, for a sun trigger: `sunset`, `golden_hour_start`… */
-  event: z.string().max(40).optional(),
+  /** The sun event, for a sun trigger: `sunset`, `golden_hour_start`…; the type, for an event. */
+  event: z.string().max(EVENT_TYPE_MAXIMUM_LENGTH).optional(),
 
   /** Who pressed Run, for a manual run. */
   userId: z.uuid().optional(),

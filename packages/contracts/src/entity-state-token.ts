@@ -53,6 +53,7 @@ export const STATE_TOKEN_CAPABILITIES = [
   'lawn_mower',
   'location',
   'select',
+  'event',
   'sensor_text',
   'time_of_day',
   'date',
@@ -151,6 +152,10 @@ export function stateTokenOf(
     return state.select.option ?? undefined;
   }
 
+  if (state.event !== undefined) {
+    return state.event.eventType ?? undefined;
+  }
+
   if (state.sensor_text !== undefined) {
     return state.sensor_text.value;
   }
@@ -224,12 +229,13 @@ export function numericReadingOf(state: CapabilityState | undefined): number | u
  * `unavailable` closes every non-empty list, since any device can be out of reach.
  *
  * @param capabilities - What the entity declares.
- * @param selectOptions - The options of a `select`, by value, when the entity is one.
+ * @param options - The options of a `select`, by value, or the types of an `event`, when the
+ * entity is one.
  * @returns The tokens, or an empty list when the state is open-ended.
  */
 export function stateTokenChoices(
   capabilities: readonly CapabilityName[],
-  selectOptions: readonly string[] = [],
+  options: readonly string[] = [],
 ): string[] {
   const capability = tokenCapabilityOf(capabilities);
   const closed = ((): readonly string[] => {
@@ -257,8 +263,9 @@ export function stateTokenChoices(
       case 'lawn_mower': {
         return LAWN_MOWER_ACTIVITIES;
       }
-      case 'select': {
-        return selectOptions;
+      case 'select':
+      case 'event': {
+        return options;
       }
       case 'location':
       case 'sensor_text':

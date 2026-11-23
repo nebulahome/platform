@@ -38,6 +38,8 @@ describe('the capability table', () => {
       'location',
       // A calendar is told what happens by its events, not by commands.
       'calendar',
+      // An event happens on the device; nothing can be sent to it.
+      'event',
     ]);
 
     for (const capability of CAPABILITIES) {

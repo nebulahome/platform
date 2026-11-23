@@ -23,17 +23,10 @@ import {
   type DayOfWeek,
   type Month,
 } from './automation-meta.js';
+import { EVENT_TYPE_MAXIMUM_LENGTH } from './capabilities.js';
 import { entityIdSchema } from './entity-id.js';
 import { jsonObjectSchema } from './json.js';
 import { SUN_DIRECTIONS, SUN_EVENTS, SUN_PERIODS } from './sun.js';
-
-/**
- * Trigger kinds the format holds but the engine cannot wake on yet.
- *
- * Nothing reports device events to the bus - a button press has no state to change - so an
- * `event` trigger is saved and shown, and never fires. Listed in `design/missing.md`.
- */
-export const UNAVAILABLE_TRIGGER_TYPES = ['event'] as const;
 
 /** The kinds of trigger an automation can wake on. */
 export const TRIGGER_TYPES = [
@@ -195,18 +188,21 @@ export const calendarTriggerSchema = z.object({
 /** An event of a calendar starting or ending. */
 export type CalendarTrigger = z.output<typeof calendarTriggerSchema>;
 
-/** A device event - a button press, a scene controller - or a platform event. */
+/**
+ * A device event - a button pressed twice, the doorbell - as an `event` entity reports it: each
+ * time one comes, even the same type as the one before.
+ */
 const eventTriggerSchema = z.object({
   type: z.literal('event'),
   ...blockMetaShape,
 
-  /** What happened, e.g. `button.pressed`. */
-  event: z.string().min(1),
+  /** The type of event, as the entity names it: `double_press`. */
+  event: z.string().min(1).max(EVENT_TYPE_MAXIMUM_LENGTH),
 
   /** Which entity it has to have come from. Absent means any. */
   entityId: entityIdSchema.nullish(),
 
-  /** Fields the event must carry, matched exactly. */
+  /** Fields of the entity's event state it must carry too, matched exactly. */
   match: jsonObjectSchema.optional(),
 });
 
