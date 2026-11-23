@@ -8359,6 +8359,7 @@
     },
     "toolbar": {
       "hidePanel": "Nascondi il pannello laterale",
+      "move": "Spostati nel calendario",
       "next": "Successivo",
       "previous": "Precedente",
       "showPanel": "Mostra il pannello laterale",

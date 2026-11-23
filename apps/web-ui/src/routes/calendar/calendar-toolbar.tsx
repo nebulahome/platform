@@ -1,13 +1,17 @@
 /**
- * The row under the page's header (CAL-Month): back and on, what is shown, Today; on the right
- * the four views and the button that hides the side panel. On a narrow window the views are two,
- * Month and Agenda, and there is no panel to hide.
+ * The row under the page's header (CAL-Month): back, Today and on in one segmented pill, then
+ * what is shown; on the right the four views and the button that hides the side panel. On a
+ * narrow window the views are two, Month and Agenda, and there is no panel to hide.
  */
 import { useTranslation } from 'react-i18next';
 
-import { AppIcon, Button, cn, IconButton, Segmented } from '@nebulahome/ui';
+import { AppIcon, cn, IconButton, Segmented } from '@nebulahome/ui';
 
 import { CALENDAR_PAGE_VIEWS, type CalendarPageView } from './calendar-time';
+
+/** One part of the back, Today and on pill: lit on hover, its focus drawn inside the pill. */
+const SEGMENT =
+  'flex cursor-pointer items-center text-foreground-muted transition-colors hover:bg-surface-high hover:text-foreground focus-visible:bg-surface-high focus-visible:shadow-[inset_0_0_0_2px_var(--color-primary)] focus-visible:outline-none';
 
 /** What the toolbar needs. */
 export type CalendarToolbarProps = {
@@ -45,37 +49,53 @@ export function CalendarToolbar(props: CalendarToolbarProps) {
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-      <div className="flex min-w-0 items-center gap-2">
-        <IconButton
-          variant="raised"
-          label={t('calendar.toolbar.previous', 'Previous')}
-          onClick={() => {
-            onStep(-1);
-          }}
+      <div className="flex min-w-0 items-center gap-3.5">
+        <div
+          role="group"
+          aria-label={t('calendar.toolbar.move', 'Move through the calendar')}
+          className="flex h-control shrink-0 items-stretch overflow-hidden rounded-pill border border-border-strong bg-surface-raised"
         >
-          <AppIcon id="chevron-left" size={16} />
-        </IconButton>
-        <IconButton
-          variant="raised"
-          label={t('calendar.toolbar.next', 'Next')}
-          onClick={() => {
-            onStep(1);
-          }}
-        >
-          <AppIcon id="chevron-right" size={16} />
-        </IconButton>
+          <button
+            type="button"
+            aria-label={t('calendar.toolbar.previous', 'Previous')}
+            onClick={() => {
+              onStep(-1);
+            }}
+            className={cn(SEGMENT, 'w-9 justify-center')}
+          >
+            <AppIcon id="chevron-left" size={16} />
+          </button>
+          <span aria-hidden="true" className="my-auto h-4.5 w-px shrink-0 bg-border-strong" />
+          <button
+            type="button"
+            onClick={onToday}
+            // 14 px, as a button's word is: at 13 the capitals' middle fell between two pixels in
+            // a 36 px pill and the word stood half a pixel high, where Chrome snaps the baseline.
+            className={cn(SEGMENT, 'px-3.5 text-ui font-medium text-foreground')}
+          >
+            {t('calendar.toolbar.today', 'Today')}
+          </button>
+          <span aria-hidden="true" className="my-auto h-4.5 w-px shrink-0 bg-border-strong" />
+          <button
+            type="button"
+            aria-label={t('calendar.toolbar.next', 'Next')}
+            onClick={() => {
+              onStep(1);
+            }}
+            className={cn(SEGMENT, 'w-9 justify-center')}
+          >
+            <AppIcon id="chevron-right" size={16} />
+          </button>
+        </div>
         <h2
           aria-live="polite"
           className={cn(
-            'mx-1.5 truncate font-medium first-letter:uppercase',
+            'truncate font-medium first-letter:uppercase',
             isNarrow ? 'text-headline-sm' : 'text-headline',
           )}
         >
           {title}
         </h2>
-        <Button variant="ghost" size="compact" onClick={onToday}>
-          {t('calendar.toolbar.today', 'Today')}
-        </Button>
       </div>
 
       <div className="flex items-center gap-2.5">
