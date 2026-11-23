@@ -8,7 +8,7 @@
  * with why. Import adds the ones ticked into the remote's next empty cells.
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useState, type DragEvent } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { InfraredRemote } from '@nebulahome/contracts';
@@ -24,6 +24,7 @@ import {
   TextField,
 } from '@nebulahome/ui';
 
+import { FileDrop } from '@/components/file-drop';
 import { toMessage } from '@/lib/error-message';
 import {
   importInfraredButtons,
@@ -127,18 +128,11 @@ export function ImportDialog(props: ImportDialogProps) {
   });
 
   /**
-   * Reads a file dropped on the text area.
+   * Reads a file dropped on the text area or chosen.
    *
-   * @param event - The drop.
+   * @param file - The file.
    */
-  const drop = (event: DragEvent<HTMLDivElement>): void => {
-    const [file] = event.dataTransfer.files;
-
-    if (file === undefined) {
-      return;
-    }
-
-    event.preventDefault();
+  const read = (file: File): void => {
     void file.text().then((content) => {
       setFileName(file.name);
       setText(content);
@@ -188,12 +182,20 @@ export function ImportDialog(props: ImportDialogProps) {
       }
     >
       <div className="flex flex-col gap-4 px-6 py-5">
-        <div
-          onDragOver={(event) => {
-            event.preventDefault();
-          }}
-          onDrop={drop}
-          className="flex flex-col gap-2.5"
+        <FileDrop
+          accept=".ir,text/plain"
+          hint={t('brokers.infrared.import.drop', 'Drop a .ir file anywhere here')}
+          chosen={
+            fileName === null
+              ? null
+              : {
+                  name: fileName,
+                  detail: t('brokers.infrared.import.fileCodes', '{{count}} codes', {
+                    count: items.length,
+                  }),
+                }
+          }
+          onFile={read}
         >
           <TextArea
             label={t('brokers.infrared.import.codes', 'Codes')}
@@ -211,16 +213,7 @@ export function ImportDialog(props: ImportDialogProps) {
               setFileName(null);
             }}
           />
-          <p className="flex items-center justify-center gap-2 rounded-inner border border-dashed border-border-strong px-4 py-3 text-ui-sm text-foreground-muted">
-            <AppIcon id="file" size={15} className="text-[#f7895c]" />
-            {fileName === null
-              ? t('brokers.infrared.import.drop', 'Drop a .ir file anywhere here')
-              : t('brokers.infrared.import.dropped', '{{file}} dropped · {{count}} codes', {
-                  file: fileName,
-                  count: items.length,
-                })}
-          </p>
-        </div>
+        </FileDrop>
 
         {items.length === 0 ? null : (
           <div className="flex flex-col gap-2">

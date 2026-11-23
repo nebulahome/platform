@@ -4,7 +4,7 @@
  * instead of the entities this house does not have).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState, type DragEvent } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
@@ -16,6 +16,7 @@ import {
 } from '@nebulahome/contracts';
 import { AppIcon, Button, Checkbox, Modal, Pill, TextField, toast } from '@nebulahome/ui';
 
+import { FileDrop } from '@/components/file-drop';
 import { toMessage } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
 import { codeEntityReads, typeLabel, typeOf } from '@/library/alias-model';
@@ -264,7 +265,6 @@ export function ImportAliasesDialog(props: {
   const queryClient = useQueryClient();
   const { packages } = useInstalledPackages();
   const { entities } = useEntityDirectory(false);
-  const input = useRef<HTMLInputElement>(null);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [problems, setProblems] = useState<readonly string[]>([]);
   const [picks, setPicks] = useState<ReadonlySet<string>>(new Set());
@@ -311,20 +311,6 @@ export function ImportAliasesDialog(props: {
           problem.path === '' ? problem.message : `${problem.path}: ${problem.message}`,
         ),
       );
-    }
-  };
-
-  /**
-   * Takes a dropped file.
-   *
-   * @param event - The drop.
-   */
-  const onDrop = (event: DragEvent<HTMLDivElement>): void => {
-    event.preventDefault();
-    const [file] = event.dataTransfer.files;
-
-    if (file !== undefined) {
-      void read(file);
     }
   };
 
@@ -426,48 +412,23 @@ export function ImportAliasesDialog(props: {
       }
     >
       <div className="flex flex-col gap-4 px-6 py-5">
-        <input
-          ref={input}
-          type="file"
+        <FileDrop
           accept=".json,application/json"
-          className="hidden"
-          onChange={(event) => {
-            const [file] = event.target.files ?? [];
-
-            if (file !== undefined) {
-              void read(file);
-            }
-
-            event.target.value = '';
+          hint={t('library.aliases.dropFile', 'Drop an aliases file here')}
+          chosen={
+            picked === null
+              ? null
+              : {
+                  name: picked.name,
+                  detail: t('library.aliases.fileAliases', '{{count}} aliases', {
+                    count: entries.length,
+                  }),
+                }
+          }
+          onFile={(file) => {
+            void read(file);
           }}
         />
-        {}
-        <div
-          className="flex flex-wrap items-center justify-center gap-2 rounded-inner border border-dashed border-border-strong px-4 py-3 text-ui-sm text-foreground-muted"
-          onDragOver={(event) => {
-            event.preventDefault();
-          }}
-          onDrop={onDrop}
-        >
-          <AppIcon id="file" size={15} className="text-primary" />
-          {picked === null
-            ? t('library.aliases.dropFile', 'Drop an aliases file here')
-            : t('library.aliases.fileDropped', '{{name}} · {{count}} aliases', {
-                name: picked.name,
-                count: entries.length,
-              })}
-          <Button
-            variant="bare"
-            size="compact"
-            onClick={() => {
-              input.current?.click();
-            }}
-          >
-            {picked === null
-              ? t('library.aliases.chooseFile', 'Choose a file')
-              : t('library.aliases.anotherFile', 'Another file')}
-          </Button>
-        </div>
         {problems.length === 0 ? null : (
           <ul className="flex flex-col gap-1 rounded-card border border-danger/40 px-3.5 py-2.5 text-caption text-danger">
             {problems.slice(0, 6).map((problem) => (

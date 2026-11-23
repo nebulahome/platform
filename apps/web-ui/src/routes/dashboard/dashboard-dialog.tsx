@@ -23,6 +23,7 @@ import {
 import { AppIcon, Button, Modal } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
+import { PeopleField } from '@/components/people-field';
 import {
   createDashboard,
   DASHBOARD_QUERY_KEYS,
@@ -40,7 +41,6 @@ import {
 import { allCards } from '@/dashboard/dashboard-layout';
 import { toMessage } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
-import { AssigneeField } from '@/routes/dashboard/assignee-field';
 import { ConfirmRemoval } from '@/routes/library/confirm-removal';
 import { NameIconField } from '@/routes/library/name-icon-field';
 
@@ -334,12 +334,22 @@ export function DashboardDialog(props: DashboardDialogProps) {
           }}
         />
 
-        <AssigneeField
+        <PeopleField
+          legend={t('dashboard.assigneeField.shownTo', 'Shown to')}
           people={people.data ?? []}
           value={userIds}
           onChange={setUserIds}
           selfId={selfId}
           isPending={people.isPending}
+          summary={(ids) =>
+            ids.length === 0
+              ? t('dashboard.assigneeField.nobodySeesItYet', 'Nobody sees it yet.')
+              : t('dashboard.assigneeField.peopleSeeIt', {
+                  count: ids.length,
+                  defaultValue_one: '{{count}} person sees it on their Dashboards page.',
+                  defaultValue_other: '{{count}} people see it on their Dashboards page.',
+                })
+          }
         />
 
         {existing === undefined ? (
