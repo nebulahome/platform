@@ -95,6 +95,8 @@ export function ModelPopover(props: ModelPopoverProps) {
       isOpen
       onClose={onClose}
       width={400}
+      // Its right edge under the button's: Add a model and the row's pencil both stand on the right.
+      align="end"
       label={
         model === undefined
           ? t('calendar.models.newModel', 'New model')
