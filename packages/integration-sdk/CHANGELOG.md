@@ -12,6 +12,10 @@ version adds to the contract, a major one breaks it, and a patch leaves it as it
   characters), and its params say `canSet` (read only without it), `minLength`, `maxLength`, a
   `pattern` the whole text must match and `isPassword` (masked in the interface and in history).
   No new domain: it stays a `sensor`.
+- **Events:** the `event` domain in `ENTITY_DOMAINS` and the read-only `event` capability in
+  `CAPABILITIES`: its state `{ eventType, at }` (the last event's type and the moment it came,
+  ISO 8601 with its offset, both null before the first), its params `{ eventTypes }`. Report each
+  occurrence with a fresh `at`; an automation's event trigger fires on each one.
 
 ## 1.14.0
 

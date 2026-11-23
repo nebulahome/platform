@@ -358,6 +358,14 @@ platform has already refused one too short, too long or off its pattern. `"isPas
 marks a secret: the interface shows eight dots and an eye, and the history keeps only that it
 changed, never the text.
 
+An **event** - a button pressed twice, the doorbell - is an entity of the `event` domain with the
+`event` capability, its params the types it may report, `{ "eventTypes": ["single", "double"] }`,
+in the device's order. It is reported as any state is, `{ "event": { "eventType": "double", "at":
+"2026-11-23T18:42:07.120Z" } }`, with a fresh `at` - the moment it came, with its milliseconds - for
+each occurrence: the same type twice in a row is then two events, and an automation's event trigger
+fires on each, while the same state reported again (on a reconnection) is none. Nothing can be sent
+to it, and a device class of `button`, `doorbell` or `motion` picks its glyph.
+
 An entity few houses want - a diagnostic, a raw register, a firmware version - says
 **`"isEnabledByDefault": false`**: it is created disabled, left out of the pickers and of the
 history, and listed apart on its device's page until the owner enables it. Only a new entity reads
