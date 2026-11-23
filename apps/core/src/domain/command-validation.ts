@@ -13,6 +13,7 @@ import {
   commandSchemaFor,
   jsonObjectSchema,
   secondsOfDay,
+  textProblemOf,
   ValidationError,
   type CapabilityName,
   type JsonObject,
@@ -336,6 +337,29 @@ function checkAgainstParams(
 
     if (Math.abs(steps - Math.round(steps)) > 1e-9) {
       reject(`value must be ${String(min)} plus a whole number of steps of ${String(step)}`);
+    }
+  }
+
+  if (capability === 'sensor_text' && command['command'] === 'set_value') {
+    const text = params as Parameters<typeof textProblemOf>[0] & { canSet: boolean };
+
+    if (!text.canSet) {
+      reject('it can be read, not set');
+    }
+
+    // The command's schema has made it a string.
+    const problem = textProblemOf(text, command['value'] as string);
+
+    if (problem === 'short') {
+      reject(`value must be at least ${String(text.minLength)} characters`);
+    }
+
+    if (problem === 'long') {
+      reject(`value must be at most ${String(text.maxLength)} characters`);
+    }
+
+    if (problem === 'pattern') {
+      reject(`value must match ${String(text.pattern)}`);
     }
   }
 

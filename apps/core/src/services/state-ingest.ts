@@ -15,7 +15,9 @@ import type { BusClient, BusSubscription, MessageContext } from '@nebulahome/bus
 import {
   BUS_PATTERNS,
   busSubjects,
+  PASSWORD_MASK,
   stateReportSchema,
+  type CapabilityState,
   type ChangeContext,
   type StateReport,
 } from '@nebulahome/contracts';
@@ -125,11 +127,24 @@ export type IngestExtra = {
  * @returns The row to append.
  */
 function toHistoryRow(record: EntityRecord, result: IngestResult): StateHistoryRow {
+  const isPassword = record.capabilities.get('sensor_text')?.['isPassword'] === true;
+  /**
+   * A state as history keeps it: a password's text masked, so the history says only when it
+   * changed. The cache and the bus keep the text, for the interface's eye.
+   *
+   * @param state - The state.
+   * @returns It, masked where it must be.
+   */
+  const kept = (state: CapabilityState): CapabilityState =>
+    isPassword && state.sensor_text !== undefined
+      ? { ...state, sensor_text: { value: PASSWORD_MASK } }
+      : state;
+
   return {
     time: result.current.lastUpdated,
     entityId: record.rowId,
-    state: result.current.state,
-    previousState: result.previous?.state ?? null,
+    state: kept(result.current.state),
+    previousState: result.previous === undefined ? null : kept(result.previous.state),
     attributes: result.current.attributes,
     isAvailable: result.current.isAvailable,
     source: result.current.source,

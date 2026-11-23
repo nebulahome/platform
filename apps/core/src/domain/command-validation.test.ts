@@ -256,6 +256,32 @@ describe('validateCommand', () => {
     ).toThrow(/read, not set/);
   });
 
+  it('writes a text only when the device says it can, within its lengths and its pattern', () => {
+    const name = record({
+      sensor_text: { canSet: true, minLength: 2, maxLength: 24, pattern: '[a-z0-9-]+' },
+    });
+    /**
+     * Writes a text to the device's name.
+     *
+     * @param value - The text.
+     * @returns The validated command.
+     */
+    const write = (value: string): JsonObject =>
+      validateCommand(name, 'sensor_text', { command: 'set_value', value });
+
+    expect(write('garage-door')).toStrictEqual({ command: 'set_value', value: 'garage-door' });
+    expect(() => write('g')).toThrow(/at least 2 characters/);
+    expect(() => write('x'.repeat(25))).toThrow(/at most 24 characters/);
+    expect(() => write('garage door')).toThrow(/match \[a-z0-9-\]\+/);
+    // A text sensor that only reports - every one before texts could be written - takes nothing.
+    expect(() =>
+      validateCommand(record({ sensor_text: { options: [] } }), 'sensor_text', {
+        command: 'set_value',
+        value: 'hi',
+      }),
+    ).toThrow(/read, not set/);
+  });
+
   it('sets a day and a moment within their limits, whatever the offset says', () => {
     const away = record({ date: { canSet: true, min: '2026-11-01' } });
     const boost = record({

@@ -7,6 +7,7 @@ import {
   entityStateSchema,
   packageEntityTypeSchema,
   parseEntityId,
+  PASSWORD_MASK,
   type EntityState,
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
@@ -175,6 +176,46 @@ describe('startStateIngest', () => {
 
     expect(harness.registry.get(robotMap)?.state.image?.revision).toBe('a1b2c3');
     expect(harness.historyRows).toEqual([]);
+  });
+
+  it("keeps a password's text out of the history, and in the cache and the change", async () => {
+    const gateCode = parseEntityId('sensor.gate_code');
+    const changes: unknown[] = [];
+
+    harness.directory.set(
+      entityRecord(gateCode, {
+        capabilities: { sensor_text: { canSet: true, isPassword: true } },
+      }),
+    );
+    harness
+      .clientFor('observer')
+      .subscribe(BUS_PATTERNS.allStateChanges, z.unknown(), (payload) => {
+        changes.push(payload);
+      });
+
+    const adapter = harness.clientFor('pkg-weather');
+
+    for (const value of ['1234', '9876']) {
+      adapter.publish(busSubjects.stateReport(gateCode), {
+        entityId: gateCode,
+        state: { sensor_text: { value } },
+      });
+    }
+
+    await vi.waitFor(() => {
+      expect(harness.historyRows).toHaveLength(2);
+    });
+
+    // Two rows: the history says it changed, never to what.
+    expect(harness.historyRows.map((row) => [row.state, row.previousState])).toEqual([
+      [{ sensor_text: { value: PASSWORD_MASK } }, null],
+      [{ sensor_text: { value: PASSWORD_MASK } }, { sensor_text: { value: PASSWORD_MASK } }],
+    ]);
+    expect(harness.cacheRows.at(-1)?.state).toEqual({ sensor_text: { value: '9876' } });
+    expect(harness.registry.get(gateCode)?.state.sensor_text?.value).toBe('9876');
+    await vi.waitFor(() => {
+      expect(JSON.stringify(changes)).toContain('9876');
+    });
   });
 
   it('writes nothing when a sensor repeats itself', async () => {
