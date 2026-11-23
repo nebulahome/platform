@@ -3,6 +3,12 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.15.0
+
+- **Broker roles for code drivers:** a `kind: "code"` driver may say `bluetoothProxy` and
+  `infrared` in its `driver.json`, as a declarative profile does, for a device whose entities are
+  known only at runtime. A driver of any other kind is refused when it names them.
+
 ## 1.14.0
 
 - **The house's calendars:** the read-only `calendar` capability in `CAPABILITIES` and the state

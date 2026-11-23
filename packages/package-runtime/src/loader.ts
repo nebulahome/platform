@@ -1027,7 +1027,14 @@ async function instantiateDriver(
     throw new Error(`${driver.manifest.id} does not default-export an integration`);
   }
 
-  return { ...identity, integration: integration as Integration };
+  return {
+    ...identity,
+    ...(driver.manifest.infrared === undefined ? {} : { infrared: driver.manifest.infrared }),
+    ...(driver.manifest.bluetoothProxy === undefined
+      ? {}
+      : { bluetoothProxy: driver.manifest.bluetoothProxy }),
+    integration: integration as Integration,
+  };
 }
 
 /**

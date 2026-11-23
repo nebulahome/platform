@@ -24,7 +24,9 @@ import { z } from 'zod';
 
 import {
   BLUETOOTH_TRANSPORT,
+  bluetoothProxyProfileSchema,
   iconIdSchema,
+  infraredProfileSchema,
   INFRARED_TRANSPORT,
   INTEGRATION_KIND_PATTERN,
   MATTER_TRANSPORT,
@@ -370,6 +372,18 @@ const driverShape = {
   serial: serialLineSchema.optional(),
 
   /**
+   * That the device is an IR blaster the Infrared broker sends remotes' codes through, as a
+   * declarative profile says it. Code drivers only: a declarative one says it in its profile.
+   */
+  infrared: infraredProfileSchema.optional(),
+
+  /**
+   * That the device can be a Bluetooth proxy: the scan modes it runs, as a declarative profile
+   * says it. Code drivers only: a declarative one says it in its profile.
+   */
+  bluetoothProxy: bluetoothProxyProfileSchema.optional(),
+
+  /**
    * Path to `setup.json`, relative to the driver: what setting up an instance asks.
    *
    * Required of every driver, declarative or code. Without it the interface has no form to
@@ -386,6 +400,8 @@ type KindFiles = {
   readonly entry?: string | undefined;
   readonly template?: string | undefined;
   readonly serial?: object | undefined;
+  readonly infrared?: object | undefined;
+  readonly bluetoothProxy?: object | undefined;
 };
 
 /**
@@ -427,6 +443,19 @@ function checkKindFiles(manifest: KindFiles, ctx: z.RefinementCtx): void {
       path: ['serial'],
       message: `A ${manifest.kind} driver has no port to speak`,
     });
+  }
+
+  for (const role of ['infrared', 'bluetoothProxy'] as const) {
+    if (manifest.kind !== 'code' && manifest[role] !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [role],
+        message:
+          manifest.kind === 'declarative'
+            ? `A declarative driver says ${role} in its profile`
+            : `A ${manifest.kind} driver cannot say ${role}`,
+      });
+    }
   }
 
   const bound = BOUND_CODE_KINDS[manifest.kind];
@@ -645,6 +674,8 @@ export function resolveManifest(vendor: VendorManifest, driver: DriverManifest):
     ...(driver.entry === undefined ? {} : { entry: driver.entry }),
     ...(driver.template === undefined ? {} : { template: driver.template }),
     ...(driver.serial === undefined ? {} : { serial: driver.serial }),
+    ...(driver.infrared === undefined ? {} : { infrared: driver.infrared }),
+    ...(driver.bluetoothProxy === undefined ? {} : { bluetoothProxy: driver.bluetoothProxy }),
     setup: driver.setup,
   };
 }

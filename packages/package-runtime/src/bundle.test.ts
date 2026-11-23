@@ -265,6 +265,34 @@ describe('driverManifestSchema', () => {
     expect(driverManifestSchema.safeParse({ ...bluetooth, entry: undefined }).success).toBe(false);
   });
 
+  it('lets only a code driver say it is a Bluetooth proxy or an IR blaster', () => {
+    const roles = {
+      bluetoothProxy: { modes: ['passive', 'active'] },
+      infrared: { signals: ['ir'], receives: false },
+    };
+    const parsed = driverManifestSchema.safeParse({ ...driver(), ...roles });
+
+    expect(parsed.data?.bluetoothProxy).toEqual(roles.bluetoothProxy);
+    expect(parsed.data?.infrared).toEqual(roles.infrared);
+    expect(
+      driverManifestSchema.safeParse({
+        ...driver(),
+        kind: 'declarative',
+        entry: undefined,
+        profile: './profile.json',
+        bluetoothProxy: roles.bluetoothProxy,
+      }).success,
+    ).toBe(false);
+    expect(
+      driverManifestSchema.safeParse({
+        ...driver(),
+        kind: 'bluetooth',
+        transport: 'bluetooth',
+        infrared: roles.infrared,
+      }).success,
+    ).toBe(false);
+  });
+
   it('requires a profile from a declarative driver', () => {
     expect(
       driverManifestSchema.safeParse({ ...driver(), kind: 'declarative', entry: undefined })

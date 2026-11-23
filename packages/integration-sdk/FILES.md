@@ -124,6 +124,9 @@ driver that names one gets a **Web page** link in the header of its page, to
 platform and the browser from the same server. A driver whose devices have no page to look at -
 an API port answering JSON, a UDP protocol - names no port and gets no link.
 
+A code driver whose device can be a Bluetooth proxy or an IR blaster says so here, with
+`bluetoothProxy` or `infrared` (see [A device that plays a broker's role](#a-device-that-plays-a-brokers-role)).
+
 `modelCodes` maps what the hardware calls itself onto the model on the box, and it is how
 discovery knows which driver a device it heard belongs to and which model to adopt it as. A code
 may name a list when the hardware says its family but not which of it it is - a Sonoff in DIY mode
@@ -971,13 +974,26 @@ catalogue carries it; `verifyVendor` is where the hub asks. Its types come from
 
 A device of the vendor may work for one of the platform's brokers: an **IR blaster** sends the
 codes of the remotes the Infrared broker keeps, a **Bluetooth proxy** listens for the Bluetooth
-broker. Its driver's profile says so - only a declarative profile can - and the vendor's page shows
-the role:
+broker. A declarative driver says so in its profile, a code driver (`"kind": "code"`) in its
+`driver.json`, with the same fields; a driver of any other kind cannot. The vendor's page shows the
+role:
 
 ```json
 {
   "entities": [ … ],
   "infrared": { "signals": ["ir", "rf"], "receives": true },
+  "bluetoothProxy": { "modes": ["passive", "active"] }
+}
+```
+
+```json
+{
+  "id": "node",
+  "name": "Node",
+  "transport": "acme/api",
+  "kind": "code",
+  "entry": "./index.js",
+  "setup": "./setup.json",
   "bluetoothProxy": { "modes": ["passive", "active"] }
 }
 ```

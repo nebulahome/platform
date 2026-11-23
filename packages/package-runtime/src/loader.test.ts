@@ -329,6 +329,32 @@ describe('loadBundleDirectory', () => {
     );
   });
 
+  it('gives a code driver the roles its driver.json declares', async () => {
+    await writeVendor('acme', { ...VENDOR, transports: { wire: './wire.js' } });
+    await write('acme', { 'wire.js': TRANSPORT });
+    await write('acme/node', {
+      'driver.json': {
+        id: 'node',
+        name: 'Node',
+        transport: 'acme/wire',
+        kind: 'code',
+        entry: './index.js',
+        setup: './setup.json',
+        bluetoothProxy: { modes: ['passive', 'active'] },
+      },
+      'setup.json': SETUP,
+      'index.js': "export default { transport: 'acme/wire' };",
+    });
+
+    const { vendors, failures } = await loadBundleDirectory({ directory: root, ...options() });
+    const node = vendors[0]?.drivers.find(({ driverId }) => driverId === 'node');
+
+    expect(failures).toEqual([]);
+    expect(vendors[0]?.roles).toEqual(['bluetooth-proxy']);
+    expect(node?.bluetoothProxy).toEqual({ modes: ['passive', 'active'] });
+    expect(node?.infrared).toBeUndefined();
+  });
+
   it('runs a driver of kind infrared as the platform’s remote, with no file of its own', async () => {
     await write('acme', { 'manifest.json': VENDOR });
     await write('acme/remote', {
