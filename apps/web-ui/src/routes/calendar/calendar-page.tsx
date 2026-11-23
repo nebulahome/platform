@@ -456,21 +456,46 @@ export function CalendarPage() {
           }
           actions={
             <>
+              {/* New event lives in the search's pill, and the settings stand last. */}
               <div
                 ref={searchBox}
-                onFocusCapture={() => {
-                  setSearching(true);
+                onFocusCapture={(event) => {
+                  // The box opens the results; New event, in the same pill, does not.
+                  if (event.target instanceof HTMLInputElement) {
+                    setSearching(true);
+                  }
                 }}
               >
                 <SearchField
                   label={t('calendar.page.search', 'Search events')}
                   placeholder={t('calendar.page.search', 'Search events')}
                   value={words}
-                  className="w-44 lg:w-56"
+                  // On a phone the pill takes what the page's margins and the settings leave.
+                  className={canAdd ? 'w-[min(20rem,calc(100vw-7rem))] lg:w-96' : 'w-52 lg:w-64'}
                   onChange={(next) => {
                     setWords(next);
                     setSearching(true);
                   }}
+                  action={
+                    canAdd ? (
+                      <Button
+                        size="compact"
+                        className="shrink-0"
+                        onClick={() => {
+                          setSeed({
+                            mode: 'new',
+                            day: day < book.today && view !== 'week' ? book.today : day,
+                          });
+                        }}
+                      >
+                        <AppIcon id="plus" size={15} />
+                        {/* A phone keeps the room for the search: the plus alone, named to a reader. */}
+                        <span className="max-sm:sr-only">
+                          {t('calendar.page.newEvent', 'New event')}
+                        </span>
+                      </Button>
+                    ) : undefined
+                  }
                 />
               </div>
               <Link
@@ -481,19 +506,6 @@ export function CalendarPage() {
               >
                 <AppIcon id="settings" size={16} />
               </Link>
-              {canAdd ? (
-                <Button
-                  onClick={() => {
-                    setSeed({
-                      mode: 'new',
-                      day: day < book.today && view !== 'week' ? book.today : day,
-                    });
-                  }}
-                >
-                  <AppIcon id="plus" size={16} />
-                  {t('calendar.page.newEvent', 'New event')}
-                </Button>
-              ) : null}
             </>
           }
         />

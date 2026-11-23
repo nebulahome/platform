@@ -7,6 +7,7 @@
  * has been, and Escape to clear it from the keyboard. What a list matches on is the list's
  * business; how the box behaves is this one's.
  */
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AppIcon, cn, controlFace, FieldShell, IconButton } from '@nebulahome/ui';
@@ -30,6 +31,12 @@ export type SearchFieldProps = {
 
   /** A short note at the end of the box: how many results. */
   readonly trail?: string | undefined;
+
+  /**
+   * A button inside the pill, at its end: the page's main action beside what it searches (the
+   * calendar's New event). The pill is then drawn round both, and lights while the box is typed in.
+   */
+  readonly action?: ReactNode;
 };
 
 /**
@@ -48,64 +55,79 @@ export function SearchField(props: SearchFieldProps) {
     label = t('library.searchField.search', 'Search'),
     className,
     trail,
+    action,
   } = props;
 
   return (
     <FieldShell label={label} isLabelHidden className={cn('w-44 lg:w-72', className)}>
-      {(ids) => (
-        <div className="relative">
-          <AppIcon
-            id="search"
-            size={14}
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-foreground-subtle"
-          />
-          <input
-            id={ids.id}
-            type="search"
-            value={value}
-            placeholder={placeholder}
-            autoComplete="off"
-            aria-describedby={ids.describedBy}
-            className={cn(
-              controlFace({ size: 'compact' }),
-              // A search is a pill on the page's own ground, as tall as the buttons beside it. The
-              // browser's own cross is hidden: this box draws one that every browser shows.
-              'h-control rounded-pill bg-surface pr-8 pl-8.5 text-ui [&::-webkit-search-cancel-button]:appearance-none',
-              trail !== undefined && 'pr-28',
-            )}
-            onChange={(event) => {
-              onChange(event.target.value);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' && value !== '') {
-                // Clearing is what Escape does here; a dialog around the box keeps its own.
-                event.stopPropagation();
-                onChange('');
-              }
-            }}
-          />
-          {trail === undefined ? null : (
-            <span
-              aria-live="polite"
-              className="pointer-events-none absolute top-1/2 right-9 -translate-y-1/2 text-caption text-foreground-subtle"
-            >
-              {trail}
-            </span>
-          )}
-          {value === '' ? null : (
-            <IconButton
-              size="small"
-              label={t('library.searchField.clearTheSearch', 'Clear the search')}
-              className="absolute top-1/2 right-1.5 size-6 -translate-y-1/2"
-              onClick={() => {
-                onChange('');
+      {(ids) => {
+        const box = (
+          <div className="relative min-w-0 grow">
+            <AppIcon
+              id="search"
+              size={14}
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-foreground-subtle"
+            />
+            <input
+              id={ids.id}
+              type="search"
+              value={value}
+              placeholder={placeholder}
+              autoComplete="off"
+              aria-describedby={ids.describedBy}
+              className={cn(
+                controlFace({ size: 'compact' }),
+                // A search is a pill on the page's own ground, as tall as the buttons beside it. The
+                // browser's own cross is hidden: this box draws one that every browser shows.
+                'h-control rounded-pill bg-surface pr-8 pl-8.5 text-ui [&::-webkit-search-cancel-button]:appearance-none',
+                trail !== undefined && 'pr-28',
+                // Inside the pill drawn round it and its action: the pill has the border and the light.
+                action !== undefined &&
+                  'h-full border-0 bg-transparent focus-visible:border-0 focus-visible:shadow-none',
+              )}
+              onChange={(event) => {
+                onChange(event.target.value);
               }}
-            >
-              <AppIcon id="x" size={12} />
-            </IconButton>
-          )}
-        </div>
-      )}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape' && value !== '') {
+                  // Clearing is what Escape does here; a dialog around the box keeps its own.
+                  event.stopPropagation();
+                  onChange('');
+                }
+              }}
+            />
+            {trail === undefined ? null : (
+              <span
+                aria-live="polite"
+                className="pointer-events-none absolute top-1/2 right-9 -translate-y-1/2 text-caption text-foreground-subtle"
+              >
+                {trail}
+              </span>
+            )}
+            {value === '' ? null : (
+              <IconButton
+                size="small"
+                label={t('library.searchField.clearTheSearch', 'Clear the search')}
+                className="absolute top-1/2 right-1.5 size-6 -translate-y-1/2"
+                onClick={() => {
+                  onChange('');
+                }}
+              >
+                <AppIcon id="x" size={12} />
+              </IconButton>
+            )}
+          </div>
+        );
+
+        return action === undefined ? (
+          box
+        ) : (
+          <div className="flex h-control items-center gap-1 rounded-pill border border-border-strong bg-surface pr-0.5 transition duration-150 has-[input:focus-visible]:border-primary has-[input:focus-visible]:shadow-focus">
+            {box}
+            {action}
+          </div>
+        );
+      }}
     </FieldShell>
   );
 }
