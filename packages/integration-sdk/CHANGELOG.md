@@ -3,7 +3,7 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
-## 1.14.0 (unreleased)
+## 1.14.0
 
 - **The house's calendars:** the read-only `calendar` capability in `CAPABILITIES` and the state
   schemas (on while one of its events is, the current and the next event, whether its source is

@@ -3,7 +3,7 @@
 The SDK's version is the version of the package API the platform implements: a minor version adds
 to it, a major one breaks it, and a patch leaves it as it is.
 
-## 1.15.0 (unreleased)
+## 1.15.0
 
 - **The house's calendars:** the `calendar` domain in `ENTITY_DOMAINS` and the read-only `calendar`
   capability in `CapabilityName`, `CapabilityStates` (`isActive`, the `current` and `next` event as a
