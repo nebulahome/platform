@@ -136,6 +136,7 @@ type Rig = {
 const brokers: BluetoothBroker[] = [];
 
 afterEach(async () => {
+  vi.useRealTimers();
   await Promise.all(brokers.splice(0).map(async (broker) => broker.stop()));
 });
 
@@ -469,7 +470,7 @@ describe('the Bluetooth broker', () => {
     });
   });
 
-  it('asks the proxy hearing a followed device best to scan actively when its refresh falls due', async () => {
+  it('asks the proxy hearing a followed device best to scan actively for 5 s when its refresh falls due', async () => {
     const { broker, clock, filters } = await rig({ isProxy: true, refreshMs: 20 });
     const proxy = broker.scanner('shelly', PROXY_KEY);
     const connection = await createBluetoothTransport(broker).connect(
@@ -491,8 +492,13 @@ describe('the Bluetooth broker', () => {
     });
     expect(await scanMode()).toBe('active');
 
-    // Heard again while scanning actively: back to rest.
+    // Heard again while scanning actively: still active until the window ends, since the scan
+    // response may come after.
     proxy.report([bthome(-59)]);
+    clock.now += 4999;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: true });
+    clock.now += 1;
     await vi.waitFor(() => {
       expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: false });
     });
@@ -503,12 +509,40 @@ describe('the Bluetooth broker', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: false });
 
-    // Due again; not heard, so back to rest after 30 s.
+    // Due again; back to rest after 5 s.
     clock.now += 60_000;
     await vi.waitFor(() => {
       expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: true });
     });
-    clock.now += 30_000;
+    clock.now += 5000;
+    await vi.waitFor(() => {
+      expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: false });
+    });
+    await connection.close();
+  });
+
+  it('ends a refresh’s active scan when its 5 s run out, before the next look', async () => {
+    // No looks every so often: only the window's own timer can end it.
+    const { broker, clock, filters } = await rig({ isProxy: true });
+    const proxy = broker.scanner('shelly', PROXY_KEY);
+    const connection = await createBluetoothTransport(broker).connect(
+      {},
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: () => undefined,
+        report: () => undefined,
+      },
+    );
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    proxy.report([bthome(-60)]);
+    await connection.apply([{ op: 'follow', args: { address: SENSOR, activeEveryMinutes: 1 } }]);
+    await vi.waitFor(() => {
+      expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: true });
+    });
+
+    clock.now += 5000;
+    await vi.advanceTimersByTimeAsync(5010);
     await vi.waitFor(() => {
       expect(filters().at(-1)).toEqual({ addresses: [SENSOR], active: false });
     });

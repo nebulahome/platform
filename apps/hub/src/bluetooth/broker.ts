@@ -19,8 +19,8 @@
  * or everything while a Nearby page holds a lease. A proxy rests passive when its radio can, and
  * the hub asks it to scan actively only while the house needs more than adverts: a Nearby lease
  * (every proxy), a device being added (the proxies hearing it), or a followed device's refresh
- * falling due (the proxy hearing it best, until it hears it again or 30 s). What it hears comes
- * back through the SDK's scanner, as heard by it.
+ * falling due (the proxy hearing it best, for 5 s). What it hears comes back through the SDK's
+ * scanner, as heard by it.
  *
  * A device is connected to (GATT) through the server's adapter when it hears it well enough,
  * otherwise through the proxy that hears it best of those that can connect and have a connection
@@ -131,8 +131,11 @@ const REPORTING_MS = 2 * 60_000;
 /** How often a proxy is sent its filter even when it did not change: it may have restarted. */
 const FILTER_AGAIN_MS = 5 * 60_000;
 
-/** How long a proxy scans actively for a device's refresh, unless it hears the device sooner. */
-const ACTIVE_REFRESH_MS = 30_000;
+/**
+ * How long a proxy scans actively for a device's refresh: the whole window, even when it hears the
+ * device sooner, since what it hears first may be a passive advert sent before the switch.
+ */
+const ACTIVE_REFRESH_MS = 5000;
 
 /** How often a device's advertisement is delivered when it carries nothing new. */
 const DELIVER_AGAIN_MS = 60_000;
@@ -172,6 +175,7 @@ const MAKERS: Readonly<Record<number, string>> = {
   369: 'Amazon',
   911: 'Xiaomi',
   1177: 'Ruuvi',
+  2409: 'SwitchBot',
   2985: 'Shelly',
 };
 
@@ -413,6 +417,7 @@ export class BluetoothBroker {
   #unwatch: (() => void) | undefined;
   #timer: NodeJS.Timeout | undefined;
   #leaseTimer: NodeJS.Timeout | undefined;
+  #refreshTimer: NodeJS.Timeout | undefined;
 
   /** Whether Docker runs in Docker Desktop; undefined until the supervisor said. */
   #isDesktop: boolean | undefined;
@@ -497,6 +502,7 @@ export class BluetoothBroker {
   async stop(): Promise<void> {
     clearInterval(this.#timer);
     clearTimeout(this.#leaseTimer);
+    clearTimeout(this.#refreshTimer);
     this.#links.close();
     this.#timer = undefined;
     this.#unwatch?.();
@@ -2036,16 +2042,6 @@ export class BluetoothBroker {
       this.#trim();
     }
 
-    // The proxy asked to refresh this device heard it while scanning actively: back to rest.
-    if (
-      this.#refreshes.get(advert.address)?.scannerId === scannerId &&
-      this.#proxyNotes.get(scannerId)?.isActive === true
-    ) {
-      this.#refreshes.delete(advert.address);
-      this.#refreshedAt.set(advert.address, now);
-      void this.#pushFilters();
-    }
-
     const signature = JSON.stringify([advert.name, advert.manufacturerData, advert.serviceData]);
 
     if (entry.delivered?.signature !== signature || now - entry.delivered.at >= DELIVER_AGAIN_MS) {
@@ -2705,7 +2701,8 @@ export class BluetoothBroker {
 
   /**
    * Closes the refreshes run out and opens the ones due: a followed device that asks for an active
-   * scan every so many minutes, on the proxy hearing it best of those that can scan actively.
+   * scan every so many minutes, on the proxy hearing it best of those that can scan actively. Sets
+   * a timer for the first open one to run out.
    *
    * @param canActive - The proxies whose radio can scan actively.
    * @param now - The time now.
@@ -2745,6 +2742,21 @@ export class BluetoothBroker {
       if (best !== undefined) {
         this.#refreshes.set(address, { scannerId: best.scannerId, until: now + ACTIVE_REFRESH_MS });
       }
+    }
+
+    // A window is shorter than the look every 30 s: it is closed on time, not at the next look.
+    const ends = Math.min(...[...this.#refreshes.values()].map((open) => open.until));
+
+    clearTimeout(this.#refreshTimer);
+
+    if (Number.isFinite(ends)) {
+      this.#refreshTimer = setTimeout(
+        () => {
+          void this.#pushFilters();
+        },
+        Math.max(10, ends - now + 10),
+      );
+      this.#refreshTimer.unref();
     }
 
     return new Set([...this.#refreshes.values()].map((open) => open.scannerId));
