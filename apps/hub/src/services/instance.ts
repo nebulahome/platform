@@ -14,6 +14,7 @@ import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   ADAPTER_COMMAND_METHOD,
   AdapterError,
+  BLUETOOTH_COMMAND_TIMEOUT_MS,
   BLUETOOTH_TRANSPORT,
   adapterCommandSchema,
   busSubjects,
@@ -53,11 +54,7 @@ export type InstanceServicesOptions = {
   readonly commandTimeoutMs: number;
 };
 
-/**
- * How long a command to a device on the `bluetooth` transport has at least: a link opened through a
- * proxy, its services read, may take most of it.
- */
-export const BLUETOOTH_COMMAND_TIMEOUT_MS = 10_000;
+export { BLUETOOTH_COMMAND_TIMEOUT_MS } from '@nebulahome/contracts';
 
 /**
  * How long a command of a device on a transport has: 10 s at least on `bluetooth`, the configured

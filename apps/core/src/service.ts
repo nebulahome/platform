@@ -22,6 +22,7 @@ import {
 } from '@nebulahome/bus';
 import { resolveDataLayout } from '@nebulahome/config';
 import {
+  BLUETOOTH_COMMAND_TIMEOUT_MS,
   busSubjects,
   updateEventSchema,
   type EntityId,
@@ -95,6 +96,18 @@ export type CoreServiceOptions = {
   /** The service logger. */
   readonly logger: PlatformLogger;
 };
+
+/**
+ * How long a device command waits for its adapter's answer: the configured time, but never less
+ * than a Bluetooth command's, which the hub gives 10 s, and a second to hear back. The adapter's
+ * own deadline still decides; core only must not give up first.
+ *
+ * @param configuredMs - `CORE_COMMAND_TIMEOUT_MS`.
+ * @returns The wait, in milliseconds.
+ */
+function adapterReplyMsOf(configuredMs: number): number {
+  return Math.max(configuredMs, BLUETOOTH_COMMAND_TIMEOUT_MS + 1000);
+}
 
 /**
  * A change, told under another address that means the same entity.
@@ -427,7 +440,7 @@ export class CoreService {
       directory: this.#directory,
       aliases: this.#aliases,
       aliasEngine,
-      commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
+      commandTimeoutMs: adapterReplyMsOf(config.CORE_COMMAND_TIMEOUT_MS),
       packageTypes,
       attribution: this.#attribution,
       links: linkEngine,
@@ -497,7 +510,7 @@ export class CoreService {
         directory: this.#directory,
         aliases: this.#aliases,
         aliasEngine,
-        commandTimeoutMs: config.CORE_COMMAND_TIMEOUT_MS,
+        commandTimeoutMs: adapterReplyMsOf(config.CORE_COMMAND_TIMEOUT_MS),
         packageTypes,
         dispatcher,
       }),

@@ -30,6 +30,13 @@ import { timestampSchema } from './timestamp.js';
 /** The platform transport every Bluetooth device is reached through; its device key the address. */
 export const BLUETOOTH_TRANSPORT = 'bluetooth';
 
+/**
+ * How long a command to a device on the `bluetooth` transport has at least: a link opened through a
+ * proxy, its services read, may take most of it. `hub` gives the command this long, and `core` waits
+ * a little longer for the hub's answer so it never gives up first.
+ */
+export const BLUETOOTH_COMMAND_TIMEOUT_MS = 10_000;
+
 /** The platform's own vendor: the devices it recognises itself, BTHome sensors. */
 export const BLUETOOTH_VENDOR = 'bluetooth';
 
