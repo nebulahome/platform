@@ -21,7 +21,11 @@
  */
 import type { z } from 'zod';
 
-import type { BluetoothAdvertInput, SerialLineInput } from '@nebulahome/contracts';
+import type {
+  BluetoothAdvertInput,
+  BluetoothProxyGattEventInput,
+  SerialLineInput,
+} from '@nebulahome/contracts';
 
 import type { defineAccount } from './account.js';
 import type * as infraredCodes from './infrared-codes.js';
@@ -366,7 +370,7 @@ export type BluetoothScannerOptions = {
 
 /**
  * A Bluetooth proxy's channel to the Bluetooth broker: what it hears goes in here, and the house
- * sees it as heard by that proxy.
+ * sees it as heard by that proxy; and, for a proxy that connects, what happens on its links.
  */
 export type BluetoothScanner = {
   /**
@@ -375,6 +379,13 @@ export type BluetoothScanner = {
    * hears it.
    */
   report: (adverts: readonly BluetoothAdvertInput[]) => void;
+
+  /**
+   * Reports what happened on a link the hub opened through the proxy, unasked: a value a
+   * characteristic the hub turned on notified, a link lost - each of them when the session with
+   * the proxy drops - or how many connections it has free now. One that does not hold is dropped.
+   */
+  gatt: (event: BluetoothProxyGattEventInput) => void;
 
   /** Stops reporting: the proxy is no longer one, or its connection went. */
   close: () => void;
@@ -513,7 +524,12 @@ export type BundleSdk = {
  * The ops the hub sends a device that plays a role for a broker, over its instance's connection:
  * reserved, so an integration uses these names for nothing else.
  */
-export { BLUETOOTH_GATT_OPS, BLUETOOTH_PROXY_OPS, INFRARED_OPS } from '@nebulahome/contracts';
+export {
+  BLUETOOTH_GATT_OPS,
+  BLUETOOTH_PROXY_GATT_OPS,
+  BLUETOOTH_PROXY_OPS,
+  INFRARED_OPS,
+} from '@nebulahome/contracts';
 
 /** What a transport module default-exports. */
 export type TransportFactory = (sdk: BundleSdk) => Transport;
