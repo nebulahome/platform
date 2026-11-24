@@ -3,8 +3,10 @@
  *
  * Bluetooth Low Energy is one of the platform's brokers: the server's own adapter, through the
  * host's BlueZ over D-Bus, and **proxies** - devices of an integration that listen for the house
- * and forward what they hear (in v1, Shelly Gen2+ devices running a small script). Proxies only
- * listen; only the local adapter connects to a device.
+ * and forward what they hear (Shelly Gen2+ devices running a small script, ESPHome nodes). A device
+ * the house connects to (GATT) is reached through the adapter, or through a proxy that says it can
+ * connect: the hub picks which, and the proxy only carries out the reserved
+ * {@link BLUETOOTH_PROXY_GATT_OPS} it is sent.
  *
  * Every advertisement heard is kept per address and per scanner for a while: who hears it best,
  * how loud, how often. A device of the house is reached over the platform transport `bluetooth`,
@@ -15,7 +17,8 @@
  * A device plays a role for the broker through the connection its instance already has: the hub
  * sends the reserved {@link BLUETOOTH_PROXY_OPS} to a device whose profile declares
  * {@link bluetoothProxyProfileSchema}, and the proxy reports {@link bluetoothAdvertSchema}s back
- * through the SDK's scanner.
+ * through the SDK's scanner, and what happens on the links it holds as
+ * {@link bluetoothProxyGattEventSchema}s.
  */
 import { z } from 'zod';
 
@@ -99,7 +102,7 @@ export const BLUETOOTH_ADDRESS_TYPES = ['public', 'random'] as const;
 /** What a scanner is: the server's own adapter, or a device of an integration that listens. */
 export const BLUETOOTH_SCANNER_KINDS = ['adapter', 'proxy'] as const;
 
-/** How a device of the house is reached: heard, or connected to (the local adapter only). */
+/** How a device of the house is reached: heard, or connected to (the adapter, or a proxy). */
 export const BLUETOOTH_LINKS = ['listening', 'connected'] as const;
 
 /**
@@ -219,6 +222,9 @@ export const bluetoothProxyFilterArgsSchema = z.object({
  */
 export type BluetoothProxyFilterArgs = z.output<typeof bluetoothProxyFilterArgsSchema>;
 
+/** How many links a proxy can hold to devices, and how many of them are free now. */
+const proxySlotsShape = { free: z.int().min(0).max(255), limit: z.int().min(0).max(255) };
+
 /** What `bluetooth-proxy.state` answers: a device that can be a proxy, and whether it is one. */
 export const bluetoothProxyStateSchema = z.discriminatedUnion('eligible', [
   z.object({
@@ -231,6 +237,12 @@ export const bluetoothProxyStateSchema = z.discriminatedUnion('eligible', [
     /** The script's version the integration ships now. */
     shipped: z.string().max(64),
     running: z.boolean(),
+
+    /**
+     * Its connections, for a proxy that can connect to a device; absent, it only listens and the
+     * hub never sends it {@link BLUETOOTH_PROXY_GATT_OPS}.
+     */
+    connections: z.object(proxySlotsShape).optional(),
   }),
   z.object({
     eligible: z.literal(false),
@@ -274,6 +286,71 @@ export const bluetoothGattNotifyArgsSchema = z.object({ ...gattTargetShape, isOn
 
 /** A characteristic's value. */
 export const bluetoothGattValueSchema = z.object({ data: bluetoothHexSchema });
+
+/**
+ * The device a {@link BLUETOOTH_PROXY_GATT_OPS} op is for. No address type: the proxy uses the one
+ * it last heard the address advertise with.
+ */
+const proxyAddressShape = { address: bluetoothAddressSchema };
+
+/** Arguments of `bluetooth-proxy.connect` and `bluetooth-proxy.disconnect`. */
+export const bluetoothProxyLinkArgsSchema = z.object(proxyAddressShape);
+
+/** Arguments of `bluetooth-proxy.connect` and `bluetooth-proxy.disconnect`: the address. */
+export type BluetoothProxyLinkArgs = z.output<typeof bluetoothProxyLinkArgsSchema>;
+
+/** Arguments of `bluetooth-proxy.read`; it answers {@link bluetoothGattValueSchema}. */
+export const bluetoothProxyReadArgsSchema = bluetoothGattReadArgsSchema.extend(proxyAddressShape);
+
+/** Arguments of `bluetooth-proxy.read`. */
+export type BluetoothProxyReadArgs = z.output<typeof bluetoothProxyReadArgsSchema>;
+
+/** Arguments of `bluetooth-proxy.write`. */
+export const bluetoothProxyWriteArgsSchema = bluetoothGattWriteArgsSchema.extend(proxyAddressShape);
+
+/** Arguments of `bluetooth-proxy.write`. */
+export type BluetoothProxyWriteArgs = z.output<typeof bluetoothProxyWriteArgsSchema>;
+
+/** Arguments of `bluetooth-proxy.exchange`; it answers {@link bluetoothGattValueSchema}. */
+export const bluetoothProxyExchangeArgsSchema =
+  bluetoothGattExchangeArgsSchema.extend(proxyAddressShape);
+
+/** Arguments of `bluetooth-proxy.exchange`. */
+export type BluetoothProxyExchangeArgs = z.output<typeof bluetoothProxyExchangeArgsSchema>;
+
+/** Arguments of `bluetooth-proxy.notify`. */
+export const bluetoothProxyNotifyArgsSchema =
+  bluetoothGattNotifyArgsSchema.extend(proxyAddressShape);
+
+/** Arguments of `bluetooth-proxy.notify`. */
+export type BluetoothProxyNotifyArgs = z.output<typeof bluetoothProxyNotifyArgsSchema>;
+
+/**
+ * What a proxy that connects reports through its scanner's `gatt` without being asked: a value a
+ * characteristic the hub turned on notified, a link lost - one for each link when its session
+ * with the proxy drops - or how many connections it has free now.
+ */
+export const bluetoothProxyGattEventSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('notification'),
+    ...proxyAddressShape,
+    service: bluetoothUuidSchema,
+    characteristic: bluetoothUuidSchema,
+    data: bluetoothHexSchema,
+  }),
+  z.object({
+    kind: z.literal('disconnected'),
+    ...proxyAddressShape,
+    reason: z.string().max(256).optional(),
+  }),
+  z.object({ kind: z.literal('slots'), ...proxySlotsShape }),
+]);
+
+/** What a proxy reports on the links it holds, as written. */
+export type BluetoothProxyGattEventInput = z.input<typeof bluetoothProxyGattEventSchema>;
+
+/** What a proxy reports on the links it holds. */
+export type BluetoothProxyGattEvent = z.output<typeof bluetoothProxyGattEventSchema>;
 
 /** The owner's settings. */
 export const bluetoothSettingsSchema = z.object({
@@ -548,7 +625,7 @@ export const bluetoothScannerSchema = z.object({
   canPassive: z.boolean(),
   advertsPerMinute: z.int().min(0),
 
-  /** The adapter's connections; null for a proxy, which cannot connect. */
+  /** Its connections; null for a proxy that only listens, or has not said yet. */
   connections: connectionsSchema.nullable(),
 
   /** What a proxy forwards; null for the adapter. */

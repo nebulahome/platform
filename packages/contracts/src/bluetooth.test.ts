@@ -2,12 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import {
   bluetoothAdvertSchema,
+  bluetoothProxyExchangeArgsSchema,
   bluetoothProxyFilterArgsSchema,
+  bluetoothProxyGattEventSchema,
   bluetoothProxyJobSchema,
+  bluetoothProxyLinkArgsSchema,
   bluetoothProxyProfileSchema,
   bluetoothProxyStateSchema,
+  bluetoothProxyWriteArgsSchema,
   bluetoothSettingsSchema,
 } from './bluetooth.js';
+import { BLUETOOTH_PROXY_GATT_OPS, BLUETOOTH_PROXY_OPS } from './reserved-ops.js';
 
 describe('bluetoothAdvertSchema', () => {
   it('reads a proxy report, address upper and bytes lower', () => {
@@ -66,6 +71,19 @@ describe('bluetoothProxyStateSchema', () => {
     ).toMatchObject({ eligible: false, reason: 'firmware' });
   });
 
+  it('says the connections of a proxy that can connect, and nothing of one that only listens', () => {
+    const proxy = { eligible: true, installed: true, shipped: '2', running: true };
+
+    expect(
+      bluetoothProxyStateSchema.parse({ ...proxy, connections: { free: 2, limit: 3 } }),
+    ).toMatchObject({ connections: { free: 2, limit: 3 } });
+    expect(bluetoothProxyStateSchema.parse(proxy)).not.toHaveProperty('connections');
+    expect(
+      bluetoothProxyStateSchema.safeParse({ ...proxy, connections: { free: -1, limit: 3 } })
+        .success,
+    ).toBe(false);
+  });
+
   it('refuses a reason on an eligible device', () => {
     expect(bluetoothProxyStateSchema.safeParse({ eligible: false, reason: 'tired' }).success).toBe(
       false,
@@ -101,6 +119,75 @@ describe('bluetoothProxyFilterArgsSchema', () => {
       true,
     );
     expect(bluetoothProxyFilterArgsSchema.parse({ addresses: [] }).active).toBeUndefined();
+  });
+});
+
+describe('the GATT a proxy carries out', () => {
+  it('names its ops apart from the proxy’s own', () => {
+    const names = [
+      ...Object.values(BLUETOOTH_PROXY_OPS),
+      ...Object.values(BLUETOOTH_PROXY_GATT_OPS),
+    ];
+
+    expect(new Set(names).size).toBe(names.length);
+    expect(
+      Object.values(BLUETOOTH_PROXY_GATT_OPS).every((op) => op.startsWith('bluetooth-proxy.')),
+    ).toBe(true);
+  });
+
+  it('carries the address, upper case, beside what the driver asked', () => {
+    expect(bluetoothProxyLinkArgsSchema.parse({ address: 'c4:be:84:12:34:56' })).toEqual({
+      address: 'C4:BE:84:12:34:56',
+    });
+    expect(
+      bluetoothProxyExchangeArgsSchema.parse({
+        address: 'c4:be:84:12:34:56',
+        service: 'CBA20D00-224D-11E6-9FB8-0002A5D5C51B',
+        characteristic: 'cba20002-224d-11e6-9fb8-0002a5d5c51b',
+        notify: 'cba20003-224d-11e6-9fb8-0002a5d5c51b',
+        data: '570F',
+      }),
+    ).toEqual({
+      address: 'C4:BE:84:12:34:56',
+      service: 'cba20d00-224d-11e6-9fb8-0002a5d5c51b',
+      characteristic: 'cba20002-224d-11e6-9fb8-0002a5d5c51b',
+      notify: 'cba20003-224d-11e6-9fb8-0002a5d5c51b',
+      data: '570f',
+      withResponse: false,
+      timeoutMs: 5000,
+    });
+    expect(
+      bluetoothProxyWriteArgsSchema.safeParse({
+        service: 'fee7',
+        characteristic: 'fec7',
+        data: '01',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('reads a notification, a link lost and the slots free', () => {
+    expect(
+      bluetoothProxyGattEventSchema.parse({
+        kind: 'notification',
+        address: 'c4:be:84:12:34:56',
+        service: 'CBA20D00-224D-11E6-9FB8-0002A5D5C51B',
+        characteristic: 'cba20003-224d-11e6-9fb8-0002a5d5c51b',
+        data: '01FF',
+      }),
+    ).toMatchObject({ address: 'C4:BE:84:12:34:56', data: '01ff' });
+    expect(
+      bluetoothProxyGattEventSchema.parse({ kind: 'disconnected', address: 'C4:BE:84:12:34:56' }),
+    ).toEqual({ kind: 'disconnected', address: 'C4:BE:84:12:34:56' });
+    expect(bluetoothProxyGattEventSchema.parse({ kind: 'slots', free: 1, limit: 3 })).toEqual({
+      kind: 'slots',
+      free: 1,
+      limit: 3,
+    });
+    expect(bluetoothProxyGattEventSchema.safeParse({ kind: 'slots', free: 1 }).success).toBe(false);
+    expect(
+      bluetoothProxyGattEventSchema.safeParse({ kind: 'connected', address: 'C4:BE:84:12:34:56' })
+        .success,
+    ).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 /**
  * The ops the hub sends a device that plays a role for one of its brokers - an IR blaster, a
- * Bluetooth proxy - over its instance's connection, as `{ deviceKey, op, args }`, and the GATT ops
- * the platform transport `bluetooth` carries.
+ * Bluetooth proxy, and the GATT a proxy carries out for the house - over its instance's connection,
+ * as `{ deviceKey, op, args }`, and the GATT ops the platform transport `bluetooth` carries.
  *
  * A module of its own, importing nothing, because an integration's code imports these names
  * through the SDK: the SDK's entry point is bundled into every module an integration builds, and
@@ -47,8 +47,33 @@ export const BLUETOOTH_PROXY_OPS = {
 } as const;
 
 /**
- * The ops the platform transport `bluetooth` carries to a device it connects to, GATT on the local
- * adapter only.
+ * The ops the hub sends a proxy that can connect - its `bluetooth-proxy.state` says `connections` -
+ * to reach a device for the platform transport `bluetooth`, as `{ deviceKey, op, args }`. The hub
+ * decides when to connect and when to let go; the proxy carries each op out on its own radio and
+ * reports back through its scanner's `gatt`. Reserved: no integration uses these names for
+ * anything else.
+ */
+export const BLUETOOTH_PROXY_GATT_OPS = {
+  /** Connects to `{ address }`; answers `{ mtu? }`. */
+  connect: 'bluetooth-proxy.connect',
+
+  /** Lets go of `{ address }`; answers null, and never fails. */
+  disconnect: 'bluetooth-proxy.disconnect',
+
+  /** Reads a characteristic of a connected device; answers `{ data }`. */
+  read: 'bluetooth-proxy.read',
+  write: 'bluetooth-proxy.write',
+
+  /** Writes a request and answers `{ data }`, the first value notified back. */
+  exchange: 'bluetooth-proxy.exchange',
+
+  /** Turns a characteristic's notifications on or off; each value comes through `gatt`. */
+  notify: 'bluetooth-proxy.notify',
+} as const;
+
+/**
+ * The ops the platform transport `bluetooth` carries to a device it connects to, through the
+ * server's adapter or a proxy that can connect: the hub picks which.
  */
 export const BLUETOOTH_GATT_OPS = {
   read: 'gatt.read',
