@@ -229,8 +229,8 @@ declare const capabilityStateSchema: z.ZodObject<{
     preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     isOscillating: z.ZodOptional<z.ZodBoolean>;
     direction: z.ZodOptional<z.ZodEnum<{
-      reverse: "reverse";
       forward: "forward";
+      reverse: "reverse";
     }>>;
   }, z.core.$strip>>;
   location: z.ZodOptional<z.ZodObject<{
@@ -616,8 +616,8 @@ declare const stateReportSchema: z.ZodObject<{
       preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
       isOscillating: z.ZodOptional<z.ZodBoolean>;
       direction: z.ZodOptional<z.ZodEnum<{
-        reverse: "reverse";
         forward: "forward";
+        reverse: "reverse";
       }>>;
     }, z.core.$strip>>;
     location: z.ZodOptional<z.ZodObject<{
@@ -1277,8 +1277,8 @@ declare const serialLineSchema: z.ZodObject<{
   baudRate: z.ZodInt;
   dataBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<7>, z.ZodLiteral<8>]>>;
   parity: z.ZodDefault<z.ZodEnum<{
-    space: "space";
     none: "none";
+    space: "space";
     even: "even";
     odd: "odd";
     mark: "mark";
@@ -2291,6 +2291,20 @@ type PlatformServices = {
    * runs its own program beside the platform. Null only while the hub cannot run one.
    */
   readonly mqtt: PlatformMqtt | null;
+  /**
+   * Where one of the vendor's own containers - by its `id` in `manifest.json` - is reached, for
+   * a bundle that asks the program it runs beside the platform: the ESPHome Device Builder, for
+   * the nodes it holds. Asked again when it is needed rather than kept: the container may move.
+   *
+   * shortcut: answers only for a container with an `ingress` page; a container without one needs
+   * a supervisor method of its own when a vendor asks for it.
+   *
+   * @param id - The container's id in the vendor's manifest.
+   * @returns Its base URL, `http://host:port`; null while it is not running or has no page.
+   */
+  readonly container: (id: string) => Promise<{
+    readonly url: string;
+  } | null>;
 };
 /** One colour of a palette: red, green, blue and, optionally, how opaque, each 0 to 255. */
 type PaletteColour = readonly [number, number, number] | readonly [number, number, number, number];
@@ -2661,8 +2675,8 @@ declare const vendorManifestSchema: z.ZodObject<{
   }>>>;
   internetRequired: z.ZodDefault<z.ZodBoolean>;
   twins: z.ZodOptional<z.ZodArray<z.ZodEnum<{
-    serial: "serial";
     mac: "mac";
+    serial: "serial";
   }>>>;
   twinsPrefer: z.ZodOptional<z.ZodArray<z.ZodString>>;
   setup: z.ZodOptional<z.ZodString>;
@@ -2670,16 +2684,16 @@ declare const vendorManifestSchema: z.ZodObject<{
   transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     module: z.ZodString;
     wires: z.ZodArray<z.ZodEnum<{
-      udp: "udp";
       matter: "matter";
-      mqtt: "mqtt";
       modbus: "modbus";
+      mqtt: "mqtt";
       serial: "serial";
+      ir: "ir";
       http: "http";
       ble: "ble";
       zigbee: "zigbee";
+      udp: "udp";
       thread: "thread";
-      ir: "ir";
     }>>;
   }, z.core.$strict>]>>>;
   streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -2772,14 +2786,14 @@ declare const bundleManifestSchema: z.ZodObject<{
   modelCodes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
   modelSeries: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
   kind: z.ZodEnum<{
-    declarative: "declarative";
-    code: "code";
     matter: "matter";
-    mqtt: "mqtt";
     modbus: "modbus";
-    infrared: "infrared";
-    serial: "serial";
     bluetooth: "bluetooth";
+    mqtt: "mqtt";
+    serial: "serial";
+    code: "code";
+    declarative: "declarative";
+    infrared: "infrared";
   }>;
   defaultIcon: z.ZodOptional<z.ZodString>;
   webPagePort: z.ZodOptional<z.ZodInt>;
@@ -2791,8 +2805,8 @@ declare const bundleManifestSchema: z.ZodObject<{
     baudRate: z.ZodInt;
     dataBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<7>, z.ZodLiteral<8>]>>;
     parity: z.ZodDefault<z.ZodEnum<{
-      space: "space";
       none: "none";
+      space: "space";
       even: "even";
       odd: "odd";
       mark: "mark";
@@ -3185,10 +3199,12 @@ declare const vendorDiscoverySchema: z.ZodObject<{
       mask?: number | undefined;
     })[];
   }[]>>>;
-  adopt: z.ZodDefault<z.ZodEnum<{
+  adopt: z.ZodDefault<z.ZodUnion<readonly [z.ZodEnum<{
     owner: "owner";
     automatic: "automatic";
-  }>>;
+  }>, z.ZodObject<{
+    module: z.ZodString;
+  }, z.core.$strict>]>>;
   pairing: z.ZodOptional<z.ZodObject<{
     driver: z.ZodString;
     open: z.ZodString;
@@ -3321,6 +3337,37 @@ type DiscoverySource = {
    */
   scan?: () => void;
 };
+/**
+ * What a vendor's judge says of one sighting: the owner adopts it, or the platform adds it at
+ * once with `config` merged over the sighting's own - a key the judge knows. `config` holds only
+ * fields the driver's setup declares; it is never listed with the found device, only used when
+ * it is added, and the fields the setup declares secret are stored sealed.
+ */
+declare const adoptionVerdictSchema: z.ZodUnion<readonly [z.ZodObject<{
+  adopt: z.ZodLiteral<"owner">;
+}, z.core.$strict>, z.ZodObject<{
+  adopt: z.ZodLiteral<"automatic">;
+  config: z.ZodDefault<z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
+}, z.core.$strict>]>;
+/** What a vendor's judge says of one sighting. */
+type AdoptionVerdict = z.input<typeof adoptionVerdictSchema>;
+/**
+ * A vendor's own judge of who adds each device found, for a vendor some of whose devices were
+ * already chosen somewhere else. The hub asks it of every sighting that matches, from every
+ * source, before the device is proposed - so a device it adopts is never shown to the owner to
+ * adopt by hand - and trusts the answer for a while.
+ */
+type AdoptionJudge = {
+  /**
+   * Decides who adds one device.
+   *
+   * @param sighting - How to reach it, and what it said.
+   * @param signal - Ends the question when the hub stops waiting.
+   * @returns The verdict. A judge that throws - what it asks is not there yet - is taken as
+   * `owner` and asked again soon.
+   */
+  judge: (sighting: Sighting, signal: AbortSignal) => Promise<AdoptionVerdict>;
+};
 //#endregion
 //#region ../package-runtime/dist/install-marker.d.ts
 /** The contents of `.nebula-install.json`. */
@@ -3372,6 +3419,8 @@ type LoadedListenSource = {
 type LoadedDiscovery = {
   readonly plan: DiscoveryPlan;
   readonly sources: readonly LoadedListenSource[];
+  /** Its judge of who adds each device, when `adopt` names a module. */
+  readonly judge?: AdoptionJudge;
 };
 /** A vendor's account: what signing in asks, and the module that does it. */
 type LoadedAccount = {

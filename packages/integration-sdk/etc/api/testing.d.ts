@@ -113,8 +113,11 @@ type FakeBluetoothScanner = {
 };
 /** What a test builds a fake SDK with. */
 type FakeSdkOptions = {
-  /** What the platform runs that the bundle may use: no broker when not said. */
-  readonly platform?: PlatformServices;
+  /**
+   * What the platform runs that the bundle may use: no broker and no container when not said - a
+   * test names only the one it needs, `{ container: async () => ({ url }) }`.
+   */
+  readonly platform?: Partial<PlatformServices>;
   /** Pieces of the SDK the test supplies itself: `openMqtt`, `openRtsp`, `codecs`… */
   readonly overrides?: Partial<Omit<BundleSdk, 'version' | 'z'>>;
 };

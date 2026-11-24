@@ -21,8 +21,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }>>>;
     internetRequired: z.ZodDefault<z.ZodBoolean>;
     twins: z.ZodOptional<z.ZodArray<z.ZodEnum<{
-      serial: "serial";
       mac: "mac";
+      serial: "serial";
     }>>>;
     twinsPrefer: z.ZodOptional<z.ZodArray<z.ZodString>>;
     setup: z.ZodOptional<z.ZodString>;
@@ -30,16 +30,16 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     transports: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
       module: z.ZodString;
       wires: z.ZodArray<z.ZodEnum<{
-        udp: "udp";
         matter: "matter";
-        mqtt: "mqtt";
         modbus: "modbus";
+        mqtt: "mqtt";
         serial: "serial";
+        ir: "ir";
         http: "http";
         ble: "ble";
         zigbee: "zigbee";
+        udp: "udp";
         thread: "thread";
-        ir: "ir";
       }>>;
     }, z.core.$strict>]>>>;
     streams: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodString>>;
@@ -121,14 +121,14 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     modelCodes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>>>;
     modelSeries: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
     kind: z.ZodEnum<{
-      declarative: "declarative";
-      code: "code";
       matter: "matter";
-      mqtt: "mqtt";
       modbus: "modbus";
-      infrared: "infrared";
-      serial: "serial";
       bluetooth: "bluetooth";
+      mqtt: "mqtt";
+      serial: "serial";
+      code: "code";
+      declarative: "declarative";
+      infrared: "infrared";
     }>;
     defaultIcon: z.ZodOptional<z.ZodString>;
     webPagePort: z.ZodOptional<z.ZodInt>;
@@ -140,8 +140,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       baudRate: z.ZodInt;
       dataBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<7>, z.ZodLiteral<8>]>>;
       parity: z.ZodDefault<z.ZodEnum<{
-        space: "space";
         none: "none";
+        space: "space";
         even: "even";
         odd: "odd";
         mark: "mark";
@@ -520,7 +520,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     entities: z.ZodArray<z.ZodObject<{
       domain: z.ZodEnum<{
         number: "number";
-        image: "image";
+        custom: "custom";
+        time: "time";
         light: "light";
         switch: "switch";
         sensor: "sensor";
@@ -535,12 +536,11 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         update: "update";
         lawn_mower: "lawn_mower";
         select: "select";
-        time: "time";
         vacuum: "vacuum";
         fan: "fan";
         device_tracker: "device_tracker";
         geo_location: "geo_location";
-        custom: "custom";
+        image: "image";
         alias: "alias";
       }>;
       objectId: z.ZodOptional<z.ZodString>;
@@ -1062,10 +1062,12 @@ export declare const BUNDLE_FILE_SCHEMAS: {
         mask?: number | undefined;
       })[];
     }[]>>>;
-    adopt: z.ZodDefault<z.ZodEnum<{
+    adopt: z.ZodDefault<z.ZodUnion<readonly [z.ZodEnum<{
       owner: "owner";
       automatic: "automatic";
-    }>>;
+    }>, z.ZodObject<{
+      module: z.ZodString;
+    }, z.core.$strict>]>>;
     pairing: z.ZodOptional<z.ZodObject<{
       driver: z.ZodString;
       open: z.ZodString;

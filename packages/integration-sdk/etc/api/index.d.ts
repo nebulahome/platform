@@ -230,8 +230,8 @@ declare const capabilityStateSchema: z.ZodObject<{
     preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     isOscillating: z.ZodOptional<z.ZodBoolean>;
     direction: z.ZodOptional<z.ZodEnum<{
-      reverse: "reverse";
       forward: "forward";
+      reverse: "reverse";
     }>>;
   }, z.core.$strip>>;
   location: z.ZodOptional<z.ZodObject<{
@@ -774,8 +774,8 @@ declare const stateReportSchema: z.ZodObject<{
       preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
       isOscillating: z.ZodOptional<z.ZodBoolean>;
       direction: z.ZodOptional<z.ZodEnum<{
-        reverse: "reverse";
         forward: "forward";
+        reverse: "reverse";
       }>>;
     }, z.core.$strip>>;
     location: z.ZodOptional<z.ZodObject<{
@@ -1113,8 +1113,8 @@ declare const serialLineSchema: z.ZodObject<{
   baudRate: z.ZodInt;
   dataBits: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<5>, z.ZodLiteral<6>, z.ZodLiteral<7>, z.ZodLiteral<8>]>>;
   parity: z.ZodDefault<z.ZodEnum<{
-    space: "space";
     none: "none";
+    space: "space";
     even: "even";
     odd: "odd";
     mark: "mark";
@@ -2209,6 +2209,20 @@ type PlatformServices = {
    * runs its own program beside the platform. Null only while the hub cannot run one.
    */
   readonly mqtt: PlatformMqtt | null;
+  /**
+   * Where one of the vendor's own containers - by its `id` in `manifest.json` - is reached, for
+   * a bundle that asks the program it runs beside the platform: the ESPHome Device Builder, for
+   * the nodes it holds. Asked again when it is needed rather than kept: the container may move.
+   *
+   * shortcut: answers only for a container with an `ingress` page; a container without one needs
+   * a supervisor method of its own when a vendor asks for it.
+   *
+   * @param id - The container's id in the vendor's manifest.
+   * @returns Its base URL, `http://host:port`; null while it is not running or has no page.
+   */
+  readonly container: (id: string) => Promise<{
+    readonly url: string;
+  } | null>;
 };
 /** One colour of a palette: red, green, blue and, optionally, how opaque, each 0 to 255. */
 type PaletteColour = readonly [number, number, number] | readonly [number, number, number, number];
@@ -2490,6 +2504,39 @@ type DiscoverySource = {
 /** What a discovery module default-exports. */
 type DiscoverySourceFactory = (sdk: BundleSdk) => DiscoverySource;
 /**
+ * What a vendor's judge says of one sighting: the owner adopts it, or the platform adds it at
+ * once with `config` merged over the sighting's own - a key the judge knows. `config` holds only
+ * fields the driver's setup declares; it is never listed with the found device, only used when
+ * it is added, and the fields the setup declares secret are stored sealed.
+ */
+declare const adoptionVerdictSchema: z.ZodUnion<readonly [z.ZodObject<{
+  adopt: z.ZodLiteral<"owner">;
+}, z.core.$strict>, z.ZodObject<{
+  adopt: z.ZodLiteral<"automatic">;
+  config: z.ZodDefault<z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
+}, z.core.$strict>]>;
+/** What a vendor's judge says of one sighting. */
+type AdoptionVerdict = z.input<typeof adoptionVerdictSchema>;
+/**
+ * A vendor's own judge of who adds each device found, for a vendor some of whose devices were
+ * already chosen somewhere else. The hub asks it of every sighting that matches, from every
+ * source, before the device is proposed - so a device it adopts is never shown to the owner to
+ * adopt by hand - and trusts the answer for a while.
+ */
+type AdoptionJudge = {
+  /**
+   * Decides who adds one device.
+   *
+   * @param sighting - How to reach it, and what it said.
+   * @param signal - Ends the question when the hub stops waiting.
+   * @returns The verdict. A judge that throws - what it asks is not there yet - is taken as
+   * `owner` and asked again soon.
+   */
+  judge: (sighting: Sighting, signal: AbortSignal) => Promise<AdoptionVerdict>;
+};
+/** What a vendor's adoption module default-exports. */
+type AdoptionJudgeFactory = (sdk: BundleSdk) => AdoptionJudge;
+/**
  * What the platform's mDNS source reports, which a vendor's match and identity read.
  *
  * `txt` holds the service's TXT record as text; a key with no value reads as an empty string.
@@ -2529,6 +2576,15 @@ export declare function defineDriverModule(factory: IntegrationFactory): Integra
  */
 export declare function defineDiscoveryModule(factory: DiscoverySourceFactory): DiscoverySourceFactory;
 /**
+ * Types an adoption module: `discovery.json`'s `"adopt": { "module": "./adopt.js" }`, a judge of
+ * the vendor's own that says, device by device, whether the platform adds it at once - and with
+ * what - or the owner adopts it.
+ *
+ * @param factory - Builds the judge from the SDK.
+ * @returns The factory, as the module's default export.
+ */
+export declare function defineAdoptionModule(factory: AdoptionJudgeFactory): AdoptionJudgeFactory;
+/**
  * Types an account module: `account.json`'s `module`, which signs in to the account the
  * vendor's devices are reached through.
  *
@@ -2545,4 +2601,4 @@ export declare function defineAccountModule(factory: AccountFactory): AccountFac
  */
 export declare function defineStreamModule(factory: StreamFactory): StreamFactory;
 //#endregion
-export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothGattDatabase, BluetoothProxyConnectArgs, BluetoothProxyConnectReply, BluetoothProxyExchangeArgs, BluetoothProxyFilterArgs, BluetoothProxyGattEvent, BluetoothProxyGattEventInput, BluetoothProxyInstallArgs, BluetoothProxyLinkArgs, BluetoothProxyNotifyArgs, BluetoothProxyProfile, BluetoothProxyReadArgs, BluetoothProxyState, BluetoothProxyWriteArgs, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandStep, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, HistoryImport, HistoryRange, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PastReading, PastReadings, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };
+export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, AdoptionJudge, AdoptionJudgeFactory, AdoptionVerdict, BluetoothAdvert, BluetoothAdvertInput, BluetoothGattDatabase, BluetoothProxyConnectArgs, BluetoothProxyConnectReply, BluetoothProxyExchangeArgs, BluetoothProxyFilterArgs, BluetoothProxyGattEvent, BluetoothProxyGattEventInput, BluetoothProxyInstallArgs, BluetoothProxyLinkArgs, BluetoothProxyNotifyArgs, BluetoothProxyProfile, BluetoothProxyReadArgs, BluetoothProxyState, BluetoothProxyWriteArgs, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandStep, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, HistoryImport, HistoryRange, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PastReading, PastReadings, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };

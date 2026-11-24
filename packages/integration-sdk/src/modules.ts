@@ -17,6 +17,7 @@
  */
 import type {
   AccountFactory,
+  AdoptionJudgeFactory,
   DiscoverySourceFactory,
   IntegrationFactory,
   StreamFactory,
@@ -53,6 +54,18 @@ export function defineDriverModule(factory: IntegrationFactory): IntegrationFact
  * @returns The factory, as the module's default export.
  */
 export function defineDiscoveryModule(factory: DiscoverySourceFactory): DiscoverySourceFactory {
+  return factory;
+}
+
+/**
+ * Types an adoption module: `discovery.json`'s `"adopt": { "module": "./adopt.js" }`, a judge of
+ * the vendor's own that says, device by device, whether the platform adds it at once - and with
+ * what - or the owner adopts it.
+ *
+ * @param factory - Builds the judge from the SDK.
+ * @returns The factory, as the module's default export.
+ */
+export function defineAdoptionModule(factory: AdoptionJudgeFactory): AdoptionJudgeFactory {
   return factory;
 }
 

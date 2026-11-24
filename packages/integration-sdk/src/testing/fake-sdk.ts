@@ -190,8 +190,11 @@ export type FakeBluetoothScanner = {
 
 /** What a test builds a fake SDK with. */
 export type FakeSdkOptions = {
-  /** What the platform runs that the bundle may use: no broker when not said. */
-  readonly platform?: PlatformServices;
+  /**
+   * What the platform runs that the bundle may use: no broker and no container when not said - a
+   * test names only the one it needs, `{ container: () => Promise.resolve({ url }) }`.
+   */
+  readonly platform?: Partial<PlatformServices>;
 
   /** Pieces of the SDK the test supplies itself: `openMqtt`, `openRtsp`, `codecs`… */
   readonly overrides?: Partial<Omit<BundleSdk, 'version' | 'z'>>;
@@ -779,6 +782,17 @@ export function createFakeSdk(options: FakeSdkOptions = {}): FakeSdk {
     },
   };
 
+  const platform: PlatformServices = {
+    mqtt: null,
+
+    /**
+     * No container runs in a test that does not say one does.
+     *
+     * @returns Null.
+     */
+    container: () => Promise.resolve(null),
+    ...options.platform,
+  };
   const sdk: BundleSdk = {
     version: SDK_VERSION,
     z,
@@ -793,7 +807,7 @@ export function createFakeSdk(options: FakeSdkOptions = {}): FakeSdk {
     openSerial,
     bluetooth,
     openRtsp: notFaked('openRtsp'),
-    platform: options.platform ?? { mqtt: null },
+    platform,
     codecs: { lzma: notFaked('codecs.lzma'), infrared: infraredCodec },
     images: { png: notFaked('images.png') },
     ...options.overrides,

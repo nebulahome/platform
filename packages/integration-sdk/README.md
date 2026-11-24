@@ -70,8 +70,8 @@ export default defineTransportModule((sdk) =>
 );
 ```
 
-`defineDriverModule`, `defineDiscoveryModule`, `defineAccountModule` and `defineStreamModule`
-type the other modules the same way.
+`defineDriverModule`, `defineDiscoveryModule`, `defineAdoptionModule`, `defineAccountModule` and
+`defineStreamModule` type the other modules the same way.
 
 ## Tests
 

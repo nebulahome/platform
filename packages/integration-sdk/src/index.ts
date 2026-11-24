@@ -18,6 +18,7 @@
 
 export {
   defineAccountModule,
+  defineAdoptionModule,
   defineDiscoveryModule,
   defineDriverModule,
   defineStreamModule,
@@ -141,8 +142,11 @@ export type {
   StreamRequest,
 } from '@nebulahome/package-runtime';
 
-// Discovery: a listener of the vendor's own.
+// Discovery: a listener of the vendor's own, and a judge of who adds each device.
 export type {
+  AdoptionJudge,
+  AdoptionJudgeFactory,
+  AdoptionVerdict,
   DiscoveryListenContext,
   DiscoverySource,
   DiscoverySourceFactory,

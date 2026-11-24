@@ -518,7 +518,10 @@ because a device announced it there.
   itself, with the id the add form would have offered - for devices the owner already chose
   somewhere else: a Zigbee device paired with Zigbee2MQTT, a mower bound to an ECOVACS account.
   Such a vendor's page has no **Add device**, no **Discover devices** and nothing to adopt, and a
-  device removed there comes back while the vendor still lists it.
+  device removed there comes back while the vendor still lists it. `{ "module": "./adopt.js" }`
+  is a judge of the vendor's own (below) that decides device by device: for a vendor some of whose
+  devices were chosen somewhere else and others not - an ESPHome node written in the vendor's own
+  Device Builder, among others on the network. Its page keeps **Add device** and the Found tab.
 - `pairing` - `{ "driver": "bridge", "open": "permit_join", "close":
 "permit_join_stop", "state": "pairing" }`: the entities of one of the
   vendor's drivers pairing is run by, by object id - the button that opens it, the one that closes
@@ -727,6 +730,26 @@ offer, so a listener calls them as `context.status?.(…)`:
   whole list each time: one still being paired, one its program does not support. The page lists
   them under **Seen but not added**, with the reason, beside the devices the hub heard that no
   driver takes, which the hub adds on its own.
+
+**A judge of the vendor's own** (`"adopt": { "module": "./adopt.js" }`, typed with
+`defineAdoptionModule`) is a module whose default export returns `{ judge(sighting, signal) }`.
+The hub asks it of every sighting that matches, from every source - an mDNS announcement, a
+listener's report - **before** the device is proposed, and it answers
+`{ adopt: 'owner' }` or `{ adopt: 'automatic', config? }`:
+
+- `automatic` has `api` add the device at once, as for a vendor that says `"adopt": "automatic"`,
+  with `config` merged over the sighting's own - the key the vendor's container holds for it.
+  `config` may hold only fields the driver's `setup.json` declares; the ones declared `secret` are
+  stored sealed. It is never listed with the found device: the hub keeps it apart and hands it
+  over, sealed, only when the device is added.
+- `owner` proposes it on the vendor's page, like any other.
+
+A sighting is not shown while it is judged, so a device the judge adopts is never offered to adopt
+by hand. A verdict is trusted for a minute, however often the device announces itself, and a
+device already added is not judged. A judge that throws, takes longer than 15 seconds (`signal`
+ends then) or answers something else counts as `owner`: the device is proposed to the owner
+meanwhile and judged again after 5, 15, 30 and 60 seconds - what the judge asks may still be
+starting. `sdk.platform.container(id)` is where it finds the vendor's own container.
 
 ## `account.json` - the account the devices are reached through
 
@@ -980,6 +1003,7 @@ import them:
 | `defineStreamSource` | the contract a camera's stream source is written against                              |
 | `openRtsp`           | an RTSP(S) session over TCP, yielding a camera's H.264 as it comes                    |
 | `platform.mqtt`      | the house's MQTT broker the hub runs, with the hub's username; null if it cannot      |
+| `platform.container` | `(id) => { url } \| null`: where one of the vendor's own containers serves its page   |
 | `defineAccount`      | the contract an account's sign-in module is written against                           |
 | `codecs.lzma`        | unpacks an LZMA stream in the alone format, as some clouds pack maps                  |
 | `codecs.infrared`    | infrared and radio codes: Broadlink, Pronto, raw timings, Flipper `.ir`, protocols    |

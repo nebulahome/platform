@@ -3,6 +3,21 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.18.0
+
+- **A judge of who adds each device:** `discovery.json`'s `adopt` also takes
+  `{ "module": "./adopt.js" }`, a module typed with `defineAdoptionModule` whose
+  `judge(sighting, signal)` answers `{ adopt: 'owner' }` or `{ adopt: 'automatic', config? }` for
+  every sighting that matches, before it is proposed. An automatic one is added at once with
+  `config` - fields of the driver's setup, secrets stored sealed - merged over the sighting's own;
+  `config` is never listed with the found device. A judge that fails counts as `owner` and is asked
+  again soon. The vendor's page keeps **Add device** and the Found tab. New types: `AdoptionJudge`,
+  `AdoptionJudgeFactory`, `AdoptionVerdict`.
+- **The vendor's own containers:** `sdk.platform.container(id)` says where one of the containers
+  the vendor's manifest declares serves its page - `{ url }`, or null while it is not running. Only
+  a container with `ingress` answers. `fakeSdk({ platform })` takes the members it needs, and
+  answers null for `container` when not said.
+
 ## 1.17.0
 
 - **The state a command's answers say:** a code driver's new `fromAnswer(target, step, context)`
