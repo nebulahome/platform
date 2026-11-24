@@ -201,6 +201,25 @@ describe('Modal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('does not ask to be closed when its owner closed it', () => {
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <Modal isOpen onClose={onClose} title="Device settings">
+        <p>the form</p>
+      </Modal>,
+    );
+
+    // A device's settings close to make way for the removal confirmation. Passing that `close` on
+    // shut the settings' owner, and the confirmation with it, a moment after it appeared.
+    rerender(
+      <Modal isOpen={false} onClose={onClose} title="Device settings">
+        <p>the form</p>
+      </Modal>,
+    );
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('keeps an outer dialog open when a dialog inside it closes', () => {
     const onOuterClose = vi.fn();
 

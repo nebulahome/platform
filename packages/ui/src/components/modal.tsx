@@ -484,10 +484,14 @@ export function Modal(props: ModalProps) {
    * `close` event does not bubble, React still hands it to every `onClose` above the target. Left
    * unchecked, picking an icon inside an edit dialog shut the edit dialog as well.
    *
+   * A close that {@link Closing} made because `isOpen` turned false is not passed on either: the
+   * owner already closed it, and the event arrives a task later, when the owner may have moved on.
+   * Passed on, a device's settings shut the removal confirmation that had just replaced them.
+   *
    * @param event - The close.
    */
   const onNativeClose = (event: SyntheticEvent<HTMLDialogElement>): void => {
-    if (event.target === event.currentTarget) {
+    if (isOpen && event.target === event.currentTarget) {
       onClose();
     }
   };
