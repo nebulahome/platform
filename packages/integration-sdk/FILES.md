@@ -261,8 +261,7 @@ recognised from; it follows its address with the subscription `{ "op": "follow",
 any proxy - one carrying the same name, maker's and service data at most once a minute. A device
 that says some of what it knows only when asked - in a scan response - adds `"activeEveryMinutes":
 N` (1 to 1440): proxies rest passive, and every N minutes the hub asks the proxy hearing it best to
-scan actively until it hears the device again, 30 s at most. Its
-requests are GATT: `gatt.read { service, characteristic }` answers `{ data }`, `gatt.write {
+scan actively for 5 s. Its requests are GATT: `gatt.read { service, characteristic }` answers `{ data }`, `gatt.write {
 service, characteristic, data, withResponse }`, `gatt.exchange { service, characteristic, notify,
 data, withResponse, timeoutMs }` - a request written to `characteristic`, answered `{ data }` with
 the first value `notify` notifies after it (`withResponse` false and 5 s unless said, 10 s at
@@ -285,8 +284,16 @@ target, { request, answer, index }, context)` beside `toCommand`: the hub sends 
 until it returns null - eight requests at most, all within the command's deadline. Each step is a
 pure function of the answers, as `toCommand` is; a throw fails the command with its message. A
 command whose deadline passes is reported unanswered, and is never sent another way, since the
-device may still carry it out. `driverHarness(...).converse(entityId, capability, command,
-answers)` runs one in a test.
+device may still carry it out.
+
+An answer may also say what the device is now - a plug that answers "on" to "turn on", a Bluetooth
+switch asked for its info right after the action. A driver reads it with `fromAnswer(target, {
+request, answer, index }, context)`, which returns reports as `toState` does: the hub hands it each
+answer before `continueCommand`, publishes what it returns and keeps it as the entities' last
+state, so the next step and the next command see it. A throw there is logged and the command goes
+on, since the device did what it was asked. Without `fromAnswer` the state changes only when the
+device next reports. `driverHarness(...).converse(entityId, capability, command, answers)` runs a
+conversation in a test: it returns the requests, and the reports `fromAnswer` made as `states`.
 
 `defaultIcon` names the icon a device of this driver starts with, by its id in the platform's
 icon catalogue (`packages/icons/catalogue.json` lists the platform's own ids - `light`,

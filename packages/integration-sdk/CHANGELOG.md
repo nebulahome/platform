@@ -3,6 +3,19 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.17.0
+
+- **The state a command's answers say:** a code driver's new `fromAnswer(target, step, context)`
+  reads what an answer to one of a command's requests says of the device - a plug that answers
+  "on", a Bluetooth device asked for its info right after the action - and returns reports as
+  `toState` does. The hub calls it on each answer before `continueCommand`, publishes the reports
+  and keeps them as the entities' last state; a throw is logged and the command goes on.
+  `driverHarness(...).converse()` returns the reports too, as `states` on the requests, and keeps
+  them as each entity's last state.
+- A Bluetooth driver's `activeEveryMinutes` refresh scans actively for a fixed 5 s, no longer
+  until the device is heard again (30 s at most): the first advert heard may be a passive one, and
+  the scan response comes after it.
+
 ## 1.16.0
 
 - **Bluetooth connections through a proxy:** a proxy whose radio can hold links says so in

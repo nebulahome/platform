@@ -299,6 +299,18 @@ describe('testing', () => {
           step.answer === 'busy'
             ? { deviceKey: '192.0.2.7', op: 'post', args: { path: '/state/again' } }
             : null,
+        // The light says it is off when it did it.
+        fromAnswer: (target, step) =>
+          step.answer === 'ok'
+            ? [
+                {
+                  entityId: target.entityId,
+                  state: { on_off: { isOn: false } },
+                  attributes: {},
+                  isAvailable: true,
+                },
+              ]
+            : [],
       },
       { options: { pollInterval: 10 }, deviceId: 'hall' },
     );
@@ -308,11 +320,23 @@ describe('testing', () => {
       payload: { vendor: 'Fixture', id: 'fx-1', name: 'Hall', model: 'FX1' },
     });
 
-    expect(
-      harness
-        .converse('light.hall', 'on_off', { command: 'turn_off' }, ['busy', 'ok'])
-        .map((request) => request.args['path']),
-    ).toEqual(['/state', '/state/again']);
+    const requests = harness.converse('light.hall', 'on_off', { command: 'turn_off' }, [
+      'busy',
+      'ok',
+    ]);
+
+    expect(requests.map((request) => request.args['path'])).toEqual(['/state', '/state/again']);
+    // The states stay off the array's entries: a test comparing the requests sees only them.
+    expect(Object.keys(requests)).toEqual(['0', '1']);
+    expect(requests.states).toEqual([
+      {
+        entityId: 'light.hall',
+        state: { on_off: { isOn: false } },
+        attributes: {},
+        isAvailable: true,
+      },
+    ]);
+    expect(harness.lastState('light.hall')).toEqual({ on_off: { isOn: false } });
   });
 
   it("imports a device's past through the driver's history, leaving the state alone", async () => {

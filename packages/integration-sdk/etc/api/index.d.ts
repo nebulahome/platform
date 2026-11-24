@@ -309,8 +309,8 @@ type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
  */
 declare const bluetoothProxyProfileSchema: z.ZodObject<{
   modes: z.ZodArray<z.ZodEnum<{
-    passive: "passive";
     active: "active";
+    passive: "passive";
   }>>;
 }, z.core.$strict>;
 /** What a device that can be a proxy declares. */
@@ -318,8 +318,8 @@ type BluetoothProxyProfile = z.output<typeof bluetoothProxyProfileSchema>;
 /** Arguments of `bluetooth-proxy.install`. */
 declare const bluetoothProxyInstallArgsSchema: z.ZodObject<{
   mode: z.ZodEnum<{
-    passive: "passive";
     active: "active";
+    passive: "passive";
   }>;
 }, z.core.$strip>;
 /** Arguments of `bluetooth-proxy.install`: the mode to rest in, which the hub picks. */
@@ -348,8 +348,8 @@ declare const bluetoothProxyStateSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
 }, z.core.$strip>, z.ZodObject<{
   eligible: z.ZodLiteral<false>;
   reason: z.ZodEnum<{
-    gen1: "gen1";
     battery: "battery";
+    gen1: "gen1";
     firmware: "firmware";
     "no-bluetooth": "no-bluetooth";
     unsupported: "unsupported";
@@ -1617,6 +1617,20 @@ type Integration<TOptions = JsonObject> = {
    * @returns The next request, or null when the command is done.
    */
   continueCommand?: (target: CommandTarget, step: CommandStep, context: MappingContext) => TransportRequest | null;
+  /**
+   * What an answer to one of a command's requests says about the device: a plug that answers
+   * "on" to "turn on", a Bot asked for its info right after. Reported as `toState`'s are. The hub
+   * reads each answer here before `continueCommand` sees it; a throw is logged and the command
+   * goes on, since the device did what it was asked.
+   *
+   * Optional: without it a command's answers only lead to the next request.
+   *
+   * @param target - The entity, the capability and the command.
+   * @param step - The request just sent, what the transport answered, and its place (0 first).
+   * @param context - The claim, the settings and the last known state.
+   * @returns One report per entity the answer says something about, which may be none.
+   */
+  fromAnswer?: (target: CommandTarget, step: CommandStep, context: MappingContext) => ReportedState[];
   /**
    * Reads what a message says about the device itself, beyond its entities: the firmware it runs
    * now, which changes when it is updated and is otherwise only known from when it was found;

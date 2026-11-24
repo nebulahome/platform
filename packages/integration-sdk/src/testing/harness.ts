@@ -114,21 +114,22 @@ export type DriverHarness = {
 
   /**
    * Carries a command through a conversation, as the hub does for a driver with
-   * `continueCommand`: each request is answered with the next of `answers`, and the driver says
-   * what to send next.
+   * `continueCommand`: each request is answered with the next of `answers`, what the driver's
+   * `fromAnswer` reads of each answer is reported, and the driver says what to send next.
    *
    * @param entityId - The entity.
    * @param capability - The capability.
    * @param command - The command, as `core` validated it.
    * @param answers - What the transport answers each request, in turn.
-   * @returns Every request the command made; the last one unanswered when `answers` ran out.
+   * @returns Every request the command made, the last one unanswered when `answers` ran out; and
+   * as `states`, the reports `fromAnswer` made of the answers, each entity's last state kept.
    */
   converse: (
     entityId: string,
     capability: CapabilityName,
     command: JsonObject,
     answers: readonly unknown[],
-  ) => TransportRequest[];
+  ) => TransportRequest[] & { readonly states: ReportedState[] };
 
   /**
    * Imports a device's past, as the hub does once it is added, for a driver with `history`: the
@@ -336,13 +337,15 @@ export function driverHarness(
      * @param capability - The capability.
      * @param command - The command.
      * @param answers - The transport's answers, in turn.
-     * @returns The requests.
-     * @throws {Error} When no device added has the entity, or past eight requests.
+     * @returns The requests, and the states the answers reported.
+     * @throws {Error} When no device added has the entity, or past eight requests; and what
+     * `fromAnswer` throws, which the hub only logs: here a test sees it.
      */
     converse: (entityId, capability, command, answers) => {
       const context = contextFor(deviceWith(entityId));
       const target = { entityId: entityId as EntityId, capability, command };
       const requests = [integration.toCommand(target, context)];
+      const states: ReportedState[] = [];
 
       for (const [index, answer] of answers.entries()) {
         const request = requests[index];
@@ -351,7 +354,14 @@ export function driverHarness(
           break;
         }
 
-        const next = integration.continueCommand?.(target, { request, answer, index }, context);
+        const step = { request, answer, index };
+
+        for (const report of integration.fromAnswer?.(target, step, context) ?? []) {
+          lastStates.set(report.entityId, report.state);
+          states.push(report);
+        }
+
+        const next = integration.continueCommand?.(target, step, context);
 
         if (next === null || next === undefined) {
           break;
@@ -364,7 +374,10 @@ export function driverHarness(
         requests.push(next);
       }
 
-      return requests;
+      // Not enumerable, so a test comparing the requests with toEqual still sees only them.
+      return Object.defineProperty(requests, 'states', { value: states }) as TransportRequest[] & {
+        readonly states: ReportedState[];
+      };
     },
 
     /**
