@@ -9,9 +9,9 @@
  *
  * As the board draws it (canvas page "Integrazione · lista device", DL-A): the search with Add
  * device inside it and the Filter beside it sit in the panel's head, by the count - "2 of 12" once
- * anything narrows the table, and nowhere else. The facets set show as chips under the head. A row
- * has the address under the name; a failing one is washed red, the one under the pointer lifts.
- * The Device, Area and Last updated headings sort the table, as the Automations table's do.
+ * anything narrows the table, and nowhere else; the Filter's own count says how many facets are
+ * set. A row has the address under the name; a failing one is washed red, the one under the
+ * pointer lifts. Every heading sorts the table, as the Automations table's do.
  *
  * A device others are part of - a printer, with its AMS units - is one row with a chevron beside
  * its spanner, closed at first; opened, its parts slide out under it, hung from its icon. A search
@@ -22,17 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { DeviceView, IntegrationState, IntegrationVendorView } from '@nebulahome/contracts';
-import {
-  AppIcon,
-  Badge,
-  cn,
-  Collapse,
-  FilterChips,
-  IconButton,
-  Panel,
-  type ActiveFilter,
-  type BadgeTone,
-} from '@nebulahome/ui';
+import { AppIcon, Badge, cn, Collapse, IconButton, Panel, type BadgeTone } from '@nebulahome/ui';
 
 import { SortHeader } from '@/components/sort-header';
 import { collator } from '@/i18n/formatters';
@@ -60,7 +50,6 @@ import { MatterTag } from '@/routes/library/matter-tag';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 import {
-  activeDeviceFilters,
   VendorDeviceFilterSheet,
   type VendorDeviceChoices,
 } from '@/routes/library/vendor-device-filter';
@@ -219,18 +208,6 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
     ];
   });
 
-  // The chips slide away when the last facet is cleared: until they have, the ones there were stay.
-  const chips = activeDeviceFilters(filter, choices, setFilter);
-  const chipsKey = chips.map((chip) => `${chip.id}:${chip.value}`).join('|');
-  const [held, setHeld] = useState<{ readonly key: string; readonly chips: ActiveFilter[] }>({
-    key: chipsKey,
-    chips,
-  });
-
-  if (chipsKey !== '' && held.key !== chipsKey) {
-    setHeld({ key: chipsKey, chips });
-  }
-
   /**
    * Opens a parent's parts, or closes them.
    *
@@ -380,24 +357,7 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
    * @returns The cell.
    */
   const sortCell = (column: DeviceSort, label: string, className?: string): ReactNode => {
-    const isSorted = paging.sort === column;
-
-    return (
-      <span
-        role="columnheader"
-        aria-sort={isSorted ? (paging.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-        className={className}
-      >
-        <SortHeader
-          label={label}
-          isSorted={isSorted}
-          direction={paging.direction}
-          onSort={() => {
-            paging.toggleSort(column);
-          }}
-        />
-      </span>
-    );
+    return <SortHeader paging={paging} column={column} label={label} className={className} />;
   };
 
   // Keeps the spanners in line on the rows without a chevron.
@@ -450,15 +410,6 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
           )
         }
       >
-        <Collapse isOpen={chips.length > 0} className="px-5.5 pb-4">
-          <FilterChips
-            filters={chips.length > 0 ? chips : held.chips}
-            onClearAll={() => {
-              setFilter({ ...OPEN_VENDOR_DEVICE_FILTER, search: filter.search });
-            }}
-          />
-        </Collapse>
-
         {devices.length === 0 ? (
           <p className="border-t border-border px-5.5 py-3.5 text-ui text-foreground-muted">
             {isAutomatic
@@ -517,12 +468,12 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
             >
               {sortCell('name', t('library.vendorDevicesTab.device', 'Device'))}
               {sortCell('area', t('library.vendorDevicesTab.area', 'Area'), 'hidden lg:block')}
-              <span role="columnheader" className="hidden lg:block">
-                {t('library.vendorDevicesTab.model', 'Model')}
-              </span>
-              <span role="columnheader" className="hidden md:block">
-                {t('library.vendorDevicesTab.status', 'Status')}
-              </span>
+              {sortCell('model', t('library.vendorDevicesTab.model', 'Model'), 'hidden lg:block')}
+              {sortCell(
+                'status',
+                t('library.vendorDevicesTab.status', 'Status'),
+                'hidden md:block',
+              )}
               {sortCell(
                 'updated',
                 t('library.vendorDevicesTab.lastUpdated', 'Last updated'),

@@ -12,6 +12,7 @@ import {
   countAutomationStandings,
   matchesAutomationFilter,
   OPEN_AUTOMATION_FILTER,
+  sortAutomations,
   triggerTypesOf,
 } from './automation-filters';
 
@@ -191,6 +192,64 @@ describe('Missing entities', () => {
     expect(
       matchesAutomationFilter({ ...AUTOMATION, missingEntities: [entity('light.porch')] }, missing),
     ).toBe(true);
+  });
+});
+
+describe('sortAutomations', () => {
+  /**
+   * A run on record, at an hour of the day.
+   *
+   * @param hour - The hour.
+   * @returns The run.
+   */
+  const ranAt = (hour: number): AutomationView['lastRun'] => ({
+    id: '00000000-0000-4000-8000-0000000000aa',
+    time: new Date(`2026-11-24T${String(hour).padStart(2, '0')}:00:00.000Z`),
+    finishedAt: null,
+    result: 'success',
+  });
+  const porch: AutomationView = {
+    ...AUTOMATION,
+    name: 'Porch',
+    mode: 'restart',
+    isEnabled: false,
+    lastRun: ranAt(8),
+  };
+  const attic: AutomationView = {
+    ...AUTOMATION,
+    name: 'Attic',
+    mode: 'queued',
+    lastRun: ranAt(20),
+  };
+  const bath: AutomationView = { ...AUTOMATION, name: 'Bath', mode: 'queued' };
+  const all = [porch, attic, bath];
+
+  /**
+   * The names, in the order a sort gives.
+   *
+   * @param sorted - The sorted automations.
+   * @returns Their names.
+   */
+  const names = (sorted: readonly AutomationView[]) => sorted.map((each) => each.name);
+
+  it('sorts by name either way', () => {
+    expect(names(sortAutomations(all, 'name', 'asc'))).toEqual(['Attic', 'Bath', 'Porch']);
+    expect(names(sortAutomations(all, 'name', 'desc'))).toEqual(['Porch', 'Bath', 'Attic']);
+  });
+
+  it('sorts by the mode as it reads, ties by name', () => {
+    expect(names(sortAutomations(all, 'mode', 'asc'))).toEqual(['Attic', 'Bath', 'Porch']);
+    expect(names(sortAutomations(all, 'mode', 'desc'))).toEqual(['Porch', 'Attic', 'Bath']);
+  });
+
+  it('puts the latest run first, and one that never ran last either way', () => {
+    expect(names(sortAutomations(all, 'run', 'asc'))).toEqual(['Attic', 'Porch', 'Bath']);
+    expect(names(sortAutomations(all, 'run', 'desc'))).toEqual(['Porch', 'Attic', 'Bath']);
+  });
+
+  it('puts the ones on first, ties by name', () => {
+    expect(names(sortAutomations(all, 'enabled', 'asc'))).toEqual(['Attic', 'Bath', 'Porch']);
+    expect(names(sortAutomations(all, 'enabled', 'desc'))).toEqual(['Porch', 'Attic', 'Bath']);
   });
 });
 

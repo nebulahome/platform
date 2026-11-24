@@ -20,18 +20,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { MenuButton, SelectField, TILE_GRID } from '@nebulahome/ui';
+import { AppIcon, Button, Checkbox, cn, Menu, SelectField, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { CONTAINER_QUERY_KEYS, dismissInstall, fetchContainers } from '@/containers/api';
 import {
   CONTAINER_FILTER_CODEC,
+  CONTAINER_RUN_STATES,
   OPEN_CONTAINER_FILTER,
+  runStateOf,
   type ContainerOwnerChoice,
-  type ContainerRunChoice,
+  type ContainerRunState,
 } from '@/containers/container-filters';
 import { containerTiles } from '@/containers/container-groups';
-import { defineMessage, type Message, translate, withLabels } from '@/i18n/messages';
+import { defineMessage, type Message, text, translate, withLabels } from '@/i18n/messages';
 import { signalled } from '@/lib/signalled';
 import { useListState } from '@/lib/use-list-state';
 import { ComposeEditorDialog } from '@/routes/containers/compose-editor-dialog';
@@ -43,12 +45,19 @@ import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 
-/** The run choices, for the facet. */
-const RUN_OPTIONS: readonly { readonly value: ContainerRunChoice; readonly label: Message }[] = [
-  { value: 'any', label: defineMessage('containers.containers.runningOrNot', 'Running or not') },
-  { value: 'running', label: defineMessage('containers.containers.running', 'Running') },
-  { value: 'stopped', label: defineMessage('containers.containers.stopped', 'Stopped') },
-];
+/** What each run state is called, and its dot in the tone the card gives it. */
+const RUN_STATES: Readonly<
+  Record<ContainerRunState, { readonly label: Message; readonly dot: string }>
+> = {
+  running: {
+    label: defineMessage('containers.containers.running', 'Running'),
+    dot: 'bg-success',
+  },
+  stopped: {
+    label: defineMessage('containers.containers.stopped', 'Stopped'),
+    dot: 'bg-foreground-subtle',
+  },
+};
 
 /** The owner choices, for the facet. */
 const OWNER_OPTIONS: readonly { readonly value: ContainerOwnerChoice; readonly label: Message }[] =
@@ -101,7 +110,7 @@ export function ContainersPage() {
     containers.data?.installs ?? [],
     filter,
   );
-  const narrowed = Number(filter.run !== 'any') + Number(filter.owner !== 'any');
+  const narrowed = Number(filter.runs.length > 0) + Number(filter.owner !== 'any');
   const isDockerUp = docker?.isAvailable === true;
   const hasCompose = docker?.composeVersion !== null && docker?.composeVersion !== undefined;
   const isEmpty =
@@ -109,6 +118,27 @@ export function ContainersPage() {
     items.length === 0 &&
     (containers.data?.installs.length ?? 0) === 0 &&
     (containers.data?.composeOperations.length ?? 0) === 0;
+  const canAdd = canInstall && isDockerUp;
+  const runCounts = new Map<ContainerRunState, number>();
+
+  for (const item of items) {
+    runCounts.set(runStateOf(item), (runCounts.get(runStateOf(item)) ?? 0) + 1);
+  }
+
+  /**
+   * Ticks or unticks one run state.
+   *
+   * @param state - The state.
+   * @param isChecked - Whether it is now ticked.
+   */
+  const toggleRun = (state: ContainerRunState, isChecked: boolean): void => {
+    setFilter({
+      ...filter,
+      runs: isChecked
+        ? CONTAINER_RUN_STATES.filter((each) => each === state || filter.runs.includes(each))
+        : filter.runs.filter((each) => each !== state),
+    });
+  };
 
   return (
     <>
@@ -140,37 +170,48 @@ export function ContainersPage() {
         }
         tools={
           <>
-            <SearchField
-              placeholder={t('containers.containers.searchContainers', 'Search containers…')}
-              value={filter.search}
-              onChange={(search) => {
-                setFilter({ ...filter, search });
-              }}
-            />
             <FilterSheet
               label={t('containers.containers.narrowTheContainers', 'Narrow the containers')}
               count={narrowed}
-              summary={t('containers.containers.countShown', '{{count}} shown', {
-                count: tiles.length,
-              })}
               onClear={() => {
-                setFilter({ ...filter, run: 'any', owner: 'any' });
+                setFilter({ ...OPEN_CONTAINER_FILTER, search: filter.search });
               }}
             >
-              <Facet title={t('containers.containers.running', 'Running')}>
-                <SelectField
-                  label={t('containers.containers.running', 'Running')}
-                  isLabelHidden
-                  size="compact"
-                  options={withLabels(RUN_OPTIONS)}
-                  value={filter.run}
-                  onChange={(run) => {
-                    setFilter({
-                      ...filter,
-                      run: RUN_OPTIONS.find((option) => option.value === run)?.value ?? 'any',
-                    });
-                  }}
-                />
+              <Facet
+                title={t('containers.containers.status', 'Status')}
+                aside={
+                  filter.runs.length === 0
+                    ? undefined
+                    : t('containers.containers.selected', {
+                        count: filter.runs.length,
+                        defaultValue_one: '{{count}} selected',
+                        defaultValue_other: '{{count}} selected',
+                      })
+                }
+              >
+                <div className="flex flex-col gap-3">
+                  {CONTAINER_RUN_STATES.map((state) => (
+                    <Checkbox
+                      key={state}
+                      // A state no container is in stays offered, quieter: one may yet get there.
+                      className={cn(!runCounts.has(state) && 'opacity-45')}
+                      label={
+                        <span className="flex items-center gap-2">
+                          <span
+                            aria-hidden="true"
+                            className={cn('size-1.5 rounded-full', RUN_STATES[state].dot)}
+                          />
+                          {text(RUN_STATES[state].label)}
+                        </span>
+                      }
+                      count={runCounts.get(state) ?? 0}
+                      isChecked={filter.runs.includes(state)}
+                      onChange={(isChecked) => {
+                        toggleRun(state, isChecked);
+                      }}
+                    />
+                  ))}
+                </div>
               </Facet>
               <Facet title={t('containers.containers.belongsTo', 'Belongs to')}>
                 <SelectField
@@ -188,47 +229,72 @@ export function ContainersPage() {
                 />
               </Facet>
             </FilterSheet>
-          </>
-        }
-        action={
-          canInstall && isDockerUp ? (
-            <MenuButton
-              label={t('containers.containers.install', 'Install')}
-              icon="plus"
-              items={[
-                {
-                  label: t('containers.containers.image', 'Image'),
-                  description: t(
-                    'containers.containers.oneContainerFromA',
-                    'One container from a registry image',
-                  ),
-                  icon: 'container',
-                  /** Opens the install of one image. */
-                  onSelect: () => {
-                    setInstalling(true);
-                  },
-                },
-                {
-                  label: t('containers.containers.compose', 'Compose'),
-                  description: hasCompose
-                    ? t(
-                        'containers.containers.severalContainersFromA',
-                        'Several containers from a compose file',
-                      )
-                    : t(
-                        'containers.containers.dockerComposeIsNot',
-                        'docker compose is not installed where NebulaHome runs',
-                      ),
-                  icon: 'layers',
-                  disabled: !hasCompose,
-                  /** Opens a new compose project. */
-                  onSelect: () => {
-                    setComposing(true);
-                  },
-                },
-              ]}
+            <SearchField
+              placeholder={t('containers.containers.searchContainers', 'Search containers…')}
+              value={filter.search}
+              // On a phone the pill takes what the page's margins and the Filter leave.
+              className={canAdd ? 'w-[min(24rem,calc(100vw-12rem))] lg:w-96' : ''}
+              action={
+                canAdd ? (
+                  <Menu
+                    width="wide"
+                    className="shrink-0"
+                    items={[
+                      {
+                        label: t('containers.containers.image', 'Image'),
+                        description: t(
+                          'containers.containers.oneContainerFromA',
+                          'One container from a registry image',
+                        ),
+                        icon: 'container',
+                        /** Opens the install of one image. */
+                        onSelect: () => {
+                          setInstalling(true);
+                        },
+                      },
+                      {
+                        label: t('containers.containers.compose', 'Compose'),
+                        description: hasCompose
+                          ? t(
+                              'containers.containers.severalContainersFromA',
+                              'Several containers from a compose file',
+                            )
+                          : t(
+                              'containers.containers.dockerComposeIsNot',
+                              'docker compose is not installed where NebulaHome runs',
+                            ),
+                        icon: 'layers',
+                        disabled: !hasCompose,
+                        /** Opens a new compose project. */
+                        onSelect: () => {
+                          setComposing(true);
+                        },
+                      },
+                    ]}
+                    trigger={({ isOpen, toggle, buttonRef }) => (
+                      <Button
+                        ref={buttonRef}
+                        size="compact"
+                        aria-haspopup="menu"
+                        aria-expanded={isOpen}
+                        onClick={toggle}
+                      >
+                        <AppIcon id="plus" size={14} />
+                        {/* A phone keeps the room for the search it sits in: the plus alone, named to a reader. */}
+                        <span className="max-sm:sr-only">
+                          {t('containers.containers.install', 'Install')}
+                        </span>
+                        <AppIcon id="chevron-down" size={13} />
+                      </Button>
+                    )}
+                  />
+                ) : undefined
+              }
+              onChange={(search) => {
+                setFilter({ ...filter, search });
+              }}
             />
-          ) : undefined
+          </>
         }
         isPending={containers.isPending}
         error={containers.error}

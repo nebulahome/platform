@@ -144,6 +144,55 @@ describe('DashboardsManagePage', () => {
     expect(within(row ?? document.body).getByText('0 cards')).toBeTruthy();
   });
 
+  it('sorts from every heading: Shown to by how many, nobody last; Changed newest first', async () => {
+    vi.mocked(fetchManagedDashboards).mockResolvedValue([
+      KITCHEN,
+      {
+        ...KITCHEN,
+        id: '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e71',
+        name: 'Attic',
+        userIds: [],
+        updatedAt: new Date('2026-09-20T08:00:00.000Z'),
+      },
+      {
+        ...KITCHEN,
+        id: '018f1c2e-4a5b-7c8d-9e0f-1a2b3c4d5e72',
+        name: 'Hall',
+        userIds: [GIULIA_ID, SELF_ID],
+        updatedAt: new Date('2026-09-28T08:00:00.000Z'),
+      },
+    ]);
+    renderPage();
+
+    await screen.findByText('Attic');
+
+    /**
+     * The dashboards' names, in the order the rows show them.
+     *
+     * @returns The names.
+     */
+    const order = () =>
+      screen
+        .getAllByRole('listitem')
+        .map((row) => row.querySelector('.text-title')?.textContent ?? '');
+
+    expect(order()).toEqual(['Attic', 'Hall', 'Kitchen']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by shown to' }));
+    await waitFor(() => {
+      expect(order()).toEqual(['Kitchen', 'Hall', 'Attic']);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by changed' }));
+    await waitFor(() => {
+      expect(order()).toEqual(['Hall', 'Kitchen', 'Attic']);
+    });
+
+    const changed = screen.getAllByRole('columnheader')[2];
+
+    expect(changed?.getAttribute('aria-sort')).toBe('ascending');
+  });
+
   it('leads from a row to the layout editor', async () => {
     renderPage();
 

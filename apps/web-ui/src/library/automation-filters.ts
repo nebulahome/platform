@@ -12,10 +12,12 @@ import {
   type TriggerType,
 } from '@nebulahome/contracts';
 
+import { collator } from '@/i18n/formatters';
 import { defineMessage, type Message, text } from '@/i18n/messages';
 import { chainText } from '@/lib/describe-automation';
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, type ListCodec } from '@/lib/use-list-state';
+import type { SortDirection } from '@/lib/use-paging';
 
 /**
  * How an automation stands, as the Status facet ticks it: on or off, and how its runs went. The
@@ -161,6 +163,52 @@ const MODE_LABELS: Readonly<Record<AutomationView['mode'], Message>> = {
  */
 export function modeLabel(mode: AutomationView['mode']): string {
   return text(MODE_LABELS[mode]);
+}
+
+/** The columns the table sorts by; the first is the order it opens in. */
+export const AUTOMATION_SORTS = ['name', 'mode', 'run', 'enabled'] as const;
+
+/** One column the table sorts by. */
+export type AutomationSort = (typeof AUTOMATION_SORTS)[number];
+
+/**
+ * Puts automations in the order of a column. One that never ran goes last on Last run, whichever
+ * way it sorts; ties go by name.
+ *
+ * Ascending is what the first click gives: modes by name, Last run the most recent first, Enabled
+ * the ones on first.
+ *
+ * @param automations - The automations.
+ * @param sort - The column.
+ * @param direction - Which way.
+ * @returns A sorted copy.
+ */
+export function sortAutomations(
+  automations: readonly AutomationView[],
+  sort: AutomationSort,
+  direction: SortDirection,
+): AutomationView[] {
+  const names = collator();
+  const sign = direction === 'asc' ? 1 : -1;
+
+  return [...automations].sort((left, right) => {
+    const byName = names.compare(left.name, right.name);
+
+    switch (sort) {
+      case 'name':
+        return sign * byName;
+      case 'mode':
+        return sign * names.compare(modeLabel(left.mode), modeLabel(right.mode)) || byName;
+      case 'run':
+        return (
+          Number(left.lastRun === null) - Number(right.lastRun === null) ||
+          sign * ((right.lastRun?.time.getTime() ?? 0) - (left.lastRun?.time.getTime() ?? 0)) ||
+          byName
+        );
+      case 'enabled':
+        return sign * (Number(right.isEnabled) - Number(left.isEnabled)) || byName;
+    }
+  });
 }
 
 /** How the filter lives in the address. */

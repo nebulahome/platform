@@ -31,7 +31,7 @@ export const DEVICE_SHOWS = ['all', 'main', 'parts'] as const;
 export type DeviceShow = (typeof DEVICE_SHOWS)[number];
 
 /** The columns the table sorts by; the first is the order it opens in. */
-export const DEVICE_SORTS = ['name', 'area', 'updated'] as const;
+export const DEVICE_SORTS = ['name', 'area', 'model', 'status', 'updated'] as const;
 
 /** One column to sort by. */
 export type DeviceSort = (typeof DEVICE_SORTS)[number];
@@ -282,7 +282,8 @@ export function matchesVendorDevice(
  * Puts devices in the order of a column. A room or a report a device lacks puts it last, whichever
  * way the column sorts; ties go by name.
  *
- * Last updated ascending is the most recent first, as the Automations table's Last run is.
+ * Status goes by the Status facet's order - running, identifying, failed, disabled. Last updated
+ * ascending is the most recent first, as the Automations table's Last run is.
  *
  * @param devices - The devices.
  * @param sort - The column.
@@ -318,6 +319,14 @@ export function sortVendorDevices(
           lackingLast(left.areaName, right.areaName) ||
           sign * names.compare(left.areaName ?? '', right.areaName ?? '') ||
           byName
+        );
+      case 'model':
+        return sign * names.compare(modelOf(left), modelOf(right)) || byName;
+      case 'status':
+        return (
+          sign *
+            (DEVICE_STANDINGS.indexOf(standingOf(left.state)) -
+              DEVICE_STANDINGS.indexOf(standingOf(right.state))) || byName
         );
       case 'updated':
         return (

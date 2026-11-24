@@ -133,16 +133,38 @@ describe('the header', () => {
     expect(screen.queryByRole('button', { name: 'New automation' })).not.toBeNull();
   });
 
-  it('shows a set facet as a chip, and clearing it keeps the search', async () => {
-    renderPage('/automations?q=evening&status=off&missing=1');
+  it('draws no chips under the header for a set facet', async () => {
+    renderPage('/automations?status=off');
 
-    await screen.findByRole('button', { name: 'Remove Status Off' });
-    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+    await screen.findByRole('switch', { name: 'Evening lights enabled' });
+
+    expect(screen.queryByRole('button', { name: /^Remove /u })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull();
+  });
+});
+
+describe('the headings', () => {
+  it('sort the table from every one, and say which way', async () => {
+    renderPage();
+
+    await screen.findByRole('switch', { name: 'Evening lights enabled' });
+
+    const headings = screen.getAllByRole('columnheader');
+
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      'Name',
+      'Mode',
+      'Last run',
+      'Enabled',
+    ]);
+    expect(headings[0]?.getAttribute('aria-sort')).toBe('ascending');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by enabled' }));
 
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'Remove Missing entities' })).toBeNull();
+      expect(headings[3]?.getAttribute('aria-sort')).toBe('ascending');
     });
-    expect(screen.getByPlaceholderText<HTMLInputElement>('Search').value).toBe('evening');
+    expect(headings[0]?.getAttribute('aria-sort')).toBe('none');
   });
 });
 

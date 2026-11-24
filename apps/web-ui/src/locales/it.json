@@ -2447,7 +2447,6 @@
       "compose": "Compose",
       "composeComposeversion": "Compose {{composeVersion}}",
       "containers": "Container",
-      "countShown": "{{count}} mostrati",
       "dockerComposeIsNot": "docker compose non è installato dove gira NebulaHome",
       "dockerRunsNoContainer": "Docker non esegue nessun container su questa macchina.",
       "hostNetwork": "rete dell'host",
@@ -2458,11 +2457,14 @@
       "oneContainerFromA": "Un container da un'immagine di un registry",
       "platform": "La piattaforma",
       "running": "In esecuzione",
-      "runningOrNot": "In esecuzione o no",
       "searchContainers": "Cerca container…",
       "severalContainersFromA": "Più container da un file compose",
       "stopped": "Fermi",
-      "you": "Tu"
+      "you": "Tu",
+      "status": "Stato",
+      "selected_one": "{{count}} selezionato",
+      "selected_many": "{{count}} selezionati",
+      "selected_other": "{{count}} selezionati"
     },
     "count_many": "{{count}} container",
     "count_one": "{{count}} container",
@@ -5364,7 +5366,6 @@
       "narrowTheIntegrations": "Filtra le integrazioni",
       "recentlyAdded": "Aggiunte di recente",
       "showOnly": "Mostra solo",
-      "shownOfTotalShown": "{{shown}} di {{total}} mostrate",
       "sortBy": "Ordina per",
       "status": "Stato",
       "updateReady": "Aggiornamento pronto",
@@ -5376,19 +5377,15 @@
     "integrations": {
       "brandsProtocolsAndServices": "Marche, protocolli e servizi",
       "browseTheIntegrationIndex": "Sfoglia l'indice delle integrazioni",
-      "cloud": "Cloud",
       "count_many": "{{count}} integrazioni",
       "count_one": "{{count}} integrazione",
       "count_other": "{{count}} integrazioni",
       "foundFoundOnThe": "{{found}} trovati sulla rete",
-      "hasNewDevices": "Ha nuovi dispositivi",
       "install": "Installa",
       "installYourFirstIntegration": "Installa la tua prima integrazione",
       "integrationTeachesTheHub": "Un'integrazione insegna all'hub una marca come Shelly, Govee o Sonoff, così può trovare i suoi dispositivi in rete e parlare con loro. Puoi installarne una dal Community Hub o dalla cartella locale.",
       "integrations": "Integrazioni",
-      "local": "Locale",
-      "searchIntegrations": "Cerca integrazioni…",
-      "updateReady": "Aggiornamento pronto"
+      "searchIntegrations": "Cerca integrazioni…"
     },
     "library": {
       "couldNotRead": "Lettura non riuscita",
@@ -6850,7 +6847,6 @@
       "waiting": "In attesa"
     },
     "packages": {
-      "anyState": "Qualsiasi stato",
       "browseThePackageIndex": "Sfoglia l'indice dei pacchetti",
       "energyCamerasMediaAnd": "Energia, telecamere, multimedia e altro",
       "install": "Installa",
@@ -6859,11 +6855,13 @@
       "packageAddsToThe": "Un pacchetto aggiunge ciò che nessun dispositivo porta, come una vista 3D della casa, un lettore musicale o un broker, ognuno con le sue pagine e le sue schede. Puoi installarne uno dal Community Hub.",
       "packages": "Pacchetti",
       "searchPackages": "Cerca pacchetti…",
-      "shownOfTotal": "{{shown}} di {{total}} mostrati",
       "state": "Stato",
       "updatesOut_many": "{{count}} aggiornamenti usciti",
       "updatesOut_one": "{{count}} aggiornamento uscito",
-      "updatesOut_other": "{{count}} aggiornamenti usciti"
+      "updatesOut_other": "{{count}} aggiornamenti usciti",
+      "selected_one": "{{count}} selezionato",
+      "selected_many": "{{count}} selezionati",
+      "selected_other": "{{count}} selezionati"
     },
     "pageCount_many": "{{count}} pagine",
     "pageCount_one": "{{count}} pagina",

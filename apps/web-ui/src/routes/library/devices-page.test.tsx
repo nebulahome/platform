@@ -129,6 +129,13 @@ describe('DevicesPage', () => {
       expect(screen.getByRole('button', { name: `Sort by ${column}` })).toBeTruthy();
     }
 
+    expect(screen.getByRole('columnheader', { name: /device/iu }).getAttribute('aria-sort')).toBe(
+      'ascending',
+    );
+    expect(screen.getByRole('columnheader', { name: /seen/iu }).getAttribute('aria-sort')).toBe(
+      'none',
+    );
+
     expect(screen.getByText('1–2')).toBeTruthy();
   });
 
@@ -163,7 +170,7 @@ describe('DevicesPage', () => {
 
     expect(screen.getByRole('link', { name: 'Workshop printer' })).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Garage relay' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Remove Status Silent' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Remove/u })).toBeNull();
 
     useLive.getState().apply({
       type: 'state_changed',
@@ -260,11 +267,11 @@ describe('DevicesPage', () => {
     expect(screen.queryByRole('link', { name: 'Workshop printer' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Garage relay' })).toBeTruthy();
 
-    // Clear all under the header takes the facets off and keeps the search.
+    // The sheet, still open, resets the facets and keeps the search.
     fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'garage' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
 
-    expect(screen.queryByRole('button', { name: 'Remove Area Garage' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Garage relay' })).toBeTruthy();
     expect(screen.getByLabelText<HTMLInputElement>('Search').value).toBe('garage');
   });
 

@@ -1,7 +1,7 @@
 /**
  * What the alias pages work out from an alias: its type and parts in words, a part's value in
  * the alias's state, where a part takes its value from, how the alias is doing, and how the list
- * narrows and groups.
+ * narrows, groups and sorts.
  *
  * Pure, so the pages' behaviour is testable without a page. Types and parts come in English from
  * contracts (`alias-types.ts`); their names are translated here by key.
@@ -25,10 +25,11 @@ import {
 } from '@nebulahome/contracts';
 import { UI_ICON_IDS, type StatusDotTone, type UiIconId } from '@nebulahome/ui';
 
-import { numberFormat } from '@/i18n/formatters';
+import { collator, numberFormat } from '@/i18n/formatters';
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
+import type { SortDirection } from '@/lib/use-paging';
 import {
   GROUP_LABELS,
   PART_GROUP_LABELS,
@@ -508,20 +509,99 @@ export type AliasGroup<TItem> = {
 };
 
 /**
- * The aliases grouped by type, in the types' order, each group by name.
+ * The aliases grouped by type, in the types' order, each group in the order given.
  *
- * @param items - The aliases.
+ * @param items - The aliases, already sorted (`sortAliasLines`).
  * @returns The groups that have any.
  */
-export function groupAliases<TItem extends Pick<AliasListItem, 'behavesAs' | 'name'>>(
+export function groupAliases<TItem extends Pick<AliasListItem, 'behavesAs'>>(
   items: readonly TItem[],
 ): AliasGroup<TItem>[] {
   return ALIAS_TYPES.map((type) => ({
     type,
-    items: items
-      .filter((item) => item.behavesAs === type.id)
-      .toSorted((left, right) => left.name.localeCompare(right.name)),
+    items: items.filter((item) => item.behavesAs === type.id),
   })).filter((group) => group.items.length > 0);
+}
+
+/** The columns the list sorts by; the first is the order it opens in. */
+export const ALIAS_SORTS = ['name', 'device', 'now', 'enabled'] as const;
+
+/** One column to sort by. */
+export type AliasSort = (typeof ALIAS_SORTS)[number];
+
+/** A row of the list: the alias and its value now, as the Now column shows it. */
+export type AliasLine = {
+  readonly item: AliasListItem;
+  readonly value: string;
+};
+
+/**
+ * The name the Device column shows: the shared virtual device as Aliases.
+ *
+ * @param item - The alias.
+ * @returns The device's name.
+ */
+function aliasDeviceName(item: Pick<AliasListItem, 'device'>): string {
+  return item.device.isShared
+    ? translate('library.aliases.aliasesDevice', 'Aliases')
+    : item.device.name;
+}
+
+/**
+ * Puts the rows in the order of a column. Now goes by health first, the healthiest first (the order
+ * of `ALIAS_HEALTHS`), then by the value shown; Enabled puts the enabled ones first. A device with
+ * no name or a value not known puts the row last, whichever way the column sorts; ties go by name.
+ *
+ * @param lines - The rows.
+ * @param sort - The column.
+ * @param direction - Which way.
+ * @returns A sorted copy.
+ */
+export function sortAliasLines<TLine extends AliasLine>(
+  lines: readonly TLine[],
+  sort: AliasSort,
+  direction: SortDirection,
+): TLine[] {
+  const names = collator({ numeric: true });
+  const sign = direction === 'asc' ? 1 : -1;
+
+  /**
+   * Puts the one lacking a value after the one that has it.
+   *
+   * @param left - One value.
+   * @param right - The other.
+   * @returns The comparison; 0 when both or neither lack it.
+   */
+  const lackingLast = (left: string, right: string): number =>
+    Number(left === '' || left === NO_READING) - Number(right === '' || right === NO_READING);
+
+  return lines.toSorted(({ item: left, value: leftValue }, { item: right, value: rightValue }) => {
+    const byName = names.compare(left.name, right.name);
+
+    switch (sort) {
+      case 'name':
+        return sign * byName;
+      case 'device': {
+        const leftDevice = aliasDeviceName(left);
+        const rightDevice = aliasDeviceName(right);
+
+        return (
+          lackingLast(leftDevice, rightDevice) ||
+          sign * names.compare(leftDevice, rightDevice) ||
+          byName
+        );
+      }
+      case 'now':
+        return (
+          sign * (ALIAS_HEALTHS.indexOf(left.health) - ALIAS_HEALTHS.indexOf(right.health)) ||
+          lackingLast(leftValue, rightValue) ||
+          sign * names.compare(leftValue, rightValue) ||
+          byName
+        );
+      case 'enabled':
+        return sign * (Number(right.isEnabled) - Number(left.isEnabled)) || byName;
+    }
+  });
 }
 
 /**

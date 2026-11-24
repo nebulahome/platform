@@ -141,6 +141,33 @@ describe('sortVendorDevices', () => {
     expect(names('updated', 'desc')).toEqual(['Kettle', 'Fan', 'Bulb']);
   });
 
+  it('sorts by model, and by status in the Status facet order', () => {
+    const failing = device('Oven', { model: 'Alpha', state: 'failed' });
+    const starting = device('Lamp', { model: 'Zeta', state: 'starting' });
+    const stopped = device('Pump', { model: 'Alpha', state: 'stopped' });
+    const running = device('Tap', { model: 'Mid', state: 'running' });
+    const all = [stopped, failing, starting, running];
+
+    expect(sortVendorDevices(all, 'model', 'asc').map((each) => each.name)).toEqual([
+      'Oven',
+      'Pump',
+      'Tap',
+      'Lamp',
+    ]);
+    expect(sortVendorDevices(all, 'status', 'asc').map((each) => each.name)).toEqual([
+      'Tap',
+      'Lamp',
+      'Oven',
+      'Pump',
+    ]);
+    expect(sortVendorDevices(all, 'status', 'desc').map((each) => each.name)).toEqual([
+      'Pump',
+      'Oven',
+      'Lamp',
+      'Tap',
+    ]);
+  });
+
   it('breaks a tie by name', () => {
     const twin = device('Ant', { areaName: 'Kitchen', lastUpdatedAt: kitchen.lastUpdatedAt });
 

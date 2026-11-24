@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { DeviceView, EntityView } from '@nebulahome/contracts';
-import { AppIcon, Button, EmptyState, FilterChips } from '@nebulahome/ui';
+import { AppIcon, Button, EmptyState } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { DOCS_LINKS } from '@/lib/docs-links';
@@ -30,7 +30,7 @@ import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 import { TagDialog, type TagDialogTarget } from '@/routes/library/tag-dialog';
-import { activeTagFilters, TagFilterButton } from '@/routes/library/tag-filter';
+import { TagFilterButton } from '@/routes/library/tag-filter';
 import { TAG_COLUMNS, TagRow } from '@/routes/library/tag-row';
 import { useTags } from '@/routes/library/use-tags';
 
@@ -169,14 +169,6 @@ export function TagsPage() {
           )
         }
         action={tags.length === 0 ? newButton : undefined}
-        filters={
-          <FilterChips
-            filters={activeTagFilters(filter, setFilter)}
-            onClearAll={() => {
-              setFilter({ ...OPEN_TAG_FILTER, search: filter.search });
-            }}
-          />
-        }
         isPending={isPending}
         isEmpty={tags.length === 0}
         empty={

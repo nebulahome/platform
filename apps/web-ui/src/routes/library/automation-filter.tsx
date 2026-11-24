@@ -10,9 +10,9 @@
 import { useTranslation } from 'react-i18next';
 
 import type { TriggerType } from '@nebulahome/contracts';
-import { Checkbox, cn, SelectField, type ActiveFilter } from '@nebulahome/ui';
+import { Checkbox, cn, SelectField } from '@nebulahome/ui';
 
-import { defineMessage, type Message, text, translate } from '@/i18n/messages';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import {
   AUTOMATION_STANDINGS,
   automationFacetCount,
@@ -43,7 +43,7 @@ const DOTS: Readonly<Record<AutomationStanding, string>> = {
   failed: 'bg-danger',
 };
 
-/** How each trigger kind reads in the sheet and on its chip. */
+/** How each trigger kind reads in the sheet. */
 const TRIGGER_LABELS: Readonly<Record<TriggerType, Message>> = {
   entity: defineMessage('library.automationFilter.entity', 'Entity'),
   time: defineMessage('library.automationFilter.time', 'Time'),
@@ -54,9 +54,6 @@ const TRIGGER_LABELS: Readonly<Record<TriggerType, Message>> = {
   manual: defineMessage('library.automationFilter.manual', 'Manual'),
   webhook: defineMessage('library.automationFilter.webhook', 'Webhook'),
 };
-
-/** The words of the switch, shared by the sheet and its chip. */
-const MISSING = defineMessage('library.automationFilter.missingEntities', 'Missing entities');
 
 /** What the filter needs. */
 export type AutomationFilterButtonProps = {
@@ -201,7 +198,7 @@ export function AutomationFilterButton(props: AutomationFilterButtonProps) {
       <Facet title={t('library.automationFilter.showOnly', 'Show only')}>
         <ShowOnly
           icon="triangle-alert"
-          label={text(MISSING)}
+          label={t('library.automationFilter.missingEntities', 'Missing entities')}
           isOn={filter.isMissing}
           onChange={(isMissing) => {
             onChange({ ...filter, isMissing });
@@ -210,64 +207,4 @@ export function AutomationFilterButton(props: AutomationFilterButtonProps) {
       </Facet>
     </FilterSheet>
   );
-}
-
-/**
- * The facets set, as the chips under the page's title: each one removed on its own.
- *
- * @param filter - The filter.
- * @param onChange - Called with the filter less the facet removed.
- * @returns The chips; none when nothing is set.
- */
-export function activeAutomationFilters(
-  filter: AutomationFilter,
-  onChange: (filter: AutomationFilter) => void,
-): ActiveFilter[] {
-  // Each facet: whether it is set, its chip's id, what it is called, what it is set to, and the
-  // filter less it.
-  const facets: readonly [
-    boolean,
-    string,
-    string | undefined,
-    string,
-    Partial<AutomationFilter>,
-  ][] = [
-    [
-      filter.statuses.length > 0,
-      'status',
-      translate('library.automationFilter.status', 'Status'),
-      AUTOMATION_STANDINGS.filter((each) => filter.statuses.includes(each))
-        .map((each) => text(STANDING_LABELS[each]))
-        .join(', '),
-      { statuses: [] },
-    ],
-    [
-      filter.mode !== '',
-      'mode',
-      translate('library.automationFilter.mode', 'Mode'),
-      filter.mode === '' ? '' : modeLabel(filter.mode),
-      { mode: '' },
-    ],
-    [
-      filter.triggerType !== '',
-      'trigger',
-      translate('library.automationFilter.trigger', 'Trigger'),
-      filter.triggerType === '' ? '' : text(TRIGGER_LABELS[filter.triggerType]),
-      { triggerType: '' },
-    ],
-    [filter.isMissing, 'missing', undefined, text(MISSING), { isMissing: false }],
-  ];
-
-  return facets
-    .filter(([isSet]) => isSet)
-    .map(([, id, key, value, unset]) => ({
-      id,
-      ...(key === undefined ? {} : { key }),
-      value,
-
-      /** Unsets this facet alone. */
-      onRemove: () => {
-        onChange({ ...filter, ...unset });
-      },
-    }));
 }

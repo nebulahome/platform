@@ -11,7 +11,7 @@
  * place on it, and three buttons on a card that is itself a button is a card nobody can read.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
@@ -20,13 +20,11 @@ import {
   AppIcon,
   Button,
   EmptyState,
-  FilterChips,
   Modal,
   OverflowMenu,
   SelectField,
   TableFooter,
   toast,
-  type ActiveFilter,
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
@@ -88,6 +86,9 @@ function areaNamesFor(scene: SceneView, entities: ReadonlyMap<string, EntityView
 
 /** The columns the table sorts by; the first is the order it opens in. */
 const SORTS = ['name', 'members'] as const;
+
+/** One column the table sorts by. */
+type SceneSort = (typeof SORTS)[number];
 
 /**
  * The column widths, shared by the header and every row so they line up: the name takes the
@@ -151,6 +152,19 @@ export function ScenesPage() {
       return paging.direction === 'asc' ? order : -order;
     }),
   );
+
+  /**
+   * A heading that sorts the table, in its header cell.
+   *
+   * @param column - The column it sorts by.
+   * @param label - The heading.
+   * @param className - The cell's classes: when it shows.
+   * @returns The cell.
+   */
+  const sortCell = (column: SceneSort, label: string, className?: string): ReactNode => {
+    return <SortHeader paging={paging} column={column} label={label} className={className} />;
+  };
+
   // Each area under its floor, the floors by their number, the way the areas page reads.
   const areaOptions = facetChoices(
     areaFacetChoices(
@@ -245,35 +259,6 @@ export function ScenesPage() {
       await queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.scenes });
     },
   });
-
-  // The facets set, as chips under the header: each one removed on its own.
-  const chips: ActiveFilter[] = [
-    ...(filter.areaKey === ''
-      ? []
-      : [
-          {
-            id: 'area',
-            key: t('library.scenes.area', 'Area'),
-            value: areaByKey.get(filter.areaKey)?.name ?? filter.areaKey.replaceAll('_', ' '),
-            /** Shows the scenes of every area again. */
-            onRemove: () => {
-              setFilter({ ...filter, areaKey: '' });
-            },
-          },
-        ]),
-    ...(filter.isWaiting
-      ? [
-          {
-            id: 'waiting',
-            value: t('library.scenes.membersWaiting', 'Members waiting for an entity'),
-            /** Shows the scenes whose members are all found again. */
-            onRemove: () => {
-              setFilter({ ...filter, isWaiting: false });
-            },
-          },
-        ]
-      : []),
-  ];
 
   /** Unsets every facet, keeping the search. */
   const clearFacets = (): void => {
@@ -441,7 +426,6 @@ export function ScenesPage() {
           </LibraryImportFlow>
         ) : undefined
       }
-      filters={<FilterChips filters={chips} onClearAll={clearFacets} />}
       isPending={scenes.isPending}
       error={scenes.error ?? undefined}
       isEmpty={items.length === 0}
@@ -480,26 +464,11 @@ export function ScenesPage() {
       {shown.length === 0 ? null : (
         <div className="rounded-card border border-border bg-surface">
           <div
+            role="row"
             className={`${SCENE_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
           >
-            <SortHeader
-              label={t('library.scenes.scene', 'Scene')}
-              isSorted={paging.sort === 'name'}
-              direction={paging.direction}
-              onSort={() => {
-                paging.toggleSort('name');
-              }}
-              className="justify-self-start"
-            />
-            <SortHeader
-              label={t('library.scenes.members', 'Members')}
-              isSorted={paging.sort === 'members'}
-              direction={paging.direction}
-              onSort={() => {
-                paging.toggleSort('members');
-              }}
-              className="hidden justify-self-start md:inline-flex"
-            />
+            {sortCell('name', t('library.scenes.scene', 'Scene'))}
+            {sortCell('members', t('library.scenes.members', 'Members'), 'hidden md:block')}
             <span />
             <span className="hidden md:block" />
           </div>

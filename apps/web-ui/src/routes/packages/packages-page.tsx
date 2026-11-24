@@ -16,11 +16,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
-import { PACKAGE_STATES } from '@nebulahome/contracts';
-import { AppIcon, BrowseTile, Button, EmptyState, SelectField, TILE_GRID } from '@nebulahome/ui';
+import { PACKAGE_STATES, type PackageState } from '@nebulahome/contracts';
+import { AppIcon, BrowseTile, Button, Checkbox, cn, EmptyState, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
-import { defineMessage, translate, withLabels } from '@/i18n/messages';
+import { text, translate } from '@/i18n/messages';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { matchesQuery } from '@/lib/search-text';
 import { signalled } from '@/lib/signalled';
@@ -38,11 +38,16 @@ import { PACKAGE_STATE_OF, PackageTile } from '@/routes/packages/package-tile';
 /** How the page's filter lives in the address. */
 const PACKAGE_FILTER_CODEC = packageFilterCodec(PACKAGE_STATES);
 
-/** The state choices, with any first. */
-const STATE_OPTIONS = [
-  { value: '', label: defineMessage('packages.packages.anyState', 'Any state') },
-  ...PACKAGE_STATES.map((state) => ({ value: state, label: PACKAGE_STATE_OF[state].label })),
-];
+/** The dot of each state, in the tone its tile gives it. */
+const DOTS: Readonly<Record<PackageState, string>> = {
+  installed: 'bg-foreground-subtle',
+  starting: 'bg-primary',
+  running: 'bg-success',
+  stopped: 'bg-foreground-subtle',
+  failed: 'bg-danger',
+  disabled: 'bg-border-strong',
+  'waiting-dependency': 'bg-warning',
+};
 
 /** How often the index is read again for updates while the page is open: it changes by the day. */
 const INDEX_STALE_MS = 5 * 60_000;
@@ -75,12 +80,33 @@ export function PackagesPage() {
   );
   const shownInstalled = installed.packages.filter(
     (found) =>
-      (filter.state === '' || found.state === filter.state) &&
+      (filter.states.length === 0 || filter.states.includes(found.state)) &&
       matchesQuery(
         [found.id, found.name, found.description, found.version, found.lastError],
         filter.search,
       ),
   );
+
+  const counts = new Map<PackageState, number>();
+
+  for (const found of installed.packages) {
+    counts.set(found.state, (counts.get(found.state) ?? 0) + 1);
+  }
+
+  /**
+   * Ticks or unticks one state.
+   *
+   * @param state - The state.
+   * @param isChecked - Whether it is now ticked.
+   */
+  const toggleState = (state: PackageState, isChecked: boolean): void => {
+    setFilter({
+      ...filter,
+      states: isChecked
+        ? PACKAGE_STATES.filter((each) => each === state || filter.states.includes(each))
+        : filter.states.filter((each) => each !== state),
+    });
+  };
 
   return (
     <>
@@ -106,53 +132,77 @@ export function PackagesPage() {
         ]}
         tools={
           <>
+            <FilterSheet
+              label={t('packages.packages.narrowThePackages', 'Narrow the packages')}
+              count={Number(filter.states.length > 0)}
+              onClear={() => {
+                setFilter({ ...filter, states: [] });
+              }}
+            >
+              <Facet
+                title={t('packages.packages.state', 'State')}
+                aside={
+                  filter.states.length === 0
+                    ? undefined
+                    : t('packages.packages.selected', {
+                        count: filter.states.length,
+                        defaultValue_one: '{{count}} selected',
+                        defaultValue_other: '{{count}} selected',
+                      })
+                }
+              >
+                <div className="flex flex-col gap-3">
+                  {PACKAGE_STATES.map((state) => (
+                    <Checkbox
+                      key={state}
+                      // A state no package is in stays offered, quieter: one may yet get there.
+                      className={cn(!counts.has(state) && 'opacity-45')}
+                      label={
+                        <span className="flex items-center gap-2">
+                          <span
+                            aria-hidden="true"
+                            className={cn('size-1.5 rounded-full', DOTS[state])}
+                          />
+                          {text(PACKAGE_STATE_OF[state].label)}
+                        </span>
+                      }
+                      count={counts.get(state) ?? 0}
+                      isChecked={filter.states.includes(state)}
+                      onChange={(isChecked) => {
+                        toggleState(state, isChecked);
+                      }}
+                    />
+                  ))}
+                </div>
+              </Facet>
+            </FilterSheet>
             <SearchField
               placeholder={t('packages.packages.searchPackages', 'Search packages…')}
               value={filter.search}
+              // On a phone the pill takes what the page's margins and the Filter leave.
+              className={canInstall ? 'w-[min(24rem,calc(100vw-12rem))] lg:w-96' : ''}
+              action={
+                canInstall ? (
+                  <Button
+                    size="compact"
+                    className="shrink-0"
+                    onClick={() => {
+                      setInstalling(true);
+                    }}
+                  >
+                    <AppIcon id="plus" size={14} />
+                    {/* A phone keeps the room for the search it sits in: the plus alone, named to a reader. */}
+                    <span className="max-sm:sr-only">
+                      {t('packages.packages.install', 'Install')}
+                    </span>
+                  </Button>
+                ) : undefined
+              }
               onChange={(search) => {
                 setFilter({ ...filter, search });
               }}
             />
-            <FilterSheet
-              label={t('packages.packages.narrowThePackages', 'Narrow the packages')}
-              count={Number(filter.state !== '')}
-              summary={t('packages.packages.shownOfTotal', '{{shown}} of {{total}} shown', {
-                shown: shownInstalled.length,
-                total: installed.packages.length,
-              })}
-              onClear={() => {
-                setFilter({ ...filter, state: '' });
-              }}
-            >
-              <Facet title={t('packages.packages.state', 'State')}>
-                <SelectField
-                  label={t('packages.packages.state', 'State')}
-                  isLabelHidden
-                  size="compact"
-                  options={withLabels(STATE_OPTIONS)}
-                  value={filter.state}
-                  onChange={(state) => {
-                    setFilter({
-                      ...filter,
-                      state: PACKAGE_STATES.find((candidate) => candidate === state) ?? '',
-                    });
-                  }}
-                />
-              </Facet>
-            </FilterSheet>
           </>
-        }
-        action={
-          canInstall ? (
-            <Button
-              onClick={() => {
-                setInstalling(true);
-              }}
-            >
-              <AppIcon id="plus" size={15} />
-              {t('packages.packages.install', 'Install')}
-            </Button>
-          ) : undefined
         }
         isPending={installed.isPending}
         error={installed.error}

@@ -21,7 +21,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
-import { AppIcon, BrowseTile, Button, EmptyState, FilterChips, TILE_GRID } from '@nebulahome/ui';
+import { AppIcon, BrowseTile, Button, EmptyState, TILE_GRID } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { DOCS_LINKS } from '@/lib/docs-links';
@@ -35,7 +35,6 @@ import {
   matchesVendorFilter,
   OPEN_VENDOR_FILTER,
   sortVendors,
-  statusesText,
   VENDOR_FILTER_CODEC,
   WIRES,
   wiresOf,
@@ -95,74 +94,6 @@ export function IntegrationsPage() {
     filter.sort,
   );
   const wires = WIRES.filter((wire) => all.some((vendor) => wiresOf(vendor).includes(wire)));
-  const chips = [
-    ...(filter.statuses.length === 0
-      ? []
-      : [
-          {
-            id: 'status',
-            key: 'Status',
-            value: statusesText(filter.statuses),
-            /** Takes the standings off. */
-            onRemove: () => {
-              setFilter({ ...filter, statuses: [] });
-            },
-          },
-        ]),
-    ...(filter.internet === ''
-      ? []
-      : [
-          {
-            id: 'connection',
-            key: 'Connection',
-            value:
-              filter.internet === 'local'
-                ? t('library.integrations.local', 'Local')
-                : t('library.integrations.cloud', 'Cloud'),
-            /** Takes the connection off. */
-            onRemove: () => {
-              setFilter({ ...filter, internet: '' });
-            },
-          },
-        ]),
-    ...(filter.transport === ''
-      ? []
-      : [
-          {
-            id: 'wire',
-            key: 'Wire',
-            value: filter.transport.toUpperCase(),
-            /** Takes the wire off. */
-            onRemove: () => {
-              setFilter({ ...filter, transport: '' });
-            },
-          },
-        ]),
-    ...(filter.hasNew
-      ? [
-          {
-            id: 'new',
-            value: t('library.integrations.hasNewDevices', 'Has new devices'),
-            /** Shows every vendor again, found devices or not. */
-            onRemove: () => {
-              setFilter({ ...filter, hasNew: false });
-            },
-          },
-        ]
-      : []),
-    ...(filter.hasUpdate
-      ? [
-          {
-            id: 'update',
-            value: t('library.integrations.updateReady', 'Update ready'),
-            /** Shows every vendor again, update or not. */
-            onRemove: () => {
-              setFilter({ ...filter, hasUpdate: false });
-            },
-          },
-        ]
-      : []),
-  ];
 
   const found = discovered.data?.length ?? 0;
 
@@ -199,35 +130,39 @@ export function IntegrationsPage() {
         ]}
         tools={
           <>
-            <SearchField
-              placeholder={t('library.integrations.searchIntegrations', 'Search integrations…')}
-              value={filter.search}
-              onChange={(search) => {
-                setFilter({ ...filter, search });
-              }}
-            />
             <IntegrationFilter
               filter={filter}
               wires={wires}
               counts={countStatuses(all)}
-              shown={shown.length}
-              total={all.length}
               onChange={setFilter}
             />
+            <SearchField
+              placeholder={t('library.integrations.searchIntegrations', 'Search integrations…')}
+              value={filter.search}
+              // On a phone the pill takes what the page's margins and the Filter leave.
+              className={canInstall ? 'w-[min(24rem,calc(100vw-12rem))] lg:w-96' : ''}
+              action={
+                canInstall ? (
+                  <Button
+                    size="compact"
+                    className="shrink-0"
+                    onClick={() => {
+                      setInstalling(true);
+                    }}
+                  >
+                    <AppIcon id="plus" size={14} />
+                    {/* A phone keeps the room for the search it sits in: the plus alone, named to a reader. */}
+                    <span className="max-sm:sr-only">
+                      {t('library.integrations.install', 'Install')}
+                    </span>
+                  </Button>
+                ) : undefined
+              }
+              onChange={(search) => {
+                setFilter({ ...filter, search });
+              }}
+            />
           </>
-        }
-        action={installButton}
-        filters={
-          <FilterChips
-            filters={chips}
-            summary={t('library.shownOfTotal', '{{shown}} of {{total}}', {
-              shown: shown.length,
-              total: all.length,
-            })}
-            onClearAll={() => {
-              setFilter({ ...OPEN_VENDOR_FILTER, search: filter.search, sort: filter.sort });
-            }}
-          />
         }
         isPending={vendors.isPending}
         error={vendors.error}

@@ -115,6 +115,22 @@ describe('PackagesPage', () => {
     expect(screen.queryByText('Records the cameras.')).toBeNull();
   });
 
+  it('narrows the grid to the states ticked in the filter', async () => {
+    vi.mocked(fetchPackages).mockResolvedValue([
+      aPackage(),
+      aPackage({ id: 'nvr', name: 'NVR', state: 'failed' }),
+    ]);
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: 'MQTT' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter/u }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Failed/u }));
+
+    expect(screen.queryByRole('link', { name: 'MQTT' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'NVR' })).toBeTruthy();
+  });
+
   it('opens the Community Hub’s search from Install', async () => {
     renderPage();
 

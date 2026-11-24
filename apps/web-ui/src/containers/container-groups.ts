@@ -131,7 +131,8 @@ export function containerTiles(
   // What has no container yet - an install, a project being deployed - is the owner's and not
   // running: shown unless the filter asks for something else.
   const isPendingShown =
-    filter.run !== 'running' && (filter.owner === 'any' || filter.owner === 'other');
+    (filter.runs.length === 0 || filter.runs.includes('stopped')) &&
+    (filter.owner === 'any' || filter.owner === 'other');
   const groups = composeGroups(containers, operations).filter(
     (group) =>
       // The platform's own project is not one card: each of its containers is its own.

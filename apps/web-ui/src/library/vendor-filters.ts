@@ -12,12 +12,10 @@ import {
   type TransportWire,
 } from '@nebulahome/contracts';
 
-import { text } from '@/i18n/messages';
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
 import {
   VENDOR_STATUS_KINDS,
-  VENDOR_STATUS_LABELS,
   vendorStatusOf,
   type VendorStatusKind,
 } from '@/library/vendor-status';
@@ -278,16 +276,4 @@ export function countStatuses(
   }
 
   return counts;
-}
-
-/**
- * The standings chosen, in words, for the chip that shows them.
- *
- * @param statuses - The standings chosen.
- * @returns "Running, Degraded".
- */
-export function statusesText(statuses: readonly VendorStatusKind[]): string {
-  return VENDOR_STATUS_KINDS.filter((kind) => statuses.includes(kind))
-    .map((kind) => text(VENDOR_STATUS_LABELS[kind]))
-    .join(', ');
 }

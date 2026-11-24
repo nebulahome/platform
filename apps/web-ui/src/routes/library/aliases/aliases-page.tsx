@@ -1,13 +1,13 @@
 /**
  * The aliases: grouped by the type each behaves as, with the device it sits on, its value now and
- * whether it is enabled. A filter by health, type, area and device, its facets as chips under the
- * header; a search carrying New alias; Import and Export of a whole file.
+ * whether it is enabled, sorted by any column within each type. A filter by health, type, area and
+ * device; a search carrying New alias; Import and Export of a whole file.
  *
  * A row's menu opens, duplicates, renames, exports, disables or deletes it. On a phone the rows
  * are cards, with no switch and no menu: the alias's own page has both.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
@@ -18,7 +18,6 @@ import {
   Checkbox,
   cn,
   EmptyState,
-  FilterChips,
   OverflowMenu,
   Segmented,
   SelectField,
@@ -26,13 +25,12 @@ import {
   Switch,
   TableFooter,
   toast,
-  type ActiveFilter,
   type UiIconId,
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
-import { defineMessage, type Message, text, translate } from '@/i18n/messages';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { toMessage } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
@@ -40,15 +38,18 @@ import { useListState } from '@/lib/use-list-state';
 import { usePaging } from '@/lib/use-paging';
 import {
   ALIAS_LIST_CODEC,
+  ALIAS_SORTS,
   aliasFacetCount,
+  type AliasLine,
+  type AliasSort,
   groupAliases,
   hasProblem,
   HEALTH_LABELS,
   HEALTH_TONE,
   matchesAliasList,
   OPEN_ALIAS_LIST_FILTER,
+  sortAliasLines,
   type AliasDeviceKind,
-  type AliasListFilter,
   typeLabel,
   typePlural,
   uiIcon,
@@ -82,9 +83,6 @@ import { useAreas } from '@/routes/library/use-areas';
 const COLUMNS =
   'grid grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1fr)_76px_40px] items-center gap-4';
 
-/** The one sort: by name, within each type. */
-const SORTS = ['name'] as const;
-
 /** The dot of each health in the Status facet, in the tone the list draws it in. */
 const HEALTH_DOTS: Readonly<Record<AliasHealth, string>> = {
   ok: 'bg-success',
@@ -93,7 +91,7 @@ const HEALTH_DOTS: Readonly<Record<AliasHealth, string>> = {
   off: 'bg-foreground-subtle',
 };
 
-/** What each choice of Device is called, in the sheet and on its chip. */
+/** What each choice of Device is called, in the sheet. */
 const DEVICE_LABELS: Readonly<Record<AliasDeviceKind, Message>> = {
   any: defineMessage('library.aliases.anyDevice', 'Any'),
   virtual: defineMessage('library.aliases.virtualDevices', 'Virtual'),
@@ -107,74 +105,6 @@ type AliasChoices = {
 
   /** The areas they are in, by key, in the house's order. */
   readonly areas: readonly FacetOption[];
-};
-
-/**
- * The facets set, as the chips under the header: each one removed on its own.
- *
- * @param filter - The filter.
- * @param choices - The choices the aliases give, to name a type or an area.
- * @param onChange - Called with the filter less the facet removed.
- * @returns The chips; none when nothing is set.
- */
-function activeAliasFilters(
-  filter: AliasListFilter,
-  choices: AliasChoices,
-  onChange: (filter: AliasListFilter) => void,
-): ActiveFilter[] {
-  // Each facet: whether it is set, its chip's id, what it is called, what it is set to, and the
-  // filter less it.
-  const facets: readonly [boolean, string, string, string, Partial<AliasListFilter>][] = [
-    [
-      filter.statuses.length > 0,
-      'status',
-      translate('library.aliases.status', 'Status'),
-      ALIAS_HEALTHS.filter((each) => filter.statuses.includes(each))
-        .map((each) => text(HEALTH_LABELS[each]))
-        .join(', '),
-      { statuses: [] },
-    ],
-    [
-      filter.type !== '',
-      'type',
-      translate('library.aliases.type', 'Type'),
-      choices.types.find((each) => each.value === filter.type)?.label ?? filter.type,
-      { type: '' },
-    ],
-    [
-      filter.area !== '',
-      'area',
-      translate('library.aliases.area', 'Area'),
-      choices.areas.find((each) => each.value === filter.area)?.label ?? filter.area,
-      { area: '' },
-    ],
-    [
-      filter.device !== 'any',
-      'device',
-      translate('library.aliases.device', 'Device'),
-      text(DEVICE_LABELS[filter.device]),
-      { device: 'any' },
-    ],
-  ];
-
-  return facets
-    .filter(([isSet]) => isSet)
-    .map(([, id, key, value, unset]) => ({
-      id,
-      key,
-      value,
-
-      /** Unsets this facet alone. */
-      onRemove: () => {
-        onChange({ ...filter, ...unset });
-      },
-    }));
-}
-
-/** What a row shows besides the alias: its value now. */
-type Line = {
-  readonly item: AliasListItem;
-  readonly value: string;
 };
 
 /**
@@ -302,7 +232,7 @@ export function useAliasActions() {
  * @param props.line - The row.
  * @returns The cell.
  */
-function ValueCell(props: { readonly line: Line }) {
+function ValueCell(props: { readonly line: AliasLine }) {
   const { item, value } = props.line;
 
   return (
@@ -420,7 +350,7 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
   const entityById = new Map(
     (entities.data ?? []).map((entity) => [entity.entityId as string, entity]),
   );
-  const lines: Line[] = items.map((item) => {
+  const lines: AliasLine[] = items.map((item) => {
     const entity = entityById.get(item.entityId);
     const reading =
       entity === undefined ? NO_READING : readingOf(entity, readings[item.entityId]).text;
@@ -429,19 +359,20 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
     return { item, value };
   });
   const shown = lines.filter((line) => matchesAliasList(line.item, filter));
-  const paging = usePaging('aliases', SORTS, shown.length);
+  const paging = usePaging('aliases', ALIAS_SORTS, shown.length);
   const ordered = groupAliases(
-    shown.map((line) => ({ ...line, behavesAs: line.item.behavesAs, name: line.item.name })),
+    sortAliasLines(shown, paging.sort, paging.direction).map((line) => ({
+      ...line,
+      behavesAs: line.item.behavesAs,
+    })),
   ).flatMap((group) => group.items);
-  const page = paging.rows(paging.direction === 'asc' ? ordered : ordered.toReversed());
-  const groups = groupAliases(page);
+  const groups = groupAliases(paging.rows(ordered));
   const choices: AliasChoices = {
     types: groupAliases(items).map(({ type }) => ({ value: type.id, label: typeLabel(type) })),
     areas: areas
       .filter((area) => items.some((item) => item.area?.key === area.key))
       .map((area) => ({ value: area.key, label: area.name })),
   };
-  const chips = activeAliasFilters(filter, choices, setFilter);
 
   /** Unsets every facet, keeping what was typed. */
   const clearFacets = (): void => {
@@ -461,6 +392,17 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
         ? ALIAS_HEALTHS.filter((each) => each === health || filter.statuses.includes(each))
         : filter.statuses.filter((each) => each !== health),
     });
+  };
+
+  /**
+   * A heading that sorts the table, in its header cell.
+   *
+   * @param column - The column it sorts by.
+   * @param label - The heading.
+   * @returns The cell.
+   */
+  const sortCell = (column: AliasSort, label: string): ReactNode => {
+    return <SortHeader paging={paging} column={column} label={label} />;
   };
 
   /** Opens New alias. */
@@ -734,7 +676,6 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
             />
           </span>
         }
-        filters={<FilterChips filters={chips} onClearAll={clearFacets} />}
         isPending={aliases.isPending}
         error={aliases.error}
         isEmpty={items.length === 0}
@@ -782,18 +723,10 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
               <div
                 className={`${COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
               >
-                <SortHeader
-                  label={t('library.aliases.name', 'Name')}
-                  isSorted
-                  direction={paging.direction}
-                  onSort={() => {
-                    paging.toggleSort('name');
-                  }}
-                  className="justify-self-start"
-                />
-                <span>{t('library.aliases.device', 'Device')}</span>
-                <span>{t('library.aliases.now', 'Now')}</span>
-                <span>{t('library.aliases.enabled', 'Enabled')}</span>
+                {sortCell('name', t('library.aliases.name', 'Name'))}
+                {sortCell('device', t('library.aliases.device', 'Device'))}
+                {sortCell('now', t('library.aliases.now', 'Now'))}
+                {sortCell('enabled', t('library.aliases.enabled', 'Enabled'))}
                 <span />
               </div>
               <ul>

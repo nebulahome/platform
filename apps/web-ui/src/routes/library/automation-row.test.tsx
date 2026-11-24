@@ -161,6 +161,16 @@ describe('AutomationRow', () => {
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).toBeNull();
   });
 
+  it('puts the last run before the switch, which is the right-most column', () => {
+    renderRow(AUTOMATION);
+
+    const [lastRun] = screen.getAllByTitle('Not run yet');
+    const enabled = screen.getByRole('switch', { name: 'Evening lights enabled' });
+    const position = lastRun?.compareDocumentPosition(enabled) ?? 0;
+
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it('does not run one from the list: Run now is in the editor', () => {
     renderRow(AUTOMATION);
 

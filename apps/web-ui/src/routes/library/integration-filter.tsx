@@ -4,8 +4,9 @@
  *
  * As the board draws it: the standings as boxes with how many stand so beside each, Connection as
  * Any / Local / Cloud, two switches for the vendors worth a look - new devices on the network, an
- * update waiting - then the wire, then Sort by. The foot says how many of how many the grid shows;
- * everything applies as it is chosen.
+ * update waiting - then the wire, then Sort by: the grid of tiles has no headings to sort by. No
+ * foot: the count beside the title already says how many it shows. Everything applies as it is
+ * chosen.
  */
 import { useTranslation } from 'react-i18next';
 
@@ -87,10 +88,6 @@ export type IntegrationFilterProps = {
   /** How many vendors stand each way. */
   readonly counts: Readonly<Record<VendorStatusKind, number>>;
 
-  /** How many the grid shows, and of how many. */
-  readonly shown: number;
-  readonly total: number;
-
   readonly onChange: (filter: VendorFilter) => void;
 };
 
@@ -103,7 +100,7 @@ export type IntegrationFilterProps = {
 export function IntegrationFilter(props: IntegrationFilterProps) {
   const { t } = useTranslation();
 
-  const { filter, wires, counts, shown, total, onChange } = props;
+  const { filter, wires, counts, onChange } = props;
   const wireChoices = [
     { value: '', label: t('library.integrationFilter.anyWire', 'Any wire') },
     ...wires.map((wire) => ({ value: wire, label: WIRE_LABELS[wire] })),
@@ -137,10 +134,6 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
     <FilterSheet
       label={t('library.integrationFilter.narrowTheIntegrations', 'Narrow the integrations')}
       count={narrowingCount(filter)}
-      summary={t('library.integrationFilter.shownOfTotalShown', '{{shown}} of {{total}} shown', {
-        shown: String(shown),
-        total: String(total),
-      })}
       onClear={() => {
         onChange({
           ...filter,
@@ -168,6 +161,8 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
           {VENDOR_STATUS_KINDS.map((kind) => (
             <Checkbox
               key={kind}
+              // A standing no vendor has stays offered, quieter: the grid may yet have one.
+              className={cn(counts[kind] === 0 && 'opacity-45')}
               label={
                 <span className="flex items-center gap-2">
                   <span

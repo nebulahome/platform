@@ -1,6 +1,6 @@
 /**
- * The aliases list: grouped by type, the Status facet and its chip, the Enabled switch, New alias
- * in the search, the empty house, and New alias opened from its address.
+ * The aliases list: grouped by type, sorted from the headings, the Status facet, the Enabled
+ * switch, New alias in the search, the empty house, and New alias opened from its address.
  */
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -59,16 +59,39 @@ describe('AliasesPage', () => {
     expect(within(table).getByText('Line 8 · avg() got None')).toBeTruthy();
   });
 
-  it('keeps only the healths ticked, saying so as a chip that clears them', () => {
+  it('keeps only the healths ticked, counting them on the Filter button', () => {
     renderList(sampleAliasCache(false), '/aliases?status=failing,unavailable');
 
     expect(screen.getAllByText('Washing done').length).toBeGreaterThan(0);
     expect(screen.queryAllByText('Guest mode')).toEqual([]);
-    expect(screen.getByText('Failing, Unavailable')).toBeTruthy();
+    expect(screen.queryByText('Failing, Unavailable')).toBeNull();
+    expect(screen.getByRole('button', { name: /Filter/u }).textContent).toContain('1');
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Status Failing, Unavailable' }));
+  it('sorts every column from its heading, keeping the type groups', () => {
+    renderList(sampleAliasCache(false));
 
-    expect(screen.getAllByText('Guest mode').length).toBeGreaterThan(0);
+    const heading = (name: string) =>
+      screen.getByRole('button', { name: `Sort by ${name}` }).closest('[role="columnheader"]');
+
+    expect(heading('name')?.getAttribute('aria-sort')).toBe('ascending');
+    expect(heading('now')?.getAttribute('aria-sort')).toBe('none');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by now' }));
+
+    expect(heading('now')?.getAttribute('aria-sort')).toBe('ascending');
+    expect(heading('name')?.getAttribute('aria-sort')).toBe('none');
+
+    // Within the sensors, the unavailable Garage power now follows House temperature.
+    const table = screen.getAllByRole('list')[0];
+    const sensors = within(table ?? document.body)
+      .getAllByRole('link')
+      .map((link) => link.textContent)
+      .filter((name) => name === 'Garage power' || name === 'House temperature');
+
+    expect(sensors).toEqual(['House temperature', 'Garage power']);
+    expect(heading('device')).toBeTruthy();
+    expect(heading('enabled')).toBeTruthy();
   });
 
   it('ticks a health in the Filter sheet, with how many each has', () => {

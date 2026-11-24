@@ -19,12 +19,12 @@
  * out of a Status filter the moment it does.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import { isUpdateOffered, type DeviceView, type EntityView } from '@nebulahome/contracts';
-import { AppIcon, Button, FilterChips, TableFooter, useNow } from '@nebulahome/ui';
+import { AppIcon, Button, TableFooter, useNow } from '@nebulahome/ui';
 
 import { SortHeader } from '@/components/sort-header';
 import { areaFacetChoices, buildAreaTree } from '@/lib/area-tree';
@@ -50,11 +50,7 @@ import { capabilityStateOf } from '@/library/entity-control';
 import { readingOf, standingOf, type DeviceStanding } from '@/library/entity-reading';
 import { modelOf } from '@/library/vendor-device-filters';
 import { useLive } from '@/live/live-store';
-import {
-  activeRegistryFilters,
-  DeviceFilterButton,
-  type DeviceChoices,
-} from '@/routes/library/device-filter';
+import { DeviceFilterButton, type DeviceChoices } from '@/routes/library/device-filter';
 import { useCatalogueIcons } from '@/routes/library/device-icon';
 import { DEVICE_COLUMNS, DeviceRow } from '@/routes/library/device-row';
 import { LibraryPage } from '@/routes/library/library-page';
@@ -357,7 +353,22 @@ export function DevicesPage() {
             : compareByColumn(left, right, sort, vendorNames)),
     ),
   );
-  const chips = activeRegistryFilters(filter, choices, setFilter);
+
+  /**
+   * A heading that sorts the table, in its header cell.
+   *
+   * @param column - The column it sorts by.
+   * @param label - The heading.
+   * @param className - The cell's classes: when it shows.
+   * @returns The cell.
+   */
+  const sortCell = (
+    column: (typeof SORTS)[number],
+    label: string,
+    className?: string,
+  ): ReactNode => {
+    return <SortHeader paging={paging} column={column} label={label} className={className} />;
+  };
 
   /** Opens the integrations, where a device is added from its vendor's page. */
   const addDevice = (): void => {
@@ -419,14 +430,6 @@ export function DevicesPage() {
           </>
         )
       }
-      filters={
-        <FilterChips
-          filters={chips}
-          onClearAll={() => {
-            setFilter({ ...OPEN_FILTER, search: filter.search });
-          }}
-        />
-      }
       isPending={devices.isPending || entities.isPending}
       error={devices.error ?? entities.error}
       isEmpty={entries.length === 0}
@@ -437,62 +440,19 @@ export function DevicesPage() {
     >
       <div className="rounded-card border border-border bg-surface">
         <div
+          role="row"
           className={`${DEVICE_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >
-          <SortHeader
-            label={t('library.devices.device', 'Device')}
-            isSorted={paging.sort === 'device'}
-            direction={paging.direction}
-            onSort={() => {
-              paging.toggleSort('device');
-            }}
-            className="justify-self-start"
-          />
-          <SortHeader
-            label={t('library.devices.integration', 'Integration')}
-            isSorted={paging.sort === 'integration'}
-            direction={paging.direction}
-            onSort={() => {
-              paging.toggleSort('integration');
-            }}
-            className="hidden justify-self-start md:inline-flex"
-          />
-          <SortHeader
-            label={t('library.devices.room', 'Room')}
-            isSorted={paging.sort === 'room'}
-            direction={paging.direction}
-            onSort={() => {
-              paging.toggleSort('room');
-            }}
-            className="hidden justify-self-start lg:inline-flex"
-          />
-          <SortHeader
-            label={t('library.devices.entities', 'Entities')}
-            isSorted={paging.sort === 'entities'}
-            direction={paging.direction}
-            onSort={() => {
-              paging.toggleSort('entities');
-            }}
-            className="hidden justify-self-start md:inline-flex"
-          />
-          <SortHeader
-            label={t('library.devices.status', 'Status')}
-            isSorted={paging.sort === 'status'}
-            direction={paging.direction}
-            onSort={() => {
-              paging.toggleSort('status');
-            }}
-            className="justify-self-start"
-          />
-          <SortHeader
-            label={t('library.devices.seen', 'Seen')}
-            isSorted={paging.sort === 'seen'}
-            direction={paging.direction}
-            onSort={() => {
-              paging.toggleSort('seen');
-            }}
-            className="hidden justify-self-start md:inline-flex"
-          />
+          {sortCell('device', t('library.devices.device', 'Device'))}
+          {sortCell(
+            'integration',
+            t('library.devices.integration', 'Integration'),
+            'hidden md:block',
+          )}
+          {sortCell('room', t('library.devices.room', 'Room'), 'hidden lg:block')}
+          {sortCell('entities', t('library.devices.entities', 'Entities'), 'hidden md:block')}
+          {sortCell('status', t('library.devices.status', 'Status'))}
+          {sortCell('seen', t('library.devices.seen', 'Seen'), 'hidden md:block')}
         </div>
 
         {shown.length === 0 ? (

@@ -102,7 +102,7 @@ describe('VendorDevicesTab', () => {
     expect(screen.queryByRole('link', { name: 'Wallbox' })).toBeNull();
   });
 
-  it('opens a closed parent for a failing part the Status filter finds, and names it as a chip', () => {
+  it('opens a closed parent for a failing part the Status filter finds', () => {
     renderTab('?status=failed');
 
     expect(screen.getByText('1 of 4')).toBeTruthy();
@@ -111,7 +111,7 @@ describe('VendorDevicesTab', () => {
     ).toBeTruthy();
     expect(screen.getByRole('link', { name: 'X1-Hybrid G4 Dry contact' })).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'X1-Hybrid G4 EPS' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Remove Status Failed' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Remove/u })).toBeNull();
   });
 
   it('sorts by a heading, the other way on a second press, the parts staying under their parent', () => {
@@ -129,7 +129,8 @@ describe('VendorDevicesTab', () => {
 
     expect(order()).toEqual(['Inverter garage', 'Wallbox']);
     expect(heading('Device').getAttribute('aria-sort')).toBe('ascending');
-    expect(heading('Model').hasAttribute('aria-sort')).toBe(false);
+    expect(heading('Model').getAttribute('aria-sort')).toBe('none');
+    expect(heading('Status').getAttribute('aria-sort')).toBe('none');
 
     fireEvent.click(screen.getByRole('button', { name: 'Sort by device' }));
 

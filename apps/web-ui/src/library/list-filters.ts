@@ -102,12 +102,12 @@ export function matchesSceneFilter(
 export type PackageFilter = {
   readonly search: string;
 
-  /** Only packages in this state; blank for any. */
-  readonly state: PackageState | '';
+  /** Only packages in these states: any of them. None means any state. */
+  readonly states: readonly PackageState[];
 };
 
 /** Every installed package. */
-export const OPEN_PACKAGE_FILTER: PackageFilter = { search: '', state: '' };
+export const OPEN_PACKAGE_FILTER: PackageFilter = { search: '', states: [] };
 
 /**
  * The packages filter's codec, for the states the page can name.
@@ -127,7 +127,9 @@ export function packageFilterCodec(states: readonly PackageState[]): ListCodec<P
      */
     read: (params) => ({
       search: params.get('q') ?? '',
-      state: readChoice<PackageState | ''>(params, 'state', ['', ...states], ''),
+      states: (params.get('state') ?? '')
+        .split(',')
+        .flatMap((value) => states.filter((state) => state === value)),
     }),
 
     /**
@@ -139,7 +141,7 @@ export function packageFilterCodec(states: readonly PackageState[]): ListCodec<P
     write: (filter) =>
       nonDefault({
         q: [filter.search, ''],
-        state: [filter.state, ''],
+        state: [filter.states.join(','), ''],
       }),
   };
 }

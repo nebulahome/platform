@@ -54,11 +54,19 @@ describe('ownerOf', () => {
 
 describe('matchesContainer', () => {
   it('narrows by running, by owner and by the words searched', () => {
-    expect(matchesContainer(container(), { ...OPEN_CONTAINER_FILTER, run: 'stopped' })).toBe(false);
+    expect(matchesContainer(container(), { ...OPEN_CONTAINER_FILTER, runs: ['stopped'] })).toBe(
+      false,
+    );
     expect(
       matchesContainer(container({ state: 'exited' }), {
         ...OPEN_CONTAINER_FILTER,
-        run: 'stopped',
+        runs: ['stopped'],
+      }),
+    ).toBe(true);
+    expect(
+      matchesContainer(container({ state: 'exited' }), {
+        ...OPEN_CONTAINER_FILTER,
+        runs: ['running', 'stopped'],
       }),
     ).toBe(true);
     expect(matchesContainer(container(), { ...OPEN_CONTAINER_FILTER, owner: 'other' })).toBe(true);
@@ -79,12 +87,14 @@ describe('matchesContainer', () => {
 
 describe('CONTAINER_FILTER_CODEC', () => {
   it('keeps only what differs from the open filter in the address', () => {
-    expect(CONTAINER_FILTER_CODEC.write({ search: '', run: 'running', owner: 'any' })).toEqual({
-      run: 'running',
-    });
-    expect(CONTAINER_FILTER_CODEC.read(new URLSearchParams('owner=integration&run=nope'))).toEqual({
+    expect(
+      CONTAINER_FILTER_CODEC.write({ search: '', runs: ['running', 'stopped'], owner: 'any' }),
+    ).toEqual({ run: 'running,stopped' });
+    expect(
+      CONTAINER_FILTER_CODEC.read(new URLSearchParams('owner=integration&run=nope,running')),
+    ).toEqual({
       search: '',
-      run: 'any',
+      runs: ['running'],
       owner: 'integration',
     });
   });

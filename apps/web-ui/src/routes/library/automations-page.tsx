@@ -1,7 +1,7 @@
 /**
  * Every rule the house follows (board N-Automations).
  *
- * A table sorted by Name or Last run, a page at a time, the page and its size in the address
+ * A table sorted by any of its headings, a page at a time, the page and its size in the address
  * beside the search and the filter. Turning one on or off writes from the row; deleting one asks
  * first. The last run of each comes with the list, and the live channel keeps it current as runs
  * start and end.
@@ -10,7 +10,7 @@
  * the page.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
@@ -19,7 +19,6 @@ import {
   AppIcon,
   Button,
   EmptyState,
-  FilterChips,
   Modal,
   OverflowMenu,
   TableFooter,
@@ -45,17 +44,17 @@ import {
 import { draftFrom, toCreate } from '@/library/automation-draft';
 import {
   AUTOMATION_FILTER_CODEC,
+  AUTOMATION_SORTS,
   automationChoices,
   countAutomationStandings,
   isAutomationNarrowing,
   matchesAutomationFilter,
   OPEN_AUTOMATION_FILTER,
+  sortAutomations,
+  type AutomationSort,
 } from '@/library/automation-filters';
 import { isPasswordText } from '@/library/entity-control';
-import {
-  activeAutomationFilters,
-  AutomationFilterButton,
-} from '@/routes/library/automation-filter';
+import { AutomationFilterButton } from '@/routes/library/automation-filter';
 import { AUTOMATION_COLUMNS, AutomationRow } from '@/routes/library/automation-row';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
 import { LibraryImportFlow, type ImportResult } from '@/routes/library/library-import-flow';
@@ -216,18 +215,20 @@ export function AutomationsPage() {
 
   const items = automations.data ?? [];
   const shown = items.filter((automation) => matchesAutomationFilter(automation, filter));
-  const paging = usePaging('automations', SORTS, shown.length);
-  const rows = paging.rows(
-    [...shown].sort((left, right) => {
-      const byName = left.name.localeCompare(right.name);
-      const order =
-        paging.sort === 'run'
-          ? (right.lastRun?.time.getTime() ?? 0) - (left.lastRun?.time.getTime() ?? 0) || byName
-          : byName;
+  const paging = usePaging('automations', AUTOMATION_SORTS, shown.length);
+  const rows = paging.rows(sortAutomations(shown, paging.sort, paging.direction));
 
-      return paging.direction === 'asc' ? order : -order;
-    }),
-  );
+  /**
+   * A heading that sorts the table, in its header cell.
+   *
+   * @param column - The column it sorts by.
+   * @param label - The heading.
+   * @param className - The cell's classes: when it shows.
+   * @returns The cell.
+   */
+  const sortCell = (column: AutomationSort, label: string, className?: string): ReactNode => {
+    return <SortHeader paging={paging} column={column} label={label} className={className} />;
+  };
 
   /** Opens the editor on a new automation. */
   const openNew = (): void => {
@@ -358,14 +359,6 @@ export function AutomationsPage() {
           ) : null}
         </>
       }
-      filters={
-        <FilterChips
-          filters={activeAutomationFilters(filter, setFilter)}
-          onClearAll={() => {
-            setFilter({ ...OPEN_AUTOMATION_FILTER, search: filter.search });
-          }}
-        />
-      }
       isPending={automations.isPending}
       error={automations.error}
       isEmpty={items.length === 0}
@@ -384,28 +377,13 @@ export function AutomationsPage() {
     >
       <div className="rounded-panel border border-border bg-surface">
         <div
+          role="row"
           className={`${AUTOMATION_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
         >
-          <SortHeader
-            label={t('library.automations.name', 'Name')}
-            isSorted={paging.sort === 'name'}
-            direction={paging.direction}
-            onSort={() => {
-              paging.toggleSort('name');
-            }}
-            className="justify-self-start"
-          />
-          <span className="hidden md:block">{t('library.automations.mode', 'Mode')}</span>
-          <span>{t('library.automations.enabled', 'Enabled')}</span>
-          <SortHeader
-            label={t('library.automations.lastRun', 'Last run')}
-            isSorted={paging.sort === 'run'}
-            direction={paging.direction}
-            onSort={() => {
-              paging.toggleSort('run');
-            }}
-            className="hidden justify-self-start md:inline-flex"
-          />
+          {sortCell('name', t('library.automations.name', 'Name'))}
+          {sortCell('mode', t('library.automations.mode', 'Mode'), 'hidden md:block')}
+          {sortCell('run', t('library.automations.lastRun', 'Last run'), 'hidden md:block')}
+          {sortCell('enabled', t('library.automations.enabled', 'Enabled'))}
           <span />
         </div>
 
@@ -498,9 +476,6 @@ export function AutomationsPage() {
     </LibraryPage>
   );
 }
-
-/** The columns the table sorts by; the first is the order it opens in. */
-const SORTS = ['name', 'run'] as const;
 
 /** One thing a row can ask for. */
 type Change =

@@ -1,7 +1,7 @@
 /**
  * One automation in the list table, as the board draws it (N-Automations): its name with the
- * chain under it - what wakes it, what it checks, what it does - its mode, Enabled as a switch,
- * how its last run went, and a menu.
+ * chain under it - what wakes it, what it checks, what it does - its mode, how its last run went,
+ * Enabled as a switch, and a menu.
  *
  * The chain is under the name because the question somebody scanning this page is asking is
  * "which one is the porch light", and reading the rule is how they answer it. The last run is a
@@ -26,12 +26,12 @@ import { modeLabel } from '@/library/automation-filters';
 /**
  * The column widths, shared by the header and every row so they line up.
  *
- * The name and its chain take the flexible room; mode, enabled, last run and the menu stay fixed
+ * The name and its chain take the flexible room; mode, last run, enabled and the menu stay fixed
  * so a long summary never shoves the menu off the edge of a narrow window.
  */
 export const AUTOMATION_COLUMNS =
   'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 ' +
-  'md:grid-cols-[minmax(0,2.6fr)_100px_90px_160px_40px]';
+  'md:grid-cols-[minmax(0,2.6fr)_100px_160px_90px_40px]';
 
 /** What one row needs. */
 export type AutomationRowProps = {
@@ -135,6 +135,15 @@ export function AutomationRow(props: AutomationRowProps) {
         {modeLabel(automation.mode)}
       </span>
 
+      <span className="hidden min-w-0 items-center gap-2 md:flex" title={lastRun.title}>
+        <StatusDot isBare tone={lastRun.tone} title={lastRun.title ?? lastRun.text} />
+        <span
+          className={`truncate text-ui-sm tabular ${lastRun.tone === 'danger' ? 'text-danger' : 'text-foreground-muted'}`}
+        >
+          {lastRun.text}
+        </span>
+      </span>
+
       <span>
         <Switch
           label={t('library.automationRow.nameEnabled', '{{name}} enabled', {
@@ -145,15 +154,6 @@ export function AutomationRow(props: AutomationRowProps) {
           disabled={!canWrite}
           onChange={onToggle}
         />
-      </span>
-
-      <span className="hidden min-w-0 items-center gap-2 md:flex" title={lastRun.title}>
-        <StatusDot isBare tone={lastRun.tone} title={lastRun.title ?? lastRun.text} />
-        <span
-          className={`truncate text-ui-sm tabular ${lastRun.tone === 'danger' ? 'text-danger' : 'text-foreground-muted'}`}
-        >
-          {lastRun.text}
-        </span>
       </span>
 
       <OverflowMenu

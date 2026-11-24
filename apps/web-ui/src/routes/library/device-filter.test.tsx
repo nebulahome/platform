@@ -1,6 +1,6 @@
 /**
  * The filter sheet on the devices page: the standings as boxes with their counts, the dropdowns
- * two to a line, the facets the devices give no choice in left out, and the chips.
+ * two to a line, and the facets the devices give no choice in left out.
  *
  * A dropdown's list is portalled out of the sheet, so a click on one of its options lands outside
  * the sheet as far as the document is concerned - exactly what shuts the sheet. That the sheet
@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { OPEN_FILTER, type DeviceFilter } from '@/library/device-filters';
 
-import { activeRegistryFilters, DeviceFilterButton, type DeviceChoices } from './device-filter';
+import { DeviceFilterButton, type DeviceChoices } from './device-filter';
 
 /** What two devices of two vendors in two rooms give. */
 const CHOICES: DeviceChoices = {
@@ -151,31 +151,5 @@ describe('DeviceFilterButton', () => {
     fireEvent.pointerDown(document.body);
 
     expect(screen.queryByRole('group', { name: /narrow/iu })).toBeNull();
-  });
-});
-
-describe('activeRegistryFilters', () => {
-  it('names each facet set, leaves the search out, and removes one alone', () => {
-    const onChange = vi.fn();
-    const filter: DeviceFilter = {
-      ...OPEN_FILTER,
-      search: 'lamp',
-      statuses: ['silent', 'unreachable'],
-      vendorId: 'shelly',
-      transport: 'shelly/rpc',
-      isLinked: true,
-    };
-    const chips = activeRegistryFilters(filter, CHOICES, onChange);
-
-    expect(chips.map((chip) => [chip.key, chip.value])).toEqual([
-      ['Status', 'Unreachable, Silent'],
-      ['Integration', 'Shelly'],
-      ['Connection', 'RPC'],
-      [undefined, 'Reached two ways'],
-    ]);
-
-    chips[1]?.onRemove();
-
-    expect(onChange).toHaveBeenCalledWith({ ...filter, vendorId: '' });
   });
 });

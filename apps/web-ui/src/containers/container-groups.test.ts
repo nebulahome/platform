@@ -98,7 +98,7 @@ describe('containerTiles', () => {
   it('keeps a project when one of its containers passes the filter', () => {
     const tiles = containerTiles([PLEX, ALONE, DATABASE, PLATFORM], [], [INSTALL], {
       ...OPEN_CONTAINER_FILTER,
-      run: 'stopped',
+      runs: ['stopped'],
     });
 
     expect(tiles.map((tile) => tile.kind)).toEqual(['install', 'compose']);

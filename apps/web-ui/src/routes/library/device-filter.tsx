@@ -9,9 +9,9 @@
  */
 import { useTranslation } from 'react-i18next';
 
-import { Checkbox, cn, Segmented, SelectField, type ActiveFilter } from '@nebulahome/ui';
+import { Checkbox, cn, Segmented, SelectField } from '@nebulahome/ui';
 
-import { defineMessage, type Message, text, translate } from '@/i18n/messages';
+import { defineMessage, type Message, text } from '@/i18n/messages';
 import { narrowingCount, OPEN_FILTER, type DeviceFilter } from '@/library/device-filters';
 import { DEVICE_STATUS_ORDER, type DeviceStatusKind } from '@/library/device-status';
 import { connectionName, DEVICE_SHOWS, type DeviceShow } from '@/library/vendor-device-filters';
@@ -43,7 +43,7 @@ const SHOW_LABELS: Readonly<Record<DeviceShow, Message>> = {
   parts: defineMessage('library.deviceFilter.showParts', 'Parts'),
 };
 
-/** The words of the switch, shared by the sheet and its chip. */
+/** The words of the switch. */
 const LINKED = defineMessage('library.deviceFilter.linked', 'Reached two ways');
 
 /** The choices the loaded devices give. */
@@ -316,98 +316,4 @@ export function DeviceFilterButton(props: DeviceFilterButtonProps) {
       </Facet>
     </FilterSheet>
   );
-}
-
-/**
- * The facets set, as the chips under the page's header: each one removed on its own.
- *
- * @param filter - The filter.
- * @param choices - The choices the devices give, to name a vendor, a room or a tag.
- * @param onChange - Called with the filter less the facet removed.
- * @returns The chips; none when nothing is set.
- */
-export function activeRegistryFilters(
-  filter: DeviceFilter,
-  choices: DeviceChoices,
-  onChange: (filter: DeviceFilter) => void,
-): ActiveFilter[] {
-  /**
-   * What a dropdown's value is called, or the value itself when the devices no longer give it.
-   *
-   * @param options - The dropdown's choices.
-   * @param value - The value set.
-   * @returns Its name.
-   */
-  const nameOf = (options: readonly FacetOption[], value: string): string =>
-    options.find((each) => each.value === value)?.label ?? value;
-
-  // Each facet: whether it is set, its chip's id, what it is called, what it is set to, and the
-  // filter less it.
-  const facets: readonly [boolean, string, string | undefined, string, Partial<DeviceFilter>][] = [
-    [
-      filter.statuses.length > 0,
-      'status',
-      translate('library.deviceFilter.status', 'Status'),
-      DEVICE_STATUS_ORDER.filter((each) => filter.statuses.includes(each))
-        .map((each) => text(STATUS_LABELS[each]))
-        .join(', '),
-      { statuses: [] },
-    ],
-    [
-      filter.vendorId !== '',
-      'vendor',
-      translate('library.deviceFilter.integration', 'Integration'),
-      nameOf(choices.vendors, filter.vendorId),
-      { vendorId: '' },
-    ],
-    [
-      filter.areaKey !== '',
-      'area',
-      translate('library.deviceFilter.area', 'Area'),
-      nameOf(choices.areas, filter.areaKey),
-      { areaKey: '' },
-    ],
-    [
-      filter.model !== '',
-      'model',
-      translate('library.deviceFilter.model', 'Model'),
-      filter.model,
-      { model: '' },
-    ],
-    [
-      filter.transport !== '',
-      'via',
-      translate('library.deviceFilter.connection', 'Connection'),
-      connectionName(filter.transport),
-      { transport: '' },
-    ],
-    [
-      filter.tagId !== '',
-      'tag',
-      translate('library.deviceFilter.tag', 'Tag'),
-      nameOf(choices.tags, filter.tagId),
-      { tagId: '' },
-    ],
-    [
-      filter.show !== 'all',
-      'show',
-      translate('library.deviceFilter.show', 'Show'),
-      text(SHOW_LABELS[filter.show]),
-      { show: 'all' },
-    ],
-    [filter.isLinked, 'linked', undefined, text(LINKED), { isLinked: false }],
-  ];
-
-  return facets
-    .filter(([isSet]) => isSet)
-    .map(([, id, key, value, unset]) => ({
-      id,
-      ...(key === undefined ? {} : { key }),
-      value,
-
-      /** Unsets this facet alone. */
-      onRemove: () => {
-        onChange({ ...filter, ...unset });
-      },
-    }));
 }

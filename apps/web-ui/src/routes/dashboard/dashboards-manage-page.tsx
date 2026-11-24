@@ -9,7 +9,7 @@
  * What is saved here is what every person it is assigned to finds on their Dashboards page.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
@@ -17,14 +17,17 @@ import type { DashboardAssignee, DashboardView } from '@nebulahome/contracts';
 import { AppIcon, Button, EmptyState, IconButton } from '@nebulahome/ui';
 
 import { Avatar } from '@/components/avatar';
+import { SortHeader } from '@/components/sort-header';
 import { DASHBOARD_QUERY_KEYS, fetchAssignees, fetchManagedDashboards } from '@/dashboard/api';
 import { allCards } from '@/dashboard/dashboard-layout';
+import { collator } from '@/i18n/formatters';
 import { translate } from '@/i18n/messages';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { relativeTime } from '@/lib/format-time';
 import { matchesQuery } from '@/lib/search-text';
 import { signalled } from '@/lib/signalled';
 import { nonDefault, useListState, type ListCodec } from '@/lib/use-list-state';
+import { usePaging, type SortDirection } from '@/lib/use-paging';
 import { DashboardDialog, type DashboardDialogTarget } from '@/routes/dashboard/dashboard-dialog';
 import { DASHBOARDS_CONFIGURATION_PATH } from '@/routes/dashboard/dashboard-page';
 import { useDashboardData } from '@/routes/dashboard/use-dashboard-data';
@@ -37,6 +40,60 @@ import { SearchField } from '@/routes/library/search-field';
 const COLUMNS =
   'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 ' +
   'md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_104px_auto]';
+
+/** The columns the table sorts by; the first is the order it opens in. */
+const SORTS = ['name', 'people', 'changed'] as const;
+
+/** One column the table sorts by. */
+type DashboardSort = (typeof SORTS)[number];
+
+/**
+ * Puts dashboards in the order of a column; ties go by name.
+ *
+ * Ascending is what the first click gives: Shown to the fewest people first, by how many the row
+ * counts, with the ones shown to nobody last whichever way it sorts; Changed the most recent first.
+ *
+ * @param dashboards - The dashboards.
+ * @param sort - The column.
+ * @param direction - Which way.
+ * @param people - Everybody a dashboard can be shown to, by id: the row counts only them.
+ * @returns A sorted copy.
+ */
+export function sortDashboards(
+  dashboards: readonly DashboardView[],
+  sort: DashboardSort,
+  direction: SortDirection,
+  people: ReadonlyMap<string, DashboardAssignee>,
+): DashboardView[] {
+  const names = collator();
+  const sign = direction === 'asc' ? 1 : -1;
+
+  /**
+   * How many people the row shows a dashboard to.
+   *
+   * @param dashboard - The dashboard.
+   * @returns The count.
+   */
+  const shownTo = (dashboard: DashboardView): number =>
+    dashboard.userIds.filter((id) => people.has(id)).length;
+
+  return [...dashboards].sort((left, right) => {
+    const byName = names.compare(left.name, right.name);
+
+    switch (sort) {
+      case 'name':
+        return sign * byName;
+      case 'people':
+        return (
+          Number(shownTo(left) === 0) - Number(shownTo(right) === 0) ||
+          sign * (shownTo(left) - shownTo(right)) ||
+          byName
+        );
+      case 'changed':
+        return sign * (right.updatedAt.getTime() - left.updatedAt.getTime()) || byName;
+    }
+  });
+}
 
 /** How many faces a row shows before it counts the rest. */
 const FACES_SHOWN = 4;
@@ -163,6 +220,21 @@ export function DashboardsManagePage() {
       search,
     ),
   );
+  // Sorted, not paged: a house has a handful of dashboards, and the table has no foot.
+  const paging = usePaging('dashboards', SORTS, shown.length);
+  const rows = sortDashboards(shown, paging.sort, paging.direction, people);
+
+  /**
+   * A heading that sorts the table, in its header cell.
+   *
+   * @param column - The column it sorts by.
+   * @param label - The heading.
+   * @param className - The cell's classes: when it shows.
+   * @returns The cell.
+   */
+  const sortCell = (column: DashboardSort, label: string, className?: string): ReactNode => {
+    return <SortHeader paging={paging} column={column} label={label} className={className} />;
+  };
 
   /**
    * Opens a dashboard's dialog.
@@ -249,16 +321,20 @@ export function DashboardsManagePage() {
       >
         <div className="overflow-hidden rounded-panel border border-border bg-surface">
           <div
+            role="row"
             className={`${COLUMNS} border-b border-border px-4 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
-            aria-hidden="true"
           >
-            <span>{t('dashboard.dashboardsManage.dashboard', 'Dashboard')}</span>
-            <span className="hidden md:block">
-              {t('dashboard.dashboardsManage.shownTo', 'Shown to')}
-            </span>
-            <span className="hidden md:block">
-              {t('dashboard.dashboardsManage.changed', 'Changed')}
-            </span>
+            {sortCell('name', t('dashboard.dashboardsManage.dashboard', 'Dashboard'))}
+            {sortCell(
+              'people',
+              t('dashboard.dashboardsManage.shownTo', 'Shown to'),
+              'hidden md:block',
+            )}
+            {sortCell(
+              'changed',
+              t('dashboard.dashboardsManage.changed', 'Changed'),
+              'hidden md:block',
+            )}
             <span />
           </div>
 
@@ -273,7 +349,7 @@ export function DashboardsManagePage() {
             </div>
           ) : (
             <ul>
-              {shown.map((dashboard) => {
+              {rows.map((dashboard) => {
                 const cards = allCards(dashboard.layout).length;
 
                 return (

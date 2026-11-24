@@ -7,6 +7,7 @@ import type { SceneView } from '@nebulahome/contracts';
 
 import {
   matchesSceneFilter,
+  OPEN_PACKAGE_FILTER,
   OPEN_PEOPLE_FILTER,
   OPEN_SCENE_FILTER,
   packageFilterCodec,
@@ -85,7 +86,16 @@ describe('the codecs', () => {
   it('read an unknown value as its default rather than as a filter nothing matches', () => {
     expect(
       packageFilterCodec(['running', 'failed']).read(new URLSearchParams({ state: 'exploded' }))
-        .state,
-    ).toBe('');
+        .states,
+    ).toEqual([]);
+  });
+
+  it('keep the package states as a list, dropping what does not read', () => {
+    const codec = packageFilterCodec(['running', 'failed', 'stopped']);
+    const filter = { search: 'mqtt', states: ['running', 'failed'] as const };
+
+    expect(codec.read(new URLSearchParams(codec.write(filter)))).toEqual(filter);
+    expect(codec.read(new URLSearchParams({ state: 'failed,bogus' })).states).toEqual(['failed']);
+    expect(codec.write(OPEN_PACKAGE_FILTER)).toEqual({});
   });
 });

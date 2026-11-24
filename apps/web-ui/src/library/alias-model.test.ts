@@ -1,11 +1,12 @@
 /**
- * What the alias pages work out: a part's value in a state and in words, the list's filter and
- * groups, and the type search.
+ * What the alias pages work out: a part's value in a state and in words, the list's filter, groups
+ * and order, and the type search.
  */
 import { describe, expect, it } from 'vitest';
 
 import { aliasType } from '@nebulahome/contracts';
 
+import { NO_READING } from '@/library/entity-reading';
 import {
   GUEST_MODE,
   HOUSE_TEMPERATURE,
@@ -25,10 +26,21 @@ import {
   OPEN_ALIAS_LIST_FILTER,
   partValueOf,
   searchTypes,
+  sortAliasLines,
   sourceChip,
 } from './alias-model';
 
 const items = SAMPLE_ALIASES.map(listItemOf);
+
+/**
+ * The names of sorted rows.
+ *
+ * @param lines - The rows.
+ * @returns Their names, in order.
+ */
+function names(lines: readonly { readonly item: { readonly name: string } }[]): string[] {
+  return lines.map((line) => line.item.name);
+}
 
 /**
  * A part of a type, by key.
@@ -132,7 +144,7 @@ describe('the list', () => {
     expect(searched.map((item) => item.name)).toEqual([WASHER.name]);
   });
 
-  it('groups by type in the types’ order, each by name', () => {
+  it('groups by type in the types’ order, each in the order given', () => {
     const groups = groupAliases(items);
 
     expect(groups.map((group) => group.type.id)).toEqual([
@@ -143,11 +155,94 @@ describe('the list', () => {
       'thermostat',
     ]);
     expect(groups[0]?.items.map((item) => item.name)).toEqual([
-      'Garage power',
       'House temperature',
+      'Garage power',
     ]);
     expect(groups.find((group) => group.type.id === 'switch')?.items).toEqual([
       listItemOf(GUEST_MODE),
+    ]);
+  });
+
+  it('sorts by name, either way', () => {
+    const lines = items.map((item) => ({ item, value: '' }));
+
+    expect(names(sortAliasLines(lines, 'name', 'asc'))).toEqual([
+      'Downstairs lights',
+      'Garage power',
+      'Guest mode',
+      'House temperature',
+      'Living room thermostat',
+      'Washing done',
+    ]);
+    expect(names(sortAliasLines(lines, 'name', 'desc'))).toEqual([
+      'Washing done',
+      'Living room thermostat',
+      'House temperature',
+      'Guest mode',
+      'Garage power',
+      'Downstairs lights',
+    ]);
+  });
+
+  it('sorts by the device shown, ties by name', () => {
+    const lines = items.map((item) => ({ item, value: '' }));
+
+    // Three sit on the shared device, shown as Aliases.
+    expect(names(sortAliasLines(lines, 'device', 'asc'))).toEqual([
+      'Downstairs lights',
+      'Guest mode',
+      'House temperature',
+      'Garage power',
+      'Living room thermostat',
+      'Washing done',
+    ]);
+    expect(names(sortAliasLines(lines, 'device', 'desc'))).toEqual([
+      'Washing done',
+      'Living room thermostat',
+      'Garage power',
+      'Downstairs lights',
+      'Guest mode',
+      'House temperature',
+    ]);
+  });
+
+  it('sorts Now by health first, then by the value, a value not known last', () => {
+    const values: Readonly<Record<string, string>> = {
+      'House temperature': '9 °C',
+      'Living room thermostat': '21 °C',
+      'Downstairs lights': NO_READING,
+    };
+    const lines = items.map((item) => ({ item, value: values[item.name] ?? item.health }));
+
+    expect(names(sortAliasLines(lines, 'now', 'asc'))).toEqual([
+      'House temperature',
+      'Living room thermostat',
+      'Downstairs lights',
+      'Washing done',
+      'Garage power',
+      'Guest mode',
+    ]);
+    expect(names(sortAliasLines(lines, 'now', 'desc'))).toEqual([
+      'Guest mode',
+      'Garage power',
+      'Washing done',
+      'Living room thermostat',
+      'House temperature',
+      'Downstairs lights',
+    ]);
+  });
+
+  it('sorts the enabled ones first, then the other way', () => {
+    const lines = items.map((item) => ({ item, value: '' }));
+
+    expect(names(sortAliasLines(lines, 'enabled', 'asc')).at(-1)).toBe('Guest mode');
+    expect(names(sortAliasLines(lines, 'enabled', 'desc'))).toEqual([
+      'Guest mode',
+      'Downstairs lights',
+      'Garage power',
+      'House temperature',
+      'Living room thermostat',
+      'Washing done',
     ]);
   });
 
