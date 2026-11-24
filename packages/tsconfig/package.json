@@ -1,6 +1,6 @@
 {
   "name": "@nebulahome/tsconfig",
-  "version": "2026.10.0-alpha.83",
+  "version": "2026.10.0-alpha.84",
   "private": true,
   "files": [
     "base.json",
