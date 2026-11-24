@@ -365,6 +365,7 @@ export function BluetoothBrokerPage(props: BluetoothBrokerPageProps) {
                 ignored={found.data?.ignored ?? []}
                 vendorNames={vendorNames}
                 roomOf={roomOf}
+                scanners={scannerList}
                 onScanners={() => {
                   setTab('scanners');
                 }}

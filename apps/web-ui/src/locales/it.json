@@ -2018,6 +2018,7 @@
       "matterPairing": "Matter sta abbinando un dispositivo",
       "connectionsOf": "{{used}} di {{max}}",
       "needsAdapter": "Serve l'adattatore di questo server",
+      "throughProxies": "Tramite i proxy che si connettono",
       "localOnly": "L'adattatore di questo server; quelle dei proxy in Scanner",
       "found": "Trovati",
       "foundNote": "Dispositivi che un'integrazione riconosce e che la casa non ha ancora.",

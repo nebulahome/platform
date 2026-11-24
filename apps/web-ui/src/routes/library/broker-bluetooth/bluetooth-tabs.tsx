@@ -117,6 +117,9 @@ export type BluetoothOverviewProps = {
 
   /** Opens Scanners. */
   readonly onScanners: () => void;
+
+  /** The scanners: the proxies that connect count when the server has no adapter. */
+  readonly scanners?: readonly BluetoothScanner[] | undefined;
 };
 
 /**
@@ -129,6 +132,17 @@ export function BluetoothOverview(props: BluetoothOverviewProps) {
   const { t } = useTranslation();
   const { status, devices, found, ignored, onAdd, onIgnore } = props;
   const adapter = status.adapter;
+  // With no adapter of its own the house connects through the proxies that can: theirs are the count.
+  const proxyLinks = (props.scanners ?? []).flatMap((each) =>
+    each.kind === 'proxy' && each.connections !== null ? [each.connections] : [],
+  );
+  const throughProxies =
+    proxyLinks.length === 0
+      ? null
+      : {
+          used: proxyLinks.reduce((sum, each) => sum + each.used, 0),
+          max: proxyLinks.reduce((sum, each) => sum + each.max, 0),
+        };
   const [isIgnoredOpen, setIgnoredOpen] = useState(false);
   const recent = devices
     .filter((device) => device.addedAt !== null)
@@ -208,14 +222,18 @@ export function BluetoothOverview(props: BluetoothOverviewProps) {
           tone={status.isMatterPairing ? 'info' : 'neutral'}
           value={
             adapter === null
-              ? t('brokers.bluetooth.notPossible', 'Not possible')
+              ? throughProxies === null
+                ? t('brokers.bluetooth.notPossible', 'Not possible')
+                : t('brokers.bluetooth.connectionsOf', '{{used}} of {{max}}', throughProxies)
               : status.isMatterPairing
                 ? t('brokers.bluetooth.matterPairing', 'Matter is pairing a device')
                 : t('brokers.bluetooth.connectionsOf', '{{used}} of {{max}}', adapter.connections)
           }
           detail={
             adapter === null
-              ? t('brokers.bluetooth.needsAdapter', 'Needs this server’s adapter')
+              ? throughProxies === null
+                ? t('brokers.bluetooth.needsAdapter', 'Needs this server’s adapter')
+                : t('brokers.bluetooth.throughProxies', 'Through the proxies that connect')
               : t('brokers.bluetooth.localOnly', 'This server’s adapter; a proxy’s under Scanners')
           }
         />
