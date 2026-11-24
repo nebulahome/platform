@@ -1898,7 +1898,7 @@ export class BluetoothBroker {
    * @throws {AdapterError} When the proxy answered not as the contract says.
    */
   async #onProxy(deviceId: string, call: GattCall, signal: AbortSignal): Promise<unknown> {
-    const answer = await this.#options.roles.send(deviceId, call.op, call.args, signal);
+    const answer = await this.#links.request(call.address, call.op, call.args, signal);
 
     if (call.follow !== undefined) {
       this.#links.follow(

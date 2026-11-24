@@ -13,14 +13,29 @@
  * reports lost, or every link of a proxy that went, fails the requests already waiting for it;
  * notifications are not turned on again until the driver asks. Nothing of it is written down.
  *
+ * A proxy connects with the services the broker remembers for the device (`gatt-databases.ts`),
+ * which skips the search; with none, it searches and the broker remembers what it found. A failure
+ * on a link that used them forgets them. A request the device refused as not matching them, before
+ * anything was done on the link, is carried out once more on a link that searched; never one after,
+ * which would break a conversation the device keeps for the link.
+ *
  * The server's adapter keeps its own links (BlueZ, `host.ts`), let go of after the same 5 s.
  */
 import {
+  BLUETOOTH_GATT_STALE,
   BLUETOOTH_PROXY_GATT_OPS,
+  bluetoothGattDatabaseSchema,
+  bluetoothGattValueSchema,
   DeviceUnavailableError,
   type JsonObject,
 } from '@nebulahome/contracts';
 
+import {
+  DATABASE_HASH_TARGET,
+  GattDatabases,
+  hasDatabaseHash,
+  type KnownDatabase,
+} from './gatt-databases.js';
 import { shortUuid } from './host.js';
 
 /** How long a link with nothing following it is kept open. */
@@ -41,6 +56,12 @@ export type SendToProxy = (
 type Link = {
   readonly deviceId: string;
 
+  /** Whether the proxy connected with the services the broker remembers, without searching. */
+  readonly isCached: boolean;
+
+  /** Whether a request on it was answered: one refused after that is never carried out again. */
+  hasAnswered: boolean;
+
   /** Where each followed characteristic's values go, by `service characteristic`. */
   readonly notifications: Map<string, (data: string) => void>;
   idle: NodeJS.Timeout | undefined;
@@ -48,6 +69,16 @@ type Link = {
 
 /** A proxy's connections: how many it holds at most, and how many are free. */
 type Slots = { free: number; readonly limit: number };
+
+/**
+ * Whether a proxy refused a request as not matching the services it was connected with.
+ *
+ * @param error - What the request failed with.
+ * @returns Whether.
+ */
+function isStale(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === BLUETOOTH_GATT_STALE;
+}
 
 /**
  * Settles as a promise does, or rejects once a signal aborts.
@@ -86,6 +117,9 @@ export class BluetoothLinks {
 
   /** How many times each address's link was lost, and why the last time. */
   readonly #losses = new Map<string, { readonly count: number; readonly why: string }>();
+
+  /** The services remembered for each address. */
+  readonly #databases = new GattDatabases();
 
   /**
    * Prepares the links.
@@ -227,7 +261,9 @@ export class BluetoothLinks {
   }
 
   /**
-   * Opens a link to an address through a proxy, one of its connections taken at once.
+   * Opens a link to an address through a proxy, one of its connections taken at once: with the
+   * services remembered for it, checked by their hash when the device has one, else searching
+   * them and remembering what was found.
    *
    * @param address - The device.
    * @param deviceId - The proxy.
@@ -236,31 +272,80 @@ export class BluetoothLinks {
    * @throws {Error} When the proxy has no free connection, or did not connect.
    */
   async connect(address: string, deviceId: string, signal: AbortSignal): Promise<void> {
-    const slots = this.#slots.get(deviceId);
+    const known = this.#databases.trusted(address);
+    const reply = await this.#open(address, deviceId, known, signal);
+    const found = bluetoothGattDatabaseSchema.safeParse(
+      (reply as { database?: unknown } | null)?.database,
+    );
 
-    if (slots === undefined || slots.free < 1) {
-      throw new Error(slots === undefined ? 'it cannot connect' : 'no free connection');
+    if (found.success) {
+      const kept = this.#databases.keep(address, found.data);
+
+      if (hasDatabaseHash(found.data)) {
+        kept.hash = await this.#hashOf(address, deviceId, signal);
+      }
+
+      return;
     }
 
-    slots.free -= 1;
-    this.#onChange();
+    // The device changed since, or its hash cannot be read on these handles: search again, once.
+    if (
+      typeof known?.hash === 'string' &&
+      this.#links.get(address)?.isCached === true &&
+      (await this.#hashOf(address, deviceId, signal)) !== known.hash
+    ) {
+      this.#databases.forget(address);
+      await this.#reopen(address, signal);
+    }
+  }
+
+  /**
+   * Carries a request out over an address's link; one the device refused as not matching the
+   * services remembered, before anything was answered on the link, once more on a link that
+   * searched them.
+   *
+   * @param address - The device.
+   * @param op - A {@link BLUETOOTH_PROXY_GATT_OPS} op.
+   * @param args - Its arguments.
+   * @param signal - The command's deadline.
+   * @returns What the proxy answered.
+   * @throws {DeviceUnavailableError} When the address has no link.
+   */
+  async request(
+    address: string,
+    op: string,
+    args: JsonObject,
+    signal: AbortSignal,
+  ): Promise<unknown> {
+    const link = this.#linkOf(address);
 
     try {
-      await this.#send(deviceId, BLUETOOTH_PROXY_GATT_OPS.connect, { address }, signal);
-    } catch (error: unknown) {
-      this.#free(deviceId);
-      // It may have connected after all, and hold the slot.
-      void this.#send(
-        deviceId,
-        BLUETOOTH_PROXY_GATT_OPS.disconnect,
-        { address },
-        DISCONNECT_TIMEOUT_MS,
-      ).catch(() => undefined);
-      throw error;
-    }
+      const answer = await this.#send(link.deviceId, op, args, signal);
 
-    this.#links.set(address, { deviceId, notifications: new Map(), idle: undefined });
-    this.#onChange();
+      link.hasAnswered = true;
+
+      return answer;
+    } catch (error: unknown) {
+      if (!link.isCached) {
+        throw error;
+      }
+
+      // Whatever went wrong may be stale services: the next link searches them.
+      this.#databases.forget(address);
+
+      if (!isStale(error) || link.hasAnswered || this.#links.get(address) !== link) {
+        throw error;
+      }
+
+      await this.#reopen(address, signal);
+
+      const again = this.#linkOf(address);
+      const answer = await this.#send(again.deviceId, op, args, signal);
+
+      again.hasAnswered = true;
+
+      return answer;
+    }
   }
 
   /**
@@ -349,6 +434,127 @@ export class BluetoothLinks {
     for (const link of this.#links.values()) {
       clearTimeout(link.idle);
     }
+  }
+
+  /**
+   * Takes one of a proxy's connections and connects through it.
+   *
+   * @param address - The device.
+   * @param deviceId - The proxy.
+   * @param known - The services remembered for the device, when trusted.
+   * @param signal - Ends the attempt.
+   * @returns What the proxy answered.
+   * @throws {Error} When the proxy has no free connection, or did not connect.
+   */
+  async #open(
+    address: string,
+    deviceId: string,
+    known: KnownDatabase | undefined,
+    signal: AbortSignal,
+  ): Promise<unknown> {
+    const slots = this.#slots.get(deviceId);
+
+    if (slots === undefined || slots.free < 1) {
+      throw new Error(slots === undefined ? 'it cannot connect' : 'no free connection');
+    }
+
+    slots.free -= 1;
+    this.#onChange();
+
+    let reply: unknown;
+
+    try {
+      reply = await this.#send(
+        deviceId,
+        BLUETOOTH_PROXY_GATT_OPS.connect,
+        known === undefined ? { address } : { address, database: known.database },
+        signal,
+      );
+    } catch (error: unknown) {
+      this.#free(deviceId);
+      // It may have connected after all, and hold the slot.
+      void this.#send(
+        deviceId,
+        BLUETOOTH_PROXY_GATT_OPS.disconnect,
+        { address },
+        DISCONNECT_TIMEOUT_MS,
+      ).catch(() => undefined);
+      throw error;
+    }
+
+    this.#links.set(address, {
+      deviceId,
+      // A proxy that searched anyway answers with what it found.
+      isCached:
+        known !== undefined && (reply as { database?: unknown } | null)?.database === undefined,
+      hasAnswered: false,
+      notifications: new Map(),
+      idle: undefined,
+    });
+    this.#onChange();
+
+    return reply;
+  }
+
+  /**
+   * Lets go of an address's link and connects again through the same proxy, searching: not a
+   * link lost, so the requests waiting for it go on.
+   *
+   * @param address - The device.
+   * @param signal - The command's deadline.
+   * @throws {Error} When it did not connect again.
+   */
+  async #reopen(address: string, signal: AbortSignal): Promise<void> {
+    const link = this.#linkOf(address);
+
+    this.#drop(address, link);
+    // Waited for: the proxy frees the connection only once the device is let go.
+    await this.#send(link.deviceId, BLUETOOTH_PROXY_GATT_OPS.disconnect, { address }, signal).catch(
+      () => undefined,
+    );
+    await this.connect(address, link.deviceId, signal);
+  }
+
+  /**
+   * Reads a device's Database Hash over its link.
+   *
+   * @param address - The device.
+   * @param deviceId - The proxy.
+   * @param signal - The command's deadline.
+   * @returns It, in hex; null when it could not be read.
+   */
+  async #hashOf(address: string, deviceId: string, signal: AbortSignal): Promise<string | null> {
+    try {
+      const answer = await this.#send(
+        deviceId,
+        BLUETOOTH_PROXY_GATT_OPS.read,
+        { address, ...DATABASE_HASH_TARGET },
+        signal,
+      );
+
+      return bluetoothGattValueSchema.parse(answer).data;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * An address's link.
+   *
+   * @param address - The device.
+   * @returns It.
+   * @throws {DeviceUnavailableError} When it has none.
+   */
+  #linkOf(address: string): Link {
+    const link = this.#links.get(address);
+
+    if (link === undefined) {
+      throw new DeviceUnavailableError(`${address} is not linked through a proxy`, {
+        details: { address },
+      });
+    }
+
+    return link;
   }
 
   /**
