@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { BusClient } from '@nebulahome/bus';
 import { FakeTransport } from '@nebulahome/bus/testing';
@@ -11,7 +11,7 @@ import {
   type EntityId,
   type StateReport,
 } from '@nebulahome/contracts';
-import { createLogger } from '@nebulahome/logging';
+import { createLogger, type PlatformLogger } from '@nebulahome/logging';
 import {
   bundleManifestSchema,
   createDeclarativeIntegration,
@@ -83,6 +83,7 @@ type Harness = {
   readonly caller: BusClient;
   readonly book: DeviceBook;
   readonly sent: TransportRequest[];
+  readonly logger: PlatformLogger;
   readonly stop: () => void;
 };
 
@@ -134,6 +135,7 @@ function harness(
     book,
     client,
     connection,
+    logger,
     commandTimeoutMs: 500,
   });
 
@@ -141,6 +143,7 @@ function harness(
     caller,
     book,
     sent,
+    logger,
     stop: (): void => {
       for (const subscription of subscriptions) {
         subscription.unsubscribe();
@@ -205,6 +208,80 @@ describe('startInstanceServices', () => {
     session = 'refused';
     await expect(turnOn()).rejects.toThrow(/refused/u);
     stop();
+  });
+
+  it('publishes and keeps what an answer says of the device, before the next request is chosen', async () => {
+    const isOnNext: unknown[] = [];
+    const integration: Integration = {
+      ...relay(),
+      fromAnswer: (target, step) =>
+        step.answer === 'on'
+          ? [
+              {
+                entityId: RELAY,
+                state: { on_off: { isOn: true } },
+                attributes: {},
+                isAvailable: true,
+              },
+            ]
+          : [],
+      continueCommand: (target, step, context) => {
+        isOnNext.push(context.lastState(RELAY));
+
+        return null;
+      },
+    };
+    const { caller, book, stop } = harness(integration, () => 'on');
+    const seen: StateReport[] = [];
+    const watching = caller.subscribe(
+      busSubjects.stateReport(RELAY),
+      stateReportSchema,
+      (report): void => {
+        seen.push(report);
+      },
+    );
+
+    await caller.request(
+      busSubjects.service('relay-lab', ADAPTER_COMMAND_METHOD),
+      { entityId: RELAY, capability: 'on_off', command: { command: 'turn_on' } },
+      adapterAckSchema,
+    );
+    await vi.waitFor(() => {
+      expect(seen.map((report) => report.state)).toEqual([{ on_off: { isOn: true } }]);
+    });
+    watching.unsubscribe();
+    stop();
+
+    expect(book.lastState(RELAY)).toEqual({ on_off: { isOn: true } });
+    expect(isOnNext).toEqual([{ on_off: { isOn: true } }]);
+  });
+
+  it('carries a command on when the integration cannot read an answer, and logs it', async () => {
+    const integration: Integration = {
+      ...relay(),
+      fromAnswer: () => {
+        throw new Error('Unreadable');
+      },
+      continueCommand: (target, step) =>
+        step.index === 0
+          ? { deviceKey: '192.168.1.40', op: 'get', args: { path: '/relay/on/again' } }
+          : null,
+    };
+    const { caller, sent, logger, stop } = harness(integration);
+    const warn = vi.spyOn(logger, 'warn');
+
+    await caller.request(
+      busSubjects.service('relay-lab', ADAPTER_COMMAND_METHOD),
+      { entityId: RELAY, capability: 'on_off', command: { command: 'turn_on' } },
+      adapterAckSchema,
+    );
+    stop();
+
+    expect(sent.map((request) => request.args['path'])).toEqual(['/relay/on', '/relay/on/again']);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ entityId: RELAY }),
+      expect.stringContaining('could not read what its device answered'),
+    );
   });
 
   it('refuses to install firmware while the device is installing it already', async () => {

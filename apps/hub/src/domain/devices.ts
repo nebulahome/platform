@@ -243,8 +243,17 @@ export class DeviceBook {
       return [];
     }
 
-    const reports = integration.toState(message, this.contextFor(binding, options));
+    return this.record(integration.toState(message, this.contextFor(binding, options)));
+  }
 
+  /**
+   * Keeps what reports say as each entity's last state: a message's, and what a command's answers
+   * say of the device.
+   *
+   * @param reports - The reports.
+   * @returns The same reports.
+   */
+  public record(reports: ReportedState[]): ReportedState[] {
     for (const report of reports) {
       this.#lastState.set(report.entityId, report.state);
     }

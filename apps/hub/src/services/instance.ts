@@ -28,9 +28,12 @@ import {
   type ResyncReply,
   type StateReport,
 } from '@nebulahome/contracts';
+import type { PlatformLogger } from '@nebulahome/logging';
 import {
   MAX_COMMAND_STEPS,
+  type CommandStep,
   type Integration,
+  type ReportedState,
   type TransportConnection,
   type TransportRequest,
 } from '@nebulahome/package-runtime';
@@ -49,6 +52,7 @@ export type InstanceServicesOptions = {
   readonly book: DeviceBook;
   readonly client: BusClient;
   readonly connection: TransportConnection;
+  readonly logger: PlatformLogger;
 
   /** How long a device has to accept a command before it is treated as unreachable. */
   readonly commandTimeoutMs: number;
@@ -181,10 +185,23 @@ export function startInstanceServices(options: InstanceServicesOptions): BusSubs
 
           // eslint-disable-next-line no-await-in-loop -- each request waits for the one before
           const answer = await sendWithin(options.connection, request, deadline, command.entityId);
+          const step: CommandStep = { request, answer, index };
+          let reports: ReportedState[] = [];
 
-          request =
-            options.integration.continueCommand?.(target, { request, answer, index }, context) ??
-            null;
+          try {
+            reports = options.integration.fromAnswer?.(target, step, context) ?? [];
+          } catch (error: unknown) {
+            // The device did what it was asked: a driver misreading the answer does not undo that.
+            options.logger.warn(
+              { err: error, instanceId: options.instanceId, entityId: command.entityId },
+              'An integration could not read what its device answered; the command goes on',
+            );
+          }
+
+          // shortcut: an image's blob is published as is, not kept; route it through the hub's
+          // images when a driver reports a picture from an answer.
+          publishReports(options.client, options.book.record(reports));
+          request = options.integration.continueCommand?.(target, step, context) ?? null;
         }
 
         return { acceptedAt: new Date() };

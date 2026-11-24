@@ -2117,6 +2117,7 @@ export class HubService {
         book,
         client,
         connection,
+        logger,
         commandTimeoutMs: commandTimeoutOf(
           instance.transport,
           this.#options.config.HUB_COMMAND_TIMEOUT_MS,
