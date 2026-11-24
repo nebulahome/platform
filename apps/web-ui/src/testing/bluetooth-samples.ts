@@ -380,11 +380,12 @@ export const BLUETOOTH_SAMPLE_MAP: BluetoothMap = {
       isOnline: true,
     })),
   ],
+  // Child to parent, as the broker sends them: a scanner to the server, a device to its scanner.
   links: [
-    { source: 'server', target: HCI0[0], network: 'ble', strength: 'strong', rssi: null },
+    { source: HCI0[0], target: 'server', network: 'ble', strength: 'strong', rssi: null },
     ...[KITCHEN, BATHROOM, GARAGE].map(([id]) => ({
-      source: 'server',
-      target: id,
+      source: id,
+      target: 'server',
       network: 'wifi' as const,
       strength: 'unknown' as const,
       rssi: null,
@@ -394,8 +395,8 @@ export const BLUETOOTH_SAMPLE_MAP: BluetoothMap = {
       const rssi = best?.rssi ?? -100;
 
       return {
-        source: best?.scannerId ?? HCI0[0],
-        target: each.address,
+        source: each.address,
+        target: best?.scannerId ?? HCI0[0],
         network: 'ble' as const,
         strength:
           rssi >= -70 ? ('strong' as const) : rssi >= -85 ? ('medium' as const) : ('weak' as const),

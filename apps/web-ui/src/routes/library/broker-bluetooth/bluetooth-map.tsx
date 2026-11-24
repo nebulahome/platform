@@ -72,13 +72,14 @@ export function bluetoothMapOf(
   const placed = new Set<string>([SERVER_ID]);
 
   /**
-   * A point and what hangs on it, from the links that leave it.
+   * A point and what hangs on it. The broker draws each link from the child to its parent: a
+   * scanner to this server, a device to the scanner that hears it best.
    *
    * @param link - The link it hangs on.
    * @returns The branch, or null for a point the broker did not list, or one already placed.
    */
   const branchOf = (link: BluetoothMap['links'][number]): Branch | null => {
-    const node = nodes.get(link.target);
+    const node = nodes.get(link.source);
 
     if (node === undefined || placed.has(node.id)) {
       return null;
@@ -119,7 +120,7 @@ export function bluetoothMapOf(
    */
   const childrenOf = (id: string): Branch[] =>
     map.links
-      .filter((link) => link.source === id)
+      .filter((link) => link.target === id)
       .flatMap((link) => {
         const branch = branchOf(link);
 
