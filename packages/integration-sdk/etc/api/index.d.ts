@@ -309,8 +309,8 @@ type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
  */
 declare const bluetoothProxyProfileSchema: z.ZodObject<{
   modes: z.ZodArray<z.ZodEnum<{
-    active: "active";
     passive: "passive";
+    active: "active";
   }>>;
 }, z.core.$strict>;
 /** What a device that can be a proxy declares. */
@@ -318,8 +318,8 @@ type BluetoothProxyProfile = z.output<typeof bluetoothProxyProfileSchema>;
 /** Arguments of `bluetooth-proxy.install`. */
 declare const bluetoothProxyInstallArgsSchema: z.ZodObject<{
   mode: z.ZodEnum<{
-    active: "active";
     passive: "passive";
+    active: "active";
   }>;
 }, z.core.$strip>;
 /** Arguments of `bluetooth-proxy.install`: the mode to rest in, which the hub picks. */
@@ -348,8 +348,8 @@ declare const bluetoothProxyStateSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
 }, z.core.$strip>, z.ZodObject<{
   eligible: z.ZodLiteral<false>;
   reason: z.ZodEnum<{
-    battery: "battery";
     gen1: "gen1";
+    battery: "battery";
     firmware: "firmware";
     "no-bluetooth": "no-bluetooth";
     unsupported: "unsupported";
@@ -364,6 +364,71 @@ declare const bluetoothProxyLinkArgsSchema: z.ZodObject<{
 }, z.core.$strip>;
 /** Arguments of `bluetooth-proxy.connect` and `bluetooth-proxy.disconnect`: the address. */
 type BluetoothProxyLinkArgs = z.output<typeof bluetoothProxyLinkArgsSchema>;
+/**
+ * A device's services as a proxy that connects found them, for the hub to remember: the handles
+ * are the device's, so any proxy can later connect with them and skip the search. The hub keeps
+ * them only while they hold together.
+ */
+declare const bluetoothGattDatabaseSchema: z.ZodArray<z.ZodObject<{
+  uuid: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  handle: z.ZodInt;
+  characteristics: z.ZodArray<z.ZodObject<{
+    uuid: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+    handle: z.ZodInt;
+    properties: z.ZodInt;
+    descriptors: z.ZodArray<z.ZodObject<{
+      uuid: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+      handle: z.ZodInt;
+    }, z.core.$strip>>;
+  }, z.core.$strip>>;
+}, z.core.$strip>>;
+/** A device's services, as a proxy found them. */
+type BluetoothGattDatabase = z.output<typeof bluetoothGattDatabaseSchema>;
+/**
+ * Arguments of `bluetooth-proxy.connect`: the device, and its services when the hub remembers them.
+ * With them the proxy connects without searching and finds characteristics among them.
+ */
+declare const bluetoothProxyConnectArgsSchema: z.ZodObject<{
+  database: z.ZodOptional<z.ZodArray<z.ZodObject<{
+    uuid: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+    handle: z.ZodInt;
+    characteristics: z.ZodArray<z.ZodObject<{
+      uuid: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+      handle: z.ZodInt;
+      properties: z.ZodInt;
+      descriptors: z.ZodArray<z.ZodObject<{
+        uuid: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+        handle: z.ZodInt;
+      }, z.core.$strip>>;
+    }, z.core.$strip>>;
+  }, z.core.$strip>>>;
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+}, z.core.$strip>;
+/** Arguments of `bluetooth-proxy.connect`. */
+type BluetoothProxyConnectArgs = z.output<typeof bluetoothProxyConnectArgsSchema>;
+/**
+ * What `bluetooth-proxy.connect` answers: the MTU agreed, when the proxy knows it, and the
+ * services when it searched them. A proxy that cannot connect without searching ignores the ones
+ * it is given and answers with what it found.
+ */
+declare const bluetoothProxyConnectReplySchema: z.ZodObject<{
+  mtu: z.ZodOptional<z.ZodInt>;
+  database: z.ZodOptional<z.ZodArray<z.ZodObject<{
+    uuid: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+    handle: z.ZodInt;
+    characteristics: z.ZodArray<z.ZodObject<{
+      uuid: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+      handle: z.ZodInt;
+      properties: z.ZodInt;
+      descriptors: z.ZodArray<z.ZodObject<{
+        uuid: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+        handle: z.ZodInt;
+      }, z.core.$strip>>;
+    }, z.core.$strip>>;
+  }, z.core.$strip>>>;
+}, z.core.$strip>;
+/** What `bluetooth-proxy.connect` answers, as a proxy writes it. */
+type BluetoothProxyConnectReply = z.input<typeof bluetoothProxyConnectReplySchema>;
 /** Arguments of `bluetooth-proxy.read`; it answers {@link bluetoothGattValueSchema}. */
 declare const bluetoothProxyReadArgsSchema: z.ZodObject<{
   service: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
@@ -1114,7 +1179,10 @@ export declare const BLUETOOTH_PROXY_OPS: {
  * anything else.
  */
 export declare const BLUETOOTH_PROXY_GATT_OPS: {
-  /** Connects to `{ address }`; answers `{ mtu? }`. */
+  /**
+   * Connects to `{ address, database? }` - with the services the hub remembers, without searching -
+   * and answers `{ mtu?, database? }`, the services when it searched them.
+   */
   readonly connect: "bluetooth-proxy.connect";
   /** Lets go of `{ address }`; answers null, and never fails. */
   readonly disconnect: "bluetooth-proxy.disconnect";
@@ -1126,6 +1194,13 @@ export declare const BLUETOOTH_PROXY_GATT_OPS: {
   /** Turns a characteristic's notifications on or off; each value comes through `gatt`. */
   readonly notify: "bluetooth-proxy.notify";
 };
+/**
+ * The `code` of the error a proxy fails a request with when the services it was connected with
+ * do not match the device: a characteristic not among them, a handle the device refused. The hub
+ * forgets them and, when nothing was answered on the link yet, carries the request out again on a
+ * link that searched.
+ */
+export declare const BLUETOOTH_GATT_STALE = "bluetooth-gatt-stale";
 /**
  * The ops the platform transport `bluetooth` carries to a device it connects to, through the
  * server's adapter or a proxy that can connect: the hub picks which.
@@ -2470,4 +2545,4 @@ export declare function defineAccountModule(factory: AccountFactory): AccountFac
  */
 export declare function defineStreamModule(factory: StreamFactory): StreamFactory;
 //#endregion
-export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothProxyExchangeArgs, BluetoothProxyFilterArgs, BluetoothProxyGattEvent, BluetoothProxyGattEventInput, BluetoothProxyInstallArgs, BluetoothProxyLinkArgs, BluetoothProxyNotifyArgs, BluetoothProxyProfile, BluetoothProxyReadArgs, BluetoothProxyState, BluetoothProxyWriteArgs, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandStep, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, HistoryImport, HistoryRange, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PastReading, PastReadings, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };
+export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothGattDatabase, BluetoothProxyConnectArgs, BluetoothProxyConnectReply, BluetoothProxyExchangeArgs, BluetoothProxyFilterArgs, BluetoothProxyGattEvent, BluetoothProxyGattEventInput, BluetoothProxyInstallArgs, BluetoothProxyLinkArgs, BluetoothProxyNotifyArgs, BluetoothProxyProfile, BluetoothProxyReadArgs, BluetoothProxyState, BluetoothProxyWriteArgs, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandStep, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, HistoryImport, HistoryRange, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PastReading, PastReadings, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };

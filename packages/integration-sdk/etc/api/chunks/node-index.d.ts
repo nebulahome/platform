@@ -304,8 +304,8 @@ type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
  */
 declare const bluetoothProxyProfileSchema: z.ZodObject<{
   modes: z.ZodArray<z.ZodEnum<{
-    active: "active";
     passive: "passive";
+    active: "active";
   }>>;
 }, z.core.$strict>;
 /** What a device that can be a proxy declares. */
@@ -2810,8 +2810,8 @@ declare const bundleManifestSchema: z.ZodObject<{
   }, z.core.$strict>>;
   bluetoothProxy: z.ZodOptional<z.ZodObject<{
     modes: z.ZodArray<z.ZodEnum<{
-      active: "active";
       passive: "passive";
+      active: "active";
     }>>;
   }, z.core.$strict>>;
   setup: z.ZodString;

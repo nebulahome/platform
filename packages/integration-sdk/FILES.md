@@ -1120,7 +1120,7 @@ carries out what it is sent on its own radio:
 
 | Op                           | Arguments                                                                     | Answer                                                      |
 | ---------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `bluetooth-proxy.connect`    | `{ address }`                                                                 | `{ mtu? }` once connected; throw when it cannot             |
+| `bluetooth-proxy.connect`    | `{ address, database? }`                                                      | `{ mtu?, database? }` once connected; throw when it cannot  |
 | `bluetooth-proxy.disconnect` | `{ address }`                                                                 | null; never throws                                          |
 | `bluetooth-proxy.read`       | `{ address, service, characteristic }`                                        | `{ data }`                                                  |
 | `bluetooth-proxy.write`      | `{ address, service, characteristic, data, withResponse }`                    | null, once written                                          |
@@ -1130,8 +1130,19 @@ carries out what it is sent on its own radio:
 - `address` is upper case and carries no type: use the one the proxy last heard the address
   advertise with. Services and characteristics are UUIDs, as the driver asked them - 16-bit
   (`fee7`), 32-bit or 128-bit, lower case - for the proxy to find on the device; hex throughout. The
-  types are `BluetoothProxyLinkArgs` (connect, disconnect), `BluetoothProxyReadArgs`,
-  `BluetoothProxyWriteArgs`, `BluetoothProxyExchangeArgs` and `BluetoothProxyNotifyArgs`.
+  types are `BluetoothProxyConnectArgs`, `BluetoothProxyLinkArgs` (disconnect),
+  `BluetoothProxyReadArgs`, `BluetoothProxyWriteArgs`, `BluetoothProxyExchangeArgs` and
+  `BluetoothProxyNotifyArgs`; `connect` answers a `BluetoothProxyConnectReply`.
+- **The device's services** (`BluetoothGattDatabase`: services, their characteristics with their
+  properties, and the descriptors, each with its handle): a `connect` without `database` searches
+  them and answers with them; the hub remembers them for the device, whichever proxy reaches it.
+  A `connect` with `database` connects without searching and finds characteristics among them.
+  A proxy that cannot do without searching ignores them and answers with what it found. When
+  they do not match the device - a characteristic not among them, a handle the device refuses -
+  fail the request with an error whose `code` is `BLUETOOTH_GATT_STALE`: the hub forgets them and,
+  when nothing was answered on the link yet, connects again searching and sends the request once
+  more. The hub trusts them while the device's Database Hash (`2b2a`) reads the same at each
+  connect, or 24 h for a device without one, and forgets them on any failure on such a link.
 - The ops of a command go with its deadline - 10 s for the whole command, every step of a
   conversation included - as their `signal`: stop when it aborts. A `disconnect` the hub sends on
   its own, 5 s after a link's last request, has 10 s. After a `connect` that failed or ran out of

@@ -12,6 +12,13 @@ version adds to the contract, a major one breaks it, and a patch leaves it as it
   and keeps them as the entities' last state; a throw is logged and the command goes on.
   `driverHarness(...).converse()` returns the reports too, as `states` on the requests, and keeps
   them as each entity's last state.
+- **A device's services, remembered:** `bluetooth-proxy.connect` takes `{ address, database? }`
+  (`BluetoothProxyConnectArgs`) and answers `{ mtu?, database? }` (`BluetoothProxyConnectReply`).
+  A proxy answers with the services it searched (`BluetoothGattDatabase`); the hub remembers them
+  for the device and hands them to the next `connect`, through any proxy, which then skips the
+  search. A proxy fails a request with the `code` `BLUETOOTH_GATT_STALE` when they do not match
+  the device. They are trusted while the device's Database Hash reads the same, or 24 h without
+  one. A proxy that ignores `database` keeps working as before.
 - A Bluetooth driver's `activeEveryMinutes` refresh scans actively for a fixed 5 s, no longer
   until the device is heard again (30 s at most): the first advert heard may be a passive one, and
   the scan response comes after it.

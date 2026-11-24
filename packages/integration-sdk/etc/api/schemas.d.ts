@@ -159,8 +159,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }, z.core.$strict>>;
     bluetoothProxy: z.ZodOptional<z.ZodObject<{
       modes: z.ZodArray<z.ZodEnum<{
-        active: "active";
         passive: "passive";
+        active: "active";
       }>>;
     }, z.core.$strict>>;
     setup: z.ZodString;
@@ -724,8 +724,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }, z.core.$strict>>;
     bluetoothProxy: z.ZodOptional<z.ZodObject<{
       modes: z.ZodArray<z.ZodEnum<{
-        active: "active";
         passive: "passive";
+        active: "active";
       }>>;
     }, z.core.$strict>>;
   }, z.core.$strict>;

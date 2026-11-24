@@ -27,6 +27,7 @@ export {
 // The ops the hub sends a device playing a broker's role, and the `bluetooth` transport's GATT ops.
 export {
   BLUETOOTH_GATT_OPS,
+  BLUETOOTH_GATT_STALE,
   BLUETOOTH_PROXY_GATT_OPS,
   BLUETOOTH_PROXY_OPS,
   INFRARED_OPS,
@@ -71,6 +72,9 @@ export type {
 export type {
   BluetoothAdvert,
   BluetoothAdvertInput,
+  BluetoothGattDatabase,
+  BluetoothProxyConnectArgs,
+  BluetoothProxyConnectReply,
   BluetoothProxyExchangeArgs,
   BluetoothProxyFilterArgs,
   BluetoothProxyGattEvent,
