@@ -114,6 +114,43 @@ describe('VendorDevicesTab', () => {
     expect(screen.getByRole('button', { name: 'Remove Status Failed' })).toBeTruthy();
   });
 
+  it('sorts by a heading, the other way on a second press, the parts staying under their parent', () => {
+    renderTab();
+
+    /**
+     * The main rows' device names, top to bottom.
+     *
+     * @returns The names.
+     */
+    const order = (): (string | null)[] =>
+      screen.getAllByRole('link').map((link) => link.textContent);
+    const heading = (name: string): HTMLElement =>
+      screen.getByRole('columnheader', { name: new RegExp(name, 'iu') });
+
+    expect(order()).toEqual(['Inverter garage', 'Wallbox']);
+    expect(heading('Device').getAttribute('aria-sort')).toBe('ascending');
+    expect(heading('Model').hasAttribute('aria-sort')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by device' }));
+
+    expect(order()).toEqual(['Wallbox', 'Inverter garage']);
+    expect(heading('Device').getAttribute('aria-sort')).toBe('descending');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by area' }));
+
+    expect(heading('Device').getAttribute('aria-sort')).toBe('none');
+    expect(heading('Area').getAttribute('aria-sort')).toBe('ascending');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show the devices of Inverter garage' }));
+
+    expect(order()).toEqual([
+      'Inverter garage',
+      'X1-Hybrid G4 EPS',
+      'X1-Hybrid G4 Dry contact',
+      'Wallbox',
+    ]);
+  });
+
   it('says nothing matches, and points to the devices waiting in Found', () => {
     const onShowFound = vi.fn();
 

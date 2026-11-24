@@ -1,7 +1,7 @@
 /**
  * Narrowing an integration's Devices tab: a search, how each device stands, its room, its model,
  * the transport that reaches it, parts or the devices they belong to, the silent ones, the ones
- * reached two ways - and the order.
+ * reached two ways - and the order of the columns the table sorts by.
  *
  * Pure, so the tab can be tested by what it lets through rather than by what it draws. A part is
  * matched like any device; bringing a matched part's parent along is the tab's business.
@@ -12,6 +12,7 @@ import { collator } from '@/i18n/formatters';
 import { TRANSPORT_NAMES } from '@/lib/install-effects';
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
+import type { SortDirection } from '@/lib/use-paging';
 
 /**
  * How a device stands, as the Status facet groups the states: by the tone of their badge. On the
@@ -29,10 +30,10 @@ export const DEVICE_SHOWS = ['all', 'main', 'parts'] as const;
 /** What to show of the parts. */
 export type DeviceShow = (typeof DEVICE_SHOWS)[number];
 
-/** The orders the table can be shown in. */
-export const DEVICE_SORTS = ['name', 'area', 'updated', 'newest'] as const;
+/** The columns the table sorts by; the first is the order it opens in. */
+export const DEVICE_SORTS = ['name', 'area', 'updated'] as const;
 
-/** One order. */
+/** One column to sort by. */
 export type DeviceSort = (typeof DEVICE_SORTS)[number];
 
 /** What a vendor's device table is narrowed by. */
@@ -60,9 +61,6 @@ export type VendorDeviceFilter = {
 
   /** Only devices reached two ways. */
   readonly isLinked: boolean;
-
-  /** The order the table is shown in. */
-  readonly sort: DeviceSort;
 };
 
 /** Every device, by name. */
@@ -75,7 +73,6 @@ export const OPEN_VENDOR_DEVICE_FILTER: VendorDeviceFilter = {
   show: 'all',
   isSilent: false,
   isLinked: false,
-  sort: 'name',
 };
 
 /** How long a device may say nothing before Silent for over an hour lists it. */
@@ -83,7 +80,7 @@ export const SILENT_AFTER_MS = 60 * 60 * 1000;
 
 /** How the vendor device filter lives in the address. */
 export const VENDOR_DEVICE_FILTER_CODEC: ListCodec<VendorDeviceFilter> = {
-  keys: ['q', 'status', 'area', 'model', 'via', 'show', 'silent', 'linked', 'sort'],
+  keys: ['q', 'status', 'area', 'model', 'via', 'show', 'silent', 'linked'],
 
   /**
    * Reads the filter.
@@ -102,7 +99,6 @@ export const VENDOR_DEVICE_FILTER_CODEC: ListCodec<VendorDeviceFilter> = {
     show: readChoice(params, 'show', DEVICE_SHOWS, 'all'),
     isSilent: params.get('silent') === '1',
     isLinked: params.get('linked') === '1',
-    sort: readChoice(params, 'sort', DEVICE_SORTS, 'name'),
   }),
 
   /**
@@ -121,13 +117,12 @@ export const VENDOR_DEVICE_FILTER_CODEC: ListCodec<VendorDeviceFilter> = {
       show: [filter.show, 'all'],
       silent: [filter.isSilent ? '1' : '', ''],
       linked: [filter.isLinked ? '1' : '', ''],
-      sort: [filter.sort, 'name'],
     }),
 };
 
 /**
- * How many facets of the sheet are set: the number on its button. The search and the order are
- * not facets - the one has its own field, the other narrows nothing.
+ * How many facets of the sheet are set: the number on its button. The search is not a facet: it
+ * has its own field.
  *
  * @param filter - The filter.
  * @returns The count.
@@ -284,51 +279,52 @@ export function matchesVendorDevice(
 }
 
 /**
- * Puts devices in the order asked for. A room, a report or a date a device lacks puts it last;
- * ties go by name.
+ * Puts devices in the order of a column. A room or a report a device lacks puts it last, whichever
+ * way the column sorts; ties go by name.
+ *
+ * Last updated ascending is the most recent first, as the Automations table's Last run is.
  *
  * @param devices - The devices.
- * @param sort - The order.
+ * @param sort - The column.
+ * @param direction - Which way.
  * @returns A sorted copy.
  */
-export function sortVendorDevices(devices: readonly DeviceView[], sort: DeviceSort): DeviceView[] {
+export function sortVendorDevices(
+  devices: readonly DeviceView[],
+  sort: DeviceSort,
+  direction: SortDirection,
+): DeviceView[] {
   const names = collator();
+  const sign = direction === 'asc' ? 1 : -1;
 
   /**
-   * Two words in the language's order.
+   * Puts the one lacking a value after the one that has it.
    *
-   * @param left - One word.
+   * @param left - One value.
    * @param right - The other.
-   * @returns The comparison.
+   * @returns The comparison; 0 when both or neither lack it.
    */
-  const compare = (left: string, right: string): number => names.compare(left, right);
-
-  /**
-   * Newest first, with no date last.
-   *
-   * @param left - One date.
-   * @param right - The other.
-   * @returns The comparison.
-   */
-  const newestFirst = (left: Date | null, right: Date | null): number =>
-    (right?.getTime() ?? -Infinity) - (left?.getTime() ?? -Infinity) || 0;
+  const lackingLast = (left: unknown, right: unknown): number =>
+    Number(left === null) - Number(right === null);
 
   return [...devices].sort((left, right) => {
-    const byName = compare(left.name, right.name);
+    const byName = names.compare(left.name, right.name);
 
     switch (sort) {
       case 'name':
-        return byName;
+        return sign * byName;
       case 'area':
         return (
-          Number(left.areaName === null) - Number(right.areaName === null) ||
-          compare(left.areaName ?? '', right.areaName ?? '') ||
+          lackingLast(left.areaName, right.areaName) ||
+          sign * names.compare(left.areaName ?? '', right.areaName ?? '') ||
           byName
         );
       case 'updated':
-        return newestFirst(left.lastUpdatedAt, right.lastUpdatedAt) || byName;
-      case 'newest':
-        return newestFirst(left.createdAt, right.createdAt) || byName;
+        return (
+          lackingLast(left.lastUpdatedAt, right.lastUpdatedAt) ||
+          sign * ((right.lastUpdatedAt?.getTime() ?? 0) - (left.lastUpdatedAt?.getTime() ?? 0)) ||
+          byName
+        );
     }
   });
 }

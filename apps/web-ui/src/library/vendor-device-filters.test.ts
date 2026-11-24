@@ -123,14 +123,35 @@ describe('sortVendorDevices', () => {
     lastUpdatedAt: null,
     createdAt: new Date('2026-06-01T00:00:00Z'),
   });
-  const names = (sort: Parameters<typeof sortVendorDevices>[1]): string[] =>
-    sortVendorDevices([kitchen, attic, nowhere], sort).map((each) => each.name);
+  const names = (
+    sort: Parameters<typeof sortVendorDevices>[1],
+    direction: Parameters<typeof sortVendorDevices>[2] = 'asc',
+  ): string[] =>
+    sortVendorDevices([kitchen, attic, nowhere], sort, direction).map((each) => each.name);
 
-  it('sorts by name, room, last report and age, with what is missing last', () => {
+  it('sorts by name, room and last report, with what is missing last', () => {
     expect(names('name')).toEqual(['Bulb', 'Fan', 'Kettle']);
     expect(names('area')).toEqual(['Fan', 'Kettle', 'Bulb']);
     expect(names('updated')).toEqual(['Fan', 'Kettle', 'Bulb']);
-    expect(names('newest')).toEqual(['Bulb', 'Kettle', 'Fan']);
+  });
+
+  it('turns the order round, still with what is missing last', () => {
+    expect(names('name', 'desc')).toEqual(['Kettle', 'Fan', 'Bulb']);
+    expect(names('area', 'desc')).toEqual(['Kettle', 'Fan', 'Bulb']);
+    expect(names('updated', 'desc')).toEqual(['Kettle', 'Fan', 'Bulb']);
+  });
+
+  it('breaks a tie by name', () => {
+    const twin = device('Ant', { areaName: 'Kitchen', lastUpdatedAt: kitchen.lastUpdatedAt });
+
+    expect(sortVendorDevices([kitchen, twin], 'area', 'desc').map((each) => each.name)).toEqual([
+      'Ant',
+      'Kettle',
+    ]);
+    expect(sortVendorDevices([kitchen, twin], 'updated', 'desc').map((each) => each.name)).toEqual([
+      'Ant',
+      'Kettle',
+    ]);
   });
 });
 
@@ -145,7 +166,6 @@ describe('the rest', () => {
       show: 'parts',
       isSilent: true,
       isLinked: true,
-      sort: 'updated',
     });
 
     expect(
@@ -155,8 +175,8 @@ describe('the rest', () => {
     expect(VENDOR_DEVICE_FILTER_CODEC.read(new URLSearchParams({ show: '?' })).show).toBe('all');
   });
 
-  it('counts the facets set, not the search or the order', () => {
-    expect(narrowingCount(filter({ search: 'x', sort: 'area' }))).toBe(0);
+  it('counts the facets set, not the search', () => {
+    expect(narrowingCount(filter({ search: 'x' }))).toBe(0);
     expect(narrowingCount(filter({ statuses: ['running', 'failed'], isSilent: true }))).toBe(2);
     expect(isNarrowing(filter({ search: ' ' }))).toBe(false);
     expect(isNarrowing(filter({ search: 'x' }))).toBe(true);

@@ -36,9 +36,6 @@ export type HousePanelProps = {
 
   /** Called when the house is to be configured. */
   readonly onEdit: () => void;
-
-  /** Called when a floor is to be added. */
-  readonly onAddFloor: () => void;
 };
 
 /** What the map tag says, and in which tone. */
@@ -95,7 +92,7 @@ function describePosition(house: AreaView): string {
 export function HousePanel(props: HousePanelProps) {
   const { t } = useTranslation();
 
-  const { house, icons, tiles, isCaching, canEdit, onEdit, onAddFloor } = props;
+  const { house, icons, tiles, isCaching, canEdit, onEdit } = props;
   const isPlaced = house.latitude !== null && house.longitude !== null;
   const mapTag = isPlaced ? mapTagOf(tiles, isCaching) : null;
 
@@ -131,15 +128,11 @@ export function HousePanel(props: HousePanelProps) {
             </span>
           )}
         </div>
+        {/* Add floor is in the page's search, beside what it adds to. */}
         {canEdit ? (
-          <div className="flex items-center gap-2">
-            <Button size="compact" variant="ghost" onClick={onEdit}>
-              {t('library.housePanel.configure', 'Configure')}
-            </Button>
-            <Button size="compact" onClick={onAddFloor}>
-              {t('library.housePanel.addFloor', 'Add floor')}
-            </Button>
-          </div>
+          <Button size="compact" variant="ghost" onClick={onEdit}>
+            {t('library.housePanel.configure', 'Configure')}
+          </Button>
         ) : null}
       </div>
     </section>

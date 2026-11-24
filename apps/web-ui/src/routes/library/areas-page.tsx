@@ -177,6 +177,25 @@ export function AreasPage() {
             <SearchField
               placeholder={t('library.areas.searchFloorsRooms', 'Search floors, rooms…')}
               value={search}
+              // On a phone the pill takes what the page's margins leave.
+              {...(canWrite ? { className: 'w-[min(24rem,calc(100vw-12rem))] lg:w-96' } : {})}
+              action={
+                canWrite ? (
+                  <Button
+                    size="compact"
+                    className="shrink-0"
+                    onClick={() => {
+                      setAreaTarget({ mode: 'create', kind: 'floor', parent: tree.house });
+                    }}
+                  >
+                    <AppIcon id="plus" size={14} />
+                    {/* A phone keeps the room for the search it sits in: the plus alone, named to a reader. */}
+                    <span className="max-sm:sr-only">
+                      {t('library.areas.addFloor', 'Add floor')}
+                    </span>
+                  </Button>
+                ) : undefined
+              }
               onChange={setSearch}
             />
           )
@@ -215,9 +234,6 @@ export function AreasPage() {
               canEdit={canWrite}
               onEdit={() => {
                 setHouseTarget({ mode: 'edit', house: tree.house });
-              }}
-              onAddFloor={() => {
-                setAreaTarget({ mode: 'create', kind: 'floor', parent: tree.house });
               }}
             />
             {floors.length === 0 && search.trim() !== '' ? (

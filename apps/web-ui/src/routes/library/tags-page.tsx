@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { DeviceView, EntityView } from '@nebulahome/contracts';
-import { AppIcon, Button, EmptyState } from '@nebulahome/ui';
+import { AppIcon, Button, EmptyState, FilterChips } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { DOCS_LINKS } from '@/lib/docs-links';
@@ -30,7 +30,7 @@ import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
 import { TagDialog, type TagDialogTarget } from '@/routes/library/tag-dialog';
-import { TagFilterButton } from '@/routes/library/tag-filter';
+import { activeTagFilters, TagFilterButton } from '@/routes/library/tag-filter';
 import { TAG_COLUMNS, TagRow } from '@/routes/library/tag-row';
 import { useTags } from '@/routes/library/use-tags';
 
@@ -93,6 +93,17 @@ export function TagsPage() {
     }),
   );
 
+  const newButton = canWrite ? (
+    <Button
+      onClick={() => {
+        setTarget({ mode: 'create' });
+      }}
+    >
+      <AppIcon id="plus" size={15} />
+      {t('library.tags.newTag', 'New tag')}
+    </Button>
+  ) : undefined;
+
   /**
    * Opens a tag that is shut, or shuts one that is open.
    *
@@ -126,28 +137,45 @@ export function TagsPage() {
         count={isPending ? undefined : tags.length}
         shownCount={shown.length}
         tools={
-          <>
-            <SearchField
-              placeholder={t('library.tags.searchTags', 'Search tags…')}
-              value={filter.search}
-              onChange={(search) => {
-                setFilter({ ...filter, search });
-              }}
-            />
-            <TagFilterButton filter={filter} onChange={setFilter} />
-          </>
+          // Until the tags are read the list is empty: New tag stands alone, as on the empty page.
+          tags.length === 0 ? undefined : (
+            <>
+              <TagFilterButton filter={filter} onChange={setFilter} />
+              <SearchField
+                placeholder={t('library.tags.searchTags', 'Search tags…')}
+                value={filter.search}
+                // On a phone the pill takes what the page's margins and the Filter leave.
+                {...(canWrite ? { className: 'w-[min(24rem,calc(100vw-12rem))] lg:w-96' } : {})}
+                action={
+                  canWrite ? (
+                    <Button
+                      size="compact"
+                      className="shrink-0"
+                      onClick={() => {
+                        setTarget({ mode: 'create' });
+                      }}
+                    >
+                      <AppIcon id="plus" size={14} />
+                      {/* A phone keeps the room for the search it sits in: the plus alone, named to a reader. */}
+                      <span className="max-sm:sr-only">{t('library.tags.newTag', 'New tag')}</span>
+                    </Button>
+                  ) : undefined
+                }
+                onChange={(search) => {
+                  setFilter({ ...filter, search });
+                }}
+              />
+            </>
+          )
         }
-        action={
-          canWrite ? (
-            <Button
-              onClick={() => {
-                setTarget({ mode: 'create' });
-              }}
-            >
-              <AppIcon id="plus" size={15} />
-              {t('library.tags.newTag', 'New tag')}
-            </Button>
-          ) : undefined
+        action={tags.length === 0 ? newButton : undefined}
+        filters={
+          <FilterChips
+            filters={activeTagFilters(filter, setFilter)}
+            onClearAll={() => {
+              setFilter({ ...OPEN_TAG_FILTER, search: filter.search });
+            }}
+          />
         }
         isPending={isPending}
         isEmpty={tags.length === 0}
@@ -159,18 +187,7 @@ export function TagsPage() {
               'library.tags.tagGroupsDevicesAnd',
               'A tag groups devices and entities, like every light downstairs or every sensor that runs on a battery, so an automation or a scene can pick them all at once.',
             )}
-            action={
-              canWrite ? (
-                <Button
-                  onClick={() => {
-                    setTarget({ mode: 'create' });
-                  }}
-                >
-                  <AppIcon id="plus" size={15} />
-                  {t('library.tags.newTag', 'New tag')}
-                </Button>
-              ) : undefined
-            }
+            action={newButton}
             learnMoreHref={DOCS_LINKS.tags}
           />
         }

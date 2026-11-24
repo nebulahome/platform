@@ -253,6 +253,8 @@ export function TagDialog(props: TagDialogProps) {
           required
           onChange={setName}
           icon={icon}
+          // The glyph a tag's chip draws when it has no icon of its own.
+          fallback="tag"
           onIconChange={(view) => {
             setIcon(view.id);
           }}

@@ -11,6 +11,7 @@
  * device inside it and the Filter beside it sit in the panel's head, by the count - "2 of 12" once
  * anything narrows the table, and nowhere else. The facets set show as chips under the head. A row
  * has the address under the name; a failing one is washed red, the one under the pointer lifts.
+ * The Device, Area and Last updated headings sort the table, as the Automations table's do.
  *
  * A device others are part of - a printer, with its AMS units - is one row with a chevron beside
  * its spanner, closed at first; opened, its parts slide out under it, hung from its icon. A search
@@ -33,13 +34,16 @@ import {
   type BadgeTone,
 } from '@nebulahome/ui';
 
+import { SortHeader } from '@/components/sort-header';
 import { collator } from '@/i18n/formatters';
 import { relativeTime } from '@/lib/format-time';
 import { markMatch } from '@/lib/mark-match';
 import { queryWords } from '@/lib/search-text';
 import { useListState } from '@/lib/use-list-state';
+import { usePaging } from '@/lib/use-paging';
 import {
   countStandings,
+  DEVICE_SORTS,
   deviceAddress,
   isNarrowing,
   matchesVendorDevice,
@@ -47,6 +51,7 @@ import {
   OPEN_VENDOR_DEVICE_FILTER,
   sortVendorDevices,
   VENDOR_DEVICE_FILTER_CODEC,
+  type DeviceSort,
 } from '@/library/vendor-device-filters';
 import { CountTag } from '@/routes/library/broker-parts';
 import { devicePath } from '@/routes/library/device/device-path';
@@ -189,10 +194,14 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
     hasParts,
   };
 
+  // The table is not paged: only the order is the paging's, kept in the address as `sort`/`dir`.
+  const paging = usePaging('vendor-devices', DEVICE_SORTS, devices.length);
+
   // A part is listed under its parent, when its parent is one of these devices.
   const rows = sortVendorDevices(
     devices.filter((device) => !isPart(device)),
-    filter.sort,
+    paging.sort,
+    paging.direction,
   ).flatMap((device) => {
     const parts = device.childIds.flatMap((id) => byId.get(id) ?? []);
     const found = isNarrowed ? parts.filter(matches) : parts;
@@ -362,6 +371,35 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
     </>
   );
 
+  /**
+   * A heading that sorts the table, in its header cell.
+   *
+   * @param column - The column it sorts by.
+   * @param label - The heading.
+   * @param className - The cell's classes: when it shows.
+   * @returns The cell.
+   */
+  const sortCell = (column: DeviceSort, label: string, className?: string): ReactNode => {
+    const isSorted = paging.sort === column;
+
+    return (
+      <span
+        role="columnheader"
+        aria-sort={isSorted ? (paging.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+        className={className}
+      >
+        <SortHeader
+          label={label}
+          isSorted={isSorted}
+          direction={paging.direction}
+          onSort={() => {
+            paging.toggleSort(column);
+          }}
+        />
+      </span>
+    );
+  };
+
   // Keeps the spanners in line on the rows without a chevron.
   const noChevron = hasParts ? <span aria-hidden="true" className="size-8 shrink-0" /> : null;
 
@@ -416,7 +454,7 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
           <FilterChips
             filters={chips.length > 0 ? chips : held.chips}
             onClearAll={() => {
-              setFilter({ ...OPEN_VENDOR_DEVICE_FILTER, search: filter.search, sort: filter.sort });
+              setFilter({ ...OPEN_VENDOR_DEVICE_FILTER, search: filter.search });
             }}
           />
         </Collapse>
@@ -471,23 +509,25 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
         ) : (
           <>
             <div
+              role="row"
               className={cn(
                 columns,
                 'border-t border-border bg-well px-5.5 py-2.5 font-mono text-label text-foreground-subtle uppercase',
               )}
-              aria-hidden="true"
             >
-              <span>{t('library.vendorDevicesTab.device', 'Device')}</span>
-              <span className="hidden lg:block">{t('library.vendorDevicesTab.area', 'Area')}</span>
-              <span className="hidden lg:block">
+              {sortCell('name', t('library.vendorDevicesTab.device', 'Device'))}
+              {sortCell('area', t('library.vendorDevicesTab.area', 'Area'), 'hidden lg:block')}
+              <span role="columnheader" className="hidden lg:block">
                 {t('library.vendorDevicesTab.model', 'Model')}
               </span>
-              <span className="hidden md:block">
+              <span role="columnheader" className="hidden md:block">
                 {t('library.vendorDevicesTab.status', 'Status')}
               </span>
-              <span className="hidden lg:block">
-                {t('library.vendorDevicesTab.lastUpdated', 'Last updated')}
-              </span>
+              {sortCell(
+                'updated',
+                t('library.vendorDevicesTab.lastUpdated', 'Last updated'),
+                'hidden lg:block',
+              )}
               <span />
             </div>
 

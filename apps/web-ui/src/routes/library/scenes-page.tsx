@@ -6,7 +6,7 @@
  * remove one — including the states themselves, not just the names.
  *
  * Apply is the one control a card carries in words, because it is what the card is for. Editing
- * and removing sit behind the spanner, the way they do on a device, a tag or a room: a card with
+ * and deleting sit behind the row's menu, the way they do on an automation: a card with
  * Edit and Remove spelled out above its name gave the two rarest actions the most prominent
  * place on it, and three buttons on a card that is itself a button is a card nobody can read.
  */
@@ -20,10 +20,13 @@ import {
   AppIcon,
   Button,
   EmptyState,
+  FilterChips,
+  Modal,
   OverflowMenu,
   SelectField,
   TableFooter,
   toast,
+  type ActiveFilter,
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
@@ -37,14 +40,21 @@ import { usePaging } from '@/lib/use-paging';
 import {
   applyScene,
   createScene,
+  deleteScene,
   fetchEntities,
   fetchScenes,
   LIBRARY_QUERY_KEYS,
 } from '@/library/api';
-import { matchesSceneFilter, OPEN_SCENE_FILTER, SCENE_FILTER_CODEC } from '@/library/list-filters';
+import {
+  matchesSceneFilter,
+  OPEN_SCENE_FILTER,
+  SCENE_FILTER_CODEC,
+  sceneNarrowingCount,
+} from '@/library/list-filters';
 import { toastSceneApplied, toastSceneFailed } from '@/library/scene-apply-toast';
 import { DeviceIcon, useCatalogueIcons } from '@/routes/library/device-icon';
 import { Facet, facetChoices, FilterSheet } from '@/routes/library/filter-sheet';
+import { ShowOnly } from '@/routes/library/integration-filter';
 import { LibraryImportFlow, type ImportResult } from '@/routes/library/library-import-flow';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
@@ -80,6 +90,15 @@ function areaNamesFor(scene: SceneView, entities: ReadonlyMap<string, EntityView
 const SORTS = ['name', 'members'] as const;
 
 /**
+ * The column widths, shared by the header and every row so they line up: the name takes the
+ * room, the member count, Apply and the menu stay fixed. Fixed rather than `auto`, because the
+ * header has nothing over Apply and an `auto` column there would push Members off the counts.
+ */
+const SCENE_COLUMNS =
+  'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 ' +
+  'md:grid-cols-[minmax(0,1fr)_96px_112px_40px]';
+
+/**
  * Renders the scenes page.
  *
  * @returns The page.
@@ -95,6 +114,7 @@ export function ScenesPage() {
   const [filter, setFilter] = useListState(SCENE_FILTER_CODEC);
   const { areas, tree } = useAreas();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<SceneView | null>(null);
 
   const scenes = useQuery({
     queryKey: LIBRARY_QUERY_KEYS.scenes,
@@ -185,6 +205,81 @@ export function ScenesPage() {
     },
   });
 
+  const remove = useMutation({
+    /**
+     * Deletes one scene.
+     *
+     * @param scene - Which one.
+     */
+    mutationFn: async (scene: SceneView): Promise<void> => {
+      await deleteScene(scene.id);
+    },
+
+    /**
+     * Says it is gone.
+     *
+     * @param result - Nothing.
+     * @param scene - The scene.
+     */
+    onSuccess: (result, scene) => {
+      toast.success({
+        title: t('library.sceneDialog.removed', '{{name}} removed', { name: scene.name }),
+      });
+    },
+
+    /**
+     * Says why it is still there.
+     *
+     * @param error - What went wrong.
+     */
+    onError: (error: unknown) => {
+      toast.error({
+        title: t('library.sceneDialog.notRemoved', 'The scene was not removed'),
+        message: toMessage(error),
+      });
+    },
+
+    /** Closes the question and reads the list back, whether it worked or not. */
+    onSettled: async () => {
+      setDeleting(null);
+      await queryClient.invalidateQueries({ queryKey: LIBRARY_QUERY_KEYS.scenes });
+    },
+  });
+
+  // The facets set, as chips under the header: each one removed on its own.
+  const chips: ActiveFilter[] = [
+    ...(filter.areaKey === ''
+      ? []
+      : [
+          {
+            id: 'area',
+            key: t('library.scenes.area', 'Area'),
+            value: areaByKey.get(filter.areaKey)?.name ?? filter.areaKey.replaceAll('_', ' '),
+            /** Shows the scenes of every area again. */
+            onRemove: () => {
+              setFilter({ ...filter, areaKey: '' });
+            },
+          },
+        ]),
+    ...(filter.isWaiting
+      ? [
+          {
+            id: 'waiting',
+            value: t('library.scenes.membersWaiting', 'Members waiting for an entity'),
+            /** Shows the scenes whose members are all found again. */
+            onRemove: () => {
+              setFilter({ ...filter, isWaiting: false });
+            },
+          },
+        ]
+      : []),
+  ];
+
+  /** Unsets every facet, keeping the search. */
+  const clearFacets = (): void => {
+    setFilter({ ...OPEN_SCENE_FILTER, search: filter.search });
+  };
+
   /**
    * Creates every scene a file brought in, one after another, and says how it went.
    *
@@ -264,26 +359,14 @@ export function ScenesPage() {
       ]}
       tools={
         <>
-          <SearchField
-            placeholder={t('library.scenes.searchScenesMembers', 'Search scenes, members…')}
-            value={filter.search}
-            onChange={(search) => {
-              setFilter({ ...filter, search });
-            }}
-          />
           <FilterSheet
             label={t('library.scenes.narrowTheScenes', 'Narrow the scenes')}
-            count={Number(filter.areaKey !== '')}
-            onClear={() => {
-              setFilter({ ...filter, areaKey: '' });
-            }}
+            count={sceneNarrowingCount(filter)}
+            onClear={clearFacets}
           >
-            <Facet title={t('library.scenes.area', 'Area')}>
-              {areaOptions.length === 1 ? (
-                <span className="text-caption text-foreground-subtle">
-                  {t('library.scenes.noSceneIsPlaced', 'No scene is placed in an area yet.')}
-                </span>
-              ) : (
+            {/* "Any area" and fewer than two areas is no choice at all. */}
+            {areaOptions.length < 3 ? null : (
+              <Facet title={t('library.scenes.area', 'Area')}>
                 <SelectField
                   label={t('library.scenes.area', 'Area')}
                   isLabelHidden
@@ -294,37 +377,71 @@ export function ScenesPage() {
                     setFilter({ ...filter, areaKey });
                   }}
                 />
-              )}
+              </Facet>
+            )}
+            <Facet title={t('library.scenes.showOnly', 'Show only')}>
+              <ShowOnly
+                icon="triangle-alert"
+                label={t('library.scenes.membersWaiting', 'Members waiting for an entity')}
+                isOn={filter.isWaiting}
+                onChange={(isWaiting) => {
+                  setFilter({ ...filter, isWaiting });
+                }}
+              />
             </Facet>
           </FilterSheet>
+          <SearchField
+            placeholder={t('library.scenes.searchScenesMembers', 'Search scenes, members…')}
+            value={filter.search}
+            // On a phone the pill takes what the page's margins, the Filter and the menu leave.
+            className={canWrite ? 'w-[min(24rem,calc(100vw-12rem))] lg:w-96' : ''}
+            action={
+              canWrite ? (
+                <Button
+                  size="compact"
+                  className="shrink-0"
+                  onClick={() => {
+                    void navigate('/scenes/new');
+                  }}
+                >
+                  <AppIcon id="plus" size={14} />
+                  {/* A phone keeps the room for the search: the plus alone, named to a reader. */}
+                  <span className="max-sm:sr-only">
+                    {t('library.scenes.newScene', 'New scene')}
+                  </span>
+                </Button>
+              ) : undefined
+            }
+            onChange={(search) => {
+              setFilter({ ...filter, search });
+            }}
+          />
         </>
       }
       action={
         canWrite ? (
-          <span className="flex items-center gap-2">
-            <LibraryImportFlow
-              kind="scenes"
-              takenKeys={items.map((scene) => scene.key)}
-              onImport={importAll}
-            >
-              {(choose) => (
-                <Button variant="ghost" onClick={choose}>
-                  <AppIcon id="upload" size={15} />
-                  {t('library.scenes.import', 'Import')}
-                </Button>
-              )}
-            </LibraryImportFlow>
-            <Button
-              onClick={() => {
-                void navigate('/scenes/new');
-              }}
-            >
-              <AppIcon id="plus" size={15} />
-              {t('library.scenes.newScene', 'New scene')}
-            </Button>
-          </span>
+          <LibraryImportFlow
+            kind="scenes"
+            takenKeys={items.map((scene) => scene.key)}
+            onImport={importAll}
+          >
+            {(choose) => (
+              <OverflowMenu
+                label={t('library.scenes.moreScenes', 'More for the scenes')}
+                items={[
+                  {
+                    label: t('library.scenes.import', 'Import'),
+                    icon: 'download',
+                    /** Opens the file chooser. */
+                    onSelect: choose,
+                  },
+                ]}
+              />
+            )}
+          </LibraryImportFlow>
         ) : undefined
       }
+      filters={<FilterChips filters={chips} onClearAll={clearFacets} />}
       isPending={scenes.isPending}
       error={scenes.error ?? undefined}
       isEmpty={items.length === 0}
@@ -362,7 +479,9 @@ export function ScenesPage() {
       ) : null}
       {shown.length === 0 ? null : (
         <div className="rounded-card border border-border bg-surface">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase md:grid-cols-[minmax(0,1fr)_96px_auto_36px]">
+          <div
+            className={`${SCENE_COLUMNS} border-b border-border px-5 py-3 font-mono text-label text-foreground-subtle uppercase`}
+          >
             <SortHeader
               label={t('library.scenes.scene', 'Scene')}
               isSorted={paging.sort === 'name'}
@@ -396,7 +515,7 @@ export function ScenesPage() {
               return (
                 <li
                   key={scene.id}
-                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-t border-border px-5 py-3 first:border-t-0 md:grid-cols-[minmax(0,1fr)_96px_auto_36px]"
+                  className={`${SCENE_COLUMNS} border-t border-border px-5 py-3 first:border-t-0`}
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <span
@@ -435,7 +554,7 @@ export function ScenesPage() {
                   <span className="hidden font-mono text-mono-ui text-foreground-muted tabular md:block">
                     {scene.members.length}
                   </span>
-                  <span>
+                  <span className="flex justify-end">
                     {canApply ? (
                       <Button
                         variant="ghost"
@@ -469,6 +588,16 @@ export function ScenesPage() {
                               void navigate(`/scenes/${scene.id}`);
                             },
                           },
+                          {
+                            label: t('common.delete', 'Delete'),
+                            icon: 'trash-2',
+                            tone: 'danger',
+                            disabled: remove.isPending,
+                            /** Asks before deleting it. */
+                            onSelect: () => {
+                              setDeleting(scene);
+                            },
+                          },
                         ]}
                       />
                     ) : null}
@@ -486,6 +615,45 @@ export function ScenesPage() {
           />
         </div>
       )}
+
+      <Modal
+        isOpen={deleting !== null}
+        size="small"
+        title={
+          deleting === null
+            ? t('library.scenes.deleteThisScene', 'Delete this scene?')
+            : t('library.scenes.deleteName', 'Delete {{name}}?', { name: deleting.name })
+        }
+        description={t('library.scenes.deleteNote', 'Applying it will no longer be possible.')}
+        onClose={() => {
+          setDeleting(null);
+        }}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDeleting(null);
+              }}
+            >
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              isBusy={remove.isPending}
+              onClick={() => {
+                if (deleting !== null) {
+                  remove.mutate(deleting);
+                }
+              }}
+            >
+              {t('common.delete', 'Delete')}
+            </Button>
+          </>
+        }
+      >
+        {null}
+      </Modal>
     </LibraryPage>
   );
 }

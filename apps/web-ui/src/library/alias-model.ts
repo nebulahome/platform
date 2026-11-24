@@ -7,6 +7,7 @@
  * contracts (`alias-types.ts`); their names are translated here by key.
  */
 import {
+  ALIAS_HEALTHS,
   ALIAS_TYPES,
   aliasType,
   aliasTypeParts,
@@ -25,7 +26,7 @@ import {
 import { UI_ICON_IDS, type StatusDotTone, type UiIconId } from '@nebulahome/ui';
 
 import { numberFormat } from '@/i18n/formatters';
-import { text, translate } from '@/i18n/messages';
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { matchesQuery } from '@/lib/search-text';
 import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
 import {
@@ -365,8 +366,16 @@ export const HEALTH_TONE: Readonly<Record<AliasHealth, StatusDotTone>> = {
   off: 'neutral',
 };
 
+/** What each health is called, in the list's value column and its Status facet. */
+export const HEALTH_LABELS: Readonly<Record<AliasHealth, Message>> = {
+  ok: defineMessage('library.aliases.ok', 'OK'),
+  failing: defineMessage('library.aliases.failing', 'Failing'),
+  unavailable: defineMessage('library.aliases.unavailable', 'Unavailable'),
+  off: defineMessage('common.off', 'Off'),
+};
+
 /**
- * Whether an alias has a problem worth the Problems filter.
+ * Whether an alias has a problem worth a warning under its name.
  *
  * @param item - The alias.
  * @returns True when it is failing or unavailable.
@@ -374,12 +383,6 @@ export const HEALTH_TONE: Readonly<Record<AliasHealth, StatusDotTone>> = {
 export function hasProblem(item: Pick<AliasListItem, 'health'>): boolean {
   return item.health === 'failing' || item.health === 'unavailable';
 }
-
-/** What the list shows: all of them, or those with a problem. */
-export const ALIAS_SHOWS = ['all', 'problems'] as const;
-
-/** What the list shows. */
-export type AliasShow = (typeof ALIAS_SHOWS)[number];
 
 /** Which devices: any, virtual ones, or real ones. */
 export const ALIAS_DEVICE_KINDS = ['any', 'virtual', 'existing'] as const;
@@ -389,10 +392,11 @@ export type AliasDeviceKind = (typeof ALIAS_DEVICE_KINDS)[number];
 
 /** What the list has been narrowed to. */
 export type AliasListFilter = {
-  readonly show: AliasShow;
-
   /** What was typed: every word must be found in the alias's name, id, area or what it reads. */
   readonly search: string;
+
+  /** Only aliases doing so: any of them. None means any health. */
+  readonly statuses: readonly AliasHealth[];
 
   /** One type, or blank for any. */
   readonly type: string;
@@ -405,8 +409,8 @@ export type AliasListFilter = {
 
 /** Nothing set: every alias shows. */
 export const OPEN_ALIAS_LIST_FILTER: AliasListFilter = {
-  show: 'all',
   search: '',
+  statuses: [],
   type: '',
   device: 'any',
   area: '',
@@ -414,7 +418,7 @@ export const OPEN_ALIAS_LIST_FILTER: AliasListFilter = {
 
 /** How the list's filter lives in the address. */
 export const ALIAS_LIST_CODEC: ListCodec<AliasListFilter> = {
-  keys: ['show', 'q', 'type', 'device', 'area'],
+  keys: ['q', 'status', 'type', 'device', 'area'],
 
   /**
    * Reads the filter from the query.
@@ -423,8 +427,10 @@ export const ALIAS_LIST_CODEC: ListCodec<AliasListFilter> = {
    * @returns The filter.
    */
   read: (params) => ({
-    show: readChoice(params, 'show', ALIAS_SHOWS, 'all'),
     search: params.get('q') ?? '',
+    statuses: (params.get('status') ?? '')
+      .split(',')
+      .flatMap((value) => ALIAS_HEALTHS.filter((health) => health === value)),
     type: params.get('type') ?? '',
     device: readChoice(params, 'device', ALIAS_DEVICE_KINDS, 'any'),
     area: params.get('area') ?? '',
@@ -438,8 +444,8 @@ export const ALIAS_LIST_CODEC: ListCodec<AliasListFilter> = {
    */
   write: (filter) =>
     nonDefault({
-      show: [filter.show, 'all'],
       q: [filter.search, ''],
+      status: [filter.statuses.join(','), ''],
       type: [filter.type, ''],
       device: [filter.device, 'any'],
       area: [filter.area, ''],
@@ -450,20 +456,29 @@ export const ALIAS_LIST_CODEC: ListCodec<AliasListFilter> = {
  * How many facets of the filter sheet are set, for its badge.
  *
  * @param filter - The filter.
- * @returns The count; the search and the Show switch have their own controls.
+ * @returns The count; the search has its own field.
  */
 export function aliasFacetCount(filter: AliasListFilter): number {
-  return Number(filter.type !== '') + Number(filter.device !== 'any') + Number(filter.area !== '');
+  return (
+    Number(filter.statuses.length > 0) +
+    Number(filter.type !== '') +
+    Number(filter.device !== 'any') +
+    Number(filter.area !== '')
+  );
 }
 
 /**
- * Whether one alias belongs in the list, the Show switch aside.
+ * Whether one alias belongs in the list.
  *
  * @param item - The alias.
  * @param filter - The filter.
  * @returns True when the search and every facet admit it.
  */
-export function matchesAliasFacets(item: AliasListItem, filter: AliasListFilter): boolean {
+export function matchesAliasList(item: AliasListItem, filter: AliasListFilter): boolean {
+  if (filter.statuses.length > 0 && !filter.statuses.includes(item.health)) {
+    return false;
+  }
+
   if (filter.type !== '' && item.behavesAs !== filter.type) {
     return false;
   }
@@ -484,17 +499,6 @@ export function matchesAliasFacets(item: AliasListItem, filter: AliasListFilter)
     [item.name, item.entityId, item.area?.name, item.device.name, ...item.reads],
     filter.search,
   );
-}
-
-/**
- * Whether one alias belongs in the list.
- *
- * @param item - The alias.
- * @param filter - The filter.
- * @returns True when it is shown.
- */
-export function matchesAliasList(item: AliasListItem, filter: AliasListFilter): boolean {
-  return (filter.show === 'all' || hasProblem(item)) && matchesAliasFacets(item, filter);
 }
 
 /** The aliases of one type, as the list groups them. */

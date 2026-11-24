@@ -1,88 +1,72 @@
 /**
- * The filter on the automations page: standing, mode, and trigger kind.
+ * The filter on the automations page: how each rule stands, its mode, its trigger kind, and the
+ * ones naming an entity the house does not have.
  *
- * Three dropdowns in the shared sheet. Standing and mode are short fixed lists; trigger kind is
- * the six leaves the schema knows, so the sheet does not grow with every rule on the page.
+ * Drawn as the Devices tab's: the standings as boxes with how many stand so beside each, Mode and
+ * Trigger side by side, then Show only. A mode or a trigger kind no rule uses is not offered, and
+ * a facet left with fewer than two choices is not shown. No Sort by and no foot: the table's
+ * headings sort, and the count beside the title already says how many it shows.
  */
 import { useTranslation } from 'react-i18next';
 
-import { SelectField } from '@nebulahome/ui';
+import type { TriggerType } from '@nebulahome/contracts';
+import { Checkbox, cn, SelectField, type ActiveFilter } from '@nebulahome/ui';
 
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import {
-  AUTOMATION_MODE_CHOICES,
-  AUTOMATION_STATUSES,
-  AUTOMATION_TRIGGER_CHOICES,
+  AUTOMATION_STANDINGS,
   automationFacetCount,
   modeLabel,
+  OPEN_AUTOMATION_FILTER,
   toAutomationMode,
-  toAutomationStatus,
   toAutomationTriggerType,
+  type AutomationChoices,
   type AutomationFilter,
+  type AutomationStanding,
 } from '@/library/automation-filters';
-import { Facet, FilterSheet, type FacetOption } from '@/routes/library/filter-sheet';
+import { Facet, facetChoices, FilterSheet } from '@/routes/library/filter-sheet';
+import { ShowOnly } from '@/routes/library/integration-filter';
 
 /** What each standing is called. */
-const STATUS_LABELS: Readonly<Record<(typeof AUTOMATION_STATUSES)[number], Message>> = {
-  any: defineMessage('library.automationFilter.anyStatus', 'Any status'),
+const STANDING_LABELS: Readonly<Record<AutomationStanding, Message>> = {
   enabled: defineMessage('library.automationFilter.enabled', 'Enabled'),
   off: defineMessage('common.off', 'Off'),
   never: defineMessage('library.automationFilter.neverRun', 'Never run'),
+  failed: defineMessage('library.automationFilter.lastRunFailed', 'Last run failed'),
 };
 
-/**
- * Standing choices, with any first.
- *
- * @returns The choices, in the reader's language.
- */
-function statusOptions(): readonly FacetOption[] {
-  return AUTOMATION_STATUSES.map((status) => ({
-    value: status,
-    label: text(STATUS_LABELS[status]),
-  }));
-}
+/** The dot of each standing, in the tone the row gives it. */
+const DOTS: Readonly<Record<AutomationStanding, string>> = {
+  enabled: 'bg-success',
+  off: 'bg-foreground-subtle',
+  never: 'bg-border-strong',
+  failed: 'bg-danger',
+};
 
-/**
- * Mode choices, with any first.
- *
- * @returns The choices, in the reader's language.
- */
-function modeOptions(): readonly FacetOption[] {
-  return AUTOMATION_MODE_CHOICES.map((mode) => ({
-    value: mode,
-    label:
-      mode === 'any' ? translate('library.automationFilter.anyMode', 'Any mode') : modeLabel(mode),
-  }));
-}
-
-/** How each trigger kind reads in the sheet. */
-const TRIGGER_LABELS: Readonly<Record<string, Message>> = {
-  any: defineMessage('library.automationFilter.anyTrigger', 'Any trigger'),
+/** How each trigger kind reads in the sheet and on its chip. */
+const TRIGGER_LABELS: Readonly<Record<TriggerType, Message>> = {
   entity: defineMessage('library.automationFilter.entity', 'Entity'),
   time: defineMessage('library.automationFilter.time', 'Time'),
   sun: defineMessage('library.automationFilter.sun', 'Sun'),
   quiet: defineMessage('library.automationFilter.quiet', 'Quietest time'),
+  calendar: defineMessage('library.automationFilter.calendar', 'Calendar'),
   event: defineMessage('library.automationFilter.event', 'Event'),
   manual: defineMessage('library.automationFilter.manual', 'Manual'),
   webhook: defineMessage('library.automationFilter.webhook', 'Webhook'),
 };
 
-/**
- * Trigger-kind choices, with any first.
- *
- * @returns The choices, in the reader's language.
- */
-function triggerOptions(): readonly FacetOption[] {
-  return AUTOMATION_TRIGGER_CHOICES.map((type) => {
-    const label = TRIGGER_LABELS[type];
-
-    return { value: type, label: label === undefined ? type : text(label) };
-  });
-}
+/** The words of the switch, shared by the sheet and its chip. */
+const MISSING = defineMessage('library.automationFilter.missingEntities', 'Missing entities');
 
 /** What the filter needs. */
 export type AutomationFilterButtonProps = {
   readonly filter: AutomationFilter;
+
+  /** The modes and trigger kinds the automations use. */
+  readonly choices: AutomationChoices;
+
+  /** How many automations stand each way. */
+  readonly counts: Readonly<Record<AutomationStanding, number>>;
 
   /** Called with the filter as it now stands. */
   readonly onChange: (filter: AutomationFilter) => void;
@@ -97,53 +81,193 @@ export type AutomationFilterButtonProps = {
 export function AutomationFilterButton(props: AutomationFilterButtonProps) {
   const { t } = useTranslation();
 
-  const { filter, onChange } = props;
-  const count = automationFacetCount(filter);
+  const { filter, choices, counts, onChange } = props;
+  const hasModes = choices.modes.length >= 2;
+  const hasTriggers = choices.triggers.length >= 2;
+
+  /**
+   * Ticks or unticks one standing.
+   *
+   * @param standing - The standing.
+   * @param isChecked - Whether it is now ticked.
+   */
+  const toggleStanding = (standing: AutomationStanding, isChecked: boolean): void => {
+    onChange({
+      ...filter,
+      statuses: isChecked
+        ? AUTOMATION_STANDINGS.filter((each) => each === standing || filter.statuses.includes(each))
+        : filter.statuses.filter((each) => each !== standing),
+    });
+  };
 
   return (
     <FilterSheet
       label={t('library.automationFilter.narrowTheAutomations', 'Narrow the automations')}
-      count={count}
+      count={automationFacetCount(filter)}
       onClear={() => {
-        onChange({ ...filter, status: 'any', mode: 'any', triggerType: 'any' });
+        onChange({ ...OPEN_AUTOMATION_FILTER, search: filter.search });
       }}
     >
-      <Facet title={t('library.automationFilter.status', 'Status')}>
-        <SelectField
-          label={t('library.automationFilter.status', 'Status')}
-          isLabelHidden
-          size="compact"
-          options={statusOptions()}
-          value={filter.status}
-          onChange={(value) => {
-            onChange({ ...filter, status: toAutomationStatus(value) });
-          }}
-        />
+      <Facet
+        title={t('library.automationFilter.status', 'Status')}
+        aside={
+          filter.statuses.length === 0
+            ? undefined
+            : t('library.automationFilter.selected', {
+                count: filter.statuses.length,
+                defaultValue_one: '{{count}} selected',
+                defaultValue_other: '{{count}} selected',
+              })
+        }
+      >
+        <div className="flex flex-col gap-3">
+          {AUTOMATION_STANDINGS.map((standing) => (
+            <Checkbox
+              key={standing}
+              // A standing no automation has stays offered, quieter: the list may yet have one.
+              className={cn(counts[standing] === 0 && 'opacity-45')}
+              label={
+                <span className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className={cn('size-1.5 rounded-full', DOTS[standing])}
+                  />
+                  {text(STANDING_LABELS[standing])}
+                </span>
+              }
+              count={counts[standing]}
+              isChecked={filter.statuses.includes(standing)}
+              onChange={(isChecked) => {
+                toggleStanding(standing, isChecked);
+              }}
+            />
+          ))}
+        </div>
       </Facet>
-      <Facet title={t('library.automationFilter.mode', 'Mode')}>
-        <SelectField
-          label={t('library.automationFilter.mode', 'Mode')}
-          isLabelHidden
-          size="compact"
-          options={modeOptions()}
-          value={filter.mode}
-          onChange={(value) => {
-            onChange({ ...filter, mode: toAutomationMode(value) });
-          }}
-        />
-      </Facet>
-      <Facet title={t('library.automationFilter.trigger', 'Trigger')}>
-        <SelectField
-          label={t('library.automationFilter.trigger', 'Trigger')}
-          isLabelHidden
-          size="compact"
-          options={triggerOptions()}
-          value={filter.triggerType}
-          onChange={(value) => {
-            onChange({ ...filter, triggerType: toAutomationTriggerType(value) });
+
+      {hasModes || hasTriggers ? (
+        // Mode and Trigger side by side: two facets sharing one line, half a gutter between them.
+        <div className="grid auto-cols-fr grid-flow-col border-t border-border">
+          {hasModes ? (
+            <Facet
+              title={t('library.automationFilter.mode', 'Mode')}
+              className={cn('border-t-0', hasTriggers && 'pr-1.5')}
+            >
+              <SelectField
+                label={t('library.automationFilter.mode', 'Mode')}
+                isLabelHidden
+                size="compact"
+                options={facetChoices(
+                  choices.modes.map((mode) => ({ value: mode, label: modeLabel(mode) })),
+                  filter.mode,
+                  t('library.automationFilter.anyMode', 'Any mode'),
+                  true,
+                )}
+                value={filter.mode}
+                onChange={(value) => {
+                  onChange({ ...filter, mode: toAutomationMode(value) });
+                }}
+              />
+            </Facet>
+          ) : null}
+          {hasTriggers ? (
+            <Facet
+              title={t('library.automationFilter.trigger', 'Trigger')}
+              className={cn('border-t-0', hasModes && 'pl-1.5')}
+            >
+              <SelectField
+                label={t('library.automationFilter.trigger', 'Trigger')}
+                isLabelHidden
+                size="compact"
+                options={facetChoices(
+                  choices.triggers.map((type) => ({
+                    value: type,
+                    label: text(TRIGGER_LABELS[type]),
+                  })),
+                  filter.triggerType,
+                  t('library.automationFilter.anyTrigger', 'Any trigger'),
+                  true,
+                )}
+                value={filter.triggerType}
+                onChange={(value) => {
+                  onChange({ ...filter, triggerType: toAutomationTriggerType(value) });
+                }}
+              />
+            </Facet>
+          ) : null}
+        </div>
+      ) : null}
+
+      <Facet title={t('library.automationFilter.showOnly', 'Show only')}>
+        <ShowOnly
+          icon="triangle-alert"
+          label={text(MISSING)}
+          isOn={filter.isMissing}
+          onChange={(isMissing) => {
+            onChange({ ...filter, isMissing });
           }}
         />
       </Facet>
     </FilterSheet>
   );
+}
+
+/**
+ * The facets set, as the chips under the page's title: each one removed on its own.
+ *
+ * @param filter - The filter.
+ * @param onChange - Called with the filter less the facet removed.
+ * @returns The chips; none when nothing is set.
+ */
+export function activeAutomationFilters(
+  filter: AutomationFilter,
+  onChange: (filter: AutomationFilter) => void,
+): ActiveFilter[] {
+  // Each facet: whether it is set, its chip's id, what it is called, what it is set to, and the
+  // filter less it.
+  const facets: readonly [
+    boolean,
+    string,
+    string | undefined,
+    string,
+    Partial<AutomationFilter>,
+  ][] = [
+    [
+      filter.statuses.length > 0,
+      'status',
+      translate('library.automationFilter.status', 'Status'),
+      AUTOMATION_STANDINGS.filter((each) => filter.statuses.includes(each))
+        .map((each) => text(STANDING_LABELS[each]))
+        .join(', '),
+      { statuses: [] },
+    ],
+    [
+      filter.mode !== '',
+      'mode',
+      translate('library.automationFilter.mode', 'Mode'),
+      filter.mode === '' ? '' : modeLabel(filter.mode),
+      { mode: '' },
+    ],
+    [
+      filter.triggerType !== '',
+      'trigger',
+      translate('library.automationFilter.trigger', 'Trigger'),
+      filter.triggerType === '' ? '' : text(TRIGGER_LABELS[filter.triggerType]),
+      { triggerType: '' },
+    ],
+    [filter.isMissing, 'missing', undefined, text(MISSING), { isMissing: false }],
+  ];
+
+  return facets
+    .filter(([isSet]) => isSet)
+    .map(([, id, key, value, unset]) => ({
+      id,
+      ...(key === undefined ? {} : { key }),
+      value,
+
+      /** Unsets this facet alone. */
+      onRemove: () => {
+        onChange({ ...filter, ...unset });
+      },
+    }));
 }

@@ -26,12 +26,13 @@ import { useVendorsById, waysOfDevice, WaysTag, wayName } from '@/routes/library
  *
  * The name, the integration and the room share the room that is left after the fixed columns, the
  * name taking the most: a fixed width for them would leave the name a few letters on a narrow
- * window, and the name is what a row is recognised by.
+ * window, and the name is what a row is recognised by. The entity count's track is as wide as its
+ * heading with the sort arrow.
  */
 export const DEVICE_COLUMNS =
   'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 ' +
-  'md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_72px_128px_72px] ' +
-  'lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,0.9fr)_72px_128px_72px]';
+  'md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_88px_128px_72px] ' +
+  'lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,0.9fr)_88px_128px_72px]';
 
 /** What one row needs. */
 export type DeviceRowProps = {

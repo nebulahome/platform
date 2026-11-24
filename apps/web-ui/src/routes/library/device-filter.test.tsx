@@ -1,37 +1,49 @@
 /**
- * The filter sheet on the devices page, with the integration facet a dropdown.
+ * The filter sheet on the devices page: the standings as boxes with their counts, the dropdowns
+ * two to a line, the facets the devices give no choice in left out, and the chips.
  *
- * The dropdown's list is portalled out of the sheet, so a click on one of its options lands
- * outside the sheet as far as the document is concerned - exactly what shuts the sheet. That the
- * sheet stays open through a choice is the behaviour worth pinning; the rest is a radio group.
+ * A dropdown's list is portalled out of the sheet, so a click on one of its options lands outside
+ * the sheet as far as the document is concerned - exactly what shuts the sheet. That the sheet
+ * stays open through a choice is the behaviour worth pinning.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { OPEN_FILTER } from '@/library/device-filters';
+import { OPEN_FILTER, type DeviceFilter } from '@/library/device-filters';
 
-import { DeviceFilterButton } from './device-filter';
+import { activeRegistryFilters, DeviceFilterButton, type DeviceChoices } from './device-filter';
 
-const VENDORS = [
-  { value: 'bambu-lab', label: 'Bambu Lab' },
-  { value: 'shelly', label: 'Shelly' },
-];
+/** What two devices of two vendors in two rooms give. */
+const CHOICES: DeviceChoices = {
+  vendors: [
+    { value: 'bambu-lab', label: 'Bambu Lab' },
+    { value: 'shelly', label: 'Shelly' },
+  ],
+  areas: [
+    { value: 'kitchen', label: 'Kitchen' },
+    { value: 'study', label: 'Study' },
+  ],
+  models: ['P1S'],
+  transports: ['mqtt'],
+  tags: [],
+  hasParts: false,
+};
+
+/** How many stand each way. */
+const COUNTS = { unreachable: 0, silent: 1, update: 0, reporting: 3, disabled: 1 };
 
 /**
  * Renders the button with its sheet open.
  *
+ * @param choices - What the devices give.
+ * @param filter - What is set.
  * @returns The change spy.
  */
-const AREAS = [
-  { value: 'kitchen', label: 'Kitchen' },
-  { value: 'study', label: 'Study' },
-];
-
-function renderOpen(areas: readonly { value: string; label: string }[] = []) {
+function renderOpen(choices: DeviceChoices = CHOICES, filter: DeviceFilter = OPEN_FILTER) {
   const onChange = vi.fn();
 
   render(
-    <DeviceFilterButton filter={OPEN_FILTER} vendors={VENDORS} areas={areas} onChange={onChange} />,
+    <DeviceFilterButton filter={filter} choices={choices} counts={COUNTS} onChange={onChange} />,
   );
   fireEvent.click(screen.getByRole('button', { name: /filter/iu }));
 
@@ -39,44 +51,66 @@ function renderOpen(areas: readonly { value: string; label: string }[] = []) {
 }
 
 describe('DeviceFilterButton', () => {
-  it('offers the integrations as a dropdown, any integration first', () => {
+  it('offers every standing as a box with its count, and ticks one more', () => {
+    const { onChange } = renderOpen(CHOICES, { ...OPEN_FILTER, statuses: ['silent'] });
+
+    for (const label of ['Unreachable', 'Silent', 'Update ready', 'Reporting', 'Disabled']) {
+      expect(screen.getByRole('checkbox', { name: new RegExp(label, 'u') })).toBeTruthy();
+    }
+
+    expect(screen.getByText('1 selected')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Unreachable/u }));
+
+    // In the Status column's order, whatever order they were ticked in.
+    expect(onChange).toHaveBeenCalledWith({ ...OPEN_FILTER, statuses: ['unreachable', 'silent'] });
+  });
+
+  it('offers the integrations and the rooms as dropdowns, any first', () => {
     renderOpen();
 
-    const select = screen.getByRole('combobox', { name: /integration/iu });
-
-    expect(select.textContent).toContain('Any integration');
-
-    fireEvent.click(select);
+    fireEvent.click(screen.getByRole('combobox', { name: /integration/iu }));
 
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
       'Any integration',
       'Bambu Lab',
       'Shelly',
     ]);
+    expect(screen.getByRole('combobox', { name: /^Area/u }).textContent).toContain('Any area');
   });
 
-  it('offers the rooms as a dropdown too, any room first, and reports the one picked', () => {
-    const { onChange } = renderOpen(AREAS);
+  it('leaves out what the devices give no choice in, and offers what they do', () => {
+    renderOpen();
 
-    const select = screen.getByRole('combobox', { name: /^Area/u });
+    expect(screen.queryByRole('combobox', { name: /^Model/u })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: /^Connection/u })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: /^Tag/u })).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: 'Show' })).toBeNull();
+    expect(screen.queryByText(/Sort by/u)).toBeNull();
+  });
 
-    expect(select.textContent).toContain('Any area');
-    expect(screen.queryByRole('radiogroup', { name: 'Area' })).toBeNull();
+  it('offers models, connections, a tag in use and the parts when there are', () => {
+    const { onChange } = renderOpen({
+      ...CHOICES,
+      models: ['P1S', 'X1C'],
+      transports: ['mqtt', 'shelly/rpc'],
+      tags: [{ value: 'tag-1', label: 'Exterior' }],
+      hasParts: true,
+    });
 
-    fireEvent.click(select);
+    fireEvent.click(screen.getByRole('combobox', { name: /^Connection/u }));
 
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'Any area',
-      'Kitchen',
-      'Study',
+      'Any connection',
+      'MQTT',
+      'RPC',
     ]);
+    expect(screen.getByRole('combobox', { name: /^Model/u })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: /^Tag/u })).toBeTruthy();
 
-    const option = screen.getByRole('option', { name: 'Study' });
+    fireEvent.click(screen.getByRole('radio', { name: 'Parts' }));
 
-    fireEvent.pointerDown(option);
-    fireEvent.click(option);
-
-    expect(onChange).toHaveBeenCalledWith({ ...OPEN_FILTER, areaKey: 'study' });
+    expect(onChange).toHaveBeenCalledWith({ ...OPEN_FILTER, show: 'parts' });
   });
 
   it('keeps the sheet open through a choice made in the dropdown, and reports it', () => {
@@ -94,11 +128,54 @@ describe('DeviceFilterButton', () => {
     expect(screen.getByRole('group', { name: /narrow/iu })).toBeTruthy();
   });
 
+  it('turns the linked ones on, and resets every facet but the search', () => {
+    const { onChange } = renderOpen(CHOICES, { ...OPEN_FILTER, search: 'lamp', areaKey: 'study' });
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Reached two ways' }));
+
+    expect(onChange).toHaveBeenCalledWith({
+      ...OPEN_FILTER,
+      search: 'lamp',
+      areaKey: 'study',
+      isLinked: true,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    expect(onChange).toHaveBeenLastCalledWith({ ...OPEN_FILTER, search: 'lamp' });
+  });
+
   it('shuts on a press anywhere else', () => {
     renderOpen();
 
     fireEvent.pointerDown(document.body);
 
     expect(screen.queryByRole('group', { name: /narrow/iu })).toBeNull();
+  });
+});
+
+describe('activeRegistryFilters', () => {
+  it('names each facet set, leaves the search out, and removes one alone', () => {
+    const onChange = vi.fn();
+    const filter: DeviceFilter = {
+      ...OPEN_FILTER,
+      search: 'lamp',
+      statuses: ['silent', 'unreachable'],
+      vendorId: 'shelly',
+      transport: 'shelly/rpc',
+      isLinked: true,
+    };
+    const chips = activeRegistryFilters(filter, CHOICES, onChange);
+
+    expect(chips.map((chip) => [chip.key, chip.value])).toEqual([
+      ['Status', 'Unreachable, Silent'],
+      ['Integration', 'Shelly'],
+      ['Connection', 'RPC'],
+      [undefined, 'Reached two ways'],
+    ]);
+
+    chips[1]?.onRemove();
+
+    expect(onChange).toHaveBeenCalledWith({ ...filter, vendorId: '' });
   });
 });

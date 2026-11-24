@@ -18,14 +18,17 @@ export type SceneFilter = {
 
   /** Only scenes placed in this area, by key; blank for any. */
   readonly areaKey: string;
+
+  /** Only scenes with members still waiting for an entity. */
+  readonly isWaiting: boolean;
 };
 
 /** Every scene. */
-export const OPEN_SCENE_FILTER: SceneFilter = { search: '', areaKey: '' };
+export const OPEN_SCENE_FILTER: SceneFilter = { search: '', areaKey: '', isWaiting: false };
 
 /** How the scenes filter lives in the address. */
 export const SCENE_FILTER_CODEC: ListCodec<SceneFilter> = {
-  keys: ['q', 'area'],
+  keys: ['q', 'area', 'waiting'],
 
   /**
    * Reads the filter.
@@ -33,7 +36,11 @@ export const SCENE_FILTER_CODEC: ListCodec<SceneFilter> = {
    * @param params - The query.
    * @returns The filter.
    */
-  read: (params) => ({ search: params.get('q') ?? '', areaKey: params.get('area') ?? '' }),
+  read: (params) => ({
+    search: params.get('q') ?? '',
+    areaKey: params.get('area') ?? '',
+    isWaiting: params.get('waiting') === '1',
+  }),
 
   /**
    * Writes what differs from the open filter.
@@ -41,8 +48,24 @@ export const SCENE_FILTER_CODEC: ListCodec<SceneFilter> = {
    * @param filter - The filter.
    * @returns The query entries.
    */
-  write: (filter) => nonDefault({ q: [filter.search, ''], area: [filter.areaKey, ''] }),
+  write: (filter) =>
+    nonDefault({
+      q: [filter.search, ''],
+      area: [filter.areaKey, ''],
+      waiting: [filter.isWaiting ? '1' : '', ''],
+    }),
 };
+
+/**
+ * How many facets of the scenes sheet are set: the number on its button. The search has its own
+ * field, so it is not one.
+ *
+ * @param filter - The filter.
+ * @returns The count.
+ */
+export function sceneNarrowingCount(filter: SceneFilter): number {
+  return Number(filter.areaKey !== '') + Number(filter.isWaiting);
+}
 
 /**
  * Whether a scene belongs in the list.
@@ -60,6 +83,10 @@ export function matchesSceneFilter(
   words: { readonly areaName?: string | undefined; readonly memberNames?: readonly string[] } = {},
 ): boolean {
   if (filter.areaKey !== '' && scene.areaKey !== filter.areaKey) {
+    return false;
+  }
+
+  if (filter.isWaiting && scene.unresolvedMembers.length === 0) {
     return false;
   }
 

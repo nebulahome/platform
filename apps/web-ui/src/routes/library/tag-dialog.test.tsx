@@ -81,6 +81,9 @@ describe('making a tag', () => {
 
     const { onSaved } = renderDialog({ mode: 'create' });
 
+    // The icon square draws the glyph the tag's chip falls back on, and no icon is sent for it.
+    expect(screen.getByRole('button', { name: /change icon/iu }).querySelector('svg')).toBeTruthy();
+
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: ' Garden ' } });
     fireEvent.click(screen.getByRole('radio', { name: 'lime' }));
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));

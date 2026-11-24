@@ -123,9 +123,60 @@ describe('DevicesPage', () => {
     await rowOf('Workshop printer');
 
     expect(screen.getByRole('button', { name: 'Add device' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sort by device' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sort by status' })).toBeTruthy();
+    expect(screen.queryByRole('switch', { name: 'Live updates' })).toBeNull();
+
+    for (const column of ['device', 'integration', 'room', 'entities', 'status', 'seen']) {
+      expect(screen.getByRole('button', { name: `Sort by ${column}` })).toBeTruthy();
+    }
+
     expect(screen.getByText('1–2')).toBeTruthy();
+  });
+
+  it('sorts by the entity count and by the integration, the name breaking ties', async () => {
+    renderPage();
+    await rowOf('Workshop printer');
+
+    /**
+     * The devices' names, in the order the table draws them.
+     *
+     * @returns The names.
+     */
+    const order = (): string[] =>
+      screen
+        .getAllByRole('link')
+        .map((link) => link.textContent)
+        .filter((name) => name === 'Workshop printer' || name === 'Garage relay');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by entities' }));
+    expect(order()).toEqual(['Garage relay', 'Workshop printer']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort by integration' }));
+    expect(order()).toEqual(['Workshop printer', 'Garage relay']);
+  });
+
+  it('narrows by how a device stands now, following the live readings', async () => {
+    renderPage();
+    await rowOf('Workshop printer');
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter/u }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Silent/u }));
+
+    expect(screen.getByRole('link', { name: 'Workshop printer' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Garage relay' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove Status Silent' })).toBeTruthy();
+
+    useLive.getState().apply({
+      type: 'state_changed',
+      entityId: NOZZLE_ID,
+      state: { sensor_numeric: { value: 215 } },
+      attributes: {},
+      isAvailable: true,
+      changedAt: new Date(),
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Workshop printer' })).toBeNull();
+    });
   });
 
   it('leads from each row to the device’s own page, and opens nothing in place', async () => {
@@ -186,6 +237,11 @@ describe('DevicesPage', () => {
   });
 
   it('narrows the list by vendor and by area, from the filter in the header', async () => {
+    vi.mocked(fetchDevices).mockResolvedValue([
+      { ...PRINTER, areaKey: 'study', areaName: 'Study' },
+      RELAY,
+    ]);
+
     renderPage();
     await rowOf('Workshop printer');
 
@@ -203,6 +259,24 @@ describe('DevicesPage', () => {
 
     expect(screen.queryByRole('link', { name: 'Workshop printer' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Garage relay' })).toBeTruthy();
+
+    // Clear all under the header takes the facets off and keeps the search.
+    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'garage' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+
+    expect(screen.queryByRole('button', { name: 'Remove Area Garage' })).toBeNull();
+    expect(screen.getByLabelText<HTMLInputElement>('Search').value).toBe('garage');
+  });
+
+  it('shows Add device alone while there is no device to search', async () => {
+    vi.mocked(fetchDevices).mockResolvedValue([]);
+    vi.mocked(fetchEntities).mockResolvedValue([]);
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: 'Add device' })).toBeTruthy();
+    expect(screen.queryByLabelText('Search')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Filter/u })).toBeNull();
   });
 
   it('offers the areas under their floors, the floors by their number', async () => {

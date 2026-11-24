@@ -12,6 +12,7 @@ import {
   packageFilterCodec,
   PEOPLE_FILTER_CODEC,
   SCENE_FILTER_CODEC,
+  sceneNarrowingCount,
   searchAndFacetCodec,
 } from './list-filters';
 
@@ -24,6 +25,7 @@ const EVENING = {
   areaKey: 'lounge',
   rollbackOnPartialFailure: false,
   members: [],
+  unresolvedMembers: [],
 } as unknown as SceneView;
 
 describe('matchesSceneFilter', () => {
@@ -49,11 +51,29 @@ describe('matchesSceneFilter', () => {
     expect(matchesSceneFilter(EVENING, { ...OPEN_SCENE_FILTER, areaKey: 'lounge' })).toBe(true);
     expect(matchesSceneFilter(EVENING, { ...OPEN_SCENE_FILTER, areaKey: 'kitchen' })).toBe(false);
   });
+
+  it('keeps only the scenes with members waiting for an entity when asked', () => {
+    const waiting = {
+      ...EVENING,
+      unresolvedMembers: [{ entityId: 'light.gone' }],
+    } as unknown as SceneView;
+
+    expect(matchesSceneFilter(EVENING, { ...OPEN_SCENE_FILTER, isWaiting: true })).toBe(false);
+    expect(matchesSceneFilter(waiting, { ...OPEN_SCENE_FILTER, isWaiting: true })).toBe(true);
+    expect(matchesSceneFilter(EVENING, OPEN_SCENE_FILTER)).toBe(true);
+  });
+});
+
+describe('sceneNarrowingCount', () => {
+  it('counts the facets set, not the search', () => {
+    expect(sceneNarrowingCount({ ...OPEN_SCENE_FILTER, search: 'evening' })).toBe(0);
+    expect(sceneNarrowingCount({ search: '', areaKey: 'lounge', isWaiting: true })).toBe(2);
+  });
 });
 
 describe('the codecs', () => {
   it('round-trip what they hold and leave the defaults out of the address', () => {
-    const scene = { search: 'evening', areaKey: 'lounge' };
+    const scene = { search: 'evening', areaKey: 'lounge', isWaiting: true };
 
     expect(SCENE_FILTER_CODEC.read(new URLSearchParams(SCENE_FILTER_CODEC.write(scene)))).toEqual(
       scene,

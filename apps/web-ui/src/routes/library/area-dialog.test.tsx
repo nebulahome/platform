@@ -104,6 +104,8 @@ describe('AreaDialog', () => {
     const { onSaved } = renderDialog({ mode: 'create', kind: 'room', parent: GROUND });
 
     expect(screen.getByRole('dialog').textContent).toContain('New room');
+    // The icon square draws a door rather than an empty tile, and no icon is sent for it.
+    expect(screen.getByRole('button', { name: /change icon/iu }).querySelector('svg')).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: ' Kitchen ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));

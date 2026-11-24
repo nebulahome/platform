@@ -1,17 +1,25 @@
 /**
  * The filter on the tags page: which colour, and what the tag is on.
  *
- * The colour is a dropdown of the twelve; what a tag is on is four words, segmented. The button
- * and the sheet are the library's shared shell.
+ * The colour is a dropdown of the twelve, each with its dot; what a tag is on is four words,
+ * segmented. The button and the sheet are the library's shared shell, and a facet that is set is
+ * also a chip under the page's title, removed on its own.
  */
 import { useTranslation } from 'react-i18next';
 
 import { TAG_COLORS, type TagColor } from '@nebulahome/contracts';
-import { cn, SelectField, Segmented, TAG_FILL_CLASSES, type SelectOption } from '@nebulahome/ui';
+import {
+  cn,
+  SelectField,
+  Segmented,
+  TAG_FILL_CLASSES,
+  type ActiveFilter,
+  type SelectOption,
+} from '@nebulahome/ui';
 
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { tagColorName } from '@/lib/tag-color-names';
-import type { TagFilter, TagUsage } from '@/library/tag-filters';
+import { OPEN_TAG_FILTER, type TagFilter, type TagUsage } from '@/library/tag-filters';
 import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 
 /**
@@ -88,7 +96,7 @@ export function TagFilterButton(props: TagFilterButtonProps) {
       label={t('library.tagFilter.narrowTheTags', 'Narrow the tags')}
       count={count}
       onClear={() => {
-        onChange({ ...filter, color: '', usage: 'any' });
+        onChange({ ...OPEN_TAG_FILTER, search: filter.search });
       }}
     >
       <Facet title={t('library.tagFilter.colour', 'Colour')}>
@@ -107,6 +115,7 @@ export function TagFilterButton(props: TagFilterButtonProps) {
         <Segmented
           label={t('common.on', 'On')}
           size="compact"
+          isFilled
           options={USAGES.map((usage) => ({ ...usage, label: text(usage.label) }))}
           value={filter.usage}
           onChange={(value) => {
@@ -116,4 +125,49 @@ export function TagFilterButton(props: TagFilterButtonProps) {
       </Facet>
     </FilterSheet>
   );
+}
+
+/**
+ * The facets set, as the chips under the page's title: each one removed on its own.
+ *
+ * @param filter - The filter.
+ * @param onChange - Called with the filter less the facet removed.
+ * @returns The chips; none when nothing is set.
+ */
+export function activeTagFilters(
+  filter: TagFilter,
+  onChange: (filter: TagFilter) => void,
+): ActiveFilter[] {
+  const usage = USAGES.find((each) => each.value === filter.usage);
+
+  return [
+    ...(filter.color === ''
+      ? []
+      : [
+          {
+            id: 'color',
+            key: translate('library.tagFilter.colour', 'Colour'),
+            value: tagColorName(filter.color),
+
+            /** Shows every colour again. */
+            onRemove: () => {
+              onChange({ ...filter, color: '' });
+            },
+          },
+        ]),
+    ...(usage === undefined || usage.value === 'any'
+      ? []
+      : [
+          {
+            id: 'on',
+            key: translate('common.on', 'On'),
+            value: text(usage.label),
+
+            /** Shows the tags on anything again. */
+            onRemove: () => {
+              onChange({ ...filter, usage: 'any' });
+            },
+          },
+        ]),
+  ];
 }

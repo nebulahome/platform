@@ -1,32 +1,23 @@
 /**
  * The Devices tab's Filter: how each device stands, its room and model, how it is reached, the
- * parts, the silent and the linked ones, and the order.
+ * parts, and the silent and the linked ones. The order is the table's headings'.
  *
  * As the board draws it (DL-A-Filter): the standings as boxes with how many stand so beside each,
- * Area and Model side by side, Connection and Show across the sheet's width, two switches, Sort
- * by in two columns. No foot: the count beside the table's title already says how many it shows.
+ * Area and Model side by side, Connection and Show across the sheet's width, two switches. No
+ * foot: the count beside the table's title already says how many it shows.
  * A facet the devices give no choice in - one room, one transport, no parts - is not offered.
  */
 import { useTranslation } from 'react-i18next';
 
-import {
-  Checkbox,
-  cn,
-  RadioGroup,
-  Segmented,
-  SelectField,
-  type ActiveFilter,
-} from '@nebulahome/ui';
+import { Checkbox, cn, Segmented, SelectField, type ActiveFilter } from '@nebulahome/ui';
 
 import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import {
   connectionName,
-  DEVICE_SORTS,
   DEVICE_STANDINGS,
   narrowingCount,
   OPEN_VENDOR_DEVICE_FILTER,
   type DeviceShow,
-  type DeviceSort,
   type DeviceStanding,
   type VendorDeviceFilter,
 } from '@/library/vendor-device-filters';
@@ -54,14 +45,6 @@ const SHOW_LABELS: Readonly<Record<DeviceShow, Message>> = {
   all: defineMessage('library.vendorDevicesTab.showEverything', 'Everything'),
   main: defineMessage('library.vendorDevicesTab.showMain', 'Main devices'),
   parts: defineMessage('library.vendorDevicesTab.showOnlyParts', 'Parts'),
-};
-
-/** What each order is called. */
-const SORT_LABELS: Readonly<Record<DeviceSort, Message>> = {
-  name: defineMessage('library.vendorDevicesTab.sortName', 'Name'),
-  area: defineMessage('library.vendorDevicesTab.sortArea', 'Area'),
-  updated: defineMessage('library.vendorDevicesTab.sortUpdated', 'Last updated'),
-  newest: defineMessage('library.vendorDevicesTab.sortNewest', 'Newest first'),
 };
 
 /** The words of the two switches, shared by the sheet and the chips. */
@@ -133,7 +116,7 @@ export function VendorDeviceFilterSheet(props: VendorDeviceFilterProps) {
       label={t('library.vendorDevicesTab.narrowTheDevices', 'Narrow the devices')}
       count={narrowingCount(filter)}
       onClear={() => {
-        onChange({ ...OPEN_VENDOR_DEVICE_FILTER, search: filter.search, sort: filter.sort });
+        onChange({ ...OPEN_VENDOR_DEVICE_FILTER, search: filter.search });
       }}
     >
       <Facet
@@ -287,19 +270,6 @@ export function VendorDeviceFilterSheet(props: VendorDeviceFilterProps) {
             }}
           />
         </div>
-      </Facet>
-
-      <Facet title={t('library.vendorDevicesTab.sortBy', 'Sort by')}>
-        <RadioGroup
-          label={t('library.vendorDevicesTab.sortBy', 'Sort by')}
-          isLabelHidden
-          className="grid grid-cols-2 gap-x-4 gap-y-1"
-          options={DEVICE_SORTS.map((sort) => ({ value: sort, label: text(SORT_LABELS[sort]) }))}
-          value={filter.sort}
-          onChange={(sort) => {
-            onChange({ ...filter, sort });
-          }}
-        />
       </Facet>
     </FilterSheet>
   );

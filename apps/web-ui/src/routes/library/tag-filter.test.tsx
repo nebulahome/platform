@@ -1,10 +1,11 @@
 /**
- * The tags filter: the colour list shows its colours, and the usage words are not doubled up.
+ * The tags filter: the colour list shows its colours, the usage words are not doubled up, and a
+ * facet set is a chip that takes only itself off.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { TagFilterButton } from './tag-filter';
+import { activeTagFilters, TagFilterButton } from './tag-filter';
 
 /**
  * Renders the filter and opens its sheet.
@@ -44,5 +45,28 @@ describe('TagFilterButton', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Nothing' }));
 
     expect(onChange).toHaveBeenCalledWith({ search: '', color: '', usage: 'unused' });
+  });
+});
+
+describe('activeTagFilters', () => {
+  it('has no chip when nothing is set, the search aside', () => {
+    expect(activeTagFilters({ search: 'gar', color: '', usage: 'any' }, vi.fn())).toEqual([]);
+  });
+
+  it('names each facet set, and removes only its own', () => {
+    const onChange = vi.fn();
+    const filter = { search: 'gar', color: 'teal', usage: 'unused' } as const;
+    const chips = activeTagFilters(filter, onChange);
+
+    expect(chips.map((chip) => [chip.key, chip.value])).toEqual([
+      ['Colour', 'Teal'],
+      ['On', 'Nothing'],
+    ]);
+
+    chips[0]?.onRemove();
+    expect(onChange).toHaveBeenLastCalledWith({ ...filter, color: '' });
+
+    chips[1]?.onRemove();
+    expect(onChange).toHaveBeenLastCalledWith({ ...filter, usage: 'any' });
   });
 });

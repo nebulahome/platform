@@ -205,11 +205,29 @@ export function DashboardsManagePage() {
                 'Search dashboards, people…',
               )}
               value={search}
+              // On a phone the pill takes what the page's margins leave.
+              className="w-[min(24rem,calc(100vw-12rem))] lg:w-96"
+              action={
+                <Button
+                  size="compact"
+                  className="shrink-0"
+                  onClick={() => {
+                    setDialog({ mode: 'create' });
+                  }}
+                >
+                  <AppIcon id="plus" size={14} />
+                  {/* A phone keeps the room for the search it sits in: the plus alone, named to a reader. */}
+                  <span className="max-sm:sr-only">
+                    {t('dashboard.dashboardsManage.newDashboard', 'New dashboard')}
+                  </span>
+                </Button>
+              }
               onChange={setSearch}
             />
           )
         }
-        action={newButton}
+        // With nothing to search, New dashboard stands alone.
+        action={all.length === 0 ? newButton : undefined}
         isPending={dashboards.isPending}
         error={dashboards.error}
         isEmpty={all.length === 0}

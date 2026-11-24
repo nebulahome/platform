@@ -15,48 +15,67 @@ import {
 import { defineMessage, type Message, text } from '@/i18n/messages';
 import { chainText } from '@/lib/describe-automation';
 import { matchesQuery } from '@/lib/search-text';
-import { nonDefault, readChoice, type ListCodec } from '@/lib/use-list-state';
+import { nonDefault, type ListCodec } from '@/lib/use-list-state';
 
-/** Standing a filter may insist on. */
-export const AUTOMATION_STATUSES = ['any', 'enabled', 'off', 'never'] as const;
+/**
+ * How an automation stands, as the Status facet ticks it: on or off, and how its runs went. The
+ * two pairs overlap - an enabled rule may never have run - so one rule can stand two ways.
+ */
+export const AUTOMATION_STANDINGS = ['enabled', 'off', 'never', 'failed'] as const;
 
-/** Standing a filter may insist on. */
-export type AutomationStatus = (typeof AUTOMATION_STATUSES)[number];
+/** One standing. */
+export type AutomationStanding = (typeof AUTOMATION_STANDINGS)[number];
 
-/** Modes a filter may insist on, including "any". */
-export const AUTOMATION_MODE_CHOICES = ['any', ...AUTOMATION_MODES] as const;
-
-/** Modes a filter may insist on, including "any". */
-export type AutomationModeChoice = (typeof AUTOMATION_MODE_CHOICES)[number];
-
-/** Trigger kinds a filter may insist on, including "any". */
-export const AUTOMATION_TRIGGER_CHOICES = ['any', ...TRIGGER_TYPES] as const;
-
-/** Trigger kinds a filter may insist on, including "any". */
-export type AutomationTriggerChoice = (typeof AUTOMATION_TRIGGER_CHOICES)[number];
+/** How concurrent runs are handled. */
+export type AutomationMode = AutomationView['mode'];
 
 /** What the header has been set to. */
 export type AutomationFilter = {
   /** What was typed; every word must be found in the name, the key, the description or the chain. */
   readonly search: string;
 
-  /** Standing the automation must have. */
-  readonly status: AutomationStatus;
+  /** Only automations standing so: any of them. None means any standing. */
+  readonly statuses: readonly AutomationStanding[];
 
-  /** How concurrent runs are handled, or any. */
-  readonly mode: AutomationModeChoice;
+  /** How concurrent runs are handled. Blank means any. */
+  readonly mode: AutomationMode | '';
 
-  /** A trigger kind the definition must include, or any. */
-  readonly triggerType: AutomationTriggerChoice;
+  /** A trigger kind the definition must include. Blank means any. */
+  readonly triggerType: TriggerType | '';
+
+  /** Only automations naming an entity the house does not have. */
+  readonly isMissing: boolean;
 };
 
 /** Nothing set: every automation shows. */
 export const OPEN_AUTOMATION_FILTER: AutomationFilter = {
   search: '',
-  status: 'any',
-  mode: 'any',
-  triggerType: 'any',
+  statuses: [],
+  mode: '',
+  triggerType: '',
+  isMissing: false,
 };
+
+/**
+ * Whether an automation stands one way.
+ *
+ * @param automation - The automation.
+ * @param standing - The standing.
+ * @returns True when it stands so.
+ */
+export function isStanding(automation: AutomationView, standing: AutomationStanding): boolean {
+  switch (standing) {
+    case 'enabled':
+      return automation.isEnabled;
+    case 'off':
+      return !automation.isEnabled;
+    // The run on record, as the row and the Last run order read it - not `lastTriggeredAt`.
+    case 'never':
+      return automation.lastRun === null;
+    case 'failed':
+      return automation.lastRun?.result === 'failed' || automation.lastRun?.result === 'timeout';
+  }
+}
 
 /**
  * Whether one automation belongs in the list under a filter.
@@ -69,36 +88,61 @@ export function matchesAutomationFilter(
   automation: AutomationView,
   filter: AutomationFilter,
 ): boolean {
-  if (filter.status === 'enabled' && !automation.isEnabled) {
-    return false;
-  }
-
-  if (filter.status === 'off' && automation.isEnabled) {
-    return false;
-  }
-
-  if (filter.status === 'never' && automation.lastTriggeredAt !== null) {
-    return false;
-  }
-
-  if (filter.mode !== 'any' && automation.mode !== filter.mode) {
-    return false;
-  }
-
-  if (filter.triggerType !== 'any') {
-    const types = triggerTypesOf(automation.definition);
-
-    if (!types.includes(filter.triggerType)) {
-      return false;
-    }
-  }
-
-  // The chain is what the row shows and how a rule is remembered - "the one that turns on the
-  // porch light" - so the search reads it too.
-  return matchesQuery(
-    [automation.name, automation.key, automation.description, chainText(automation.definition)],
-    filter.search,
+  return (
+    (filter.statuses.length === 0 ||
+      filter.statuses.some((standing) => isStanding(automation, standing))) &&
+    (filter.mode === '' || automation.mode === filter.mode) &&
+    (filter.triggerType === '' ||
+      triggerTypesOf(automation.definition).includes(filter.triggerType)) &&
+    (!filter.isMissing || automation.missingEntities.length > 0) &&
+    // The chain is what the row shows and how a rule is remembered - "the one that turns on the
+    // porch light" - so the search reads it too.
+    matchesQuery(
+      [automation.name, automation.key, automation.description, chainText(automation.definition)],
+      filter.search,
+    )
   );
+}
+
+/**
+ * How many automations stand each way, for the counts beside the Status boxes.
+ *
+ * @param automations - The automations.
+ * @returns The count of each standing.
+ */
+export function countAutomationStandings(
+  automations: readonly AutomationView[],
+): Readonly<Record<AutomationStanding, number>> {
+  return {
+    enabled: automations.filter((each) => isStanding(each, 'enabled')).length,
+    off: automations.filter((each) => isStanding(each, 'off')).length,
+    never: automations.filter((each) => isStanding(each, 'never')).length,
+    failed: automations.filter((each) => isStanding(each, 'failed')).length,
+  };
+}
+
+/** The choices the loaded automations give the Mode and Trigger facets. */
+export type AutomationChoices = {
+  /** The modes in use, in the schema's order. */
+  readonly modes: readonly AutomationMode[];
+
+  /** The trigger kinds in use, in the schema's order. */
+  readonly triggers: readonly TriggerType[];
+};
+
+/**
+ * The modes and trigger kinds the automations use, so the sheet offers only those.
+ *
+ * @param automations - The automations.
+ * @returns The choices.
+ */
+export function automationChoices(automations: readonly AutomationView[]): AutomationChoices {
+  const used = new Set(automations.flatMap((each) => triggerTypesOf(each.definition)));
+
+  return {
+    modes: AUTOMATION_MODES.filter((mode) => automations.some((each) => each.mode === mode)),
+    triggers: TRIGGER_TYPES.filter((type) => used.has(type)),
+  };
 }
 
 /** What each mode is called, in the sheet and on the row alike. */
@@ -121,7 +165,7 @@ export function modeLabel(mode: AutomationView['mode']): string {
 
 /** How the filter lives in the address. */
 export const AUTOMATION_FILTER_CODEC: ListCodec<AutomationFilter> = {
-  keys: ['q', 'status', 'mode', 'trigger'],
+  keys: ['q', 'status', 'mode', 'trigger', 'missing'],
 
   /**
    * Reads the filter from the query.
@@ -131,9 +175,12 @@ export const AUTOMATION_FILTER_CODEC: ListCodec<AutomationFilter> = {
    */
   read: (params) => ({
     search: params.get('q') ?? '',
-    status: readChoice(params, 'status', AUTOMATION_STATUSES, 'any'),
-    mode: readChoice(params, 'mode', AUTOMATION_MODE_CHOICES, 'any'),
-    triggerType: readChoice(params, 'trigger', AUTOMATION_TRIGGER_CHOICES, 'any'),
+    statuses: (params.get('status') ?? '')
+      .split(',')
+      .flatMap((value) => AUTOMATION_STANDINGS.filter((standing) => standing === value)),
+    mode: toAutomationMode(params.get('mode') ?? ''),
+    triggerType: toAutomationTriggerType(params.get('trigger') ?? ''),
+    isMissing: params.get('missing') === '1',
   }),
 
   /**
@@ -145,9 +192,10 @@ export const AUTOMATION_FILTER_CODEC: ListCodec<AutomationFilter> = {
   write: (filter) =>
     nonDefault({
       q: [filter.search, ''],
-      status: [filter.status, 'any'],
-      mode: [filter.mode, 'any'],
-      trigger: [filter.triggerType, 'any'],
+      status: [filter.statuses.join(','), ''],
+      mode: [filter.mode, ''],
+      trigger: [filter.triggerType, ''],
+      missing: [filter.isMissing ? '1' : '', ''],
     }),
 };
 
@@ -159,9 +207,10 @@ export const AUTOMATION_FILTER_CODEC: ListCodec<AutomationFilter> = {
  */
 export function automationFacetCount(filter: AutomationFilter): number {
   return (
-    Number(filter.status !== 'any') +
-    Number(filter.mode !== 'any') +
-    Number(filter.triggerType !== 'any')
+    Number(filter.statuses.length > 0) +
+    Number(filter.mode !== '') +
+    Number(filter.triggerType !== '') +
+    Number(filter.isMissing)
   );
 }
 
@@ -231,31 +280,21 @@ function isTriggerLeaf(value: unknown): value is AutomationTrigger {
 }
 
 /**
- * Narrows a string back to a standing choice.
+ * Narrows a string back to a mode.
  *
  * @param value - What the select or the address held.
- * @returns The choice, or `any` for something that is not one.
+ * @returns The mode, or blank for something that is not one.
  */
-export function toAutomationStatus(value: string): AutomationStatus {
-  return AUTOMATION_STATUSES.find((status) => status === value) ?? 'any';
+export function toAutomationMode(value: string): AutomationMode | '' {
+  return AUTOMATION_MODES.find((mode) => mode === value) ?? '';
 }
 
 /**
- * Narrows a string back to a mode choice.
+ * Narrows a string back to a trigger kind.
  *
  * @param value - What the select or the address held.
- * @returns The choice, or `any` for something that is not one.
+ * @returns The kind, or blank for something that is not one.
  */
-export function toAutomationMode(value: string): AutomationModeChoice {
-  return AUTOMATION_MODE_CHOICES.find((mode) => mode === value) ?? 'any';
-}
-
-/**
- * Narrows a string back to a trigger-kind choice.
- *
- * @param value - What the select or the address held.
- * @returns The choice, or `any` for something that is not one.
- */
-export function toAutomationTriggerType(value: string): AutomationTriggerChoice {
-  return AUTOMATION_TRIGGER_CHOICES.find((type) => type === value) ?? 'any';
+export function toAutomationTriggerType(value: string): TriggerType | '' {
+  return TRIGGER_TYPES.find((type) => type === value) ?? '';
 }

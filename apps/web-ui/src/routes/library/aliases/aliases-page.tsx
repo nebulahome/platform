@@ -1,7 +1,7 @@
 /**
  * The aliases: grouped by the type each behaves as, with the device it sits on, its value now and
- * whether it is enabled. All or only those with a problem; a search; a filter by type, device and
- * area; Import and Export of a whole file; New alias.
+ * whether it is enabled. A filter by health, type, area and device, its facets as chips under the
+ * header; a search carrying New alias; Import and Export of a whole file.
  *
  * A row's menu opens, duplicates, renames, exports, disables or deletes it. On a phone the rows
  * are cards, with no switch and no menu: the alias's own page has both.
@@ -11,11 +11,14 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
-import type { AliasListItem } from '@nebulahome/contracts';
+import { ALIAS_HEALTHS, type AliasHealth, type AliasListItem } from '@nebulahome/contracts';
 import {
   AppIcon,
   Button,
+  Checkbox,
+  cn,
   EmptyState,
+  FilterChips,
   OverflowMenu,
   Segmented,
   SelectField,
@@ -23,11 +26,13 @@ import {
   Switch,
   TableFooter,
   toast,
+  type ActiveFilter,
   type UiIconId,
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
+import { defineMessage, type Message, text, translate } from '@/i18n/messages';
 import { DOCS_LINKS } from '@/lib/docs-links';
 import { toMessage } from '@/lib/error-message';
 import { signalled } from '@/lib/signalled';
@@ -38,10 +43,12 @@ import {
   aliasFacetCount,
   groupAliases,
   hasProblem,
+  HEALTH_LABELS,
   HEALTH_TONE,
-  matchesAliasFacets,
   matchesAliasList,
   OPEN_ALIAS_LIST_FILTER,
+  type AliasDeviceKind,
+  type AliasListFilter,
   typeLabel,
   typePlural,
   uiIcon,
@@ -65,7 +72,7 @@ import {
 } from '@/routes/library/aliases/alias-dialogs';
 import { NewAliasDialog } from '@/routes/library/aliases/alias-new-dialog';
 import { devicePath } from '@/routes/library/device/device-path';
-import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
+import { Facet, facetChoices, FilterSheet, type FacetOption } from '@/routes/library/filter-sheet';
 import { LibraryPage } from '@/routes/library/library-page';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
@@ -77,6 +84,92 @@ const COLUMNS =
 
 /** The one sort: by name, within each type. */
 const SORTS = ['name'] as const;
+
+/** The dot of each health in the Status facet, in the tone the list draws it in. */
+const HEALTH_DOTS: Readonly<Record<AliasHealth, string>> = {
+  ok: 'bg-success',
+  failing: 'bg-danger',
+  unavailable: 'bg-warning',
+  off: 'bg-foreground-subtle',
+};
+
+/** What each choice of Device is called, in the sheet and on its chip. */
+const DEVICE_LABELS: Readonly<Record<AliasDeviceKind, Message>> = {
+  any: defineMessage('library.aliases.anyDevice', 'Any'),
+  virtual: defineMessage('library.aliases.virtualDevices', 'Virtual'),
+  existing: defineMessage('library.aliases.existingDevices', 'Existing'),
+};
+
+/** The choices the loaded aliases give the dropdowns. */
+type AliasChoices = {
+  /** The types they behave as, in the types' order. */
+  readonly types: readonly FacetOption[];
+
+  /** The areas they are in, by key, in the house's order. */
+  readonly areas: readonly FacetOption[];
+};
+
+/**
+ * The facets set, as the chips under the header: each one removed on its own.
+ *
+ * @param filter - The filter.
+ * @param choices - The choices the aliases give, to name a type or an area.
+ * @param onChange - Called with the filter less the facet removed.
+ * @returns The chips; none when nothing is set.
+ */
+function activeAliasFilters(
+  filter: AliasListFilter,
+  choices: AliasChoices,
+  onChange: (filter: AliasListFilter) => void,
+): ActiveFilter[] {
+  // Each facet: whether it is set, its chip's id, what it is called, what it is set to, and the
+  // filter less it.
+  const facets: readonly [boolean, string, string, string, Partial<AliasListFilter>][] = [
+    [
+      filter.statuses.length > 0,
+      'status',
+      translate('library.aliases.status', 'Status'),
+      ALIAS_HEALTHS.filter((each) => filter.statuses.includes(each))
+        .map((each) => text(HEALTH_LABELS[each]))
+        .join(', '),
+      { statuses: [] },
+    ],
+    [
+      filter.type !== '',
+      'type',
+      translate('library.aliases.type', 'Type'),
+      choices.types.find((each) => each.value === filter.type)?.label ?? filter.type,
+      { type: '' },
+    ],
+    [
+      filter.area !== '',
+      'area',
+      translate('library.aliases.area', 'Area'),
+      choices.areas.find((each) => each.value === filter.area)?.label ?? filter.area,
+      { area: '' },
+    ],
+    [
+      filter.device !== 'any',
+      'device',
+      translate('library.aliases.device', 'Device'),
+      text(DEVICE_LABELS[filter.device]),
+      { device: 'any' },
+    ],
+  ];
+
+  return facets
+    .filter(([isSet]) => isSet)
+    .map(([, id, key, value, unset]) => ({
+      id,
+      key,
+      value,
+
+      /** Unsets this facet alone. */
+      onRemove: () => {
+        onChange({ ...filter, ...unset });
+      },
+    }));
+}
 
 /** What a row shows besides the alias: its value now. */
 type Line = {
@@ -331,33 +424,57 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
     const entity = entityById.get(item.entityId);
     const reading =
       entity === undefined ? NO_READING : readingOf(entity, readings[item.entityId]).text;
-    const value =
-      item.health === 'failing'
-        ? t('library.aliases.failing', 'Failing')
-        : item.health === 'unavailable'
-          ? t('library.aliases.unavailable', 'Unavailable')
-          : item.health === 'off'
-            ? t('common.off', 'Off')
-            : reading;
+    const value = item.health === 'ok' ? reading : text(HEALTH_LABELS[item.health]);
 
     return { item, value };
   });
-  const faceted = lines.filter((line) => matchesAliasFacets(line.item, filter));
   const shown = lines.filter((line) => matchesAliasList(line.item, filter));
-  const problems = faceted.filter((line) => hasProblem(line.item)).length;
   const paging = usePaging('aliases', SORTS, shown.length);
   const ordered = groupAliases(
     shown.map((line) => ({ ...line, behavesAs: line.item.behavesAs, name: line.item.name })),
   ).flatMap((group) => group.items);
   const page = paging.rows(paging.direction === 'asc' ? ordered : ordered.toReversed());
   const groups = groupAliases(page);
-  const usedTypes = groupAliases(items).map((group) => group.type);
-  const usedAreas = areas.filter((area) => items.some((item) => item.area?.key === area.key));
+  const choices: AliasChoices = {
+    types: groupAliases(items).map(({ type }) => ({ value: type.id, label: typeLabel(type) })),
+    areas: areas
+      .filter((area) => items.some((item) => item.area?.key === area.key))
+      .map((area) => ({ value: area.key, label: area.name })),
+  };
+  const chips = activeAliasFilters(filter, choices, setFilter);
+
+  /** Unsets every facet, keeping what was typed. */
+  const clearFacets = (): void => {
+    setFilter({ ...OPEN_ALIAS_LIST_FILTER, search: filter.search });
+  };
+
+  /**
+   * Ticks or unticks one health.
+   *
+   * @param health - The health.
+   * @param isChecked - Whether it is now ticked.
+   */
+  const toggleHealth = (health: AliasHealth, isChecked: boolean): void => {
+    setFilter({
+      ...filter,
+      statuses: isChecked
+        ? ALIAS_HEALTHS.filter((each) => each === health || filter.statuses.includes(each))
+        : filter.statuses.filter((each) => each !== health),
+    });
+  };
 
   /** Opens New alias. */
   const openNew = (): void => {
     setDialog({ at: 'new' });
   };
+
+  const newButton = canWrite ? (
+    <Button size="compact" className="shrink-0" onClick={openNew}>
+      <AppIcon id="plus" size={14} />
+      {/* A phone keeps the room for the search it sits in: the plus alone, named to a reader. */}
+      <span className="max-sm:sr-only">{t('library.aliases.newAlias', 'New alias')}</span>
+    </Button>
+  ) : undefined;
 
   /** Puts any dialog away, leaving `/aliases/new` for the list. */
   const close = (): void => {
@@ -458,106 +575,137 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
         tools={
           items.length === 0 ? undefined : (
             <>
-              <Segmented
-                label={t('library.aliases.show', 'Show')}
-                size="compact"
-                options={[
-                  {
-                    value: 'all',
-                    label: t('library.aliases.showAll', 'All · {{count}}', {
-                      count: faceted.length,
-                    }),
-                  },
-                  {
-                    value: 'problems',
-                    label: t('library.aliases.showProblems', 'Problems · {{count}}', {
-                      count: problems,
-                    }),
-                  },
-                ]}
-                value={filter.show}
-                onChange={(show) => {
-                  setFilter({ ...filter, show });
-                }}
-              />
-              <SearchField
-                placeholder={t('library.aliases.search', 'Search')}
-                value={filter.search}
-                onChange={(search) => {
-                  setFilter({ ...filter, search });
-                }}
-              />
               <FilterSheet
                 label={t('library.aliases.narrow', 'Narrow the aliases')}
                 count={aliasFacetCount(filter)}
-                onClear={() => {
-                  setFilter({
-                    ...OPEN_ALIAS_LIST_FILTER,
-                    show: filter.show,
-                    search: filter.search,
-                  });
-                }}
-                summary={t('library.aliases.count', {
-                  count: shown.length,
-                  defaultValue_one: '{{count}} alias',
-                  defaultValue_other: '{{count}} aliases',
-                })}
+                onClear={clearFacets}
               >
-                <Facet title={t('library.aliases.type', 'Type')}>
-                  <SelectField
-                    label={t('library.aliases.type', 'Type')}
-                    isLabelHidden
-                    size="compact"
-                    options={[
-                      { value: '', label: t('library.aliases.anyType', 'Any type') },
-                      ...usedTypes.map((type) => ({ value: type.id, label: typeLabel(type) })),
-                    ]}
-                    value={filter.type}
-                    onChange={(type) => {
-                      setFilter({ ...filter, type });
-                    }}
-                  />
+                <Facet
+                  title={t('library.aliases.status', 'Status')}
+                  aside={
+                    filter.statuses.length === 0
+                      ? undefined
+                      : t('library.aliases.selected', {
+                          count: filter.statuses.length,
+                          defaultValue_one: '{{count}} selected',
+                          defaultValue_other: '{{count}} selected',
+                        })
+                  }
+                >
+                  <div className="flex flex-col gap-3">
+                    {ALIAS_HEALTHS.map((health) => {
+                      const count = items.filter((item) => item.health === health).length;
+
+                      return (
+                        <Checkbox
+                          key={health}
+                          // A health no alias has stays offered, quieter: the list may yet have one.
+                          className={cn(count === 0 && 'opacity-45')}
+                          label={
+                            <span className="flex items-center gap-2">
+                              <span
+                                aria-hidden="true"
+                                className={cn('size-1.5 rounded-full', HEALTH_DOTS[health])}
+                              />
+                              {text(HEALTH_LABELS[health])}
+                            </span>
+                          }
+                          count={count}
+                          isChecked={filter.statuses.includes(health)}
+                          onChange={(isChecked) => {
+                            toggleHealth(health, isChecked);
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
                 </Facet>
+
+                {choices.types.length < 2 && choices.areas.length < 2 ? null : (
+                  // Type and Area side by side: two facets sharing one line, half a gutter between.
+                  <div className="grid auto-cols-fr grid-flow-col border-t border-border">
+                    {choices.types.length < 2 ? null : (
+                      <Facet
+                        title={t('library.aliases.type', 'Type')}
+                        className={cn('border-t-0', choices.areas.length >= 2 && 'pr-1.5')}
+                      >
+                        <SelectField
+                          label={t('library.aliases.type', 'Type')}
+                          isLabelHidden
+                          size="compact"
+                          options={facetChoices(
+                            choices.types,
+                            filter.type,
+                            t('library.aliases.anyType', 'Any type'),
+                            true,
+                          )}
+                          value={filter.type}
+                          onChange={(type) => {
+                            setFilter({ ...filter, type });
+                          }}
+                        />
+                      </Facet>
+                    )}
+                    {choices.areas.length < 2 ? null : (
+                      <Facet
+                        title={t('library.aliases.area', 'Area')}
+                        className={cn('border-t-0', choices.types.length >= 2 && 'pl-1.5')}
+                      >
+                        <SelectField
+                          label={t('library.aliases.area', 'Area')}
+                          isLabelHidden
+                          size="compact"
+                          options={facetChoices(
+                            choices.areas,
+                            filter.area,
+                            t('library.aliases.anyArea', 'Any area'),
+                            true,
+                          )}
+                          value={filter.area}
+                          onChange={(area) => {
+                            setFilter({ ...filter, area });
+                          }}
+                        />
+                      </Facet>
+                    )}
+                  </div>
+                )}
+
                 <Facet title={t('library.aliases.device', 'Device')}>
                   <Segmented
                     label={t('library.aliases.device', 'Device')}
                     size="compact"
-                    className="self-start"
-                    options={[
-                      { value: 'any', label: t('library.aliases.anyDevice', 'Any') },
-                      { value: 'virtual', label: t('library.aliases.virtualDevices', 'Virtual') },
-                      {
-                        value: 'existing',
-                        label: t('library.aliases.existingDevices', 'Existing'),
-                      },
-                    ]}
+                    isFilled
+                    options={(['any', 'virtual', 'existing'] as const).map((value) => ({
+                      value,
+                      label: text(DEVICE_LABELS[value]),
+                    }))}
                     value={filter.device}
                     onChange={(device) => {
                       setFilter({ ...filter, device });
                     }}
                   />
                 </Facet>
-                <Facet title={t('library.aliases.area', 'Area')}>
-                  <SelectField
-                    label={t('library.aliases.area', 'Area')}
-                    isLabelHidden
-                    size="compact"
-                    options={[
-                      { value: '', label: t('library.aliases.anyArea', 'Any area') },
-                      ...usedAreas.map((area) => ({ value: area.key, label: area.name })),
-                    ]}
-                    value={filter.area}
-                    onChange={(area) => {
-                      setFilter({ ...filter, area });
-                    }}
-                  />
-                </Facet>
               </FilterSheet>
+              <SearchField
+                placeholder={t('library.aliases.search', 'Search')}
+                value={filter.search}
+                // On a phone the pill takes what the page's margins, the Filter and the menu leave.
+                className={
+                  newButton === undefined ? '' : 'w-[min(24rem,calc(100vw-12rem))] lg:w-96'
+                }
+                action={newButton}
+                onChange={(search) => {
+                  setFilter({ ...filter, search });
+                }}
+              />
             </>
           )
         }
         action={
           <span className="flex items-center gap-2">
+            {/* With no list there is no search to carry New alias: it stands alone. */}
+            {items.length === 0 ? newButton : null}
             <OverflowMenu
               label={t('library.aliases.importExport', 'Import and export')}
               items={[
@@ -584,14 +732,9 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
                 },
               ]}
             />
-            {canWrite ? (
-              <Button className="hidden md:inline-flex" onClick={openNew}>
-                <AppIcon id="plus" size={15} />
-                {t('library.aliases.newAlias', 'New alias')}
-              </Button>
-            ) : null}
           </span>
         }
+        filters={<FilterChips filters={chips} onClearAll={clearFacets} />}
         isPending={aliases.isPending}
         error={aliases.error}
         isEmpty={items.length === 0}
@@ -753,14 +896,6 @@ export function AliasesPage(props: { readonly isCreating?: boolean }) {
                   </div>
                 </div>
               ))}
-              {canWrite ? (
-                <div className="sticky bottom-4 flex justify-end">
-                  <Button onClick={openNew}>
-                    <AppIcon id="plus" size={15} />
-                    {t('library.aliases.newAlias', 'New alias')}
-                  </Button>
-                </div>
-              ) : null}
             </div>
           </>
         )}

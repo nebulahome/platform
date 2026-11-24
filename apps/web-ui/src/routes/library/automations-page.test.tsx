@@ -69,9 +69,10 @@ const EDITOR_KEY = ['library', 'automations', EVENING.id];
  * Renders the page with an owner signed in, over a cache that already holds the automation as
  * the editor last read it.
  *
+ * @param at - The address the page opens on.
  * @returns The cache.
  */
-function renderPage(): QueryClient {
+function renderPage(at = '/automations'): QueryClient {
   useSession.setState({
     status: 'signed-in',
     user: {
@@ -95,7 +96,7 @@ function renderPage(): QueryClient {
 
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/automations']}>
+      <MemoryRouter initialEntries={[at]}>
         <AutomationsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -120,6 +121,29 @@ beforeEach(() => {
     }),
   );
   vi.mocked(deleteAutomation).mockResolvedValue(EVENING);
+});
+
+describe('the header', () => {
+  it('puts New automation in the search and Import behind the menu', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'More' }));
+
+    expect(screen.queryByRole('menuitem', { name: /Import/u })).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'New automation' })).not.toBeNull();
+  });
+
+  it('shows a set facet as a chip, and clearing it keeps the search', async () => {
+    renderPage('/automations?q=evening&status=off&missing=1');
+
+    await screen.findByRole('button', { name: 'Remove Status Off' });
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Remove Missing entities' })).toBeNull();
+    });
+    expect(screen.getByPlaceholderText<HTMLInputElement>('Search').value).toBe('evening');
+  });
 });
 
 describe('turning an automation on from its row', () => {

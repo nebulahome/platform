@@ -4742,8 +4742,6 @@
       "open": "Apri",
       "disable": "Disattiva",
       "enable": "Attiva",
-      "showAll": "Tutti · {{count}}",
-      "showProblems": "Problemi · {{count}}",
       "narrow": "Restringi gli alias",
       "anyType": "Qualsiasi tipo",
       "anyDevice": "Qualsiasi",
@@ -4770,7 +4768,12 @@
       "rooms_one": "{{count}} stanza",
       "rooms_many": "{{count}} stanze",
       "rooms_other": "{{count}} stanze",
-      "fileAliases": "{{count}} alias"
+      "fileAliases": "{{count}} alias",
+      "status": "Stato",
+      "selected_one": "{{count}} selezionato",
+      "selected_many": "{{count}} selezionati",
+      "selected_other": "{{count}} selezionati",
+      "ok": "OK"
     },
     "areaDialog": {
       "configureName": "Configura {{name}}",
@@ -4805,7 +4808,8 @@
       "rooms_many": "{{count}} stanze",
       "rooms_one": "{{count}} stanza",
       "rooms_other": "{{count}} stanze",
-      "searchFloorsRooms": "Cerca piani, stanze…"
+      "searchFloorsRooms": "Cerca piani, stanze…",
+      "addFloor": "Aggiungi piano"
     },
     "automationDraft": {
       "addABlock": "aggiungi un blocco",
@@ -4886,7 +4890,6 @@
     },
     "automationFilter": {
       "anyMode": "Qualsiasi modalità",
-      "anyStatus": "Qualsiasi stato",
       "anyTrigger": "Qualsiasi attivazione",
       "enabled": "Attive",
       "entity": "Entità",
@@ -4900,7 +4903,14 @@
       "time": "Orario",
       "trigger": "Attivazione",
       "webhook": "Webhook",
-      "quiet": "Ora più tranquilla"
+      "quiet": "Ora più tranquilla",
+      "lastRunFailed": "Ultima esecuzione fallita",
+      "calendar": "Calendario",
+      "missingEntities": "Entità mancanti",
+      "showOnly": "Mostra solo",
+      "selected_one": "{{count}} selezionato",
+      "selected_many": "{{count}} selezionati",
+      "selected_other": "{{count}} selezionati"
     },
     "automationRow": {
       "itsDefinitionIsNot": "La sua definizione non ha una forma che questa versione capisca.",
@@ -5034,7 +5044,22 @@
       "area": "Area",
       "integration": "Integrazione",
       "narrowTheDevices": "Filtra i dispositivi",
-      "noDeviceIsIn": "Nessun dispositivo è ancora in una stanza."
+      "showEverything": "Tutto",
+      "showMain": "Dispositivi principali",
+      "showParts": "Parti",
+      "linked": "Raggiunti da due vie",
+      "status": "Stato",
+      "selected_one": "{{count}} selezionato",
+      "selected_many": "{{count}} selezionati",
+      "selected_other": "{{count}} selezionati",
+      "model": "Modello",
+      "anyModel": "Qualsiasi modello",
+      "connection": "Connessione",
+      "anyConnection": "Qualsiasi connessione",
+      "tag": "Tag",
+      "anyTag": "Qualsiasi tag",
+      "show": "Mostra",
+      "showOnly": "Mostra solo"
     },
     "deviceHealth": {
       "container": "Un container",
@@ -5086,7 +5111,6 @@
       "entityCount_one": "{{count}} entità",
       "entityCount_other": "{{count}} entità",
       "integration": "Integrazione",
-      "liveUpdates": "Aggiornamenti in diretta",
       "nothingYetAddA": "Ancora niente. Aggiungi un dispositivo da Integrazioni e compare qui appena l'hub l'ha sentito.",
       "room": "Stanza",
       "searchDevicesEntities": "Cerca dispositivi, entità…",
@@ -5277,7 +5301,6 @@
       "openstreetmapContributors": "© contributori di OpenStreetMap"
     },
     "housePanel": {
-      "addFloor": "Aggiungi piano",
       "cachingMap": "Salvataggio della mappa…",
       "configure": "Configura",
       "mapAroundTheHouse": "La mappa intorno alla casa, conservata sul server per i giorni senza internet",
@@ -5345,7 +5368,10 @@
       "sortBy": "Ordina per",
       "status": "Stato",
       "updateReady": "Aggiornamento pronto",
-      "wire": "Collegamento"
+      "wire": "Collegamento",
+      "selected_one": "{{count}} selezionato",
+      "selected_many": "{{count}} selezionati",
+      "selected_other": "{{count}} selezionati"
     },
     "integrations": {
       "brandsProtocolsAndServices": "Marche, protocolli e servizi",
@@ -5495,7 +5521,6 @@
       "moreForName": "Altro per {{name}}",
       "narrowTheScenes": "Filtra le scene",
       "newScene": "Nuova scena",
-      "noSceneIsPlaced": "Nessuna scena è ancora in un'area.",
       "scene": "Scena",
       "sceneRemembersHowA": "Una scena ricorda come deve stare un gruppo di dispositivi: lampade abbassate, tapparelle a metà, musica bassa. Con un tocco rimette tutto a posto, e può farlo anche un'automazione.",
       "scenes": "Scene",
@@ -5507,7 +5532,13 @@
       "import": "Importa",
       "waiting_one": "1 membro aspetta un'entità",
       "waiting_many": "{{count}} membri aspettano un'entità",
-      "waiting_other": "{{count}} membri aspettano un'entità"
+      "waiting_other": "{{count}} membri aspettano un'entità",
+      "membersWaiting": "Membri in attesa di un'entità",
+      "showOnly": "Mostra solo",
+      "moreScenes": "Altro per le scene",
+      "deleteThisScene": "Eliminare questa scena?",
+      "deleteName": "Eliminare {{name}}?",
+      "deleteNote": "Non sarà più possibile applicarla."
     },
     "searchField": {
       "clearTheSearch": "Svuota la ricerca",
@@ -5775,12 +5806,7 @@
       "showMain": "Dispositivi principali",
       "showOnly": "Mostra solo",
       "showOnlyParts": "Parti",
-      "silent": "Non rispondono da più di un'ora",
-      "sortArea": "Area",
-      "sortBy": "Ordina per",
-      "sortName": "Nome",
-      "sortNewest": "Più recenti",
-      "sortUpdated": "Ultimo aggiornamento"
+      "silent": "Non rispondono da più di un'ora"
     },
     "vendorFound": {
       "address": "Indirizzo",

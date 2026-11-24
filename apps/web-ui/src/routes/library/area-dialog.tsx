@@ -2,8 +2,8 @@
  * Adding a floor or a room, or changing one: what to call it, for a room what it is drawn as,
  * and - for one that exists - a Remove that says what goes with it.
  *
- * The parent is decided by the button that opened the dialog - "Add floor" on the house, "Add
- * room" on a floor - and is not a field: a room made from a floor's own row is a room on that
+ * The parent is decided by the button that opened the dialog - "Add floor" in the page's search,
+ * "Add room" on a floor - and is not a field: a room made from a floor's own row is a room on that
  * floor, and asking again would be asking somebody to say where they are standing.
  *
  * A floor has a name and a number and nothing else: it is a level, not a thing with a look of
@@ -405,6 +405,7 @@ export function AreaDialog(props: AreaDialogProps) {
             required
             onChange={setName}
             icon={icon}
+            fallback="door-open"
             onIconChange={(view) => {
               setIcon(view.id);
             }}

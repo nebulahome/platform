@@ -236,6 +236,23 @@ describe('TagsPage', () => {
     expect(screen.getByRole('button', { name: /^Spare/u })).toBeTruthy();
   });
 
+  it('shows a facet set as a chip, and clears it keeping the search', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: /^Exterior/u });
+
+    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'e' } });
+    fireEvent.click(screen.getByRole('button', { name: /Filter/u }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Nothing' }));
+    fireEvent.click(screen.getByRole('button', { name: /Filter/u }));
+
+    expect(screen.queryByRole('button', { name: /^Exterior/u })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Clear all/u }));
+
+    expect(screen.getByRole('button', { name: /^Exterior/u })).toBeTruthy();
+    expect(screen.getByLabelText<HTMLInputElement>('Search').value).toBe('e');
+  });
+
   it('offers a new tag to somebody who may make one, and not to somebody who may not', async () => {
     renderPage();
 

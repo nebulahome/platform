@@ -15,7 +15,16 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
 import type { AutomationView } from '@nebulahome/contracts';
-import { AppIcon, Button, EmptyState, Modal, TableFooter, toast } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Button,
+  EmptyState,
+  FilterChips,
+  Modal,
+  OverflowMenu,
+  TableFooter,
+  toast,
+} from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
 import { SortHeader } from '@/components/sort-header';
@@ -36,12 +45,17 @@ import {
 import { draftFrom, toCreate } from '@/library/automation-draft';
 import {
   AUTOMATION_FILTER_CODEC,
+  automationChoices,
+  countAutomationStandings,
   isAutomationNarrowing,
   matchesAutomationFilter,
   OPEN_AUTOMATION_FILTER,
 } from '@/library/automation-filters';
 import { isPasswordText } from '@/library/entity-control';
-import { AutomationFilterButton } from '@/routes/library/automation-filter';
+import {
+  activeAutomationFilters,
+  AutomationFilterButton,
+} from '@/routes/library/automation-filter';
 import { AUTOMATION_COLUMNS, AutomationRow } from '@/routes/library/automation-row';
 import { useEntityDirectory } from '@/routes/library/entity-picker/use-entity-directory';
 import { LibraryImportFlow, type ImportResult } from '@/routes/library/library-import-flow';
@@ -215,12 +229,14 @@ export function AutomationsPage() {
     }),
   );
 
+  /** Opens the editor on a new automation. */
+  const openNew = (): void => {
+    void navigate('/automations/new');
+  };
+
+  // The empty state's first step, on its own; over a list, New sits in the search's pill.
   const newButton = canWrite ? (
-    <Button
-      onClick={() => {
-        void navigate('/automations/new');
-      }}
-    >
+    <Button onClick={openNew}>
       <AppIcon id="plus" size={15} />
       {t('library.automations.newAutomation', 'New automation')}
     </Button>
@@ -276,24 +292,6 @@ export function AutomationsPage() {
     }
   };
 
-  const actions = canWrite ? (
-    <span className="flex items-center gap-2">
-      <LibraryImportFlow
-        kind="automations"
-        takenKeys={items.map((automation) => automation.key)}
-        onImport={importAll}
-      >
-        {(choose) => (
-          <Button variant="ghost" onClick={choose}>
-            <AppIcon id="upload" size={15} />
-            {t('library.automations.import', 'Import')}
-          </Button>
-        )}
-      </LibraryImportFlow>
-      {newButton}
-    </span>
-  ) : undefined;
-
   return (
     <LibraryPage
       title={t('library.automations.automations', 'Automations')}
@@ -313,17 +311,61 @@ export function AutomationsPage() {
       ]}
       tools={
         <>
+          <AutomationFilterButton
+            filter={filter}
+            choices={automationChoices(items)}
+            counts={countAutomationStandings(items)}
+            onChange={setFilter}
+          />
           <SearchField
             placeholder={t('library.automations.search', 'Search')}
             value={filter.search}
+            // On a phone the pill takes what the page's margins, the Filter and the menu leave.
+            className={canWrite ? 'w-[min(24rem,calc(100vw-12rem))] lg:w-96' : ''}
+            action={
+              canWrite ? (
+                <Button size="compact" className="shrink-0" onClick={openNew}>
+                  <AppIcon id="plus" size={14} />
+                  {/* A phone keeps the room for the search it sits in: the plus alone, named to a reader. */}
+                  <span className="max-sm:sr-only">
+                    {t('library.automations.newAutomation', 'New automation')}
+                  </span>
+                </Button>
+              ) : undefined
+            }
             onChange={(search) => {
               setFilter({ ...filter, search });
             }}
           />
-          <AutomationFilterButton filter={filter} onChange={setFilter} />
+          {canWrite ? (
+            <LibraryImportFlow
+              kind="automations"
+              takenKeys={items.map((automation) => automation.key)}
+              onImport={importAll}
+            >
+              {(choose) => (
+                <OverflowMenu
+                  items={[
+                    {
+                      label: t('library.automations.import', 'Import'),
+                      icon: 'upload',
+                      onSelect: choose,
+                    },
+                  ]}
+                />
+              )}
+            </LibraryImportFlow>
+          ) : null}
         </>
       }
-      action={actions}
+      filters={
+        <FilterChips
+          filters={activeAutomationFilters(filter, setFilter)}
+          onClearAll={() => {
+            setFilter({ ...OPEN_AUTOMATION_FILTER, search: filter.search });
+          }}
+        />
+      }
       isPending={automations.isPending}
       error={automations.error}
       isEmpty={items.length === 0}

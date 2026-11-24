@@ -106,11 +106,16 @@ export function FloorSection(props: FloorSectionProps) {
               key={room.id}
               className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0"
             >
-              <DeviceIcon
-                icon={icons.get(room.icon ?? '')}
-                size={20}
-                className="text-foreground-muted"
-              />
+              {/* A room with no icon of its own draws the one its dialog shows. */}
+              {room.icon === null ? (
+                <AppIcon id="door-open" size={20} className="text-foreground-muted" />
+              ) : (
+                <DeviceIcon
+                  icon={icons.get(room.icon)}
+                  size={20}
+                  className="text-foreground-muted"
+                />
+              )}
               <span className="truncate text-ui font-medium text-foreground">{room.name}</span>
               <span className="text-caption text-foreground-subtle tabular">
                 {describeContents(room)}

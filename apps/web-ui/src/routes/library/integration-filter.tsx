@@ -155,7 +155,13 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
       <Facet
         title={t('library.integrationFilter.status', 'Status')}
         aside={
-          filter.statuses.length === 0 ? undefined : `${String(filter.statuses.length)} selected`
+          filter.statuses.length === 0
+            ? undefined
+            : t('library.integrationFilter.selected', {
+                count: filter.statuses.length,
+                defaultValue_one: '{{count}} selected',
+                defaultValue_other: '{{count}} selected',
+              })
         }
       >
         <div className="flex flex-col gap-3">

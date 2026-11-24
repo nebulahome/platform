@@ -1,6 +1,6 @@
 /**
- * The aliases list: grouped by type, the Problems switch, the Enabled switch, the empty house,
- * and New alias opened from its address.
+ * The aliases list: grouped by type, the Status facet and its chip, the Enabled switch, New alias
+ * in the search, the empty house, and New alias opened from its address.
  */
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -59,11 +59,35 @@ describe('AliasesPage', () => {
     expect(within(table).getByText('Line 8 · avg() got None')).toBeTruthy();
   });
 
-  it('keeps only the problems when asked', () => {
-    renderList(sampleAliasCache(false), '/aliases?show=problems');
+  it('keeps only the healths ticked, saying so as a chip that clears them', () => {
+    renderList(sampleAliasCache(false), '/aliases?status=failing,unavailable');
 
     expect(screen.getAllByText('Washing done').length).toBeGreaterThan(0);
     expect(screen.queryAllByText('Guest mode')).toEqual([]);
+    expect(screen.getByText('Failing, Unavailable')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Status Failing, Unavailable' }));
+
+    expect(screen.getAllByText('Guest mode').length).toBeGreaterThan(0);
+  });
+
+  it('ticks a health in the Filter sheet, with how many each has', () => {
+    renderList(sampleAliasCache(false));
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter/u }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Off/u }));
+
+    expect(screen.getAllByText('Guest mode').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('Washing done')).toEqual([]);
+    expect(screen.getByText('1 selected')).toBeTruthy();
+  });
+
+  it('carries New alias in the search, on every screen', () => {
+    renderList(sampleAliasCache(false));
+
+    fireEvent.click(screen.getByRole('button', { name: 'New alias' }));
+
+    expect(screen.getByRole('radiogroup', { name: 'Type' })).toBeTruthy();
   });
 
   it('turns an alias on from its row', async () => {

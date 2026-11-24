@@ -18,6 +18,7 @@ import {
 import {
   ALIAS_LIST_CODEC,
   aliasDefs,
+  aliasFacetCount,
   formatPartValue,
   groupAliases,
   matchesAliasList,
@@ -91,12 +92,24 @@ describe('where a part comes from', () => {
 });
 
 describe('the list', () => {
-  it('keeps the problems alone when asked', () => {
+  it('keeps the aliases doing as ticked, any of them', () => {
     const shown = items.filter((item) =>
-      matchesAliasList(item, { ...OPEN_ALIAS_LIST_FILTER, show: 'problems' }),
+      matchesAliasList(item, { ...OPEN_ALIAS_LIST_FILTER, statuses: ['failing', 'unavailable'] }),
     );
 
     expect(shown.map((item) => item.name).sort()).toEqual(['Garage power', 'Washing done']);
+  });
+
+  it('counts each set facet once for the Filter badge, the search aside', () => {
+    expect(aliasFacetCount(OPEN_ALIAS_LIST_FILTER)).toBe(0);
+    expect(
+      aliasFacetCount({
+        ...OPEN_ALIAS_LIST_FILTER,
+        search: 'garage',
+        statuses: ['off', 'ok'],
+        device: 'virtual',
+      }),
+    ).toBe(2);
   });
 
   it('narrows by type, device and search', () => {
@@ -139,11 +152,18 @@ describe('the list', () => {
   });
 
   it('keeps its filter in the address, leaving out what is open', () => {
-    const filter = { ...OPEN_ALIAS_LIST_FILTER, show: 'problems' as const, type: 'light' };
+    const filter = {
+      ...OPEN_ALIAS_LIST_FILTER,
+      statuses: ['failing', 'off'] as const,
+      type: 'light',
+    };
     const written = new URLSearchParams(ALIAS_LIST_CODEC.write(filter));
 
-    expect(written.toString()).toBe('show=problems&type=light');
+    expect(written.toString()).toBe('status=failing%2Coff&type=light');
     expect(ALIAS_LIST_CODEC.read(written)).toEqual(filter);
+    expect(ALIAS_LIST_CODEC.read(new URLSearchParams('status=off,bogus')).statuses).toEqual([
+      'off',
+    ]);
   });
 });
 
