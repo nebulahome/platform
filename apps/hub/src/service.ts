@@ -153,7 +153,7 @@ import { importHistory } from './services/history-import.js';
 import { IdentificationService, type Identified } from './services/identification.js';
 import { ImageStore } from './services/images.js';
 import { serveInfrared } from './services/infrared-management.js';
-import { publishReports, startInstanceServices } from './services/instance.js';
+import { commandTimeoutOf, publishReports, startInstanceServices } from './services/instance.js';
 import { ManagementService } from './services/management.js';
 import { serveMatter } from './services/matter-management.js';
 import { serveModbus } from './services/modbus-management.js';
@@ -440,11 +440,10 @@ export class HubService {
          * @param deviceId - The device.
          * @param op - The op.
          * @param args - Its arguments.
-         * @param timeoutMs - How long it may take.
+         * @param within - How long it may take, or the command's deadline it goes within.
          * @returns What the device answered.
          */
-        send: async (deviceId, op, args, timeoutMs) =>
-          this.#sendRole(deviceId, op, args, timeoutMs),
+        send: async (deviceId, op, args, within) => this.#sendRole(deviceId, op, args, within),
 
         /**
          * Finds the device a scanner names.
@@ -1814,7 +1813,7 @@ export class HubService {
    * @param deviceId - The device.
    * @param op - The op.
    * @param args - Its arguments.
-   * @param timeoutMs - How long it may take.
+   * @param within - How long it may take, in milliseconds, or a signal that ends it.
    * @returns What the device answered.
    * @throws {ConflictError} When the device is not running.
    */
@@ -1822,7 +1821,7 @@ export class HubService {
     deviceId: string,
     op: string,
     args: JsonObject,
-    timeoutMs: number,
+    within: number | AbortSignal,
   ): Promise<unknown> {
     const running = this.#running.get(deviceId);
     const deviceKey = running?.book.claims()[0]?.deviceKey;
@@ -1831,7 +1830,10 @@ export class HubService {
       throw new ConflictError(`${deviceId} is not running`, { details: { deviceId } });
     }
 
-    return running.connection.send({ deviceKey, op, args }, AbortSignal.timeout(timeoutMs));
+    return running.connection.send(
+      { deviceKey, op, args },
+      typeof within === 'number' ? AbortSignal.timeout(within) : within,
+    );
   }
 
   /**
@@ -2115,7 +2117,10 @@ export class HubService {
         book,
         client,
         connection,
-        commandTimeoutMs: this.#options.config.HUB_COMMAND_TIMEOUT_MS,
+        commandTimeoutMs: commandTimeoutOf(
+          instance.transport,
+          this.#options.config.HUB_COMMAND_TIMEOUT_MS,
+        ),
       });
 
       this.#running.set(instance.id, {

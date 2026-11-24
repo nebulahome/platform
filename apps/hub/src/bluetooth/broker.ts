@@ -22,8 +22,13 @@
  * falling due (the proxy hearing it best, until it hears it again or 30 s). What it hears comes
  * back through the SDK's scanner, as heard by it.
  *
- * Only the local adapter connects to a device (GATT); proxies only listen. Matter pairs over the
- * same adapter, through BlueZ too, and says so here while it does.
+ * A device is connected to (GATT) through the server's adapter when it hears it well enough,
+ * otherwise through the proxy that hears it best of those that can connect and have a connection
+ * free, the next one tried when one fails; an address with a link open stays on it. The links,
+ * and the one request at a time each address takes, are `links.ts`'s; a proxy only carries out the
+ * reserved `bluetooth-proxy.connect|read|…` ops it is sent, and reports notifications, links lost
+ * and its free connections back through its scanner. Matter pairs over the adapter only, through
+ * BlueZ too, and says so here while it does.
  */
 import { randomUUID } from 'node:crypto';
 
@@ -33,6 +38,7 @@ import type { z } from 'zod';
 import {
   BLUETOOTH_HEARD_WINDOW_MS,
   BLUETOOTH_NEARBY_LEASE_MS,
+  BLUETOOTH_PROXY_GATT_OPS,
   BLUETOOTH_PROXY_OPS,
   BLUETOOTH_PROXY_STEPS,
   BLUETOOTH_TRANSPORT,
@@ -44,8 +50,12 @@ import {
   bluetoothGattReadArgsSchema,
   bluetoothGattWriteArgsSchema,
   bluetoothGattExchangeArgsSchema,
+  bluetoothGattValueSchema,
+  bluetoothProxyGattEventSchema,
   bluetoothProxyStateSchema,
+  AdapterError,
   ConflictError,
+  DeviceUnavailableError,
   NotFoundError,
   ValidationError,
   type BluetoothAdapterProblem,
@@ -58,6 +68,7 @@ import {
   type BluetoothMap,
   type BluetoothNearby,
   type BluetoothProxyCandidate,
+  type BluetoothProxyGattEventInput,
   type BluetoothProxyJob,
   type BluetoothProxyState,
   type BluetoothScanMode,
@@ -96,6 +107,7 @@ import {
   type BluetoothHostScan,
   type SeenBluetoothAdapter,
 } from './host.js';
+import { BluetoothLinks } from './links.js';
 
 /** How often the adapter is looked at again, forgotten addresses dropped and filters sent. */
 const REFRESH_MS = 30_000;
@@ -143,6 +155,12 @@ const MAXIMUM_PER_MINUTE = 100_000;
 /** How many addresses are kept heard, at most, before the oldest no one uses are dropped. */
 const MAXIMUM_HEARD = 10_000;
 
+/** How loud the server's adapter must hear a device to connect to it before any proxy, in dBm. */
+const ADAPTER_PREFERRED_RSSI = -85;
+
+/** What the adapter is called where a failure says what was tried. */
+const ADAPTER_LABEL = 'the server’s adapter';
+
 /** The makers of the company ids heard most, as Nearby names them. */
 const MAKERS: Readonly<Record<number, string>> = {
   6: 'Microsoft',
@@ -169,11 +187,17 @@ export type BluetoothSighting = {
 /** How the broker reaches the devices of the house that play a role for it. */
 export type BluetoothRoles = {
   /**
-   * Sends an op to a device over its instance's connection.
+   * Sends an op to a device over its instance's connection, within some milliseconds or until a
+   * signal aborts: a command's GATT goes with the time the command has left.
    *
    * @throws {Error} When the device is not running, or its integration refused.
    */
-  send: (deviceId: string, op: string, args: JsonObject, timeoutMs: number) => Promise<unknown>;
+  send: (
+    deviceId: string,
+    op: string,
+    args: JsonObject,
+    within: number | AbortSignal,
+  ) => Promise<unknown>;
 
   /** The device a scanner names: its instance, by its connection and its device key. */
   deviceOf: (connectionKey: string, deviceKey: string) => string | undefined;
@@ -254,6 +278,31 @@ type StepId = (typeof BLUETOOTH_PROXY_STEPS)[number];
 
 /** An SDK scanner open. */
 type OpenScanner = { readonly options: BluetoothScannerOptions; isOpen: boolean };
+
+/** One GATT request, as a proxy and as the adapter carry it out. */
+type GattCall = {
+  readonly address: string;
+
+  /** The reserved op a proxy is sent, and its arguments. */
+  readonly op: string;
+  readonly args: JsonObject;
+
+  /** Whether it answers `{ data }`. */
+  readonly hasValue: boolean;
+
+  /** For `gatt.notify`: the characteristic, and where its values go; null to stop. */
+  readonly follow?: {
+    readonly service: string;
+    readonly characteristic: string;
+    readonly listener: ((data: string) => void) | null;
+  };
+
+  /** Carries it out on the adapter, connecting first. */
+  readonly onAdapter: (adapterId: string) => Promise<unknown>;
+};
+
+/** A way to a device: the server's adapter, or a proxy. */
+type Route = { readonly adapterId: string } | { readonly proxyId: string };
 
 /**
  * Whether an address is private: random, and not static (its two top bits not both set), so a
@@ -356,6 +405,7 @@ export class BluetoothBroker {
   readonly #advertListeners = new Set<(advert: BluetoothAdvert) => void>();
   readonly #deviceListeners = new Set<() => void>();
   readonly #offListeners = new Set<() => void>();
+  readonly #links: BluetoothLinks;
   #pairing = 0;
 
   #refreshing: Promise<void> = Promise.resolve();
@@ -378,6 +428,13 @@ export class BluetoothBroker {
    */
   constructor(options: BluetoothBrokerOptions) {
     this.#options = options;
+    this.#links = new BluetoothLinks(
+      async (deviceId, op, args, within) => options.roles.send(deviceId, op, args, within),
+      () => {
+        options.onChange?.('scanners');
+        options.onChange?.('devices');
+      },
+    );
   }
 
   /**
@@ -440,6 +497,7 @@ export class BluetoothBroker {
   async stop(): Promise<void> {
     clearInterval(this.#timer);
     clearTimeout(this.#leaseTimer);
+    this.#links.close();
     this.#timer = undefined;
     this.#unwatch?.();
     this.#unwatch = undefined;
@@ -535,7 +593,7 @@ export class BluetoothBroker {
   async devices(): Promise<BluetoothDevice[]> {
     const instances = await this.#options.instances();
     const names = this.#scannerNames(instances);
-    const connected = new Set(this.#connectedAddresses());
+    const connected = new Set([...this.#connectedAddresses(), ...this.#links.connected()]);
     const now = this.#now();
 
     return this.#house(instances)
@@ -999,16 +1057,23 @@ export class BluetoothBroker {
   }
 
   /**
-   * Reads, writes or follows a characteristic on the local adapter, for the transport.
+   * Reads, writes or follows a characteristic, for the transport: over the link the address has,
+   * else through the adapter or a proxy that connects, one after another until one does. One
+   * request at a time per address.
    *
    * @param request - A `gatt.*` op.
    * @param deliver - Where a followed characteristic's values go.
+   * @param signal - The command's deadline: it ends the request, waiting or under way.
    * @returns What the op answers: `{ data }` for a read or an exchange, null otherwise.
-   * @throws {ConflictError} When the adapter cannot connect, or only proxies hear the device.
+   * @throws {ConflictError} When nothing that hears the device can connect to it.
+   * @throws {DeviceUnavailableError} When each way tried failed to connect; the message says how.
    * @throws {ValidationError} When the op is not a GATT op, or its arguments are not.
    */
-  async gatt(request: TransportRequest, deliver: (payload: JsonObject) => void): Promise<unknown> {
-    const adapter = this.#adapter;
+  async gatt(
+    request: TransportRequest,
+    deliver: (payload: JsonObject) => void,
+    signal: AbortSignal,
+  ): Promise<unknown> {
     const address = bluetoothAddressSchema.safeParse(request.deviceKey);
 
     if (!address.success) {
@@ -1017,90 +1082,9 @@ export class BluetoothBroker {
       });
     }
 
-    if (adapter === null) {
-      throw new ConflictError(
-        `The server’s Bluetooth adapter cannot connect (${this.#adapterProblem ?? 'no adapter'})`,
-        { details: { address: address.data } },
-      );
-    }
+    const call = this.#callOf(address.data, request, deliver);
 
-    const entry = this.#heard.get(address.data);
-
-    if (
-      entry !== undefined &&
-      entry.hearings.size > 0 &&
-      !entry.hearings.has(this.#adapterScannerId(adapter))
-    ) {
-      throw new ConflictError(
-        `Only proxies hear ${address.data}, and proxies listen without connecting`,
-        { details: { address: address.data } },
-      );
-    }
-
-    const { host } = this.#options;
-
-    switch (request.op) {
-      case 'gatt.read': {
-        const args = argsOf(bluetoothGattReadArgsSchema, request.args, request.op);
-
-        return {
-          data: await host.read(adapter.id, address.data, args.service, args.characteristic),
-        };
-      }
-
-      case 'gatt.write': {
-        const args = argsOf(bluetoothGattWriteArgsSchema, request.args, request.op);
-
-        await host.write(
-          adapter.id,
-          address.data,
-          args.service,
-          args.characteristic,
-          args.data,
-          args.withResponse,
-        );
-
-        return null;
-      }
-
-      case 'gatt.exchange': {
-        const args = argsOf(bluetoothGattExchangeArgsSchema, request.args, request.op);
-
-        return {
-          data: await host.exchange(adapter.id, address.data, {
-            service: args.service,
-            characteristic: args.characteristic,
-            notify: args.notify,
-            data: args.data,
-            withResponse: args.withResponse,
-            timeoutMs: args.timeoutMs,
-          }),
-        };
-      }
-
-      case 'gatt.notify': {
-        const args = argsOf(bluetoothGattNotifyArgsSchema, request.args, request.op);
-
-        await host.notify(
-          adapter.id,
-          address.data,
-          args.service,
-          args.characteristic,
-          args.isOn
-            ? (data) => {
-                deliver({ service: args.service, characteristic: args.characteristic, data });
-              }
-            : null,
-        );
-
-        return null;
-      }
-
-      default:
-        throw new ValidationError(`The ${BLUETOOTH_TRANSPORT} transport has no ${request.op} op`, {
-          details: { op: request.op },
-        });
-    }
+    return this.#links.run(address.data, signal, async () => this.#carry(call, signal));
   }
 
   /**
@@ -1163,7 +1147,7 @@ export class BluetoothBroker {
               : proxy.scanMode,
           canPassive: this.#modesOf(instance?.kind ?? '').includes('passive'),
           advertsPerMinute: this.#perMinute(proxy.integrationId, now),
-          connections: null,
+          connections: this.#links.connections(proxy.integrationId),
           forwarding: this.#isForwardingAll() ? 'everything' : 'house',
           lastReportAt: this.#lastAt(proxy.integrationId),
           script: {
@@ -1294,6 +1278,7 @@ export class BluetoothBroker {
    * @param deviceId - The device.
    */
   releaseInstance(deviceId: string): void {
+    this.#links.forget(deviceId);
     this.#proxies.delete(deviceId);
     this.#proxyNotes.delete(deviceId);
     this.#scanners.delete(deviceId);
@@ -1330,6 +1315,8 @@ export class BluetoothBroker {
     const deviceId = this.#options.roles.deviceOf(options.key, options.deviceKey);
 
     if (deviceId !== undefined && this.#proxies.has(deviceId)) {
+      // Its links went with the connection, and it says again how many it can hold.
+      this.#links.forget(deviceId);
       this.#noteOf(deviceId).filter = null;
       void this.#pushFilters();
       void this.#askState(deviceId);
@@ -1347,12 +1334,29 @@ export class BluetoothBroker {
         }
       },
 
-      /** Stops taking what it hears. */
+      /**
+       * Takes what happened on the proxy's links.
+       *
+       * @param event - A notification, a link lost, or its free connections.
+       */
+      gatt: (event: BluetoothProxyGattEventInput) => {
+        if (open.isOpen) {
+          this.#gattEvent(options, event);
+        }
+      },
+
+      /** Stops taking what it hears: its links went with its connection. */
       close: () => {
         open.isOpen = false;
 
         if (this.#openScanners.get(key) === open) {
           this.#openScanners.delete(key);
+
+          const proxy = deviceId ?? this.#options.roles.deviceOf(options.key, options.deviceKey);
+
+          if (proxy !== undefined) {
+            this.#links.forget(proxy);
+          }
         }
       },
     };
@@ -1623,6 +1627,326 @@ export class BluetoothBroker {
 
       this.#heard.delete(entry.address);
       excess -= 1;
+    }
+  }
+
+  /**
+   * A GATT request, checked, as a proxy and as the adapter carry it out.
+   *
+   * @param address - The device.
+   * @param request - A `gatt.*` op.
+   * @param deliver - Where a followed characteristic's values go.
+   * @returns The call.
+   * @throws {ValidationError} When the op is not a GATT op, or its arguments are not.
+   */
+  #callOf(
+    address: string,
+    request: TransportRequest,
+    deliver: (payload: JsonObject) => void,
+  ): GattCall {
+    const { host } = this.#options;
+
+    switch (request.op) {
+      case 'gatt.read': {
+        const args = argsOf(bluetoothGattReadArgsSchema, request.args, request.op);
+
+        return {
+          address,
+          op: BLUETOOTH_PROXY_GATT_OPS.read,
+          args: { address, ...args },
+          hasValue: true,
+          /**
+           * Reads it on the adapter.
+           *
+           * @param adapterId - The adapter.
+           * @returns Its value.
+           */
+          onAdapter: async (adapterId) => ({
+            data: await host.read(adapterId, address, args.service, args.characteristic),
+          }),
+        };
+      }
+
+      case 'gatt.write': {
+        const args = argsOf(bluetoothGattWriteArgsSchema, request.args, request.op);
+
+        return {
+          address,
+          op: BLUETOOTH_PROXY_GATT_OPS.write,
+          args: { address, ...args },
+          hasValue: false,
+          /**
+           * Writes it on the adapter.
+           *
+           * @param adapterId - The adapter.
+           * @returns Null, once written.
+           */
+          onAdapter: async (adapterId) => {
+            await host.write(
+              adapterId,
+              address,
+              args.service,
+              args.characteristic,
+              args.data,
+              args.withResponse,
+            );
+
+            return null;
+          },
+        };
+      }
+
+      case 'gatt.exchange': {
+        const args = argsOf(bluetoothGattExchangeArgsSchema, request.args, request.op);
+
+        return {
+          address,
+          op: BLUETOOTH_PROXY_GATT_OPS.exchange,
+          args: { address, ...args },
+          hasValue: true,
+          /**
+           * Writes the request and waits for the answer on the adapter.
+           *
+           * @param adapterId - The adapter.
+           * @returns The answer.
+           */
+          onAdapter: async (adapterId) => ({ data: await host.exchange(adapterId, address, args) }),
+        };
+      }
+
+      case 'gatt.notify': {
+        const args = argsOf(bluetoothGattNotifyArgsSchema, request.args, request.op);
+        const listener = args.isOn
+          ? (data: string): void => {
+              deliver({ service: args.service, characteristic: args.characteristic, data });
+            }
+          : null;
+
+        return {
+          address,
+          op: BLUETOOTH_PROXY_GATT_OPS.notify,
+          args: { address, ...args },
+          hasValue: false,
+          follow: { service: args.service, characteristic: args.characteristic, listener },
+          /**
+           * Turns the notifications on or off on the adapter.
+           *
+           * @param adapterId - The adapter.
+           * @returns Null, once done.
+           */
+          onAdapter: async (adapterId) => {
+            await host.notify(adapterId, address, args.service, args.characteristic, listener);
+
+            return null;
+          },
+        };
+      }
+
+      default:
+        throw new ValidationError(`The ${BLUETOOTH_TRANSPORT} transport has no ${request.op} op`, {
+          details: { op: request.op },
+        });
+    }
+  }
+
+  /**
+   * Carries a GATT request out over the link the address has, or connects first: through each
+   * way that can, in turn, while the command has time.
+   *
+   * @param call - The request.
+   * @param signal - The command's deadline.
+   * @returns What it answers.
+   * @throws {ConflictError} When nothing that hears the device can connect to it.
+   * @throws {DeviceUnavailableError} When each way tried failed to connect.
+   */
+  async #carry(call: GattCall, signal: AbortSignal): Promise<unknown> {
+    const { address } = call;
+    const linked = this.#links.proxyOf(address);
+    const adapter = this.#adapter;
+
+    if (linked !== undefined) {
+      return this.#onProxy(linked, call, signal);
+    }
+
+    if (adapter !== null && this.#connectedAddresses().includes(address)) {
+      return call.onAdapter(adapter.id);
+    }
+
+    const { routes, refused } = this.#routesTo(address);
+    const tried: [string, string][] = [];
+
+    for (const route of routes) {
+      if (signal.aborted) {
+        break;
+      }
+
+      if ('adapterId' in route) {
+        try {
+          // eslint-disable-next-line no-await-in-loop -- one way at a time, the next if it failed
+          return await call.onAdapter(route.adapterId);
+        } catch (error: unknown) {
+          // Connected, the request itself failed: sent another way, it could be done twice.
+          if (this.#connectedAddresses().includes(address)) {
+            throw error;
+          }
+
+          tried.push([ADAPTER_LABEL, messageOf(error)]);
+          continue;
+        }
+      }
+
+      // Nothing is on to turn off without a link.
+      if (call.follow?.listener === null) {
+        return null;
+      }
+
+      try {
+        // eslint-disable-next-line no-await-in-loop -- see above
+        await this.#links.connect(address, route.proxyId, signal);
+      } catch (error: unknown) {
+        tried.push([route.proxyId, messageOf(error)]);
+        continue;
+      }
+
+      return this.#onProxy(route.proxyId, call, signal);
+    }
+
+    const names = this.#scannerNames(
+      await this.#options.instances().catch((): BluetoothInstance[] => []),
+    );
+    const why = [...tried, ...refused]
+      .map(([id, reason]) => `${names.get(id) ?? id}: ${reason}`)
+      .join('; ');
+
+    throw tried.length > 0
+      ? new DeviceUnavailableError(`Could not connect to ${address}: ${why}`, {
+          details: { address },
+        })
+      : new ConflictError(`Nothing that hears ${address} can connect to it: ${why}`, {
+          details: { address },
+        });
+  }
+
+  /**
+   * The ways to connect to an address, the first to try first: the adapter when it hears it at
+   * -85 dBm or better, then the proxies hearing it lately that connect and have a connection free,
+   * the loudest first, then the adapter hearing it worse. One nobody heard is tried on the adapter.
+   *
+   * @param address - The device.
+   * @returns The ways, and why each other scanner hearing it is not one.
+   */
+  #routesTo(address: string): { routes: Route[]; refused: [string, string][] } {
+    const now = this.#now();
+    const entry = this.#heard.get(address);
+    const hearings = entry === undefined ? [] : this.#hearingsOf(entry, new Map(), now, false);
+    const proxies: Route[] = [];
+    const refused: [string, string][] = [];
+
+    for (const hearing of hearings) {
+      if (this.#proxies.has(hearing.scannerId) && this.#isFresh(hearing.at.getTime(), now)) {
+        const slots = this.#links.slotsOf(hearing.scannerId);
+
+        if (slots !== undefined && slots.free > 0) {
+          proxies.push({ proxyId: hearing.scannerId });
+        } else {
+          refused.push([
+            hearing.scannerId,
+            slots === undefined ? 'it cannot connect' : 'no free connection',
+          ]);
+        }
+      }
+    }
+
+    const adapter = this.#adapter;
+
+    if (adapter === null) {
+      return {
+        routes: proxies,
+        refused: [...refused, [ADAPTER_LABEL, this.#adapterProblem ?? 'no adapter']],
+      };
+    }
+
+    const heard = hearings.find((each) => each.scannerId === this.#adapterScannerId(adapter));
+
+    // BlueZ connects only to an address it heard: one nobody heard yet is tried all the same.
+    if (heard === undefined && hearings.length > 0) {
+      return { routes: proxies, refused: [...refused, [ADAPTER_LABEL, 'it does not hear it']] };
+    }
+
+    const isNear =
+      heard !== undefined &&
+      this.#isFresh(heard.at.getTime(), now) &&
+      heard.rssi >= ADAPTER_PREFERRED_RSSI;
+    const local: Route = { adapterId: adapter.id };
+
+    return { routes: isNear ? [local, ...proxies] : [...proxies, local], refused };
+  }
+
+  /**
+   * Carries a GATT request out through the proxy the address is linked through.
+   *
+   * @param deviceId - The proxy.
+   * @param call - The request.
+   * @param signal - The command's deadline: the proxy has what is left of it.
+   * @returns What it answers.
+   * @throws {AdapterError} When the proxy answered not as the contract says.
+   */
+  async #onProxy(deviceId: string, call: GattCall, signal: AbortSignal): Promise<unknown> {
+    const answer = await this.#options.roles.send(deviceId, call.op, call.args, signal);
+
+    if (call.follow !== undefined) {
+      this.#links.follow(
+        call.address,
+        call.follow.service,
+        call.follow.characteristic,
+        call.follow.listener,
+      );
+    }
+
+    if (!call.hasValue) {
+      return null;
+    }
+
+    const value = bluetoothGattValueSchema.safeParse(answer);
+
+    if (!value.success) {
+      throw new AdapterError(`The proxy answered ${call.op} not as the contract says`, {
+        details: { deviceId, op: call.op },
+      });
+    }
+
+    return value.data;
+  }
+
+  /**
+   * Takes what a proxy reported on its links: a notification to deliver, a link lost, its free
+   * connections.
+   *
+   * @param options - The proxy's scanner.
+   * @param event - What it reported; one that does not hold is dropped.
+   */
+  #gattEvent(options: BluetoothScannerOptions, event: BluetoothProxyGattEventInput): void {
+    const deviceId = this.#options.roles.deviceOf(options.key, options.deviceKey);
+    const parsed = bluetoothProxyGattEventSchema.safeParse(event);
+
+    if (deviceId === undefined || !this.#proxies.has(deviceId) || !parsed.success) {
+      return;
+    }
+
+    const each = parsed.data;
+
+    if (each.kind === 'notification') {
+      this.#links.notification(
+        deviceId,
+        each.address,
+        each.service,
+        each.characteristic,
+        each.data,
+      );
+    } else if (each.kind === 'disconnected') {
+      this.#links.lost(deviceId, each.address, each.reason ?? 'the proxy lost it');
+    } else {
+      this.#links.setSlots(deviceId, each);
     }
   }
 
@@ -2053,6 +2377,10 @@ export class BluetoothBroker {
       }
 
       this.#noteOf(deviceId).state = parsed.data;
+      this.#links.setSlots(
+        deviceId,
+        parsed.data.eligible ? (parsed.data.connections ?? null) : null,
+      );
 
       return parsed.data;
     } catch (error: unknown) {

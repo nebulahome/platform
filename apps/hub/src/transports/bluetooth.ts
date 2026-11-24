@@ -9,9 +9,10 @@
  * (`{ op: 'follow', args: { address, activeEveryMinutes? } }`) and is delivered each advertisement
  * heard from it, by any scanner, as `{ deviceKey: address, payload: advert }`; with
  * `activeEveryMinutes`, the proxy hearing it best scans actively once that often, for what the
- * device answers only when asked. A request is GATT on the local adapter - `gatt.read`,
- * `gatt.write`, `gatt.exchange` (a request and the answer notified back), `gatt.notify` - refused
- * when only proxies hear the device; a followed characteristic's values are delivered as
+ * device answers only when asked. A request is GATT - `gatt.read`, `gatt.write`, `gatt.exchange`
+ * (a request and the answer notified back), `gatt.notify` - which the broker carries out over the
+ * server's adapter or a proxy that connects, whichever hears the device and can, within the
+ * command's deadline; a followed characteristic's values are delivered as
  * `{ service, characteristic, data }`.
  */
 import { z } from 'zod';
@@ -55,7 +56,7 @@ function jsonOf(advert: BluetoothAdvert): JsonObject {
 /**
  * Builds the transport over the house's Bluetooth broker.
  *
- * @param broker - The broker: what it hears, and the local adapter.
+ * @param broker - The broker: what it hears, and the links it opens.
  * @returns The transport.
  */
 export function createBluetoothTransport(broker: BluetoothBroker) {
@@ -95,19 +96,24 @@ export function createBluetoothTransport(broker: BluetoothBroker) {
         key: BLUETOOTH_TRANSPORT,
 
         /**
-         * Reads, writes or follows a characteristic on the local adapter.
+         * Reads, writes or follows a characteristic.
          *
          * @param request - A `gatt.*` op.
+         * @param signal - The command's deadline: it ends the request, waiting or under way.
          * @returns What the op answers.
          */
-        send: async (request: TransportRequest): Promise<unknown> =>
-          broker.gatt(request, (payload) => {
-            context.deliver({
-              connectionKey: BLUETOOTH_TRANSPORT,
-              deviceKey: request.deviceKey,
-              payload,
-            });
-          }),
+        send: async (request: TransportRequest, signal: AbortSignal): Promise<unknown> =>
+          broker.gatt(
+            request,
+            (payload) => {
+              context.deliver({
+                connectionKey: BLUETOOTH_TRANSPORT,
+                deviceKey: request.deviceKey,
+                payload,
+              });
+            },
+            signal,
+          ),
 
         /**
          * Follows exactly these addresses.

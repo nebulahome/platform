@@ -23,7 +23,7 @@ import {
 
 import { DeviceBook } from '../domain/devices.js';
 
-import { startInstanceServices } from './instance.js';
+import { commandTimeoutOf, startInstanceServices } from './instance.js';
 
 const RELAY = parseEntityId('switch.relay_one');
 const STRANGER = parseEntityId('switch.somewhere_else');
@@ -354,5 +354,14 @@ describe('startInstanceServices', () => {
     stop();
 
     expect(reply.entityCount).toBe(0);
+  });
+});
+
+describe('commandTimeoutOf', () => {
+  it('gives a Bluetooth device’s command 10 s, and every other the time configured', () => {
+    expect(commandTimeoutOf('bluetooth', 4000)).toBe(10_000);
+    expect(commandTimeoutOf('bluetooth', 15_000)).toBe(15_000);
+    expect(commandTimeoutOf('http', 4000)).toBe(4000);
+    expect(commandTimeoutOf('shelly/rpc', 4000)).toBe(4000);
   });
 });

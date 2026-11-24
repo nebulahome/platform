@@ -1,6 +1,6 @@
 /**
  * The Bluetooth scanners an integration's code opens through the SDK, one per proxy device: each
- * reports to the Bluetooth broker as heard by that proxy.
+ * reports to the Bluetooth broker as heard by that proxy, and what happens on the links it holds.
  *
  * One set per vendor, closed with the vendor.
  */
@@ -41,6 +41,7 @@ export function createBluetoothScanners(
 
         return {
           report: scanner.report,
+          gatt: scanner.gatt,
 
           /** Stops reporting. */
           close: () => {

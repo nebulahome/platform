@@ -9,8 +9,9 @@
  * and service data, its name. Active scanning is BlueZ's discovery, filtered to LE with every
  * duplicate reported; passive scanning registers an advertisement monitor, where BlueZ offers one.
  *
- * GATT is read, written and followed on the local adapter only: a device is connected for the
- * request, kept while notifications are on, and let go of when idle.
+ * GATT is read, written and followed on the local adapter: a device is connected for the request,
+ * kept while notifications are on, and let go of when idle - as the broker lets go of a link it
+ * opened through a proxy.
  *
  * Linux only, behind {@link BluetoothHost} so the broker's tests run on a fake. In a container the
  * host's bus is reached through `/run/dbus` mounted in; without it, or without BlueZ answering on
@@ -317,8 +318,11 @@ export type GattExchange = {
   readonly timeoutMs: number;
 };
 
-/** How long a device connected for a read or a write is kept with nothing following it. */
-const IDLE_MS = 30_000;
+/**
+ * How long a device connected for a read or a write is kept with nothing following it: a
+ * conversation's next step, or a second command soon after, then its battery is spared.
+ */
+const IDLE_MS = 5000;
 
 /** The part of `@jellybrick/dbus-next` used here. */
 type DbusMessage = {

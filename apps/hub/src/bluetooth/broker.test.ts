@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  BLUETOOTH_PROXY_GATT_OPS,
   BLUETOOTH_PROXY_OPS,
   BLUETOOTH_TRANSPORT,
   type BluetoothAdvertInput,
@@ -11,10 +12,12 @@ import {
   resolveDiscovery,
   vendorDiscoverySchema,
   type LoadedVendor,
+  type TransportConnection,
   type TransportInbound,
 } from '@nebulahome/package-runtime';
 
 import { memoryBluetoothStore, type BluetoothInstance } from '../persistence/bluetooth.js';
+import { BLUETOOTH_COMMAND_TIMEOUT_MS } from '../services/instance.js';
 import { platformBluetoothVendor } from '../services/platform-vendors.js';
 import {
   createFakeBluetoothHost,
@@ -119,11 +122,11 @@ type Rig = {
   readonly host: FakeBluetoothHost;
   readonly instances: BluetoothInstance[];
 
-  /** Every op sent to a device, in order. */
-  readonly sent: { deviceId: string; op: string; args: JsonObject }[];
+  /** Every op sent to a device, in order, and the time or the signal it went within. */
+  readonly sent: { deviceId: string; op: string; args: JsonObject; within: number | AbortSignal }[];
 
-  /** What each op answers; a function may throw. */
-  readonly answers: Map<string, () => unknown>;
+  /** What each op answers, by its arguments; a function may throw. */
+  readonly answers: Map<string, (args: JsonObject) => unknown>;
   readonly clock: { now: number };
 
   /** The filters sent to proxies, in order. */
@@ -143,6 +146,7 @@ afterEach(async () => {
  * @param options.isProxy - Whether the plug is a proxy already.
  * @param options.host - The host; one adapter when absent.
  * @param options.refreshMs - How often the broker looks again; never when absent.
+ * @param options.connects - Whether the proxy says it connects, with three connections free.
  * @returns The rig, started.
  */
 async function rig(
@@ -150,13 +154,14 @@ async function rig(
     readonly isProxy?: boolean;
     readonly host?: FakeBluetoothHost;
     readonly refreshMs?: number;
+    readonly connects?: boolean;
   } = {},
 ): Promise<Rig> {
   const store = memoryBluetoothStore();
   const host = options.host ?? createFakeBluetoothHost();
   const instances: BluetoothInstance[] = [plug()];
   const sent: Rig['sent'] = [];
-  const answers = new Map<string, () => unknown>([
+  const answers = new Map<string, (args: JsonObject) => unknown>([
     [BLUETOOTH_PROXY_OPS.install, () => null],
     [BLUETOOTH_PROXY_OPS.filter, () => null],
     [BLUETOOTH_PROXY_OPS.remove, () => null],
@@ -168,8 +173,14 @@ async function rig(
         version: '1.0.0',
         shipped: '1.1.0',
         running: true,
+        ...(options.connects === true ? { connections: { free: 3, limit: 3 } } : {}),
       }),
     ],
+    [BLUETOOTH_PROXY_GATT_OPS.connect, () => ({ mtu: 247 })],
+    [BLUETOOTH_PROXY_GATT_OPS.disconnect, () => null],
+    [BLUETOOTH_PROXY_GATT_OPS.read, () => ({ data: '0a09' })],
+    [BLUETOOTH_PROXY_GATT_OPS.write, () => null],
+    [BLUETOOTH_PROXY_GATT_OPS.notify, () => null],
   ]);
   const clock = { now: Date.parse('2026-10-27T20:00:00Z') };
 
@@ -183,10 +194,10 @@ async function rig(
   }
 
   const roles: BluetoothRoles = {
-    send: async (deviceId, op, args) => {
-      sent.push({ deviceId, op, args });
+    send: async (deviceId, op, args, within) => {
+      sent.push({ deviceId, op, args, within });
 
-      return Promise.resolve().then(() => answers.get(op)?.());
+      return Promise.resolve().then(() => answers.get(op)?.(args));
     },
     deviceOf: (key, deviceKey) =>
       key === PROXY_KEY.key && deviceKey === PROXY_KEY.deviceKey ? PROXY : undefined,
@@ -571,7 +582,7 @@ describe('the Bluetooth broker', () => {
     await expect(broker.addProxy('nobody')).rejects.toThrow(/cannot be a Bluetooth proxy/u);
   });
 
-  it('drops a proxy’s report until it is one, and refuses GATT to what only proxies hear', async () => {
+  it('drops a proxy’s report until it is one, and refuses GATT to what only a proxy that listens hears', async () => {
     const { broker } = await rig({ isProxy: true });
 
     broker.scanner('shelly', { key: 'other', deviceKey: 'other' }).report([bthome(-50)]);
@@ -582,8 +593,11 @@ describe('the Bluetooth broker', () => {
       broker.gatt(
         { deviceKey: SENSOR, op: 'gatt.read', args: { service: '181a', characteristic: '2a6e' } },
         () => undefined,
+        AbortSignal.timeout(1000),
       ),
-    ).rejects.toThrow(/Only proxies hear/u);
+    ).rejects.toThrow(
+      `Nothing that hears ${SENSOR} can connect to it: Kitchen Plug S: it cannot connect; the server’s adapter: it does not hear it`,
+    );
   });
 
   it('tells Matter the adapter went off', async () => {
@@ -620,6 +634,416 @@ describe('the Bluetooth broker', () => {
       await broker.saveSettings({ ...settings, localEnabled: true, localScanMode: 'passive' }),
     ).toMatchObject({ state: 'running', adapter: { scanMode: 'passive' } });
     expect(host.scanning.get('hci0')).toBe('passive');
+  });
+});
+
+describe('GATT through a proxy that connects', () => {
+  /** A SwitchBot Bot. */
+  const BOT = 'C4:BE:84:12:34:56';
+
+  /** SwitchBot's service: a request written to one characteristic, its answer notified by another. */
+  const SWITCHBOT = {
+    service: 'cba20d00-224d-11e6-9fb8-0002a5d5c51b',
+    characteristic: 'cba20002-224d-11e6-9fb8-0002a5d5c51b',
+    notify: 'cba20003-224d-11e6-9fb8-0002a5d5c51b',
+  };
+
+  const { connect, disconnect, read, notify } = BLUETOOTH_PROXY_GATT_OPS;
+
+  /**
+   * An advertisement of an address.
+   *
+   * @param address - The address.
+   * @param rssi - How loud.
+   * @returns It.
+   */
+  const heard = (address: string, rssi: number): BluetoothAdvertInput => ({
+    address,
+    addressType: 'random',
+    rssi,
+    at: new Date(),
+  });
+
+  /**
+   * A machine with no adapter it can use, as Docker Desktop is.
+   *
+   * @returns It.
+   */
+  const noAdapter = (): FakeBluetoothHost => {
+    const host = createFakeBluetoothHost([]);
+
+    host.problem = 'no-dbus';
+
+    return host;
+  };
+
+  /**
+   * The proxy's connections, as the Scanners page shows them.
+   *
+   * @param each - The rig.
+   * @returns Them.
+   */
+  const connections = async (each: Rig): Promise<unknown> =>
+    (await each.broker.scanners()).find((scanner) => scanner.kind === 'proxy')?.connections;
+
+  /**
+   * Opens the proxy's scanner, and waits for it to say its connections.
+   *
+   * @param each - The rig.
+   * @returns The scanner.
+   */
+  const connecting = async (each: Rig): Promise<ReturnType<BluetoothBroker['scanner']>> => {
+    const scanner = each.broker.scanner('shelly', PROXY_KEY);
+
+    await vi.waitFor(async () => {
+      expect(await connections(each)).toEqual({ used: 0, max: 3 });
+    });
+
+    return scanner;
+  };
+
+  /**
+   * The GATT ops the proxy was sent, in order.
+   *
+   * @param each - The rig.
+   * @returns Their names.
+   */
+  const gattOps = (each: Rig): string[] =>
+    each.sent
+      .filter((sent) => (Object.values(BLUETOOTH_PROXY_GATT_OPS) as string[]).includes(sent.op))
+      .map((sent) => sent.op);
+
+  /**
+   * Reads a characteristic of the `181a` service.
+   *
+   * @param broker - The broker.
+   * @param address - The device.
+   * @param characteristic - The characteristic.
+   * @param signal - The command's deadline.
+   * @returns What it answered.
+   */
+  const readOf = async (
+    broker: BluetoothBroker,
+    address: string,
+    characteristic = '2a6e',
+    signal = AbortSignal.timeout(1000),
+  ): Promise<unknown> =>
+    broker.gatt(
+      { deviceKey: address, op: 'gatt.read', args: { service: '181a', characteristic } },
+      () => undefined,
+      signal,
+    );
+
+  /**
+   * Turns SwitchBot's answers on or off.
+   *
+   * @param broker - The broker.
+   * @param isOn - Which.
+   * @returns Once done.
+   */
+  const notifyOf = async (broker: BluetoothBroker, isOn: boolean): Promise<unknown> =>
+    broker.gatt(
+      {
+        deviceKey: BOT,
+        op: 'gatt.notify',
+        args: { service: SWITCHBOT.service, characteristic: SWITCHBOT.notify, isOn },
+      },
+      () => undefined,
+      AbortSignal.timeout(1000),
+    );
+
+  /**
+   * The transport's connection over the broker.
+   *
+   * @param broker - The broker.
+   * @param delivered - Where what it delivers goes.
+   * @returns The connection.
+   */
+  const transportOf = async (
+    broker: BluetoothBroker,
+    delivered: TransportInbound[] = [],
+  ): Promise<TransportConnection> =>
+    createBluetoothTransport(broker).connect(
+      {},
+      {
+        logger: createLogger({ service: 'hub', version: '0.0.0', level: 'fatal' }),
+        deliver: (message) => delivered.push(message),
+        report: () => undefined,
+      },
+    );
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('connects through the adapter hearing a device well, else through the proxy hearing it best, and stays on it', async () => {
+    const each = await rig({ isProxy: true, connects: true });
+    const proxy = await connecting(each);
+
+    // Heard at -80 dBm by the adapter: near enough, though the proxy hears it louder.
+    each.host.hear(heard(SENSOR, -80));
+    proxy.report([heard(SENSOR, -50)]);
+    each.host.values.set(`${SENSOR} 181a 2a6e`, '0b09');
+    await expect(readOf(each.broker, SENSOR)).resolves.toEqual({ data: '0b09' });
+    expect(gattOps(each)).toEqual([]);
+
+    // Heard at -90 dBm: through the proxy, with what is left of the command's time.
+    const signal = AbortSignal.timeout(1000);
+
+    each.instances.push({ ...thermometer(), id: 'bot', externalId: BOT, name: 'Bot' });
+    each.host.hear(heard(BOT, -90));
+    proxy.report([heard(BOT, -60)]);
+    await expect(readOf(each.broker, BOT, '2a6e', signal)).resolves.toEqual({ data: '0a09' });
+    expect(each.sent.filter((sent) => sent.op === connect || sent.op === read)).toEqual([
+      { deviceId: PROXY, op: connect, args: { address: BOT }, within: signal },
+      {
+        deviceId: PROXY,
+        op: read,
+        args: { address: BOT, service: '181a', characteristic: '2a6e' },
+        within: signal,
+      },
+    ]);
+    expect(await connections(each)).toEqual({ used: 1, max: 3 });
+    expect((await each.broker.devices()).find((device) => device.address === BOT)?.link).toBe(
+      'connected',
+    );
+
+    // Heard louder by the adapter now: the link it has stays on the proxy.
+    each.host.hear(heard(BOT, -40));
+    await readOf(each.broker, BOT);
+    expect(gattOps(each)).toEqual([connect, read, read]);
+  });
+
+  it('tries the next way when one does not connect, and says what it tried when none does', async () => {
+    const each = await rig({ isProxy: true, connects: true });
+    const proxy = await connecting(each);
+    const other = 'C4:BE:84:00:00:02';
+
+    each.answers.set(connect, () => {
+      throw new Error('Timed out connecting');
+    });
+    each.host.hear(heard(BOT, -90));
+    proxy.report([heard(BOT, -60)]);
+    each.host.values.set(`${BOT} 181a 2a6e`, '0c09');
+    await expect(readOf(each.broker, BOT)).resolves.toEqual({ data: '0c09' });
+    // Told to let go, in case it connected after all; its connection is free again.
+    expect(gattOps(each)).toEqual([connect, disconnect]);
+    expect(await connections(each)).toEqual({ used: 0, max: 3 });
+
+    each.host.hear(heard(other, -90));
+    proxy.report([heard(other, -60)]);
+    await expect(readOf(each.broker, other)).rejects.toThrow(
+      `Could not connect to ${other}: Kitchen Plug S: Timed out connecting; the server’s adapter: The device has no characteristic 2a6e`,
+    );
+  });
+
+  it('passes over a proxy with no connection free, as it last said', async () => {
+    const each = await rig({ isProxy: true, connects: true });
+    const proxy = await connecting(each);
+
+    proxy.gatt({ kind: 'slots', free: 0, limit: 3 });
+    expect(await connections(each)).toEqual({ used: 3, max: 3 });
+    proxy.report([heard(BOT, -60)]);
+    await expect(readOf(each.broker, BOT)).rejects.toThrow(
+      `Nothing that hears ${BOT} can connect to it: Kitchen Plug S: no free connection; the server’s adapter: it does not hear it`,
+    );
+    expect(gattOps(each)).toEqual([]);
+  });
+
+  it('takes one request at a time per address, in order, the next going once one runs out of time', async () => {
+    const each = await rig({ host: noAdapter(), isProxy: true, connects: true });
+    const proxy = await connecting(each);
+    const connection = await transportOf(each.broker);
+    const reads = (): unknown[] =>
+      each.sent.filter((sent) => sent.op === read).map((sent) => sent.args['characteristic']);
+    let release: (value: unknown) => void = () => undefined;
+
+    each.answers.set(read, (args) =>
+      args['characteristic'] === '2a6e'
+        ? new Promise((resolve) => {
+            release = resolve;
+          })
+        : { data: '02' },
+    );
+    proxy.report([heard(BOT, -60)]);
+
+    const first = readOf(each.broker, BOT, '2a6e');
+    const second = readOf(each.broker, BOT, '2a6f');
+
+    await vi.waitFor(() => {
+      expect(reads()).toEqual(['2a6e']);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(reads()).toEqual(['2a6e']);
+    release({ data: '01' });
+    await expect(first).resolves.toEqual({ data: '01' });
+    await expect(second).resolves.toEqual({ data: '02' });
+    expect(reads()).toEqual(['2a6e', '2a6f']);
+
+    // The transport ends a request at its command's deadline, and the one behind it goes.
+    each.answers.set(read, (args) =>
+      args['characteristic'] === '2a6e' ? new Promise(() => undefined) : { data: '03' },
+    );
+
+    const stuck = connection.send(
+      { deviceKey: BOT, op: 'gatt.read', args: { service: '181a', characteristic: '2a6e' } },
+      AbortSignal.timeout(50),
+    );
+    const after = readOf(each.broker, BOT, '2a6f');
+
+    await expect(stuck).rejects.toThrow(/timeout/u);
+    await expect(after).resolves.toEqual({ data: '03' });
+    await connection.close();
+  });
+
+  it('delivers what a characteristic turned on through the proxy notifies, until it is turned off', async () => {
+    const each = await rig({ host: noAdapter(), isProxy: true, connects: true });
+    const proxy = await connecting(each);
+    const delivered: TransportInbound[] = [];
+    const connection = await transportOf(each.broker, delivered);
+    const value = {
+      kind: 'notification',
+      address: BOT.toLowerCase(),
+      service: SWITCHBOT.service.toUpperCase(),
+      characteristic: SWITCHBOT.notify,
+      data: '01FF',
+    } as const;
+
+    proxy.report([heard(BOT, -60)]);
+    await connection.send(
+      {
+        deviceKey: BOT,
+        op: 'gatt.notify',
+        args: { service: SWITCHBOT.service, characteristic: SWITCHBOT.notify, isOn: true },
+      },
+      AbortSignal.timeout(1000),
+    );
+    proxy.gatt(value);
+    // Another proxy's word for it is not taken.
+    each.broker.scanner('shelly', { key: 'other', deviceKey: 'other' }).gatt(value);
+    expect(delivered).toEqual([
+      {
+        connectionKey: BLUETOOTH_TRANSPORT,
+        deviceKey: BOT,
+        payload: { service: SWITCHBOT.service, characteristic: SWITCHBOT.notify, data: '01ff' },
+      },
+    ]);
+
+    await notifyOf(each.broker, false);
+    proxy.gatt(value);
+    expect(delivered).toHaveLength(1);
+    expect(gattOps(each)).toEqual([connect, notify, notify]);
+    await connection.close();
+  });
+
+  it('fails the requests waiting on a link the proxy lost, and connects again for the next', async () => {
+    const each = await rig({ host: noAdapter(), isProxy: true, connects: true });
+    const proxy = await connecting(each);
+    let fail: (error: Error) => void = () => undefined;
+
+    proxy.report([heard(BOT, -60)]);
+    await readOf(each.broker, BOT);
+    each.answers.set(
+      read,
+      async () =>
+        new Promise((resolve, reject) => {
+          fail = reject;
+        }),
+    );
+
+    const first = readOf(each.broker, BOT, '2a6e');
+    const second = readOf(each.broker, BOT, '2a6f');
+
+    await vi.waitFor(() => {
+      expect(gattOps(each)).toEqual([connect, read, read]);
+    });
+    proxy.gatt({ kind: 'disconnected', address: BOT, reason: 'out of range' });
+    fail(new Error('Not connected'));
+    await expect(first).rejects.toThrow('Not connected');
+    await expect(second).rejects.toThrow(`${BOT} lost its link (out of range)`);
+    expect(await connections(each)).toEqual({ used: 0, max: 3 });
+
+    each.answers.set(read, () => ({ data: '05' }));
+    await expect(readOf(each.broker, BOT)).resolves.toEqual({ data: '05' });
+    expect(gattOps(each)).toEqual([connect, read, read, connect, read]);
+
+    // Its connection lost: every link through it goes.
+    proxy.close();
+    expect(await connections(each)).toBeNull();
+  });
+
+  it('lets go of a link 5 s after its last request, unless notifications are on', async () => {
+    const each = await rig({ host: noAdapter(), isProxy: true, connects: true });
+    const proxy = await connecting(each);
+
+    proxy.report([heard(BOT, -60)]);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    await readOf(each.broker, BOT);
+    await vi.advanceTimersByTimeAsync(4000);
+    // Another request starts the 5 s again.
+    await readOf(each.broker, BOT);
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(gattOps(each)).toEqual([connect, read, read]);
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.waitFor(() => {
+      expect(gattOps(each)).toEqual([connect, read, read, disconnect]);
+    });
+    expect(await connections(each)).toEqual({ used: 0, max: 3 });
+
+    await notifyOf(each.broker, true);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(gattOps(each).at(-1)).toBe(notify);
+    await notifyOf(each.broker, false);
+    await vi.advanceTimersByTimeAsync(5000);
+    await vi.waitFor(() => {
+      expect(gattOps(each).at(-1)).toBe(disconnect);
+    });
+  });
+
+  it('carries a SwitchBot conversation through the transport and a proxy, on one link, within the command’s 10 s', async () => {
+    const each = await rig({ host: noAdapter(), isProxy: true, connects: true });
+    const proxy = await connecting(each);
+    const connection = await transportOf(each.broker);
+    const deadline = AbortSignal.timeout(BLUETOOTH_COMMAND_TIMEOUT_MS);
+
+    // The Bot hands out its key's IV, then takes the command sealed with it.
+    each.answers.set(BLUETOOTH_PROXY_GATT_OPS.exchange, (args) => ({
+      data: args['data'] === '570f2101' ? '01a1b2c3d4' : '01',
+    }));
+    proxy.report([heard(BOT, -70)]);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+    /**
+     * Sends one step.
+     *
+     * @param data - The request.
+     * @returns What the Bot answered.
+     */
+    const step = async (data: string): Promise<unknown> =>
+      connection.send(
+        { deviceKey: BOT, op: 'gatt.exchange', args: { ...SWITCHBOT, data } },
+        deadline,
+      );
+
+    await expect(step('570f2101')).resolves.toEqual({ data: '01a1b2c3d4' });
+    await expect(step('570f2a01a1b2c3d4')).resolves.toEqual({ data: '01' });
+    expect(each.sent.filter((sent) => gattOps(each).includes(sent.op))).toEqual([
+      { deviceId: PROXY, op: connect, args: { address: BOT }, within: deadline },
+      ...['570f2101', '570f2a01a1b2c3d4'].map((data) => ({
+        deviceId: PROXY,
+        op: BLUETOOTH_PROXY_GATT_OPS.exchange,
+        args: { address: BOT, ...SWITCHBOT, data, withResponse: false, timeoutMs: 5000 },
+        within: deadline,
+      })),
+    ]);
+    expect(await connections(each)).toEqual({ used: 1, max: 3 });
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await vi.waitFor(() => {
+      expect(gattOps(each).at(-1)).toBe(disconnect);
+    });
+    expect(await connections(each)).toEqual({ used: 0, max: 3 });
+    await connection.close();
   });
 });
 
