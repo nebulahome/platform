@@ -21,6 +21,9 @@ import { AppIcon, Button, cn, useEscape } from '@nebulahome/ui';
 import { translate } from '@/i18n/messages';
 import { isOwnedListbox } from '@/lib/owned-listbox';
 
+/** How many facets are set, on the button and in the sheet's head. */
+const COUNT = 'rounded-pill bg-primary/15 px-1.5 font-mono text-label tabular';
+
 /** What the shell needs. */
 export type FilterSheetProps = {
   /** What the sheet narrows, for a reader: "Narrow the devices". */
@@ -102,11 +105,7 @@ export function FilterSheet(props: FilterSheetProps) {
       >
         <AppIcon id="list-filter" size={15} />
         <span>{t('library.filterSheet.filter', 'Filter')}</span>
-        {count > 0 ? (
-          <span className="rounded-pill bg-primary/15 px-1.5 font-mono text-label tabular">
-            {count}
-          </span>
-        ) : null}
+        {count > 0 ? <span className={COUNT}>{count}</span> : null}
       </Button>
 
       {isOpen ? (
@@ -119,15 +118,17 @@ export function FilterSheet(props: FilterSheetProps) {
             'w-85 animate-rise border-border-strong bg-surface shadow-float',
           )}
         >
-          <div className="flex items-center justify-between gap-3 px-6 pt-4.5 pb-3">
+          <div className="flex items-center gap-2.5 px-6 pt-4.5 pb-3">
             <span className="text-title font-medium text-foreground">
               {t('library.filterSheet.filters', 'Filters')}
             </span>
+            {/* The same count the button carries, so the sheet says what is set before any facet. */}
+            {count > 0 ? <span className={cn(COUNT, 'text-primary')}>{count}</span> : null}
             {count > 0 ? (
               <button
                 type="button"
                 onClick={onClear}
-                className="rounded-chip text-ui-sm text-primary transition-colors hover:text-primary-hover"
+                className="ml-auto rounded-chip text-ui-sm text-primary transition-colors hover:text-primary-hover"
               >
                 {t('library.filterSheet.reset', 'Reset')}
               </button>
@@ -211,6 +212,9 @@ export type FacetProps = {
 
   /** On the right of the heading: "2 selected". */
   readonly aside?: ReactNode;
+
+  /** Anything extra for the frame: two facets side by side give up their line and half a gutter. */
+  readonly className?: string;
 };
 
 /**
@@ -220,10 +224,12 @@ export type FacetProps = {
  * @returns The facet.
  */
 export function Facet(props: FacetProps) {
-  const { title, aside, children } = props;
+  const { title, aside, children, className } = props;
 
   return (
-    <div className="flex flex-col gap-2.5 border-t border-border px-6 py-4">
+    <div
+      className={cn('flex min-w-0 flex-col gap-2.5 border-t border-border px-6 py-4', className)}
+    >
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-mono text-label text-foreground-subtle uppercase">{title}</span>
         {aside === undefined ? null : (

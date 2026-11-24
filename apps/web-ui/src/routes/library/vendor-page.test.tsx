@@ -345,19 +345,20 @@ describe('a vendor page', () => {
       'true',
     );
 
+    // By name, as the table opens.
     const rows = screen.getAllByRole('listitem');
 
     expect(rows.map((row) => row.textContent)).toEqual([
-      expect.stringContaining('Studio printer'),
       expect.stringContaining('Garage printer'),
+      expect.stringContaining('Studio printer'),
     ]);
-    expect(rows[0]?.textContent).toContain('X1C');
-    expect(rows[0]?.textContent).toMatch(/5 (?:minutes ago|minuti fa)/u);
-    expect(rows[1]?.textContent).toContain('failed');
+    expect(rows[1]?.textContent).toContain('X1C');
+    expect(rows[1]?.textContent).toMatch(/5 (?:minutes ago|minuti fa)/u);
+    expect(rows[0]?.textContent).toContain('failed');
     // One line in the list; the message itself, however long, is on the device's page.
-    expect(rows[1]?.textContent).toContain('Not working - see why');
-    expect(rows[1]?.textContent).not.toContain('ECONNREFUSED');
-    expect(rows[1]?.textContent).toContain('—');
+    expect(rows[0]?.textContent).toContain('Not working - see why');
+    expect(rows[0]?.textContent).not.toContain('ECONNREFUSED');
+    expect(rows[0]?.textContent).toContain('—');
 
     // The name is the way to the registry: the devices page, narrowed to this one device.
     expect(screen.getByRole('link', { name: 'Studio printer' }).getAttribute('href')).toBe(

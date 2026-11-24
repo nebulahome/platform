@@ -251,7 +251,8 @@ export function VendorPage() {
         }}
       >
         <AppIcon id="plus" size={14} />
-        {t('library.vendor.addDevice', 'Add device')}
+        {/* A phone keeps the room for the search it sits in: the plus alone, named to a reader. */}
+        <span className="max-sm:sr-only">{t('library.vendor.addDevice', 'Add device')}</span>
       </Button>
     ) : undefined;
 
@@ -513,6 +514,15 @@ export function VendorPage() {
                   vendor={found}
                   devices={devices}
                   addButton={addButton}
+                  {...(hasFound
+                    ? {
+                        foundCount: foundDevices.length,
+                        /** Opens the devices heard on the network and not added. */
+                        onShowFound: () => {
+                          setTab('found');
+                        },
+                      }
+                    : {})}
                   {...(canWrite
                     ? {
                         /**

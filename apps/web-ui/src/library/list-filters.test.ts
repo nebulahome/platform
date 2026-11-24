@@ -13,7 +13,6 @@ import {
   PEOPLE_FILTER_CODEC,
   SCENE_FILTER_CODEC,
   searchAndFacetCodec,
-  VENDOR_DEVICE_FILTER_CODEC,
 } from './list-filters';
 
 /** A scene placed in the lounge. */
@@ -68,8 +67,5 @@ describe('the codecs', () => {
       packageFilterCodec(['running', 'failed']).read(new URLSearchParams({ state: 'exploded' }))
         .state,
     ).toBe('');
-    expect(VENDOR_DEVICE_FILTER_CODEC.read(new URLSearchParams({ standing: '?' })).standing).toBe(
-      'any',
-    );
   });
 });

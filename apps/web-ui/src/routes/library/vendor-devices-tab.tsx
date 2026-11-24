@@ -7,8 +7,13 @@
  * that came to - `identifying` while the hardware has not answered, `running`, or `failed` with
  * one line that leads to the device's page, where the transport's own sentence is in full.
  *
- * A device others are part of - an inverter, with its EPS output and dry contact - is one row
- * with a chevron beside its spanner, closed at first; opened, its parts hang under it. A search
+ * As the board draws it (canvas page "Integrazione · lista device", DL-A): the search with Add
+ * device inside it and the Filter beside it sit in the panel's head, by the count - "2 of 12" once
+ * anything narrows the table, and nowhere else. The facets set show as chips under the head. A row
+ * has the address under the name; a failing one is washed red, the one under the pointer lifts.
+ *
+ * A device others are part of - a printer, with its AMS units - is one row with a chevron beside
+ * its spanner, closed at first; opened, its parts slide out under it, hung from its icon. A search
  * or a filter that finds a part brings its parent along, opened, with only the parts it found.
  */
 import { useId, useState, type ReactNode } from 'react';
@@ -16,23 +21,44 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 
 import type { DeviceView, IntegrationState, IntegrationVendorView } from '@nebulahome/contracts';
-import { AppIcon, Badge, cn, IconButton, Panel, Segmented, type BadgeTone } from '@nebulahome/ui';
+import {
+  AppIcon,
+  Badge,
+  cn,
+  Collapse,
+  FilterChips,
+  IconButton,
+  Panel,
+  type ActiveFilter,
+  type BadgeTone,
+} from '@nebulahome/ui';
 
-import { defineMessage, type Message, text } from '@/i18n/messages';
+import { collator } from '@/i18n/formatters';
 import { relativeTime } from '@/lib/format-time';
-import { matchesQuery } from '@/lib/search-text';
+import { markMatch } from '@/lib/mark-match';
+import { queryWords } from '@/lib/search-text';
 import { useListState } from '@/lib/use-list-state';
 import {
+  countStandings,
+  deviceAddress,
+  isNarrowing,
+  matchesVendorDevice,
+  modelOf,
   OPEN_VENDOR_DEVICE_FILTER,
+  sortVendorDevices,
   VENDOR_DEVICE_FILTER_CODEC,
-  type DeviceStandingChoice,
-} from '@/library/list-filters';
+} from '@/library/vendor-device-filters';
+import { CountTag } from '@/routes/library/broker-parts';
 import { devicePath } from '@/routes/library/device/device-path';
 import { DeviceIcon, useDeviceIcons } from '@/routes/library/device-icon';
-import { Facet, FilterSheet } from '@/routes/library/filter-sheet';
 import { MatterTag } from '@/routes/library/matter-tag';
 import { NoMatches } from '@/routes/library/no-matches';
 import { SearchField } from '@/routes/library/search-field';
+import {
+  activeDeviceFilters,
+  VendorDeviceFilterSheet,
+  type VendorDeviceChoices,
+} from '@/routes/library/vendor-device-filter';
 import { PassedOverPanel } from '@/routes/library/vendor-hearing';
 
 /** What each runtime state means to somebody reading the page. */
@@ -46,52 +72,43 @@ const TONES: Readonly<Record<IntegrationState, BadgeTone>> = {
 };
 
 /**
- * The columns of the devices table: which device, its model, how it is doing, when it last
- * reported, and the spanner.
+ * The columns of the devices table: which device, its room, its model, how it is doing, when it
+ * last reported, and the spanner - with the chevron's room too when a device has parts.
  *
- * Every track but the first is a fixed width. The header and each row are separate grids, and
- * a track sized `auto` resolves to a different width in each of them - which is how the cells
- * once drifted from their headings. The full table needs the width a wide window has beside
- * the rail; at a tablet's width the model rides under the name and the clock waits for a wider
- * screen, so the panel never grows past the page.
+ * Every track but the first three is a fixed width. The header and each row are separate grids,
+ * and a track sized `auto` resolves to a different width in each of them - which is how the cells
+ * once drifted from their headings. The full table needs the width a wide window has beside the
+ * rail; at a tablet's width the model rides under the name and the room and the clock wait for a
+ * wider screen, so the panel never grows past the page.
  */
 const COLUMNS =
-  'grid grid-cols-[minmax(0,1fr)_56px] items-center gap-3 ' +
-  'md:grid-cols-[minmax(0,1fr)_120px_56px] ' +
-  'lg:grid-cols-[minmax(0,1fr)_140px_120px_128px_56px]';
+  'grid grid-cols-[minmax(0,1fr)_40px] items-center gap-x-4 ' +
+  'md:grid-cols-[minmax(0,1fr)_124px_40px] ' +
+  'lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1fr)_124px_112px_40px]';
+const COLUMNS_WITH_PARTS =
+  'grid grid-cols-[minmax(0,1fr)_72px] items-center gap-x-4 ' +
+  'md:grid-cols-[minmax(0,1fr)_124px_72px] ' +
+  'lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1fr)_124px_112px_72px]';
 
 /** The line that hangs from a parent's icon down to its parts, under the icon's middle. */
-const LINE = 'pointer-events-none absolute left-8 border-border-strong';
+const LINE = 'pointer-events-none absolute left-10 border-border-strong';
 
-/** The standings the device table is narrowed by. */
-const STANDING_OPTIONS: readonly {
-  readonly value: DeviceStandingChoice;
-  readonly label: Message;
-}[] = [
-  { value: 'any', label: defineMessage('common.any', 'Any') },
-  { value: 'running', label: defineMessage('library.vendorDevicesTab.running', 'Running') },
-  { value: 'failing', label: defineMessage('library.vendorDevicesTab.failed', 'Failed') },
-  { value: 'disabled', label: defineMessage('library.vendorDevicesTab.disabled', 'Disabled') },
-];
+/** Where the search matched in a name. */
+const MARK = 'rounded-xs bg-primary/25 text-inherit';
 
 /**
- * Whether a device's state is the standing asked for.
+ * The ground of a row: washed red while failing, lifted under the pointer.
  *
- * @param state - The device's lifecycle state.
- * @param standing - What the filter asks for.
- * @returns True when it matches, or when any standing will do.
+ * @param device - The device.
+ * @param isPart - Whether it hangs under another, on the parts' darker ground.
+ * @returns The classes.
  */
-function standingMatches(state: IntegrationState, standing: DeviceStandingChoice): boolean {
-  switch (standing) {
-    case 'any':
-      return true;
-    case 'running':
-      return state === 'running';
-    case 'failing':
-      return state === 'failed';
-    case 'disabled':
-      return state === 'disabled';
-  }
+function groundOf(device: DeviceView, isPart: boolean): string {
+  return device.state === 'failed'
+    ? 'bg-danger/5 hover:bg-danger/8'
+    : isPart
+      ? 'hover:bg-surface-raised/40'
+      : 'hover:bg-surface-raised/60';
 }
 
 /** What the tab needs. */
@@ -106,6 +123,12 @@ export type VendorDevicesTabProps = {
 
   /** Opens a device's settings; absent for who may not edit devices. */
   readonly onConfigure?: (device: DeviceView) => void;
+
+  /** How many devices the vendor heard on the network that nobody added. */
+  readonly foundCount?: number;
+
+  /** Opens the Found tab, where those wait. */
+  readonly onShowFound?: () => void;
 };
 
 /**
@@ -117,13 +140,26 @@ export type VendorDevicesTabProps = {
 export function VendorDevicesTab(props: VendorDevicesTabProps) {
   const { t } = useTranslation();
 
-  const { vendor, devices, addButton, onConfigure } = props;
+  const { vendor, devices, addButton, onConfigure, foundCount = 0, onShowFound } = props;
   const isAutomatic = vendor.adoption === 'automatic';
   const [filter, setFilter] = useListState(VENDOR_DEVICE_FILTER_CODEC);
   const icons = useDeviceIcons(devices);
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const listId = useId();
   const byId = new Map(devices.map((device) => [device.id, device]));
+  const now = new Date();
+
+  /**
+   * Whether a device is a part of another device listed here.
+   *
+   * @param device - The device.
+   * @returns True for a part.
+   */
+  const isPart = (device: DeviceView): boolean =>
+    device.parentId !== null && byId.has(device.parentId);
+
+  const hasParts = devices.some(isPart);
+  const columns = hasParts ? COLUMNS_WITH_PARTS : COLUMNS;
 
   /**
    * Whether a device is what the search and the filter ask for.
@@ -132,41 +168,59 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
    * @returns True when it matches both.
    */
   const matches = (device: DeviceView): boolean =>
-    standingMatches(device.state, filter.standing) &&
-    matchesQuery(
-      [
-        device.name,
-        device.model,
-        device.series,
-        device.driverName,
-        device.areaName,
-        device.externalId,
-        device.id,
-      ],
-      filter.search,
-    );
-  const isNarrowed = filter.search !== '' || filter.standing !== 'any';
+    matchesVendorDevice(device, filter, { isPart: isPart(device), now });
+
+  const isNarrowed = isNarrowing(filter);
   const shownCount = devices.filter(matches).length;
+  const words = queryWords(filter.search);
+  const names = collator();
+  const choices: VendorDeviceChoices = {
+    areas: [
+      ...new Map(
+        devices.flatMap((device) =>
+          device.areaKey === null ? [] : [[device.areaKey, device.areaName ?? device.areaKey]],
+        ),
+      ),
+    ].map(([value, label]) => ({ value, label })),
+    models: [...new Set(devices.map(modelOf))].toSorted((a, b) => names.compare(a, b)),
+    transports: [...new Set(devices.map((device) => device.transport))].toSorted((a, b) =>
+      names.compare(a, b),
+    ),
+    hasParts,
+  };
+
   // A part is listed under its parent, when its parent is one of these devices.
-  const rows = devices
-    .filter((device) => device.parentId === null || !byId.has(device.parentId))
-    .flatMap((device) => {
-      const parts = device.childIds.flatMap((id) => byId.get(id) ?? []);
-      const found = parts.filter(matches);
+  const rows = sortVendorDevices(
+    devices.filter((device) => !isPart(device)),
+    filter.sort,
+  ).flatMap((device) => {
+    const parts = device.childIds.flatMap((id) => byId.get(id) ?? []);
+    const found = isNarrowed ? parts.filter(matches) : parts;
 
-      if (!matches(device) && found.length === 0) {
-        return [];
-      }
+    if (!matches(device) && found.length === 0) {
+      return [];
+    }
 
-      return [
-        {
-          device,
-          hasParts: parts.length > 0,
-          isOpen: (isNarrowed && found.length > 0) || opened.has(device.id),
-          parts: isNarrowed ? found : parts,
-        },
-      ];
-    });
+    return [
+      {
+        device,
+        isOpen: found.length > 0 && (isNarrowed || opened.has(device.id)),
+        parts: found,
+      },
+    ];
+  });
+
+  // The chips slide away when the last facet is cleared: until they have, the ones there were stay.
+  const chips = activeDeviceFilters(filter, choices, setFilter);
+  const chipsKey = chips.map((chip) => `${chip.id}:${chip.value}`).join('|');
+  const [held, setHeld] = useState<{ readonly key: string; readonly chips: ActiveFilter[] }>({
+    key: chipsKey,
+    chips,
+  });
+
+  if (chipsKey !== '' && held.key !== chipsKey) {
+    setHeld({ key: chipsKey, chips });
+  }
 
   /**
    * Opens a parent's parts, or closes them.
@@ -186,51 +240,86 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
   };
 
   /**
-   * A device's name, and under it its model on a narrow screen and what is wrong, if anything.
+   * A device's icon and name, and under it its address - its model on a narrow screen - or what
+   * is wrong, if anything.
    *
    * @param device - The device.
-   * @returns The name cell's text.
+   * @param asPart - Whether it hangs under its parent.
+   * @returns The name cell.
    */
-  const nameOf = (device: DeviceView): ReactNode => (
-    <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="flex min-w-0 items-center gap-2">
-        <Link
-          to={devicePath(device.id)}
-          className="truncate text-ui font-medium text-foreground transition-colors hover:text-primary"
-        >
-          {device.name}
-        </Link>
-        <MatterTag transport={device.transport} />
-      </span>
-      <span className="text-caption text-foreground-subtle lg:hidden">
-        {device.model ?? device.driverName}
-      </span>
-      {/* One line at most: what went wrong is on the device's page, in full. */}
-      {device.lastError !== null ? (
-        <Link
-          to={devicePath(device.id)}
+  const nameOf = (device: DeviceView, asPart: boolean): ReactNode => {
+    const isOff = device.state === 'disabled';
+    const address = asPart ? null : deviceAddress(device);
+
+    return (
+      <span className={cn('flex min-w-0 items-center gap-3.5', asPart && 'pl-11')}>
+        <span
           className={cn(
-            'flex items-center gap-1 text-caption transition-colors hover:text-primary',
-            device.state === 'identifying' ? 'text-foreground-subtle' : 'text-danger',
+            'flex shrink-0 items-center justify-center bg-surface-raised',
+            asPart ? 'size-7.5 rounded-chip' : 'size-9 rounded-field',
           )}
         >
-          <AppIcon id="triangle-alert" size={12} className="shrink-0" />
-          <span className="truncate">
-            {device.state === 'identifying'
-              ? t('library.vendorDevicesTab.stillListeningSeeWhy', 'Still listening - see why')
-              : t('library.vendorDevicesTab.notWorkingSeeWhy', 'Not working - see why')}
-          </span>
-        </Link>
-      ) : device.state === 'identifying' ? (
-        <span className="text-caption text-foreground-subtle">
-          {t('library.vendorDevicesTab.listeningForTheDevice', 'Listening for the device…')}
+          <DeviceIcon
+            icon={icons.get(device.icon ?? '')}
+            device={device}
+            size={asPart ? 15 : 17}
+            className={isOff ? 'text-foreground-disabled' : 'text-foreground-muted'}
+          />
         </span>
-      ) : null}
-    </span>
-  );
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <Link
+              to={devicePath(device.id)}
+              className={cn(
+                'truncate text-ui font-medium transition-colors hover:text-primary',
+                isOff ? 'text-foreground-muted' : 'text-foreground',
+              )}
+            >
+              {markMatch(device.name, words, MARK)}
+            </Link>
+            <MatterTag transport={device.transport} />
+          </span>
+          {/* One line at most: what went wrong is on the device's page, in full. */}
+          {device.lastError !== null ? (
+            <Link
+              to={devicePath(device.id)}
+              className={cn(
+                'flex items-center gap-1 text-caption transition-colors hover:text-primary',
+                device.state === 'identifying' ? 'text-foreground-subtle' : 'text-danger',
+              )}
+            >
+              <AppIcon id="triangle-alert" size={12} className="shrink-0" />
+              <span className="truncate">
+                {device.state === 'identifying'
+                  ? t('library.vendorDevicesTab.stillListeningSeeWhy', 'Still listening - see why')
+                  : t('library.vendorDevicesTab.notWorkingSeeWhy', 'Not working - see why')}
+              </span>
+            </Link>
+          ) : device.state === 'identifying' ? (
+            <span className="flex items-center gap-1.5 text-caption text-foreground-subtle">
+              <span aria-hidden="true" className="size-1.25 shrink-0 rounded-full bg-primary" />
+              {t('library.vendorDevicesTab.listeningForTheDevice', 'Listening for the device…')}
+            </span>
+          ) : (
+            <>
+              <span className="truncate text-caption text-foreground-subtle lg:hidden">
+                {modelOf(device)}
+              </span>
+              {address === null ? null : (
+                <span className="hidden truncate font-mono text-mono-caption text-foreground-subtle lg:block">
+                  {address}
+                </span>
+              )}
+            </>
+          )}
+        </span>
+      </span>
+    );
+  };
 
   /**
-   * A device's other cells: its model, its state, when it last reported, and the spanner.
+   * A device's other cells: its room, its model, its state, when it last reported, and the
+   * spanner.
    *
    * @param device - The device.
    * @param end - What follows the spanner: a parent's chevron, or the room one takes.
@@ -239,7 +328,10 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
   const restOf = (device: DeviceView, end: ReactNode): ReactNode => (
     <>
       <span className="hidden truncate text-ui text-foreground-muted lg:block">
-        {device.model ?? device.driverName}
+        {device.areaName ?? '—'}
+      </span>
+      <span className="hidden truncate text-ui text-foreground-muted lg:block">
+        {modelOf(device)}
       </span>
       <span className="hidden items-center md:flex">
         <Badge tone={TONES[device.state]} size="small">
@@ -253,10 +345,11 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
         {onConfigure === undefined ? null : (
           <IconButton
             variant="bare"
-            size="small"
+            size="medium"
             label={t('library.vendorDevicesTab.configureName', 'Configure {{name}}', {
               name: device.name,
             })}
+            className="group-hover/row:text-foreground"
             onClick={() => {
               onConfigure(device);
             }}
@@ -270,80 +363,63 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
   );
 
   // Keeps the spanners in line on the rows without a chevron.
-  const noChevron = <span aria-hidden="true" className="size-6 shrink-0" />;
+  const noChevron = hasParts ? <span aria-hidden="true" className="size-8 shrink-0" /> : null;
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-end gap-2.5">
-        {devices.length === 0 ? null : (
-          <>
-            <SearchField
-              placeholder={t(
-                'library.vendorDevicesTab.searchThisVendorS',
-                "Search this vendor's devices…",
-              )}
-              value={filter.search}
-              onChange={(search) => {
-                setFilter({ ...filter, search });
-              }}
-            />
-            <FilterSheet
-              label={t('library.vendorDevicesTab.narrowTheDevices', 'Narrow the devices')}
-              count={Number(filter.standing !== 'any')}
-              summary={t('library.vendorDevicesTab.shownOfTotal', '{{shown}} of {{total}} shown', {
-                shown: shownCount,
-                total: devices.length,
-              })}
-              onClear={() => {
-                setFilter({ ...filter, standing: 'any' });
-              }}
-            >
-              <Facet title={t('library.vendorDevicesTab.status', 'Status')}>
-                <Segmented
-                  label={t('library.vendorDevicesTab.status', 'Status')}
-                  size="compact"
-                  className="self-start"
-                  options={STANDING_OPTIONS.map((option) => ({
-                    ...option,
-                    label: text(option.label),
-                  }))}
-                  value={filter.standing}
-                  onChange={(standing) => {
-                    setFilter({ ...filter, standing });
-                  }}
-                />
-              </Facet>
-            </FilterSheet>
-          </>
-        )}
-        {addButton}
-      </div>
-
       <Panel
-        title={
-          shownCount === devices.length
-            ? t('library.vendorDevicesTab.devicesCount', 'Devices · {{count}}', {
-                count: devices.length,
-              })
-            : t(
-                'library.vendorDevicesTab.devicesShownOfTotal',
-                'Devices · {{shown}} of {{total}}',
-                { shown: shownCount, total: devices.length },
-              )
+        title={t('library.vendorDevicesTab.devices', 'Devices')}
+        meta={
+          <CountTag isLit={isNarrowed && devices.length > 0}>
+            {isNarrowed && devices.length > 0
+              ? t('library.vendorDevicesTab.countOfTotal', '{{shown}} of {{total}}', {
+                  shown: shownCount,
+                  total: devices.length,
+                })
+              : devices.length}
+          </CountTag>
+        }
+        action={
+          devices.length === 0 ? (
+            addButton
+          ) : (
+            <div className="flex items-center gap-2">
+              <VendorDeviceFilterSheet
+                filter={filter}
+                choices={choices}
+                counts={countStandings(devices)}
+                onChange={setFilter}
+              />
+              <SearchField
+                placeholder={t(
+                  'library.vendorDevicesTab.searchVendorDevices',
+                  'Search {{name}} devices',
+                  { name: vendor.name },
+                )}
+                value={filter.search}
+                // On a phone the pill takes what the panel's margins and the Filter leave.
+                className={
+                  addButton === undefined
+                    ? 'w-52 lg:w-72'
+                    : 'w-[min(24rem,calc(100vw-12rem))] lg:w-96'
+                }
+                action={addButton}
+                onChange={(search) => {
+                  setFilter({ ...filter, search });
+                }}
+              />
+            </div>
+          )
         }
       >
-        <div
-          className={`${COLUMNS} border-t border-border px-5.5 py-2.5 font-mono text-label text-foreground-subtle uppercase`}
-          aria-hidden="true"
-        >
-          <span>{t('library.vendorDevicesTab.device', 'Device')}</span>
-          <span className="hidden lg:block">{t('library.vendorDevicesTab.model', 'Model')}</span>
-          <span className="hidden md:block">{t('library.vendorDevicesTab.status', 'Status')}</span>
-          <span className="hidden lg:block">
-            {t('library.vendorDevicesTab.lastUpdated', 'Last updated')}
-          </span>
-          <span />
-        </div>
+        <Collapse isOpen={chips.length > 0} className="px-5.5 pb-4">
+          <FilterChips
+            filters={chips.length > 0 ? chips : held.chips}
+            onClearAll={() => {
+              setFilter({ ...OPEN_VENDOR_DEVICE_FILTER, search: filter.search, sort: filter.sort });
+            }}
+          />
+        </Collapse>
 
         {devices.length === 0 ? (
           <p className="border-t border-border px-5.5 py-3.5 text-ui text-foreground-muted">
@@ -359,109 +435,174 @@ export function VendorDevicesTab(props: VendorDevicesTabProps) {
                 )}
           </p>
         ) : rows.length === 0 ? (
-          <div className="border-t border-border p-4">
+          <div className="border-t border-border">
             <NoMatches
+              isInPanel
               query={filter.search}
+              hint={t(
+                'library.vendorDevicesTab.searchLooksAt',
+                'The search looks at names, models, rooms and addresses.',
+              )}
+              footer={
+                foundCount === 0 || onShowFound === undefined ? undefined : (
+                  <>
+                    {t('library.vendorDevicesTab.notAddedYet', {
+                      count: foundCount,
+                      defaultValue_one:
+                        'Not added yet? {{count}} device the hub heard on the network waits in',
+                      defaultValue_other:
+                        'Not added yet? {{count}} devices the hub heard on the network wait in',
+                    })}{' '}
+                    <button
+                      type="button"
+                      onClick={onShowFound}
+                      className="rounded-chip text-primary transition-colors hover:text-primary-hover"
+                    >
+                      {t('library.vendorDevicesTab.found', 'Found')}
+                    </button>
+                  </>
+                )
+              }
               onClear={() => {
                 setFilter(OPEN_VENDOR_DEVICE_FILTER);
               }}
             />
           </div>
         ) : (
-          <ul>
-            {rows.map(({ device, hasParts, isOpen, parts }) => {
-              const partsId = `${listId}-${device.id}`;
-              const isShowingParts = isOpen && parts.length > 0;
+          <>
+            <div
+              className={cn(
+                columns,
+                'border-t border-border bg-well px-5.5 py-2.5 font-mono text-label text-foreground-subtle uppercase',
+              )}
+              aria-hidden="true"
+            >
+              <span>{t('library.vendorDevicesTab.device', 'Device')}</span>
+              <span className="hidden lg:block">{t('library.vendorDevicesTab.area', 'Area')}</span>
+              <span className="hidden lg:block">
+                {t('library.vendorDevicesTab.model', 'Model')}
+              </span>
+              <span className="hidden md:block">
+                {t('library.vendorDevicesTab.status', 'Status')}
+              </span>
+              <span className="hidden lg:block">
+                {t('library.vendorDevicesTab.lastUpdated', 'Last updated')}
+              </span>
+              <span />
+            </div>
 
-              return (
-                <li key={device.id} className="border-t border-border">
-                  <div className={cn(COLUMNS, 'relative px-5.5 py-3')}>
-                    <span className="flex min-w-0 items-center gap-3">
-                      <DeviceIcon
-                        icon={icons.get(device.icon ?? '')}
-                        device={device}
-                        className="shrink-0 text-foreground-muted"
-                      />
-                      {nameOf(device)}
-                    </span>
-                    {restOf(
-                      device,
-                      hasParts ? (
-                        <IconButton
-                          variant="bare"
-                          size="small"
-                          label={
-                            isOpen
-                              ? t(
-                                  'library.vendorDevicesTab.hideParts',
-                                  'Hide the devices of {{name}}',
-                                  { name: device.name },
-                                )
-                              : t(
-                                  'library.vendorDevicesTab.showParts',
-                                  'Show the devices of {{name}}',
-                                  { name: device.name },
-                                )
-                          }
-                          aria-expanded={isShowingParts}
-                          aria-controls={partsId}
-                          className={isOpen ? 'text-foreground' : 'text-foreground-muted'}
-                          onClick={() => {
-                            toggle(device.id);
-                          }}
-                        >
-                          <AppIcon id={isOpen ? 'chevron-up' : 'chevron-down'} size={16} />
-                        </IconButton>
-                      ) : (
-                        noChevron
-                      ),
-                    )}
-                    {isShowingParts ? (
-                      <span
-                        aria-hidden="true"
-                        className={cn(LINE, 'top-[calc(50%+14px)] bottom-0 border-l')}
-                      />
-                    ) : null}
-                  </div>
-                  {isShowingParts ? (
-                    <ul id={partsId} className="bg-well">
-                      {parts.map((part, index) => (
-                        <li key={part.id} className={cn(COLUMNS, 'relative px-5.5 py-2.5')}>
-                          {index === parts.length - 1 ? (
-                            <span
-                              aria-hidden="true"
+            {/* The rows' grounds keep to the panel's rounded foot. */}
+            <ul className="overflow-hidden rounded-b-panel">
+              {rows.map(({ device, isOpen, parts }) => {
+                const partsId = `${listId}-${device.id}`;
+
+                return (
+                  <li key={device.id} className="border-t border-border">
+                    <div
+                      className={cn(
+                        columns,
+                        'group/row relative min-h-16 px-5.5 py-3 transition-colors duration-150',
+                        groundOf(device, false),
+                      )}
+                    >
+                      {nameOf(device, false)}
+                      {restOf(
+                        device,
+                        parts.length > 0 ? (
+                          <IconButton
+                            variant="bare"
+                            size="medium"
+                            label={
+                              isOpen
+                                ? t(
+                                    'library.vendorDevicesTab.hideParts',
+                                    'Hide the devices of {{name}}',
+                                    { name: device.name },
+                                  )
+                                : t(
+                                    'library.vendorDevicesTab.showParts',
+                                    'Show the devices of {{name}}',
+                                    { name: device.name },
+                                  )
+                            }
+                            aria-expanded={isOpen}
+                            aria-controls={partsId}
+                            className={cn(
+                              'transition-colors duration-200',
+                              isOpen && 'border-border-strong bg-surface-raised text-foreground',
+                            )}
+                            onClick={() => {
+                              toggle(device.id);
+                            }}
+                          >
+                            <AppIcon
+                              id="chevron-down"
+                              size={16}
                               className={cn(
-                                LINE,
-                                'top-0 h-1/2 w-4 rounded-bl-[8px] border-b border-l',
+                                'transition-transform duration-250 ease-out motion-reduce:transition-none',
+                                isOpen && 'rotate-180',
                               )}
                             />
-                          ) : (
-                            <>
-                              <span aria-hidden="true" className={cn(LINE, 'inset-y-0 border-l')} />
-                              <span
-                                aria-hidden="true"
-                                className={cn(LINE, 'top-1/2 w-4 border-t')}
-                              />
-                            </>
+                          </IconButton>
+                        ) : (
+                          noChevron
+                        ),
+                      )}
+                      {parts.length > 0 ? (
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            LINE,
+                            'top-[calc(50%+18px)] bottom-0 border-l transition-opacity duration-250',
+                            isOpen ? 'opacity-100' : 'opacity-0',
                           )}
-                          <span className="flex min-w-0 items-center gap-3 pl-7">
-                            <DeviceIcon
-                              icon={icons.get(part.icon ?? '')}
-                              device={part}
-                              size={18}
-                              className="shrink-0 text-foreground-muted"
-                            />
-                            {nameOf(part)}
-                          </span>
-                          {restOf(part, noChevron)}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
+                        />
+                      ) : null}
+                    </div>
+                    {parts.length > 0 ? (
+                      <Collapse isOpen={isOpen} id={partsId}>
+                        <ul className="bg-well">
+                          {parts.map((part, index) => (
+                            <li
+                              key={part.id}
+                              className={cn(
+                                columns,
+                                'group/row relative min-h-13.5 px-5.5 py-2 transition-colors duration-150',
+                                groundOf(part, true),
+                              )}
+                            >
+                              {index === parts.length - 1 ? (
+                                <span
+                                  aria-hidden="true"
+                                  className={cn(
+                                    LINE,
+                                    'top-0 h-1/2 w-4.5 rounded-bl-[8px] border-b border-l',
+                                  )}
+                                />
+                              ) : (
+                                <>
+                                  <span
+                                    aria-hidden="true"
+                                    className={cn(LINE, 'inset-y-0 border-l')}
+                                  />
+                                  <span
+                                    aria-hidden="true"
+                                    className={cn(LINE, 'top-1/2 w-4.5 border-t')}
+                                  />
+                                </>
+                              )}
+                              {nameOf(part, true)}
+                              {restOf(part, noChevron)}
+                            </li>
+                          ))}
+                        </ul>
+                      </Collapse>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </Panel>
 

@@ -63,6 +63,7 @@ import {
   CircleX,
   ClipboardPaste,
   Clock,
+  ClockAlert,
   Cloud,
   CloudAlert,
   CloudCheck,
@@ -511,6 +512,7 @@ export const BUILTIN_UI_NODES = {
   flag: drawing(Flag),
   briefcase: drawing(Briefcase),
   'search-x': drawing(SearchX),
+  'clock-alert': drawing(ClockAlert),
 } satisfies Record<string, IconNode>;
 
 /** A catalogue id the interface draws itself with. */

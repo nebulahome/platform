@@ -35,9 +35,12 @@ function device(id: string, name: string, fields: Partial<DeviceView> = {}): Dev
 }
 
 const DEVICES = [
-  device('inverter', 'Inverter garage', { childIds: ['eps', 'dry'] }),
+  device('inverter', 'Inverter garage', {
+    childIds: ['eps', 'dry'],
+    transportConfig: { host: '192.168.1.50' },
+  }),
   device('eps', 'X1-Hybrid G4 EPS', { parentId: 'inverter' }),
-  device('dry', 'X1-Hybrid G4 Dry contact', { parentId: 'inverter' }),
+  device('dry', 'X1-Hybrid G4 Dry contact', { parentId: 'inverter', state: 'failed' }),
   device('wallbox', 'Wallbox'),
 ];
 
@@ -45,12 +48,19 @@ const DEVICES = [
  * Draws the tab over the four devices.
  *
  * @param search - What the address's query asks for, when anything.
+ * @param onShowFound - Opens the Found tab, when the vendor has one.
  */
-function renderTab(search = ''): void {
+function renderTab(search = '', onShowFound?: () => void): void {
   render(
     <MemoryRouter initialEntries={[`/integrations/solax${search}`]}>
       <QueryClientProvider client={new QueryClient()}>
-        {VENDOR === undefined ? null : <VendorDevicesTab vendor={VENDOR} devices={DEVICES} />}
+        {VENDOR === undefined ? null : (
+          <VendorDevicesTab
+            vendor={VENDOR}
+            devices={DEVICES}
+            {...(onShowFound === undefined ? {} : { foundCount: 2, onShowFound })}
+          />
+        )}
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -62,7 +72,9 @@ describe('VendorDevicesTab', () => {
 
     const toggle = screen.getByRole('button', { name: 'Show the devices of Inverter garage' });
 
-    expect(screen.getByText('Devices · 4')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Devices' })).toBeTruthy();
+    expect(screen.getByText('4')).toBeTruthy();
+    expect(screen.getByText('192.168.1.50')).toBeTruthy();
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByRole('link', { name: 'X1-Hybrid G4 EPS' })).toBeNull();
     expect(screen.queryByRole('button', { name: /devices of Wallbox/u })).toBeNull();
@@ -83,10 +95,32 @@ describe('VendorDevicesTab', () => {
   it('brings the parent along, opened, with only the part a search finds', () => {
     renderTab('?q=eps');
 
-    expect(screen.getByText('Devices · 1 of 4')).toBeTruthy();
+    expect(screen.getByText('1 of 4')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Inverter garage' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'X1-Hybrid G4 EPS' })).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'X1-Hybrid G4 Dry contact' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Wallbox' })).toBeNull();
+  });
+
+  it('opens a closed parent for a failing part the Status filter finds, and names it as a chip', () => {
+    renderTab('?status=failed');
+
+    expect(screen.getByText('1 of 4')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Hide the devices of Inverter garage' }),
+    ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'X1-Hybrid G4 Dry contact' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'X1-Hybrid G4 EPS' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove Status Failed' })).toBeTruthy();
+  });
+
+  it('says nothing matches, and points to the devices waiting in Found', () => {
+    const onShowFound = vi.fn();
+
+    renderTab('?q=kitchn', onShowFound);
+
+    expect(screen.getByText('Nothing matches “kitchn”.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Found' }));
+    expect(onShowFound).toHaveBeenCalled();
   });
 });

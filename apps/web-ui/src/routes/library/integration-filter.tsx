@@ -18,6 +18,7 @@ import {
   SelectField,
   Switch,
   type PillTone,
+  type UiIconId,
 } from '@nebulahome/ui';
 
 import { defineMessage, type Message, text } from '@/i18n/messages';
@@ -196,6 +197,7 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
         <div className="flex flex-col gap-3">
           <ShowOnly
             icon="radio"
+            iconClassName="text-cyan"
             label={t('library.integrationFilter.hasNewDevices', 'Has new devices')}
             isOn={filter.hasNew}
             onChange={(hasNew) => {
@@ -204,6 +206,7 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
           />
           <ShowOnly
             icon="circle-arrow-up"
+            iconClassName="text-primary"
             label={t('library.integrationFilter.updateReady', 'Update ready')}
             isOn={filter.hasUpdate}
             onChange={(hasUpdate) => {
@@ -244,11 +247,14 @@ export function IntegrationFilter(props: IntegrationFilterProps) {
 }
 
 /** What one switch of Show only needs. */
-type ShowOnlyProps = {
-  readonly icon: 'radio' | 'circle-arrow-up';
+export type ShowOnlyProps = {
+  readonly icon: UiIconId;
   readonly label: string;
   readonly isOn: boolean;
   readonly onChange: (isOn: boolean) => void;
+
+  /** The glyph's colour; the subtle grey of the sheet's other marks when not said. */
+  readonly iconClassName?: string;
 };
 
 /**
@@ -257,13 +263,13 @@ type ShowOnlyProps = {
  * @param props - See {@link ShowOnlyProps}.
  * @returns The row.
  */
-function ShowOnly(props: ShowOnlyProps) {
-  const { icon, label, isOn, onChange } = props;
+export function ShowOnly(props: ShowOnlyProps) {
+  const { icon, label, isOn, onChange, iconClassName = 'text-foreground-subtle' } = props;
 
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="flex items-center gap-2 text-ui text-foreground">
-        <AppIcon id={icon} size={15} className={icon === 'radio' ? 'text-cyan' : 'text-primary'} />
+        <AppIcon id={icon} size={15} className={iconClassName} />
         {label}
       </span>
       <Switch label={label} isOn={isOn} onChange={onChange} />

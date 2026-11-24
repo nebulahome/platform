@@ -117,47 +117,6 @@ export function packageFilterCodec(states: readonly PackageState[]): ListCodec<P
   };
 }
 
-// --- a vendor's devices ---------------------------------------------------------------------
-
-/** How a device on a vendor's page stands. */
-export const DEVICE_STANDINGS = ['any', 'running', 'failing', 'disabled'] as const;
-
-/** How a device on a vendor's page stands. */
-export type DeviceStandingChoice = (typeof DEVICE_STANDINGS)[number];
-
-/** What a vendor's device table is narrowed by. */
-export type VendorDeviceFilter = {
-  readonly search: string;
-  readonly standing: DeviceStandingChoice;
-};
-
-/** Every device. */
-export const OPEN_VENDOR_DEVICE_FILTER: VendorDeviceFilter = { search: '', standing: 'any' };
-
-/** How the vendor device filter lives in the address. */
-export const VENDOR_DEVICE_FILTER_CODEC: ListCodec<VendorDeviceFilter> = {
-  keys: ['q', 'standing'],
-
-  /**
-   * Reads the filter.
-   *
-   * @param params - The query.
-   * @returns The filter.
-   */
-  read: (params) => ({
-    search: params.get('q') ?? '',
-    standing: readChoice(params, 'standing', DEVICE_STANDINGS, 'any'),
-  }),
-
-  /**
-   * Writes what differs from the open filter.
-   *
-   * @param filter - The filter.
-   * @returns The query entries.
-   */
-  write: (filter) => nonDefault({ q: [filter.search, ''], standing: [filter.standing, 'any'] }),
-};
-
 // --- people and tokens ----------------------------------------------------------------------
 
 /** A search and one facet, for the settings lists. */

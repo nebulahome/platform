@@ -35,6 +35,9 @@ export type PanelProps = VariantProps<typeof panel> & {
   /** The heading, set in the small capitals every group header uses. */
   readonly title: string;
 
+  /** Beside the heading: how many rows, "2 of 12". */
+  readonly meta?: ReactNode;
+
   /** A control in the header, such as the button that adds a row. */
   readonly action?: ReactNode;
 
@@ -52,12 +55,16 @@ export type PanelProps = VariantProps<typeof panel> & {
  * @returns The panel.
  */
 export function Panel(props: PanelProps) {
-  const { title, action, elevation, children, className } = props;
+  const { title, meta, action, elevation, children, className } = props;
 
   return (
     <section className={cn(panel({ elevation }), className)}>
-      <header className="flex min-h-12 items-center justify-between gap-3 px-5.5 pt-4 pb-3">
-        <h2 className="text-subhead font-medium text-foreground">{title}</h2>
+      {/* On a narrow screen a wide control goes under the heading rather than past the edge. */}
+      <header className="flex min-h-12 flex-wrap items-center justify-between gap-3 px-5.5 pt-4 pb-3">
+        <span className="flex min-w-0 items-center gap-2.5">
+          <h2 className="text-subhead font-medium text-foreground">{title}</h2>
+          {meta}
+        </span>
         {action}
       </header>
 

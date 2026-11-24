@@ -340,15 +340,24 @@ export function ViewAll(props: { readonly onSelect: () => void }) {
 }
 
 /**
- * A small mono count beside a name: "12 buttons".
+ * A small mono count beside a name: "12 buttons". Lit (`isLit`) when it counts a list narrowed by
+ * a search or a filter: "2 of 12".
  *
  * @param props - The words.
  * @param props.children - What it says.
+ * @param props.isLit - Whether it is lit.
  * @returns The tag.
  */
-export function CountTag(props: { readonly children: ReactNode }) {
+export function CountTag(props: { readonly children: ReactNode; readonly isLit?: boolean }) {
   return (
-    <span className="rounded-pill bg-surface-raised px-2 py-px font-mono text-mono-caption whitespace-nowrap text-foreground-muted">
+    <span
+      className={cn(
+        'rounded-pill px-2 py-px font-mono text-mono-caption whitespace-nowrap tabular transition-colors duration-200',
+        props.isLit === true
+          ? 'bg-primary/15 text-primary'
+          : 'bg-surface-raised text-foreground-muted',
+      )}
+    >
       {props.children}
     </span>
   );

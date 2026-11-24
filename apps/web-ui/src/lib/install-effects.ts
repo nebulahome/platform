@@ -34,7 +34,7 @@ export type InstallEffect = {
 };
 
 /** What each transport a driver speaks is called, as a person recognises it. */
-const TRANSPORT_NAMES: Readonly<Record<string, string>> = {
+export const TRANSPORT_NAMES: Readonly<Record<string, string | undefined>> = {
   http: 'HTTP',
   mqtt: 'MQTT',
   ble: 'Bluetooth LE',
