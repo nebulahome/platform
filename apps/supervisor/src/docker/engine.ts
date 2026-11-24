@@ -320,6 +320,30 @@ export class DockerEngine {
   }
 
   /**
+   * Removes one name of an image, or the image by its id, as `docker rmi` does without `--force`:
+   * Docker refuses an image a container uses, or an id more than one name holds. The last name
+   * removed takes the image with it.
+   *
+   * @param reference - Its id, or one `name:tag` of it.
+   * @throws {ConflictError} When Docker refuses.
+   */
+  public async removeImage(reference: string): Promise<void> {
+    try {
+      await this.#empty(
+        'DELETE',
+        `/images/${encodeURIComponent(reference)}`,
+        `remove the image ${reference}`,
+        {},
+      );
+    } catch (error: unknown) {
+      // Already gone - another name removed it with it, or someone did by hand: what was asked.
+      if (!(error instanceof NotFoundError)) {
+        throw error;
+      }
+    }
+  }
+
+  /**
    * Pulls an image, reporting progress as it goes.
    *
    * @param image - The image without a tag.

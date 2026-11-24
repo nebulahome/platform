@@ -11,8 +11,9 @@
  * container is made like the old (`domain/recreate.ts`) and must turn healthy - the image's
  * health check asks every service, not just the proxy; if it does not, it is removed, the volumes
  * are copied back (only when it started: before that nothing wrote to them), the old image takes
- * its name back and the old container starts again. The outcome is written where the page reads it, with what was done and,
- * when the new version did not start, its last lines.
+ * its name back and the old container starts again. Once the new one is healthy the old container
+ * goes, and the old image with it when nothing else uses it. The outcome is written where the
+ * page reads it, with what was done and, when the new version did not start, its last lines.
  *
  * While it works a marker sits beside the outcome (`updates/current.json`): the version that comes
  * up - the new one, or the old one put back - reads it and tells the pages an update is being
@@ -28,6 +29,8 @@ import type { InspectedContainer } from '../docker/engine-schemas.js';
 import type { DockerEngine } from '../docker/engine.js';
 import { parseLogs } from '../domain/log-frames.js';
 import { planRecreate } from '../domain/recreate.js';
+
+import { removeUnusedImage } from './unused-image.js';
 
 /** The folders whose volumes are copied aside: what a migration or the new version changes. */
 export const SNAPSHOT_FOLDERS = ['/data', '/var/lib/postgresql/data'] as const;
@@ -57,6 +60,8 @@ export type PlatformUpdateOptions = {
     | 'removeContainer'
     | 'wait'
     | 'logs'
+    | 'listContainers'
+    | 'removeImage'
   >;
   readonly logger: PlatformLogger;
 
@@ -442,6 +447,8 @@ export async function updatePlatform(
   await engine.removeContainer(old.Id).catch((error: unknown) => {
     logger.warn({ err: error }, 'Could not remove the old container');
   });
+  // Only here: a rollback starts the old image again.
+  await removeUnusedImage(engine, old.Image, logger);
   await Promise.all(
     snapshots.map(async (each) => engine.removeVolume(each.copy).catch(() => undefined)),
   );

@@ -68,6 +68,8 @@ function engineWith(
     ),
     inspectImage: vi.fn(async (reference: string) =>
       Promise.resolve({
+        Id: reference,
+        RepoTags: reference === 'sha256:old' ? ['nebulahome/platform:2026.10.1'] : [],
         Config: {
           Env: [],
           Labels: reference === 'sha256:new' ? { 'org.opencontainers.image.version': says } : {},
@@ -122,6 +124,13 @@ function engineWith(
       return Promise.resolve();
     }),
     wait: vi.fn(async () => Promise.resolve(0)),
+    // The new container is the only one left: the old one's image is used by none.
+    listContainers: vi.fn(async () => Promise.resolve([{ Id: 'new-id', ImageID: 'sha256:new' }])),
+    removeImage: vi.fn(async (reference: string) => {
+      calls.push(`remove image ${reference}`);
+
+      return Promise.resolve();
+    }),
     // One stdout frame, as Docker multiplexes it: stream, three zeros, the length, the text.
     logs: vi.fn(async () =>
       Promise.resolve(Buffer.from([1, 0, 0, 0, 0, 0, 0, 17, ...Buffer.from('migration failed\n')])),
@@ -164,7 +173,7 @@ async function run(health: 'healthy' | 'unhealthy', says?: string) {
 }
 
 describe('updatePlatform', () => {
-  it('copies the volumes aside, makes the new container and cleans up once it is healthy', async () => {
+  it('copies the volumes aside, makes the new container and cleans up once it is healthy, the old image too', async () => {
     const { outcome, calls, written, isMarked } = await run('healthy');
 
     expect(isMarked).toBe(false);
@@ -187,6 +196,7 @@ describe('updatePlatform', () => {
       'create nebulahome-nebulahome-1',
       'start new-id',
       'remove old-id',
+      'remove image nebulahome/platform:2026.10.1',
       `drop ${PRE}-data`,
       `drop ${PRE}-postgres`,
     ]);
@@ -211,6 +221,8 @@ describe('updatePlatform', () => {
       `drop ${PRE}-data`,
       `drop ${PRE}-postgres`,
     ]);
+    // The old image runs again: it is never removed on the way back.
+    expect(calls.filter((call) => call.startsWith('remove image'))).toEqual([]);
   });
 
   it('never starts a new container that is still the old version, and puts the old one back', async () => {

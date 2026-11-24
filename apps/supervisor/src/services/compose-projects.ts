@@ -15,7 +15,9 @@
  * its standard input.
  *
  * Every operation - deploy, start, stop, pull, remove - answers at once and runs after, one at a
- * time per project, keeping the last lines the plugin wrote for the project's page.
+ * time per project, keeping the last lines the plugin wrote for the project's page. Once an `up` or
+ * a `down` succeeded, the images the project's containers ran before are removed when nothing
+ * uses them any more (`unused-image.ts`): an update would otherwise leave every old one on disk.
  */
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -41,6 +43,7 @@ import {
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 
+import type { DockerEngine } from '../docker/engine.js';
 import {
   composeConflicts,
   problemsOf,
@@ -48,6 +51,9 @@ import {
   type ComposeNeighbours,
 } from '../domain/compose-paths.js';
 import type { PlatformContext } from '../domain/managed.js';
+import { COMPOSE_LABELS } from '../domain/system.js';
+
+import { removeUnusedImage } from './unused-image.js';
 
 /** The file a project is kept in. */
 const COMPOSE_FILE = 'compose.yaml';
@@ -166,6 +172,9 @@ export function commandRunner(cli: string, dockerHost: string): ComposeRunner {
 /** What the compose projects need. */
 export type ComposeProjectsOptions = {
   readonly runner: ComposeRunner;
+
+  /** What finds and removes the images a project no longer runs on. */
+  readonly engine: Pick<DockerEngine, 'listContainers' | 'inspectImage' | 'removeImage'>;
   readonly logger: PlatformLogger;
 
   /** The data directory, as this process reaches it. */
@@ -396,11 +405,13 @@ export class ComposeProjects {
     this.#requireIdle(project);
 
     this.#enqueue(project, 'remove', async (log) => {
-      await this.#run(
-        project,
-        'removing',
-        ['down', '--remove-orphans', ...(removeVolumes ? ['--volumes'] : [])],
-        log,
+      await this.#releasingImages(project, async () =>
+        this.#run(
+          project,
+          'removing',
+          ['down', '--remove-orphans', ...(removeVolumes ? ['--volumes'] : [])],
+          log,
+        ),
       );
 
       if (removeFiles) {
@@ -635,7 +646,31 @@ export class ComposeProjects {
       await this.#run(project, 'pulling', ['-f', '-', 'pull'], log, config);
     }
 
-    await this.#run(project, 'starting', ['-f', '-', 'up', '-d', '--remove-orphans'], log, config);
+    await this.#releasingImages(project, async () =>
+      this.#run(project, 'starting', ['-f', '-', 'up', '-d', '--remove-orphans'], log, config),
+    );
+  }
+
+  /**
+   * Runs a command that may leave the images the project's containers ran unused - `up` on newer
+   * ones, `down` - and once it succeeded removes each of them nothing uses any more.
+   *
+   * @param project - The project.
+   * @param command - The command.
+   * @throws {Error} What the command threw; nothing is removed then.
+   */
+  async #releasingImages(project: string, command: () => Promise<void>): Promise<void> {
+    const { engine, logger } = this.#options;
+    // Docker unreachable: the command fails too, and there is nothing to remove.
+    const containers = await engine.listContainers().catch(() => []);
+    const images = new Set(
+      containers
+        .filter((container) => container.Labels[COMPOSE_LABELS.project] === project)
+        .flatMap((container) => container.ImageID ?? []),
+    );
+
+    await command();
+    await Promise.all([...images].map(async (image) => removeUnusedImage(engine, image, logger)));
   }
 
   /**

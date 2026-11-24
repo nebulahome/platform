@@ -103,6 +103,7 @@ import { ManagedContainers } from './services/managed-containers.js';
 import { PackageCompose } from './services/package-compose.js';
 import { PlatformUpdates } from './services/platform-updates.js';
 import { replaceContainer } from './services/replace.js';
+import { removeUnusedImage } from './services/unused-image.js';
 import { checkImage } from './services/update-check.js';
 import { exportVolumes, importVolumes, type VolumeCopyOptions } from './services/volume-archive.js';
 
@@ -403,6 +404,7 @@ export class SupervisorService {
         options.config.SUPERVISOR_DOCKER_CLI,
         dockerHostOf(options.config.SUPERVISOR_DOCKER_SOCKET),
       ),
+      engine: this.#engine,
       logger: options.logger,
       dataRoot: this.#dataRoot,
 
@@ -428,6 +430,7 @@ export class SupervisorService {
         options.config.SUPERVISOR_DOCKER_CLI,
         dockerHostOf(options.config.SUPERVISOR_DOCKER_SOCKET),
       ),
+      engine: this.#engine,
       logger: options.logger,
       dataRoot: this.#dataRoot,
       directory: PACKAGE_COMPOSE_DIRECTORY,
@@ -731,7 +734,7 @@ export class SupervisorService {
   }
 
   /**
-   * Stops and removes a container the owner may control.
+   * Stops and removes a container the owner may control, and its image when nothing else uses it.
    *
    * @param name - Its name.
    * @param removeVolumes - Also the volumes Docker made for it alone.
@@ -741,6 +744,7 @@ export class SupervisorService {
     const tracked = this.#requireControllable(name);
 
     await this.#engine.removeContainer(tracked.id, removeVolumes);
+    await removeUnusedImage(this.#engine, tracked.listed.ImageID, this.#logger);
 
     if (tracked.listed.Labels[INSTALLED_LABEL] === 'true') {
       await this.#installs.forget(name);

@@ -5,7 +5,7 @@
  * be made or started, or does not stay up - it stops or restarts in its first seconds, or its
  * health check says unhealthy - gives its name back, and the old one is started again, as it was.
  * Only once the new one is up is the old removed - its volumes stay, since the new container
- * mounts them.
+ * mounts them - and then its image, when nothing else uses it (`unused-image.ts`).
  */
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -14,6 +14,8 @@ import type { PlatformLogger } from '@nebulahome/logging';
 
 import type { DockerEngine } from '../docker/engine.js';
 import type { ExtraNetwork } from '../domain/recreate.js';
+
+import { removeUnusedImage } from './unused-image.js';
 
 /** How long a new container must keep running before the old one is removed. */
 const SETTLE_MS = 10_000;
@@ -98,6 +100,7 @@ async function whyNotUp(
 export async function replaceContainer(options: ReplaceOptions): Promise<string> {
   const { engine, logger, name } = options;
   const aside = `${name}-nebula-old-${Date.now().toString(36)}`;
+  const { Image: oldImage } = await engine.inspectContainer(options.id);
 
   await engine.renameContainer(options.id, aside);
 
@@ -155,6 +158,8 @@ export async function replaceContainer(options: ReplaceOptions): Promise<string>
     // The new container runs; the old one left behind is clutter, not a failure.
     logger.warn({ err: error, container: aside }, 'Could not remove the replaced container');
   });
+  // Left when the new container runs on the same image: it is in use.
+  await removeUnusedImage(engine, oldImage, logger);
 
   return created;
 }
