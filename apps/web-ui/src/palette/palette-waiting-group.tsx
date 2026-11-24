@@ -47,9 +47,13 @@ export function PaletteWaitingGroup(props: PaletteWaitingGroupProps) {
         </p>
       ) : (
         ['w-35', 'w-24 opacity-60'].map((width) => (
-          <div key={width} aria-hidden="true" className="flex h-12 items-center gap-3.5 px-2.5">
+          // A row of name over details, as most rows are, so nothing moves when they arrive.
+          <div key={width} aria-hidden="true" className="flex h-14 items-center gap-3.5 px-2.5">
             <span className="size-8 shrink-0 rounded-full bg-foreground/7" />
-            <span className={`h-2.5 rounded-full bg-foreground/7 ${width}`} />
+            <span className="flex flex-col gap-2">
+              <span className={`h-2.5 rounded-full bg-foreground/7 ${width}`} />
+              <span className="h-2 w-20 rounded-full bg-foreground/5" />
+            </span>
           </div>
         ))
       )}

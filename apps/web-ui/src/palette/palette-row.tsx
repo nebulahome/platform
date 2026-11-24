@@ -128,7 +128,8 @@ export function PaletteRow(props: PaletteRowProps) {
         setShaking(false);
       }}
       className={cn(
-        'relative flex h-12 shrink-0 cursor-pointer items-center gap-3.5 rounded-inner pr-3.5 pl-2.5',
+        'relative flex shrink-0 cursor-pointer items-center gap-3.5 rounded-inner pr-3.5 pl-2.5',
+        secondary === '' ? 'h-12' : 'h-14',
         arrival !== null && 'palette-row',
         isShaking && 'palette-shake',
       )}
@@ -155,11 +156,11 @@ export function PaletteRow(props: PaletteRowProps) {
         <PaletteGlyph icon={item.icon} icons={icons} />
       </span>
 
-      <span className="flex min-w-0 grow items-baseline gap-2.5 overflow-hidden whitespace-nowrap">
+      <span className="flex min-w-0 grow flex-col gap-0.5 overflow-hidden whitespace-nowrap">
         <span
           translate={item.isName ? 'no' : undefined}
           className={cn(
-            'max-w-full shrink-0 truncate text-title',
+            'truncate text-title',
             isUnavailable ? 'text-foreground/45' : 'text-foreground/80',
           )}
         >
@@ -168,7 +169,7 @@ export function PaletteRow(props: PaletteRowProps) {
         {secondary === '' ? null : (
           <span
             translate={item.isName && !hasKind ? 'no' : undefined}
-            className="min-w-0 truncate text-caption text-foreground/45"
+            className="truncate text-caption text-foreground/45"
           >
             {markMatch(secondary, elsewhere, MARK)}
           </span>
