@@ -54,7 +54,9 @@ import {
 } from '@nebulahome/ui';
 
 import { useSession } from '@/auth/session-store';
-import { translate } from '@/i18n/messages';
+import { navPageOf } from '@/components/sidebar';
+import { text, translate } from '@/i18n/messages';
+import { useCameFrom } from '@/lib/back-trail';
 import { deviceWebPageOf } from '@/lib/device-web-page';
 import { useTab } from '@/lib/use-tab';
 import { LIBRARY_QUERY_KEYS } from '@/library/api';
@@ -564,6 +566,35 @@ function factsOf(
 }
 
 /**
+ * What the way back is called: the page the device was opened from, by its own name where the
+ * page knows it - the device's integration, its parent - and otherwise by the sidebar's.
+ *
+ * @param cameFrom - That page's address; null when the device was the tab's first page.
+ * @param view - The device, once read.
+ * @returns The name.
+ */
+export function backLabelOf(cameFrom: string | null, view: DevicePageView | undefined): string {
+  if (cameFrom === null) {
+    return translate('device.device.devices', 'Devices');
+  }
+
+  const [pathname = ''] = cameFrom.split('?');
+
+  if (view?.parent !== undefined && pathname === devicePath(view.parent.id)) {
+    return view.parent.name;
+  }
+
+  if (view !== undefined && pathname === `/integrations/${view.device.vendorId}`) {
+    return view.vendorName;
+  }
+
+  // Another device than its parent: the sidebar's "Devices" would promise the list.
+  const page = pathname.startsWith('/devices/') ? undefined : navPageOf(pathname);
+
+  return page === undefined ? translate('common.back', 'Back') : text(page.label);
+}
+
+/**
  * Renders a device's page.
  *
  * @returns The page.
@@ -573,6 +604,7 @@ export function DevicePage() {
 
   const { deviceId = '' } = useParams();
   const navigate = useNavigate();
+  const cameFrom = useCameFrom();
   const queryClient = useQueryClient();
   const { view, isPending, error, isMissing } = useDevicePage(deviceId);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
@@ -681,7 +713,7 @@ export function DevicePage() {
         }
         hero={
           <DetailHero
-            back={<BackLink to="/devices">{t('device.device.devices', 'Devices')}</BackLink>}
+            back={<BackLink to={cameFrom ?? '/devices'}>{backLabelOf(cameFrom, view)}</BackLink>}
             mark={
               view === undefined ? undefined : (
                 <HeroMark>

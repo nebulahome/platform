@@ -12,6 +12,7 @@ import { Link } from 'react-router';
 
 import { AppIcon, cn, HERO_BACK, PageHeader } from '@nebulahome/ui';
 
+import { BACK_STATE } from '@/lib/back-trail';
 import { toMessage } from '@/lib/error-message';
 
 /** One step of the way back. */
@@ -122,7 +123,8 @@ export type BackLinkProps = {
 };
 
 /**
- * The way back at the top of a detail page: "‹ Integrations".
+ * The way back at the top of a detail page: "‹ Integrations". It says so in the router's state,
+ * so the trail of pages (`lib/back-trail.ts`) steps back rather than forward.
  *
  * @param props - See {@link BackLinkProps}.
  * @returns The link.
@@ -131,7 +133,7 @@ export function BackLink(props: BackLinkProps) {
   const { to, children } = props;
 
   return (
-    <Link to={to} className={HERO_BACK}>
+    <Link to={to} state={BACK_STATE} className={HERO_BACK}>
       <AppIcon id="chevron-left" size={14} />
       {children}
     </Link>

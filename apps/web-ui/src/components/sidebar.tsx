@@ -238,6 +238,18 @@ export const NAV_PAGES: readonly Pick<Entry, 'to' | 'label' | 'icon'>[] = [
   SETTINGS,
 ];
 
+/**
+ * The sidebar's page an address belongs to: the one it starts with, the longest when two do.
+ *
+ * @param pathname - The address, without its query.
+ * @returns The page; undefined for an address under none of them.
+ */
+export function navPageOf(pathname: string): Pick<Entry, 'to' | 'label' | 'icon'> | undefined {
+  return NAV_PAGES.filter(
+    (page) => pathname === page.to || pathname.startsWith(`${page.to}/`),
+  ).sort((one, other) => other.to.length - one.to.length)[0];
+}
+
 /** Narrower than this, the card starts shut. In jsdom no query matches: a wide window. */
 const NARROW_QUERY = '(max-width: 1099.98px)';
 

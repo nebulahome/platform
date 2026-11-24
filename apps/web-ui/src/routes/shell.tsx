@@ -8,6 +8,7 @@ import { Outlet } from 'react-router';
 
 import { AppWindowsLayer } from '@/app-windows/app-windows-layer';
 import { Sidebar } from '@/components/sidebar';
+import { useBackTrail } from '@/lib/back-trail';
 import { useLiveChannel } from '@/live/use-live-channel';
 import { FloatingLayer } from '@/packages/floating/floating-layer';
 import { PackageBackgrounds } from '@/packages/package-backgrounds';
@@ -65,11 +66,15 @@ export function PagePlaceholder() {
  * so every page, card and package opens it the same way. So is the command palette's, which Ctrl+K
  * opens from anywhere inside.
  *
+ * Every move between pages is recorded here too, so a page's way back can go where it was opened
+ * from (`lib/back-trail.ts`).
+ *
  * @returns The shell.
  */
 export function Shell() {
   useLiveChannel();
   usePaletteShortcut();
+  useBackTrail();
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-canvas text-foreground">
