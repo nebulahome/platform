@@ -54,7 +54,10 @@ export const BLUETOOTH_PROXY_OPS = {
  * anything else.
  */
 export const BLUETOOTH_PROXY_GATT_OPS = {
-  /** Connects to `{ address }`; answers `{ mtu? }`. */
+  /**
+   * Connects to `{ address, database? }` - with the services the hub remembers, without searching -
+   * and answers `{ mtu?, database? }`, the services when it searched them.
+   */
   connect: 'bluetooth-proxy.connect',
 
   /** Lets go of `{ address }`; answers null, and never fails. */
@@ -70,6 +73,14 @@ export const BLUETOOTH_PROXY_GATT_OPS = {
   /** Turns a characteristic's notifications on or off; each value comes through `gatt`. */
   notify: 'bluetooth-proxy.notify',
 } as const;
+
+/**
+ * The `code` of the error a proxy fails a request with when the services it was connected with
+ * do not match the device: a characteristic not among them, a handle the device refused. The hub
+ * forgets them and, when nothing was answered on the link yet, carries the request out again on a
+ * link that searched.
+ */
+export const BLUETOOTH_GATT_STALE = 'bluetooth-gatt-stale';
 
 /**
  * The ops the platform transport `bluetooth` carries to a device it connects to, through the

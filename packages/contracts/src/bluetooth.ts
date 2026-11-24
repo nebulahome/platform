@@ -306,6 +306,110 @@ export const bluetoothProxyLinkArgsSchema = z.object(proxyAddressShape);
 /** Arguments of `bluetooth-proxy.connect` and `bluetooth-proxy.disconnect`: the address. */
 export type BluetoothProxyLinkArgs = z.output<typeof bluetoothProxyLinkArgsSchema>;
 
+/** A handle in a device's attribute table. */
+const gattHandleSchema = z.int().min(1).max(0xffff);
+
+/**
+ * Whether a device's services hold together: each handle after its parent's, no two alike.
+ *
+ * @param services - The services.
+ * @returns Whether.
+ */
+function holdsTogether(
+  services: readonly {
+    handle: number;
+    characteristics: readonly { handle: number; descriptors: readonly { handle: number }[] }[];
+  }[],
+): boolean {
+  const seen = new Set<number>();
+
+  /**
+   * Notes a handle.
+   *
+   * @param handle - It.
+   * @param after - Its parent's.
+   * @returns Whether it is new and after its parent's.
+   */
+  const fresh = (handle: number, after: number): boolean => {
+    if (handle <= after || seen.has(handle)) {
+      return false;
+    }
+
+    seen.add(handle);
+
+    return true;
+  };
+
+  return services.every(
+    (service) =>
+      fresh(service.handle, 0) &&
+      service.characteristics.every(
+        (characteristic) =>
+          fresh(characteristic.handle, service.handle) &&
+          characteristic.descriptors.every((descriptor) =>
+            fresh(descriptor.handle, characteristic.handle),
+          ),
+      ),
+  );
+}
+
+/**
+ * A device's services as a proxy that connects found them, for the hub to remember: the handles
+ * are the device's, so any proxy can later connect with them and skip the search. The hub keeps
+ * them only while they hold together.
+ */
+export const bluetoothGattDatabaseSchema = z
+  .array(
+    z.object({
+      uuid: bluetoothUuidSchema,
+      handle: gattHandleSchema,
+      characteristics: z
+        .array(
+          z.object({
+            uuid: bluetoothUuidSchema,
+            handle: gattHandleSchema,
+            /** The characteristic's properties bitmask, as the device declares it. */
+            properties: z.int().min(0).max(0xff),
+            descriptors: z
+              .array(z.object({ uuid: bluetoothUuidSchema, handle: gattHandleSchema }))
+              .max(16),
+          }),
+        )
+        .max(64),
+    }),
+  )
+  .min(1)
+  .max(64)
+  .refine(holdsTogether, "Each handle after its parent's, no two alike");
+
+/** A device's services, as a proxy found them. */
+export type BluetoothGattDatabase = z.output<typeof bluetoothGattDatabaseSchema>;
+
+/**
+ * Arguments of `bluetooth-proxy.connect`: the device, and its services when the hub remembers them.
+ * With them the proxy connects without searching and finds characteristics among them.
+ */
+export const bluetoothProxyConnectArgsSchema = z.object({
+  ...proxyAddressShape,
+  database: bluetoothGattDatabaseSchema.optional(),
+});
+
+/** Arguments of `bluetooth-proxy.connect`. */
+export type BluetoothProxyConnectArgs = z.output<typeof bluetoothProxyConnectArgsSchema>;
+
+/**
+ * What `bluetooth-proxy.connect` answers: the MTU agreed, when the proxy knows it, and the
+ * services when it searched them. A proxy that cannot connect without searching ignores the ones
+ * it is given and answers with what it found.
+ */
+export const bluetoothProxyConnectReplySchema = z.object({
+  mtu: z.int().positive().optional(),
+  database: bluetoothGattDatabaseSchema.optional(),
+});
+
+/** What `bluetooth-proxy.connect` answers, as a proxy writes it. */
+export type BluetoothProxyConnectReply = z.input<typeof bluetoothProxyConnectReplySchema>;
+
 /** Arguments of `bluetooth-proxy.read`; it answers {@link bluetoothGattValueSchema}. */
 export const bluetoothProxyReadArgsSchema = bluetoothGattReadArgsSchema.extend(proxyAddressShape);
 
