@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  adoptionVerdictSchema,
   associateBroker,
   associateModel,
   identifySighting,
   matchesAnnouncement,
   matchesBroker,
   resolveDiscovery,
+  vendorAdoption,
   vendorDiscoverySchema,
   type DiscoveryDriver,
 } from './discovery.js';
@@ -164,6 +166,32 @@ describe('resolveDiscovery', () => {
     expect(vendorDiscoverySchema.parse({ ...shellyDiscovery(), adopt: 'automatic' }).adopt).toBe(
       'automatic',
     );
+  });
+
+  it("lets a vendor's own judge decide device by device, and its page still offers adopting", () => {
+    const parsed = vendorDiscoverySchema.parse({
+      ...shellyDiscovery(),
+      adopt: { module: './adopt.js' },
+    });
+
+    expect(parsed.adopt).toEqual({ module: './adopt.js' });
+    expect(vendorAdoption(parsed)).toBe('owner');
+    expect(
+      vendorAdoption(vendorDiscoverySchema.parse({ ...shellyDiscovery(), adopt: 'automatic' })),
+    ).toBe('automatic');
+    expect(() =>
+      vendorDiscoverySchema.parse({ ...shellyDiscovery(), adopt: { module: './adopt.js', x: 1 } }),
+    ).toThrow();
+  });
+
+  it('reads a verdict, and refuses one that is not', () => {
+    expect(adoptionVerdictSchema.parse({ adopt: 'automatic' })).toEqual({
+      adopt: 'automatic',
+      config: {},
+    });
+    expect(adoptionVerdictSchema.parse({ adopt: 'owner' })).toEqual({ adopt: 'owner' });
+    expect(() => adoptionVerdictSchema.parse({ adopt: 'owner', config: {} })).toThrow();
+    expect(() => adoptionVerdictSchema.parse({ adopt: 'yes' })).toThrow();
   });
 
   it('refuses one code mapped by two drivers of a vendor that does not probe, naming both', () => {

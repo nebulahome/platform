@@ -22,12 +22,14 @@ import type { BusClient, BusSubscription } from '@nebulahome/bus';
 import {
   busSubjects,
   catalogueRequestSchema,
+  discoveredConfigRequestSchema,
   discoveredRequestSchema,
   discoverRequestSchema,
   discoveryDismissRequestSchema,
   forgetRequestSchema,
   HUB_CATALOGUE_METHOD,
   HUB_DISCOVER_METHOD,
+  HUB_DISCOVERED_CONFIG_METHOD,
   HUB_DISCOVERED_METHOD,
   HUB_DISCOVERY_DISMISS_METHOD,
   type DiscoveryDismissRequest,
@@ -42,10 +44,13 @@ import {
   NotFoundError,
   probeRequestSchema,
   reloadRequestSchema,
+  secretKeysOf,
   vendorChangedRequestSchema,
   vendorLoadRequestSchema,
   type BundleFailureView,
   type CatalogueReply,
+  type DiscoveredConfigReply,
+  type DiscoveredConfigRequest,
   type DiscoveredDevice,
   type DiscoveredReply,
   type DiscoverReply,
@@ -64,9 +69,9 @@ import {
   type VendorLoadRequest,
 } from '@nebulahome/contracts';
 import type { JsonObject } from '@nebulahome/contracts';
-import { openSecrets } from '@nebulahome/db';
+import { openSecrets, sealSecrets } from '@nebulahome/db';
 import type { PlatformLogger } from '@nebulahome/logging';
-import type { Registry, Transport } from '@nebulahome/package-runtime';
+import { vendorAdoption, type Registry, type Transport } from '@nebulahome/package-runtime';
 
 import type { LoadedBundle, LoadedVendor } from './bundles.js';
 import type { Detected, VendorHearing } from './discovery.js';
@@ -98,6 +103,17 @@ export type ManagementServiceOptions = {
    * @returns Every device heard and not yet added.
    */
   readonly discovered: () => readonly DiscoveredDevice[];
+
+  /**
+   * What one found device is added with beyond what it lists: what its vendor's judge gave it.
+   * None when not said, as in tests.
+   *
+   * @param id - The candidate.
+   * @returns Its driver and that configuration, secrets open; null when it is no longer heard.
+   */
+  readonly adoptionConfig?: (
+    id: string,
+  ) => { readonly kind: string; readonly config: JsonObject } | null;
 
   /** Sets found devices aside, or brings them back; how many discovery still had. */
   readonly dismiss: (ids: readonly string[], isDismissed: boolean) => Promise<number>;
@@ -282,7 +298,8 @@ function vendorOf(
           : (['bluetooth'] as const)),
       ]),
     ],
-    adoption: vendor.discovery?.plan.discovery.adopt ?? 'owner',
+    adoption:
+      vendor.discovery === undefined ? 'owner' : vendorAdoption(vendor.discovery.plan.discovery),
     twins: manifest.twins ?? [],
     twinsPrefer: manifest.twinsPrefer ?? [],
     pairing:
@@ -400,6 +417,36 @@ export class ManagementService {
   }
 
   /**
+   * What one found device is added with beyond what it lists, with the fields its driver's setup
+   * declares secret sealed: they cross the bus only that way.
+   *
+   * @param id - The candidate.
+   * @returns The configuration; empty when it is no longer heard or its driver is not loaded.
+   */
+  #adoptionConfig(id: string): DiscoveredConfigReply {
+    const found = this.#options.adoptionConfig?.(id) ?? null;
+    const bundle =
+      found === null
+        ? undefined
+        : this.#options
+            .vendors()
+            .flatMap((vendor) => vendor.drivers)
+            .find((each) => each.manifest.id === found.kind);
+
+    if (found === null || bundle === undefined) {
+      return { transportConfig: {} };
+    }
+
+    return {
+      transportConfig: sealSecrets(
+        found.config,
+        secretKeysOf(bundle.setup.transport),
+        this.#options.secretsKey,
+      ),
+    };
+  }
+
+  /**
    * Asks discovery which model answered, without letting its failure spoil the verdict.
    *
    * @param kind - The driver the form is on.
@@ -481,6 +528,20 @@ export class ManagementService {
          * @returns Every device heard and not yet added.
          */
         (): DiscoveredReply => ({ items: [...this.#options.discovered()] }),
+      ),
+
+      client.serve(
+        busSubjects.service(HUB_SERVICE, HUB_DISCOVERED_CONFIG_METHOD),
+        discoveredConfigRequestSchema,
+
+        /**
+         * Says what one found device is added with beyond what it lists.
+         *
+         * @param request - Which.
+         * @returns The configuration, its secrets sealed; empty when it is no longer heard.
+         */
+        (request: DiscoveredConfigRequest): DiscoveredConfigReply =>
+          this.#adoptionConfig(request.id),
       ),
 
       client.serve(

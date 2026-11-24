@@ -45,6 +45,8 @@ import {
   dockerStatusSchema,
   duplicateOf,
   INFRARED_TRANSPORT,
+  ingressReplySchema,
+  managedName,
   INFRARED_VENDOR,
   MATTER_TRANSPORT,
   MATTER_VENDOR,
@@ -82,7 +84,6 @@ import {
   type Claim,
   type DeviceInfo,
   type Integration,
-  type PlatformServices,
   type StreamSource,
   type Transport,
   type TransportConnection,
@@ -142,6 +143,7 @@ import {
   mergeBundleResults,
   type BundleFailure,
   type BundleOrigin,
+  type HubPlatform,
   type LoadBundlesOptions,
   type LoadBundlesResult,
   type LoadedVendor,
@@ -289,8 +291,11 @@ export class HubService {
   #management: { unsubscribe: () => void }[] = [];
   #discovery: DiscoveryService | undefined;
 
-  /** What the platform runs that bundle code may use: its broker, as it stands when asked. */
-  readonly #platform: PlatformServices;
+  /**
+   * What the platform runs that bundle code may use: its broker, as it stands when asked, and the
+   * vendors' own containers.
+   */
+  readonly #platform: HubPlatform;
 
   /** What could not be loaded, by vendor: what its page says, and a list of vendors cannot. */
   readonly #failures = new Map<string, readonly BundleFailure[]>();
@@ -767,6 +772,14 @@ export class HubService {
       discovered: () => this.#discovery?.list() ?? [],
 
       /**
+       * What one found device is added with beyond what it lists.
+       *
+       * @param id - The candidate.
+       * @returns Its driver and configuration; null when it is no longer heard.
+       */
+      adoptionConfig: (id: string) => this.#discovery?.adoptionConfig(id) ?? null,
+
+      /**
        * Sets found devices aside, or brings them back; nothing before discovery has started.
        *
        * @param ids - Which.
@@ -899,6 +912,24 @@ export class HubService {
        */
       get mqtt() {
         return external ?? mqtt.hubConnection();
+      },
+
+      /**
+       * Where one vendor's own container is reached, as the supervisor serves its page.
+       *
+       * @param vendorId - The vendor.
+       * @param id - The container's id in its manifest.
+       * @returns Its base URL; null while it is not running or has no page.
+       */
+      container: async (vendorId: string, id: string) => {
+        const { target } = await this.#client.request(
+          busSubjects.service(SUPERVISOR_SERVICE, SUPERVISOR_METHODS.ingress),
+          { name: managedName({ vendorId, dependencyId: id, ownerKind: 'vendor' }) },
+          ingressReplySchema,
+          { timeoutMs: 5000 },
+        );
+
+        return target === null ? null : { url: target.url };
       },
     };
     this.#packages = new PackageWatch({

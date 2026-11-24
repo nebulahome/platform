@@ -17,7 +17,9 @@
  *    may map one code only when the vendor probes: a Shelly 2PM reports the same code whether it
  *    runs as two relays or as a cover, and the drivers' claims read which from the answer.
  * 6. **propose** - the device, its driver and its model, for an owner to adopt - or, for a vendor
- *    that says `"adopt": "automatic"`, for the platform to add at once.
+ *    that says `"adopt": "automatic"`, for the platform to add at once. A vendor whose module
+ *    judges each sighting (`"adopt": { "module" }`) has it asked first, and the device proposed
+ *    the way it answers.
  *
  * Steps 1 and 3 may need code; 2, 4 and 5 never do, which is the point: however a vendor hears
  * its devices, the decision about which driver a device belongs to is made by the same rule for
@@ -40,6 +42,7 @@ import {
   normalizeMac,
   transportIdSchema,
   type BluetoothAdvert,
+  type DeviceAdoption,
   type JsonObject,
   type SerialUsb,
 } from '@nebulahome/contracts';
@@ -336,9 +339,14 @@ export const vendorDiscoverySchema = z
     /**
      * Who adds a device found. `owner` - the default - proposes it on the vendor's
      * page; `automatic` adds it as soon as it is heard, for devices the owner already chose
-     * somewhere else: a Zigbee device paired with Zigbee2MQTT.
+     * somewhere else: a Zigbee device paired with Zigbee2MQTT. A module of the vendor's own - a
+     * judge, see {@link AdoptionJudge} - decides device by device, for a vendor some of whose
+     * devices were chosen somewhere else: an ESPHome node written in the vendor's own Device
+     * Builder, among others on the network.
      */
-    adopt: z.enum(DEVICE_ADOPTIONS).default('owner'),
+    adopt: z
+      .union([z.enum(DEVICE_ADOPTIONS), z.strictObject({ module: bundlePathSchema })])
+      .default('owner'),
 
     /**
      * The entities pairing is run by, for a vendor whose devices are paired through
@@ -885,6 +893,52 @@ export type DiscoverySource = {
 
 /** What a discovery module default-exports. */
 export type DiscoverySourceFactory = (sdk: BundleSdk) => DiscoverySource;
+
+/**
+ * What a vendor's judge says of one sighting: the owner adopts it, or the platform adds it at
+ * once with `config` merged over the sighting's own - a key the judge knows. `config` holds only
+ * fields the driver's setup declares; it is never listed with the found device, only used when
+ * it is added, and the fields the setup declares secret are stored sealed.
+ */
+export const adoptionVerdictSchema = z.union([
+  z.strictObject({ adopt: z.literal('owner') }),
+  z.strictObject({ adopt: z.literal('automatic'), config: jsonObjectSchema.default({}) }),
+]);
+
+/** What a vendor's judge says of one sighting. */
+export type AdoptionVerdict = z.input<typeof adoptionVerdictSchema>;
+
+/**
+ * A vendor's own judge of who adds each device found, for a vendor some of whose devices were
+ * already chosen somewhere else. The hub asks it of every sighting that matches, from every
+ * source, before the device is proposed - so a device it adopts is never shown to the owner to
+ * adopt by hand - and trusts the answer for a while.
+ */
+export type AdoptionJudge = {
+  /**
+   * Decides who adds one device.
+   *
+   * @param sighting - How to reach it, and what it said.
+   * @param signal - Ends the question when the hub stops waiting.
+   * @returns The verdict. A judge that throws - what it asks is not there yet - is taken as
+   * `owner` and asked again soon.
+   */
+  judge: (sighting: Sighting, signal: AbortSignal) => Promise<AdoptionVerdict>;
+};
+
+/** What a vendor's adoption module default-exports. */
+export type AdoptionJudgeFactory = (sdk: BundleSdk) => AdoptionJudge;
+
+/**
+ * Who adds a vendor's devices, as its page says it: a vendor whose judge decides device by device
+ * still has devices for the owner to adopt, so it is `owner` there.
+ *
+ * @param discovery - The vendor's `discovery.json`.
+ * @returns Who adds them.
+ */
+export function vendorAdoption(discovery: VendorDiscovery): DeviceAdoption {
+  return typeof discovery.adopt === 'string' ? discovery.adopt : 'owner';
+}
 
 /**
  * What the platform's mDNS source reports, which a vendor's match and identity read.

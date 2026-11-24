@@ -49,7 +49,7 @@ describe('BundleSdk', () => {
       openRtsp: () => {
         throw new Error('not opened in this test');
       },
-      platform: { mqtt: null },
+      platform: { mqtt: null, container: () => Promise.resolve(null) },
     };
     const factory: TransportFactory = (given) =>
       given.defineTransport({
@@ -120,7 +120,7 @@ describe('BundleSdk.openUdpSocket', () => {
       openRtsp: () => {
         throw new Error('not opened in this test');
       },
-      platform: { mqtt: null },
+      platform: { mqtt: null, container: () => Promise.resolve(null) },
     };
     const factory: DiscoverySourceFactory = (given) => ({
       listen: async function* listen(signal): AsyncGenerator<Sighting> {

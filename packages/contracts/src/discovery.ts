@@ -31,6 +31,12 @@ export const HUB_DISCOVER_METHOD = 'discover';
 export const HUB_DISCOVERY_DISMISS_METHOD = 'discovery_dismiss';
 
 /**
+ * Reads what a vendor's judge gave a found device to be added with - a key it knows - which is
+ * never listed with the device, only read at the moment it is added. Secrets come sealed.
+ */
+export const HUB_DISCOVERED_CONFIG_METHOD = 'discovered_config';
+
+/**
  * What a found device's row says beside it: heard for the first time lately, also in the house
  * through Matter, a battery device that only answers when it wakes, or one behind a password.
  */
@@ -78,7 +84,10 @@ export const discoveredDeviceSchema = z.object({
 
   swVersion: z.string().max(64).nullable(),
 
-  /** How to reach it, in its transport's terms. Never a secret: nothing was asked for yet. */
+  /**
+   * How to reach it, in its transport's terms. Never a secret: what a vendor's judge knows beyond
+   * this is read only when it is added ({@link HUB_DISCOVERED_CONFIG_METHOD}).
+   */
   transportConfig: jsonObjectSchema,
 
   /** Who adds it: the owner, from its card, or the platform, as soon as it is heard. */
@@ -169,6 +178,21 @@ export type DiscoverReply = z.output<typeof discoverReplySchema>;
 
 /** A candidate's id, as the hub gives it. */
 export const discoveredIdSchema = z.string().regex(/^[a-f0-9]{16,64}$/);
+
+/** Asks the hub what one found device is added with beyond what it lists. */
+export const discoveredConfigRequestSchema = z.strictObject({ id: discoveredIdSchema });
+
+/** Asks what one found device is added with. */
+export type DiscoveredConfigRequest = z.output<typeof discoveredConfigRequestSchema>;
+
+/**
+ * What it is added with, merged over what it lists: empty for a device no judge spoke for, or one
+ * no longer heard. Secret fields of the driver's setup are sealed.
+ */
+export const discoveredConfigReplySchema = z.object({ transportConfig: jsonObjectSchema });
+
+/** What one found device is added with. */
+export type DiscoveredConfigReply = z.output<typeof discoveredConfigReplySchema>;
 
 /** Sets heard devices aside, or brings them back. */
 export const discoveryDismissRequestSchema = z.object({

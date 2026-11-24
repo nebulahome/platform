@@ -6,12 +6,14 @@ import { FakeTransport } from '@nebulahome/bus/testing';
 import {
   busSubjects,
   catalogueReplySchema,
+  discoveredConfigReplySchema,
   discoveredDeviceSchema,
   discoveredReplySchema,
   discoverReplySchema,
   forgetReplySchema,
   HUB_CATALOGUE_METHOD,
   HUB_DISCOVER_METHOD,
+  HUB_DISCOVERED_CONFIG_METHOD,
   HUB_DISCOVERED_METHOD,
   HUB_FORGET_METHOD,
   HUB_PROBE_METHOD,
@@ -22,11 +24,12 @@ import {
   probeReplySchema,
   reloadReplySchema,
   type DiscoveredDevice,
+  type JsonObject,
   type DiscoverReply,
   type ForgetReply,
   type ReloadReply,
 } from '@nebulahome/contracts';
-import { sealSecrets, secretsKeyFrom } from '@nebulahome/db';
+import { isSealed, openSecrets, sealSecrets, secretsKeyFrom } from '@nebulahome/db';
 import { createLogger } from '@nebulahome/logging';
 import {
   bundleManifestSchema,
@@ -184,6 +187,7 @@ type Harness = {
 type DiscoveryAnswers = {
   readonly detect?: () => Promise<Detected | undefined>;
   readonly discovered?: readonly DiscoveredDevice[];
+  readonly adoptionConfig?: { readonly kind: string; readonly config: JsonObject };
 };
 
 /** A printer discovery proposed. */
@@ -236,6 +240,7 @@ function harness(
     secretsKey: KEY,
     vendors: (): readonly LoadedVendor[] => [printerVendor()],
     discovered: (): readonly DiscoveredDevice[] => answers.discovered ?? [],
+    adoptionConfig: (id) => (id === PROPOSED.id ? (answers.adoptionConfig ?? null) : null),
     hearing: () => ({ listener: null, passedOver: [] }),
     rescan: (vendorId): DiscoverReply => {
       rescanned.push(vendorId);
@@ -464,6 +469,29 @@ describe('the devices discovery proposes', () => {
     );
 
     expect(reply.items).toEqual([PROPOSED]);
+    stop();
+  });
+
+  it("says what a judge gave one to be added with, sealing what the driver's setup keeps secret", async () => {
+    const { caller, stop } = harness(undefined, {
+      adoptionConfig: {
+        kind: 'acme/fake-printer',
+        config: { url: 'mqtts://192.168.1.70:8883', password: '12345678' },
+      },
+    });
+    const ask = (id: string) =>
+      caller.request(
+        busSubjects.service(HUB_SERVICE, HUB_DISCOVERED_CONFIG_METHOD),
+        { id },
+        discoveredConfigReplySchema,
+      );
+
+    const reply = await ask(PROPOSED.id);
+
+    expect(reply.transportConfig['url']).toBe('mqtts://192.168.1.70:8883');
+    expect(isSealed(reply.transportConfig['password'])).toBe(true);
+    expect(openSecrets(reply.transportConfig, KEY)['password']).toBe('12345678');
+    expect(await ask('fedcba9876543210')).toEqual({ transportConfig: {} });
     stop();
   });
 

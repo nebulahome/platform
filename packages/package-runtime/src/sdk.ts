@@ -418,6 +418,19 @@ export type PlatformServices = {
    * runs its own program beside the platform. Null only while the hub cannot run one.
    */
   readonly mqtt: PlatformMqtt | null;
+
+  /**
+   * Where one of the vendor's own containers - by its `id` in `manifest.json` - is reached, for
+   * a bundle that asks the program it runs beside the platform: the ESPHome Device Builder, for
+   * the nodes it holds. Asked again when it is needed rather than kept: the container may move.
+   *
+   * shortcut: answers only for a container with an `ingress` page; a container without one needs
+   * a supervisor method of its own when a vendor asks for it.
+   *
+   * @param id - The container's id in the vendor's manifest.
+   * @returns Its base URL, `http://host:port`; null while it is not running or has no page.
+   */
+  readonly container: (id: string) => Promise<{ readonly url: string } | null>;
 };
 
 /** One colour of a palette: red, green, blue and, optionally, how opaque, each 0 to 255. */

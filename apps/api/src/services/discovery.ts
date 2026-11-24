@@ -13,12 +13,14 @@
  */
 import {
   busSubjects,
+  discoveredConfigReplySchema,
   discoveredReplySchema,
   discoverReplySchema,
   discoveryAdoptSchema,
   discoveryDismissReplySchema,
   duplicateOf,
   HUB_DISCOVER_METHOD,
+  HUB_DISCOVERED_CONFIG_METHOD,
   HUB_DISCOVERED_METHOD,
   HUB_DISCOVERY_DISMISS_METHOD,
   HUB_SERVICE,
@@ -32,7 +34,9 @@ import {
   type DiscoveryAdopt,
   type DiscoveryAdoptManyReply,
   type DiscoveryDismissRequest,
+  type JsonObject,
 } from '@nebulahome/contracts';
+import { openSecrets } from '@nebulahome/db';
 
 import { createDevice, type DevicesContext } from './devices.js';
 import { busOf, withCatalogueOnce, type IntegrationsContext } from './integrations.js';
@@ -76,10 +80,16 @@ function modelOf(candidate: DiscoveredDevice, picked: string | undefined): strin
  *
  * @param candidate - What discovery heard.
  * @param body - What the owner decided.
+ * @param judged - What the vendor's judge gave the device beyond what it lists - a key it knows -
+ * secrets open; empty when none spoke for it.
  * @returns The device to add, and which device identification must find.
  * @throws {ValidationError} When the model cannot be decided.
  */
-export function adoptionOf(candidate: DiscoveredDevice, body: DiscoveryAdopt): Adoption {
+export function adoptionOf(
+  candidate: DiscoveredDevice,
+  body: DiscoveryAdopt,
+  judged: JsonObject = {},
+): Adoption {
   return {
     create: {
       id: body.id,
@@ -90,7 +100,7 @@ export function adoptionOf(candidate: DiscoveredDevice, body: DiscoveryAdopt): A
 
       // The candidate's last: what the device announced it is reached at is not the body's to
       // change, and the body fills only what discovery could not - a token, a password.
-      transportConfig: { ...body.transportConfig, ...candidate.transportConfig },
+      transportConfig: { ...body.transportConfig, ...candidate.transportConfig, ...judged },
       options: body.options,
       isEnabled: true,
       ...(body.areaId === undefined ? {} : { areaId: body.areaId }),
@@ -116,6 +126,30 @@ async function discoveredOn(context: IntegrationsContext): Promise<DiscoveredDev
   );
 
   return reply.items;
+}
+
+/**
+ * Reads what the vendor's judge gave one found device beyond what it lists, secrets opened. Asked
+ * only of a device the platform adds on its own: nothing else has a judge's answer.
+ *
+ * @param context - The request's collaborators.
+ * @param candidate - The device found.
+ * @returns The configuration; empty for a device the owner adopts.
+ * @throws {DeviceUnavailableError} When the bus is not reachable or the hub did not answer.
+ */
+async function judgedOn(context: DevicesContext, candidate: DiscoveredDevice): Promise<JsonObject> {
+  if (candidate.adoption !== 'automatic') {
+    return {};
+  }
+
+  const reply = await busOf(context).request(
+    busSubjects.service(HUB_SERVICE, HUB_DISCOVERED_CONFIG_METHOD),
+    { id: candidate.id },
+    discoveredConfigReplySchema,
+    { traceId: context.traceId },
+  );
+
+  return openSecrets(reply.transportConfig, context.secretsKey);
 }
 
 /**
@@ -191,7 +225,7 @@ export async function adoptDiscovered(
     });
   }
 
-  const adoption = adoptionOf(candidate, body);
+  const adoption = adoptionOf(candidate, body, await judgedOn(context, candidate));
   const device = await createDevice(context, adoption.create, {
     expectedExternalId: adoption.expectedExternalId,
   });
@@ -283,7 +317,12 @@ export async function adoptMany(
     const deviceId = suggestDeviceId(candidate.vendorId, name, [...taken]);
 
     try {
-      const adoption = adoptionOf(candidate, discoveryAdoptSchema.parse({ id: deviceId, name }));
+      const adoption = adoptionOf(
+        candidate,
+        discoveryAdoptSchema.parse({ id: deviceId, name }),
+        // eslint-disable-next-line no-await-in-loop -- one at a time, like the device it is for
+        await judgedOn(context, candidate),
+      );
       // eslint-disable-next-line no-await-in-loop -- one at a time, each taking an id the next cannot
       const device = await createDevice(context, adoption.create, {
         expectedExternalId: adoption.expectedExternalId,

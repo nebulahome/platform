@@ -21,6 +21,7 @@ import {
   Registry,
   resolveDiscovery,
   vendorDiscoverySchema,
+  type AdoptionJudge,
   type Discovered,
   type DiscoverySource,
   type Integration,
@@ -246,6 +247,22 @@ function acme(
   };
 }
 
+/**
+ * The acme vendor reading its devices from their announcements, with a judge of its own.
+ *
+ * @param judge - The judge.
+ * @returns The vendor, as the loader hands it over.
+ */
+function judgedAcme(judge: AdoptionJudge): DiscoveryVendor {
+  const vendor = acme({
+    listen: [{ mdns: '_acme._tcp' }],
+    identity: { model: 'txt.md', name: 'instance' },
+    adopt: { module: './adopt.js' },
+  });
+
+  return { ...vendor, discovery: { ...vendor.discovery, judge } };
+}
+
 /** Everything one test drives. */
 type Harness = {
   readonly service: DiscoveryService;
@@ -269,6 +286,7 @@ let harness: Harness | undefined;
  * @param options.withTransport - Whether the vendor's transport is registered.
  * @param options.now - The clock; the wall clock when not said.
  * @param options.dismissals - Where the devices set aside are kept; nowhere when not said.
+ * @param options.judgeRetryMs - How long a sighting the judge could not decide waits.
  * @returns The harness.
  */
 async function start(
@@ -281,6 +299,7 @@ async function start(
     readonly withTransport?: boolean;
     readonly now?: () => number;
     readonly dismissals?: DismissalStore;
+    readonly judgeRetryMs?: number;
   } = {},
 ): Promise<Harness> {
   const mdns = fakeMdns();
@@ -324,6 +343,7 @@ async function start(
       probeIntervalMs: options.probeIntervalMs ?? 60_000,
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.dismissals === undefined ? {} : { dismissals: options.dismissals }),
+      ...(options.judgeRetryMs === undefined ? {} : { judgeRetryMs: options.judgeRetryMs }),
     }),
   };
 
@@ -518,6 +538,101 @@ describe('DiscoveryService', () => {
       model: 'Relay One',
       address: '192.168.1.50:16021',
     });
+  });
+
+  it("asks the vendor's judge first, shows nothing meanwhile, and lists none of what it gave", async () => {
+    let answer: () => void = () => undefined;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    const asked: Sighting[] = [];
+    const { service, mdns } = await start({
+      vendor: judgedAcme({
+        judge: async (sighting) => {
+          asked.push(sighting);
+          await answered;
+
+          return { adopt: 'automatic', config: { key: 'the-secret' } };
+        },
+      }),
+    });
+
+    mdns.announce(heard('192.168.1.50', 6053, { md: 'R-1' }));
+    mdns.announce(heard('192.168.1.50', 6053, { md: 'R-1' }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // Not shown to be adopted by hand while the judge may still adopt it.
+    expect(service.list()).toEqual([]);
+    expect(asked).toHaveLength(1);
+
+    answer();
+    await until(() => service.list().length > 0);
+    const [found] = service.list();
+
+    expect(found?.adoption).toBe('automatic');
+    expect(JSON.stringify(service.list())).not.toContain('the-secret');
+    expect(service.adoptionConfig(found?.id ?? '')).toEqual({
+      kind: 'acme/relay',
+      config: { key: 'the-secret' },
+    });
+
+    // Trusted for a while, however often the device announces itself.
+    mdns.announce(heard('192.168.1.50', 6053, { md: 'R-1' }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(asked).toHaveLength(1);
+  });
+
+  it('proposes to the owner while the judge cannot decide, and judges again soon', async () => {
+    // Not running yet, then an answer that is not a verdict, then a verdict.
+    const answers = [
+      () => Promise.reject(new Error('The Device Builder is not running')),
+      () => Promise.resolve({ adopt: 'yes' }),
+    ];
+    let calls = 0;
+    const { service, mdns } = await start({
+      judgeRetryMs: 10,
+      vendor: judgedAcme({
+        judge: () => {
+          calls += 1;
+
+          return (answers[calls - 1]?.() ?? Promise.resolve({ adopt: 'automatic' })) as Promise<{
+            adopt: 'automatic';
+          }>;
+        },
+      }),
+    });
+
+    mdns.announce(heard('192.168.1.51', 6053, { md: 'R-1' }));
+    await until(() => service.list().length > 0);
+
+    expect(service.list()[0]?.adoption).toBe('owner');
+
+    // A verdict that is not one is no verdict either: judged once more, then adopted.
+    await until(() => service.list()[0]?.adoption === 'automatic');
+
+    expect(calls).toBe(3);
+    expect(service.adoptionConfig(service.list()[0]?.id ?? '')?.config).toEqual({});
+  });
+
+  it('does not judge a device already added at its address', async () => {
+    let calls = 0;
+    const built = await start({
+      vendor: judgedAcme({
+        judge: () => {
+          calls += 1;
+
+          return Promise.resolve({ adopt: 'automatic' });
+        },
+      }),
+    });
+
+    built.taken = { ...built.taken, hosts: new Set(['acme\n192.168.1.52:6053']) };
+    await built.service.refresh();
+    built.mdns.announce(heard('192.168.1.52', 6053, { md: 'R-1' }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(calls).toBe(0);
   });
 
   it('probes an address once in a while, however often it is announced', async () => {

@@ -163,7 +163,7 @@ export default function relay(sdk) {
     const { loaded } = await loadBundles({
       directory: root,
       runtimeVersion: '1.0.0',
-      platform: { mqtt: { url: 'mqtt://127.0.0.1:1884' } },
+      platform: { mqtt: { url: 'mqtt://127.0.0.1:1884' }, container: () => Promise.resolve(null) },
     });
 
     expect(loaded[0]?.integration.claim({ deviceKey: 'x', payload: {} }, {})).toMatchObject({
@@ -879,6 +879,61 @@ describe('loadBundles discovery', () => {
         payload: { device: { id: 'r1', model: 'R-1' }, sdk: '1.0.0' },
       },
     ]);
+  });
+
+  it("loads the vendor's judge, handing it the SDK with the vendor's own containers", async () => {
+    await writeRelay(
+      {
+        'discovery.json': {
+          listen: [{ mdns: '_relay._tcp' }],
+          identity: { externalId: 'device.id', model: 'device.model' },
+          adopt: { module: './adopt.js' },
+        },
+      },
+      { 'driver.json': CODED_DRIVER },
+    );
+    await write('generic', {
+      'adopt.js': `export default (sdk) => ({
+        judge: async (sighting) => {
+          const builder = await sdk.platform.container('builder');
+          return { adopt: 'automatic', config: { host: sighting.config.host, url: builder.url } };
+        },
+      });`,
+    });
+
+    const { vendors, failures } = await loadBundles({
+      directory: root,
+      runtimeVersion: '1.0.0',
+      platform: {
+        mqtt: null,
+        container: (vendorId, id) => Promise.resolve({ url: `http://${vendorId}-${id}:6052` }),
+      },
+    });
+    const judge = vendors[0]?.discovery?.judge;
+
+    expect(failures).toEqual([]);
+    await expect(
+      judge?.judge({ config: { host: '192.168.1.60' }, payload: {} }, new AbortController().signal),
+    ).resolves.toEqual({
+      adopt: 'automatic',
+      config: { host: '192.168.1.60', url: 'http://generic-builder:6052' },
+    });
+  });
+
+  it('refuses an adoption module that does not return a judge', async () => {
+    await writeRelay({
+      'discovery.json': {
+        listen: [{ mdns: '_relay._tcp' }],
+        identity: { model: 'device.model' },
+        adopt: { module: './adopt.js' },
+      },
+    });
+    await write('generic', { 'adopt.js': 'export default () => ({});' });
+
+    const { vendors, failures } = await loadBundles({ directory: root, runtimeVersion: '1.0.0' });
+
+    expect(vendors[0]?.discovery).toBeUndefined();
+    expect(failures[0]?.message).toMatch(/adopt\.js does not return a judge/);
   });
 
   it('refuses a discovery module that does not export a factory', async () => {

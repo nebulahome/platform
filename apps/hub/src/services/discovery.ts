@@ -36,12 +36,15 @@ import {
 } from '@nebulahome/contracts';
 import type { PlatformLogger } from '@nebulahome/logging';
 import {
+  adoptionVerdictSchema,
   associateBroker,
   associateModel,
   identifySighting,
   matchesAnnouncement,
   matchesBroker,
   nameOf,
+  vendorAdoption,
+  type AdoptionJudge,
   type Association,
   type BrokerSource,
   type Discovered,
@@ -142,6 +145,15 @@ export type DiscoveryServiceOptions = {
   /** How many probes may be in flight at once. */
   readonly probeConcurrency?: number;
 
+  /** How long a vendor's judge may take over one sighting; {@link JUDGE_TIMEOUT_MS} when not said. */
+  readonly judgeTimeoutMs?: number;
+
+  /**
+   * How long a sighting the judge could not decide waits before it is judged again; the ladder in
+   * {@link JUDGE_RETRY_MS} when not said.
+   */
+  readonly judgeRetryMs?: number;
+
   /** How long a vendor's module is left before it is listened with again, after it stopped. */
   readonly moduleRestartMs?: number;
 
@@ -236,8 +248,15 @@ const BROKER_VENDORS: Readonly<Record<RuledSource, string>> = {
   bluetooth: BLUETOOTH_VENDOR,
 };
 
-/** A proposed device, and when it was last heard, as a number to compare. */
-type Candidate = { readonly device: DiscoveredDevice; readonly heardAtMs: number };
+/**
+ * A proposed device, when it was last heard, as a number to compare, and what its vendor's judge
+ * gave it to be added with - kept here, off the device, so it is never listed.
+ */
+type Candidate = {
+  readonly device: DiscoveredDevice;
+  readonly heardAtMs: number;
+  readonly adoptConfig: JsonObject;
+};
 
 /** A device heard that no driver of its vendor takes, and when it was last heard. */
 type Unclaimed = {
@@ -274,6 +293,53 @@ type Probed = {
   /** How many probes in a row found nothing; 0 once one answered. */
   readonly misses: number;
 };
+
+/** Who adds a sighting, as a vendor's judge said, with what it is added with. */
+type Verdict = ReturnType<typeof adoptionVerdictSchema.parse>;
+
+/**
+ * A promise that fails when a signal ends, for racing a call that does not honour it.
+ *
+ * @param signal - The signal.
+ * @returns A promise rejected with the signal's reason, never resolved.
+ */
+function rejectedWhen(signal: AbortSignal): Promise<never> {
+  return new Promise((unused, reject) => {
+    signal.addEventListener(
+      'abort',
+      () => {
+        reject(signal.reason instanceof Error ? signal.reason : new Error('Aborted'));
+      },
+      { once: true },
+    );
+  });
+}
+
+/**
+ * What a vendor's judge last said of one sighting, and for how long it is trusted: a while when
+ * it answered, a short ladder when it could not ({@link JUDGE_RETRY_MS}).
+ */
+type Judged = {
+  readonly atMs: number;
+  readonly trustMs: number;
+  readonly verdict: Verdict;
+
+  /** How many times in a row it could not decide; 0 once it did. */
+  readonly misses: number;
+};
+
+/** How long a judge's verdict is trusted before the sighting is judged again. */
+const JUDGE_TRUST_MS = 60_000;
+
+/** How long a judge may take over one sighting, when not said. */
+const JUDGE_TIMEOUT_MS = 15_000;
+
+/**
+ * When a sighting the judge could not decide is judged again, after each miss: what it asks - the
+ * vendor's own container - may still be starting. Proposed to the owner meanwhile. After the last,
+ * it is left to the next time the device is heard.
+ */
+const JUDGE_RETRY_MS: readonly number[] = [5000, 15_000, 30_000, 60_000];
 
 /** A dotted-quad IPv4 address, which is what the private-address check applies to. */
 const IPV4_PATTERN = /^\d{1,3}(?:\.\d{1,3}){3}$/;
@@ -419,6 +485,13 @@ export class DiscoveryService {
   #matterMacs = new Map<string, Set<string>>();
   readonly #probed = new Map<string, Probed>();
   readonly #inFlight = new Set<string>();
+
+  /** What each vendor's judge last said, by `vendor\nconfig`; and the questions it is on now. */
+  readonly #judged = new Map<string, Judged>();
+  readonly #judging = new Set<string>();
+
+  /** The last reason each vendor's judge could not decide, so the log says it once. */
+  readonly #judgeFailures = new Map<string, string>();
   readonly #queue: (() => Promise<void>)[] = [];
   readonly #timers: NodeJS.Timeout[] = [];
   readonly #modules: {
@@ -1060,7 +1133,11 @@ export class DiscoveryService {
   }
 
   /**
-   * Takes one sighting through match and, when the vendor probes, the probe.
+   * Takes one sighting through match, the vendor's judge when it has one, and then the rest.
+   *
+   * A sighting being judged is not proposed until the judge answers: a device it adopts is then
+   * never shown to the owner to adopt by hand. One judge question per address at a time, trusted
+   * for {@link JUDGE_TRUST_MS}, however often the device announces itself.
    *
    * @param vendor - Whose sighting it is.
    * @param source - How it was heard.
@@ -1074,16 +1151,135 @@ export class DiscoveryService {
     sighting: Sighting,
     isRetry = false,
   ): void {
-    const { plan } = vendor.discovery;
+    const { plan, judge } = vendor.discovery;
 
     if (!matchesAnnouncement(plan, sighting.payload)) {
       return;
     }
 
-    const probe = plan.discovery.probe;
+    if (judge === undefined) {
+      this.#pursue(vendor, source, sighting, isRetry, undefined);
+
+      return;
+    }
+
+    const key = `${vendor.id}\n${JSON.stringify(sighting.config)}`;
+    const judged = this.#judged.get(key);
+
+    if (judged !== undefined && this.#now() - judged.atMs < judged.trustMs) {
+      this.#pursue(vendor, source, sighting, isRetry, judged.verdict);
+
+      return;
+    }
+
+    const host = reachedAt(sighting.config);
+
+    if (host !== undefined && this.#taken.hosts.has(`${vendor.id}\n${host}`)) {
+      // Already added: nothing to judge, and the judge's own questions - a container asked over
+      // a socket - are not asked every minute for every device in the house.
+      this.#touchAt(vendor.id, host);
+
+      return;
+    }
+
+    if (this.#judging.has(key)) {
+      return;
+    }
+
+    this.#judging.add(key);
+    this.#enqueue(async () => {
+      try {
+        const verdict = await this.#judge(vendor.id, judge, sighting);
+
+        if (verdict === null) {
+          const misses = (judged?.misses ?? 0) + 1;
+          const ladderMs = JUDGE_RETRY_MS[misses - 1];
+          const retryMs =
+            ladderMs === undefined ? undefined : (this.#options.judgeRetryMs ?? ladderMs);
+
+          this.#judged.set(key, {
+            atMs: this.#now(),
+            trustMs: retryMs ?? JUDGE_TRUST_MS,
+            verdict: { adopt: 'owner' },
+            misses,
+          });
+
+          if (retryMs !== undefined) {
+            // Judged again on a timer rather than at the next announcement, which for an mDNS
+            // device is the next query - minutes away.
+            this.#later(retryMs, () => {
+              this.#onSighting(vendor, source, sighting);
+            });
+          }
+        } else {
+          this.#judged.set(key, { atMs: this.#now(), trustMs: JUDGE_TRUST_MS, verdict, misses: 0 });
+        }
+
+        this.#pursue(vendor, source, sighting, isRetry, verdict ?? { adopt: 'owner' });
+      } finally {
+        this.#judging.delete(key);
+      }
+    });
+  }
+
+  /**
+   * Asks a vendor's judge who adds one sighting.
+   *
+   * @param vendorId - The vendor.
+   * @param judge - Its judge.
+   * @param sighting - The sighting.
+   * @returns The verdict, or null when the judge could not decide - it threw, took too long, or
+   * said something that is not a verdict - which is said in the log once per reason.
+   */
+  async #judge(
+    vendorId: string,
+    judge: AdoptionJudge,
+    sighting: Sighting,
+  ): Promise<Verdict | null> {
+    const timeoutMs = this.#options.judgeTimeoutMs ?? JUDGE_TIMEOUT_MS;
+    const signal = AbortSignal.any([this.#abort.signal, AbortSignal.timeout(timeoutMs)]);
+
+    try {
+      const answer = await Promise.race([judge.judge(sighting, signal), rejectedWhen(signal)]);
+
+      this.#judgeFailures.delete(vendorId);
+
+      return adoptionVerdictSchema.parse(answer);
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : String(error);
+
+      if (this.#judgeFailures.get(vendorId) !== reason) {
+        this.#judgeFailures.set(vendorId, reason);
+        this.#options.logger.warn(
+          { err: error, vendor: vendorId, address: addressOf(sighting.config) },
+          'A vendor could not judge who adds a device it heard; proposed to the owner meanwhile',
+        );
+      }
+
+      return null;
+    }
+  }
+
+  /**
+   * Takes one matched sighting through the probe, when the vendor probes, and proposes it.
+   *
+   * @param vendor - Whose sighting it is.
+   * @param source - How it was heard.
+   * @param sighting - How to reach the device, and what it said.
+   * @param isRetry - Whether this is the timer asking again an address that did not answer.
+   * @param verdict - What the vendor's judge said of it; absent for a vendor without one.
+   */
+  #pursue(
+    vendor: DiscoveryVendor,
+    source: DiscoverySource,
+    sighting: Sighting,
+    isRetry: boolean,
+    verdict: Verdict | undefined,
+  ): void {
+    const probe = vendor.discovery.plan.discovery.probe;
 
     if (probe === undefined) {
-      this.#propose(vendor, source, sighting.config, sighting.payload);
+      this.#propose(vendor, source, sighting.config, sighting.payload, verdict);
 
       return;
     }
@@ -1131,6 +1327,7 @@ export class DiscoveryService {
                 source,
                 sighting.config,
                 found.payload,
+                verdict,
                 found,
                 // Answered only after a question went unanswered: a battery device that wakes.
                 (last?.misses ?? 0) > 0,
@@ -1290,6 +1487,8 @@ export class DiscoveryService {
    * @param source - How it was heard.
    * @param config - How to reach it.
    * @param payload - What identity reads.
+   * @param verdict - What the vendor's judge said of it; absent for a vendor without one, whose
+   * `adopt` then says who adds it.
    * @param discovered - The probe's answer, when there was a probe.
    * @param isWaking - Whether it answered only after a question went unanswered.
    * @returns The candidate's id, or null when no driver takes the device.
@@ -1299,6 +1498,7 @@ export class DiscoveryService {
     source: DiscoverySource,
     config: JsonObject,
     payload: unknown,
+    verdict: Verdict | undefined,
     discovered?: Discovered,
     isWaking = false,
   ): string | null {
@@ -1344,7 +1544,7 @@ export class DiscoveryService {
         modelCode: identity.modelCode,
         swVersion: identity.swVersion,
         transportConfig: config,
-        adoption: vendor.discovery.plan.discovery.adopt,
+        adoption: verdict?.adopt ?? vendorAdoption(vendor.discovery.plan.discovery),
         movedFrom: null,
         mac: identity.mac,
         // What lasts of a device's notes: it woke to answer once, it says it has a password.
@@ -1360,11 +1560,26 @@ export class DiscoveryService {
         lastSeenAt: new Date(nowMs),
       },
       heardAtMs: nowMs,
+      adoptConfig: verdict?.adopt === 'automatic' ? verdict.config : {},
     });
 
     this.#publishIfChanged();
 
     return id;
+  }
+
+  /**
+   * What a found device is added with beyond what it lists: what its vendor's judge gave it.
+   *
+   * @param id - The candidate.
+   * @returns Its driver and that configuration, or null when it is no longer heard.
+   */
+  public adoptionConfig(id: string): { readonly kind: string; readonly config: JsonObject } | null {
+    const candidate = this.#candidates.get(id);
+
+    return candidate === undefined
+      ? null
+      : { kind: candidate.device.kind, config: candidate.adoptConfig };
   }
 
   /**
@@ -1410,6 +1625,7 @@ export class DiscoveryService {
       const nowMs = this.#now();
 
       this.#candidates.set(id, {
+        ...candidate,
         device: { ...candidate.device, lastSeenAt: new Date(nowMs) },
         heardAtMs: nowMs,
       });
@@ -1611,6 +1827,7 @@ export class DiscoveryService {
           lastSeenAt: new Date(nowMs),
         },
         heardAtMs: nowMs,
+        adoptConfig: {},
       });
     }
 

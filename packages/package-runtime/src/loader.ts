@@ -65,6 +65,7 @@ import { createDeclarativeIntegration } from './declarative.js';
 import {
   resolveDiscovery,
   vendorDiscoverySchema,
+  type AdoptionJudge,
   type DiscoveryPlan,
   type DiscoverySource,
   type VendorDiscovery,
@@ -164,6 +165,9 @@ export type LoadedListenSource =
 export type LoadedDiscovery = {
   readonly plan: DiscoveryPlan;
   readonly sources: readonly LoadedListenSource[];
+
+  /** Its judge of who adds each device, when `adopt` names a module. */
+  readonly judge?: AdoptionJudge;
 };
 
 /** A vendor's account: what signing in asks, and the module that does it. */
@@ -318,7 +322,10 @@ export type VendorDeclaration = {
   /** Its account, and the module that signs in. */
   readonly account?: { readonly declaration: AccountDeclaration; readonly module: string };
 
-  /** How its devices are found, and each module it listens with by the name the file gives. */
+  /**
+   * How its devices are found, and each module it names - listeners and its judge - by the name
+   * the file gives.
+   */
   readonly discovery?: {
     readonly declaration: VendorDiscovery;
     readonly modules: ReadonlyMap<string, string>;
@@ -780,7 +787,8 @@ function planDiscovery(
 }
 
 /**
- * Reads a vendor's `discovery.json` and finds the modules it listens with.
+ * Reads a vendor's `discovery.json` and finds the modules it names: listeners, and the judge of
+ * who adds a device.
  *
  * @param vendor - The vendor's manifest.
  * @param directory - The vendor's directory.
@@ -800,16 +808,15 @@ async function readDiscovery(
 
   planDiscovery(vendor, declaration, drivers);
 
+  const named = [
+    ...declaration.listen.flatMap((listened) => ('module' in listened ? [listened.module] : [])),
+    ...(typeof declaration.adopt === 'string' ? [] : [declaration.adopt.module]),
+  ];
   const modules = await Promise.all(
-    declaration.listen
-      .filter((listened) => 'module' in listened)
-      .map(
-        async (listened) =>
-          [
-            listened.module,
-            await moduleOf(resolve, directory, listened.module, `${vendor.id}'s discovery`),
-          ] as const,
-      ),
+    named.map(
+      async (file) =>
+        [file, await moduleOf(resolve, directory, file, `${vendor.id}'s discovery`)] as const,
+    ),
   );
 
   return { declaration, modules: new Map(modules) };
@@ -1079,7 +1086,7 @@ async function instantiateNamed<TBuilt extends { readonly id: string }>(
 }
 
 /**
- * Builds the modules a vendor's discovery listens with.
+ * Builds the modules a vendor's discovery names: what it listens with, and its judge.
  *
  * @param vendor - The vendor's manifest.
  * @param discovery - Its declaration and modules.
@@ -1133,8 +1140,31 @@ async function instantiateDiscovery(
       };
     }),
   );
+  const { adopt } = discovery.declaration;
 
-  return { plan, sources };
+  if (typeof adopt === 'string') {
+    return { plan, sources };
+  }
+
+  const factory = await defaultOf(importModule, discovery.modules.get(adopt.module) ?? '');
+
+  if (typeof factory !== 'function') {
+    throw new Error(
+      `${vendor.id} adoption module ${adopt.module} does not default-export a factory`,
+    );
+  }
+
+  const judge: unknown = (factory as (given: BundleSdk) => unknown)(sdk);
+
+  if (
+    judge === null ||
+    typeof judge !== 'object' ||
+    typeof (judge as { readonly judge?: unknown }).judge !== 'function'
+  ) {
+    throw new Error(`${vendor.id} adoption module ${adopt.module} does not return a judge`);
+  }
+
+  return { plan, sources, judge: judge as AdoptionJudge };
 }
 
 /**

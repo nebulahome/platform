@@ -80,6 +80,19 @@ describe('adoptionOf', () => {
     expect(adoption.create.transportConfig['url']).toBe('mqtts://192.168.1.70:8883');
   });
 
+  it('adds what the vendor judge gave the device, over what it announced', () => {
+    const adoption = adoptionOf(
+      candidate({ adoption: 'automatic', transportConfig: { host: '192.168.1.80' } }),
+      discoveryAdoptSchema.parse({ id: 'esphome-kitchen', name: 'Kitchen' }),
+      { encryptionKey: `${'k'.repeat(43)}=` },
+    );
+
+    expect(adoption.create.transportConfig).toEqual({
+      host: '192.168.1.80',
+      encryptionKey: `${'k'.repeat(43)}=`,
+    });
+  });
+
   it('takes the model the owner picked from a family the device named', () => {
     const adoption = adoptionOf(
       candidate({ model: null, modelChoices: ['X1C', 'P1S'] }),

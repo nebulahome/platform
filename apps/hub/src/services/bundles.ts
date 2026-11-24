@@ -49,6 +49,20 @@ export {
   type LoadedVendor,
 } from '@nebulahome/package-runtime';
 
+/** What the platform runs that bundle code may use, for every vendor at once. */
+export type HubPlatform = {
+  readonly mqtt: PlatformServices['mqtt'];
+
+  /**
+   * Where one vendor's own container is reached.
+   *
+   * @param vendorId - The vendor.
+   * @param id - The container's id in its manifest.
+   * @returns Its base URL; null while it is not running or has no page.
+   */
+  readonly container: (vendorId: string, id: string) => Promise<{ readonly url: string } | null>;
+};
+
 /** What the loader needs. */
 export type LoadBundlesOptions = {
   /** Where bundles are installed. Missing is not an error: a fresh installation has none. */
@@ -84,8 +98,11 @@ export type LoadBundlesOptions = {
   /** Where bundle code may log. A silent logger when the caller has none, as in tests. */
   readonly logger?: PlatformLogger;
 
-  /** What the platform runs that bundle code may use: its broker. None, as in tests, when absent. */
-  readonly platform?: PlatformServices;
+  /**
+   * What the platform runs that bundle code may use - its broker, the vendors' containers - before
+   * it is bound to one vendor. None, as in tests, when absent.
+   */
+  readonly platform?: HubPlatform;
 
   /** The hub's Modbus clients, which a vendor's sessions go through. None, as in tests, when absent. */
   readonly modbus?: ModbusPool;
@@ -135,7 +152,25 @@ function runtimeOptions(options: Omit<LoadBundlesOptions, 'directory'>) {
           openModbus: modbus.open,
           openSerial: serial.open,
           bluetooth: bluetooth.bluetooth,
-          platform: options.platform ?? { mqtt: null },
+          platform: {
+            /**
+             * The house's broker, as it stands when asked.
+             *
+             * @returns It, or null while there is none.
+             */
+            get mqtt() {
+              return options.platform?.mqtt ?? null;
+            },
+
+            /**
+             * Where one of this vendor's own containers is reached - only this vendor's.
+             *
+             * @param id - The container's id in the vendor's manifest.
+             * @returns Its base URL; null while it is not running or has no page.
+             */
+            container: async (id: string) =>
+              (await options.platform?.container(manifest.id, id)) ?? null,
+          },
         }),
         /**
          * Lets go of every socket and session the vendor opened.

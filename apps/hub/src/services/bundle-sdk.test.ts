@@ -28,7 +28,7 @@ describe('createBundleSdk', () => {
       openModbus: modbus.open,
       openSerial: serial.open,
       bluetooth: bluetooth.bluetooth,
-      platform: { mqtt: null },
+      platform: { mqtt: null, container: () => Promise.resolve(null) },
     });
 
     expect(sdk.version).toBe('1.0.0');
