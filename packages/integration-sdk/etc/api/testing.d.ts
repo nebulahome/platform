@@ -1,4 +1,4 @@
-import { A as EntityId, C as ReportedState, D as SerialLine, E as TransportSubscription, M as CapabilityState, N as JsonObject, O as BluetoothAdvert, S as PastReadings, T as TransportRequest, _ as UdpPeer, a as LoadedListenSource, b as HistoryRange, c as SightingIdentity, d as BundleSdk, f as ManagedSocketClose, g as PlatformServices, h as ManagedUdpSocketOptions, i as LoadedDiscovery, j as CapabilityName, k as BluetoothAdvertInput, m as ManagedSocketOptions, n as LoadedAccount, o as LoadedVendor, p as ManagedSocketHeaders, r as LoadedBundle, s as Association, t as BundleFailure, u as BluetoothScannerOptions, v as Claim, w as Discovered, x as Integration, y as DeviceDescriptor } from "./chunks/node-index.js";
+import { A as BluetoothProxyGattEvent, C as ReportedState, D as SerialLine, E as TransportSubscription, M as CapabilityName, N as CapabilityState, O as BluetoothAdvert, P as JsonObject, S as PastReadings, T as TransportRequest, _ as UdpPeer, a as LoadedListenSource, b as HistoryRange, c as SightingIdentity, d as BundleSdk, f as ManagedSocketClose, g as PlatformServices, h as ManagedUdpSocketOptions, i as LoadedDiscovery, j as EntityId, k as BluetoothAdvertInput, m as ManagedSocketOptions, n as LoadedAccount, o as LoadedVendor, p as ManagedSocketHeaders, r as LoadedBundle, s as Association, t as BundleFailure, u as BluetoothScannerOptions, v as Claim, w as Discovered, x as Integration, y as DeviceDescriptor } from "./chunks/node-index.js";
 //#region src/testing/fake-sdk.d.ts
 /** The levels a bundle may log at. */
 type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
@@ -106,6 +106,8 @@ type FakeBluetoothScanner = {
    * 16 bits; shorten it here too if a vendor's test ever reads one.
    */
   readonly adverts: readonly BluetoothAdvert[];
+  /** What it reported on its links through `gatt`, read as the broker reads it; nothing invalid. */
+  readonly gattEvents: readonly BluetoothProxyGattEvent[];
   /** Whether the bundle closed it, or opened another for the same proxy. */
   readonly isClosed: boolean;
 };

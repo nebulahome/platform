@@ -230,8 +230,8 @@ declare const capabilityStateSchema: z.ZodObject<{
     preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     isOscillating: z.ZodOptional<z.ZodBoolean>;
     direction: z.ZodOptional<z.ZodEnum<{
-      forward: "forward";
       reverse: "reverse";
+      forward: "forward";
     }>>;
   }, z.core.$strip>>;
   location: z.ZodOptional<z.ZodObject<{
@@ -309,8 +309,8 @@ type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
  */
 declare const bluetoothProxyProfileSchema: z.ZodObject<{
   modes: z.ZodArray<z.ZodEnum<{
-    active: "active";
     passive: "passive";
+    active: "active";
   }>>;
 }, z.core.$strict>;
 /** What a device that can be a proxy declares. */
@@ -318,8 +318,8 @@ type BluetoothProxyProfile = z.output<typeof bluetoothProxyProfileSchema>;
 /** Arguments of `bluetooth-proxy.install`. */
 declare const bluetoothProxyInstallArgsSchema: z.ZodObject<{
   mode: z.ZodEnum<{
-    active: "active";
     passive: "passive";
+    active: "active";
   }>;
 }, z.core.$strip>;
 /** Arguments of `bluetooth-proxy.install`: the mode to rest in, which the hub picks. */
@@ -341,11 +341,15 @@ declare const bluetoothProxyStateSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
   version: z.ZodOptional<z.ZodString>;
   shipped: z.ZodString;
   running: z.ZodBoolean;
+  connections: z.ZodOptional<z.ZodObject<{
+    free: z.ZodInt;
+    limit: z.ZodInt;
+  }, z.core.$strip>>;
 }, z.core.$strip>, z.ZodObject<{
   eligible: z.ZodLiteral<false>;
   reason: z.ZodEnum<{
-    battery: "battery";
     gen1: "gen1";
+    battery: "battery";
     firmware: "firmware";
     "no-bluetooth": "no-bluetooth";
     unsupported: "unsupported";
@@ -354,6 +358,75 @@ declare const bluetoothProxyStateSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
 }, z.core.$strip>], "eligible">;
 /** Whether a device can be a proxy, and whether it is. */
 type BluetoothProxyState = z.output<typeof bluetoothProxyStateSchema>;
+/** Arguments of `bluetooth-proxy.connect` and `bluetooth-proxy.disconnect`. */
+declare const bluetoothProxyLinkArgsSchema: z.ZodObject<{
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+}, z.core.$strip>;
+/** Arguments of `bluetooth-proxy.connect` and `bluetooth-proxy.disconnect`: the address. */
+type BluetoothProxyLinkArgs = z.output<typeof bluetoothProxyLinkArgsSchema>;
+/** Arguments of `bluetooth-proxy.read`; it answers {@link bluetoothGattValueSchema}. */
+declare const bluetoothProxyReadArgsSchema: z.ZodObject<{
+  service: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  characteristic: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+}, z.core.$strip>;
+/** Arguments of `bluetooth-proxy.read`. */
+type BluetoothProxyReadArgs = z.output<typeof bluetoothProxyReadArgsSchema>;
+/** Arguments of `bluetooth-proxy.write`. */
+declare const bluetoothProxyWriteArgsSchema: z.ZodObject<{
+  data: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  withResponse: z.ZodDefault<z.ZodBoolean>;
+  service: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  characteristic: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+}, z.core.$strip>;
+/** Arguments of `bluetooth-proxy.write`. */
+type BluetoothProxyWriteArgs = z.output<typeof bluetoothProxyWriteArgsSchema>;
+/** Arguments of `bluetooth-proxy.exchange`; it answers {@link bluetoothGattValueSchema}. */
+declare const bluetoothProxyExchangeArgsSchema: z.ZodObject<{
+  notify: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  data: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  withResponse: z.ZodDefault<z.ZodBoolean>;
+  timeoutMs: z.ZodDefault<z.ZodInt>;
+  service: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  characteristic: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+}, z.core.$strip>;
+/** Arguments of `bluetooth-proxy.exchange`. */
+type BluetoothProxyExchangeArgs = z.output<typeof bluetoothProxyExchangeArgsSchema>;
+/** Arguments of `bluetooth-proxy.notify`. */
+declare const bluetoothProxyNotifyArgsSchema: z.ZodObject<{
+  isOn: z.ZodBoolean;
+  service: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  characteristic: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+}, z.core.$strip>;
+/** Arguments of `bluetooth-proxy.notify`. */
+type BluetoothProxyNotifyArgs = z.output<typeof bluetoothProxyNotifyArgsSchema>;
+/**
+ * What a proxy that connects reports through its scanner's `gatt` without being asked: a value a
+ * characteristic the hub turned on notified, a link lost - one for each link when its session
+ * with the proxy drops - or how many connections it has free now.
+ */
+declare const bluetoothProxyGattEventSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
+  service: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  characteristic: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  data: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  kind: z.ZodLiteral<"notification">;
+}, z.core.$strip>, z.ZodObject<{
+  reason: z.ZodOptional<z.ZodString>;
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  kind: z.ZodLiteral<"disconnected">;
+}, z.core.$strip>, z.ZodObject<{
+  free: z.ZodInt;
+  limit: z.ZodInt;
+  kind: z.ZodLiteral<"slots">;
+}, z.core.$strip>], "kind">;
+/** What a proxy reports on the links it holds, as written. */
+type BluetoothProxyGattEventInput = z.input<typeof bluetoothProxyGattEventSchema>;
+/** What a proxy reports on the links it holds. */
+type BluetoothProxyGattEvent = z.output<typeof bluetoothProxyGattEventSchema>;
 //#endregion
 //#region ../contracts/dist/registration.d.ts
 /**
@@ -376,33 +449,33 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
+  cover: "cover";
+  lock: "lock";
+  media_player: "media_player";
+  camera: "camera";
+  button: "button";
+  event: "event";
+  update: "update";
+  lawn_mower: "lawn_mower";
+  select: "select";
+  calendar: "calendar";
+  vacuum: "vacuum";
+  fan: "fan";
+  image: "image";
+  custom: "custom";
   on_off: "on_off";
   level: "level";
   color_hs: "color_hs";
   color_temp: "color_temp";
   effect: "effect";
-  cover: "cover";
-  lock: "lock";
   thermostat: "thermostat";
   sensor_numeric: "sensor_numeric";
   sensor_binary: "sensor_binary";
   sensor_text: "sensor_text";
-  media_player: "media_player";
-  camera: "camera";
-  button: "button";
-  update: "update";
-  lawn_mower: "lawn_mower";
-  select: "select";
   time_of_day: "time_of_day";
   date: "date";
   datetime: "datetime";
-  calendar: "calendar";
-  event: "event";
-  vacuum: "vacuum";
-  fan: "fan";
   location: "location";
-  image: "image";
-  custom: "custom";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -636,8 +709,8 @@ declare const stateReportSchema: z.ZodObject<{
       preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
       isOscillating: z.ZodOptional<z.ZodBoolean>;
       direction: z.ZodOptional<z.ZodEnum<{
-        forward: "forward";
         reverse: "reverse";
+        forward: "forward";
       }>>;
     }, z.core.$strip>>;
     location: z.ZodOptional<z.ZodObject<{
@@ -996,8 +1069,8 @@ type SerialLine = z.output<typeof serialLineSchema>;
 //#region ../contracts/dist/reserved-ops.d.ts
 /**
  * The ops the hub sends a device that plays a role for one of its brokers - an IR blaster, a
- * Bluetooth proxy - over its instance's connection, as `{ deviceKey, op, args }`, and the GATT ops
- * the platform transport `bluetooth` carries.
+ * Bluetooth proxy, and the GATT a proxy carries out for the house - over its instance's connection,
+ * as `{ deviceKey, op, args }`, and the GATT ops the platform transport `bluetooth` carries.
  *
  * A module of its own, importing nothing, because an integration's code imports these names
  * through the SDK: the SDK's entry point is bundled into every module an integration builds, and
@@ -1034,8 +1107,28 @@ export declare const BLUETOOTH_PROXY_OPS: {
   readonly filter: "bluetooth-proxy.filter";
 };
 /**
- * The ops the platform transport `bluetooth` carries to a device it connects to, GATT on the local
- * adapter only.
+ * The ops the hub sends a proxy that can connect - its `bluetooth-proxy.state` says `connections` -
+ * to reach a device for the platform transport `bluetooth`, as `{ deviceKey, op, args }`. The hub
+ * decides when to connect and when to let go; the proxy carries each op out on its own radio and
+ * reports back through its scanner's `gatt`. Reserved: no integration uses these names for
+ * anything else.
+ */
+export declare const BLUETOOTH_PROXY_GATT_OPS: {
+  /** Connects to `{ address }`; answers `{ mtu? }`. */
+  readonly connect: "bluetooth-proxy.connect";
+  /** Lets go of `{ address }`; answers null, and never fails. */
+  readonly disconnect: "bluetooth-proxy.disconnect";
+  /** Reads a characteristic of a connected device; answers `{ data }`. */
+  readonly read: "bluetooth-proxy.read";
+  readonly write: "bluetooth-proxy.write";
+  /** Writes a request and answers `{ data }`, the first value notified back. */
+  readonly exchange: "bluetooth-proxy.exchange";
+  /** Turns a characteristic's notifications on or off; each value comes through `gatt`. */
+  readonly notify: "bluetooth-proxy.notify";
+};
+/**
+ * The ops the platform transport `bluetooth` carries to a device it connects to, through the
+ * server's adapter or a proxy that can connect: the hub picks which.
  */
 export declare const BLUETOOTH_GATT_OPS: {
   readonly read: "gatt.read";
@@ -1984,7 +2077,7 @@ type BluetoothScannerOptions = {
 };
 /**
  * A Bluetooth proxy's channel to the Bluetooth broker: what it hears goes in here, and the house
- * sees it as heard by that proxy.
+ * sees it as heard by that proxy; and, for a proxy that connects, what happens on its links.
  */
 type BluetoothScanner = {
   /**
@@ -1993,6 +2086,12 @@ type BluetoothScanner = {
    * hears it.
    */
   report: (adverts: readonly BluetoothAdvertInput[]) => void;
+  /**
+   * Reports what happened on a link the hub opened through the proxy, unasked: a value a
+   * characteristic the hub turned on notified, a link lost - each of them when the session with
+   * the proxy drops - or how many connections it has free now. One that does not hold is dropped.
+   */
+  gatt: (event: BluetoothProxyGattEventInput) => void;
   /** Stops reporting: the proxy is no longer one, or its connection went. */
   close: () => void;
 };
@@ -2357,4 +2456,4 @@ export declare function defineAccountModule(factory: AccountFactory): AccountFac
  */
 export declare function defineStreamModule(factory: StreamFactory): StreamFactory;
 //#endregion
-export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothProxyFilterArgs, BluetoothProxyInstallArgs, BluetoothProxyProfile, BluetoothProxyState, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandStep, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, HistoryImport, HistoryRange, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PastReading, PastReadings, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };
+export type { AccountFactory, AccountHandle, AccountIdentity, AccountModule, AccountModuleStep, AccountStepContext, BluetoothAdvert, BluetoothAdvertInput, BluetoothProxyExchangeArgs, BluetoothProxyFilterArgs, BluetoothProxyGattEvent, BluetoothProxyGattEventInput, BluetoothProxyInstallArgs, BluetoothProxyLinkArgs, BluetoothProxyNotifyArgs, BluetoothProxyProfile, BluetoothProxyReadArgs, BluetoothProxyState, BluetoothProxyWriteArgs, BluetoothScanMode, BluetoothScanner, BluetoothScannerOptions, BluetoothSighting, BundleBluetooth, BundleCodecs, BundleImages, BundleLogFn, BundleLogger, BundleSdk, Claim, CommandStep, CommandTarget, DeviceDescriptor, DeviceInfo, Discovered, DiscoveryListenContext, DiscoverySource, DiscoverySourceFactory, EntityDescriptor, FlipperIrCode, FlipperIrFile, HistoryImport, HistoryRange, ImageBlob, InfraredCode, InfraredCodec, InfraredImportProblem, InfraredLearnArgs, InfraredProfile, InfraredProtocol, InfraredProtocolName, InfraredSendArgs, InfraredSignal, InfraredSweepArgs, InfraredSweepResult, Integration, IntegrationFactory, ListenerStatus, ManagedMqtt, ManagedMqttOptions, ManagedSocket, ManagedSocketClose, ManagedSocketHeaders, ManagedSocketOptions, ManagedUdpSocket, ManagedUdpSocketOptions, MappingContext, MdnsAnnouncement, OpenMqtt, OpenRtsp, OpenSerial, OpenUdpSocket, OpenWebSocket, PaletteColour, PalettedPicture, PassedOverSighting, PastReading, PastReadings, PlatformMqtt, PlatformServices, ReportedState, RtspFrame, RtspOptions, SerialDeviceConfig, SerialLine, SerialLineInput, SerialSession, SerialSighting, Sighting, StreamFactory, StreamFrame, StreamRequest, StreamSink, StreamSource, StreamSourceSpec, StreamTrack, Transport, TransportConnection, TransportContext, TransportFactory, TransportInbound, TransportLookContext, TransportRequest, TransportSpec, TransportStatus, TransportSubscription, UdpPeer };

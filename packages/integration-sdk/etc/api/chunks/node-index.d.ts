@@ -229,8 +229,8 @@ declare const capabilityStateSchema: z.ZodObject<{
     preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     isOscillating: z.ZodOptional<z.ZodBoolean>;
     direction: z.ZodOptional<z.ZodEnum<{
-      forward: "forward";
       reverse: "reverse";
+      forward: "forward";
     }>>;
   }, z.core.$strip>>;
   location: z.ZodOptional<z.ZodObject<{
@@ -304,12 +304,36 @@ type BluetoothAdvert = z.output<typeof bluetoothAdvertSchema>;
  */
 declare const bluetoothProxyProfileSchema: z.ZodObject<{
   modes: z.ZodArray<z.ZodEnum<{
-    active: "active";
     passive: "passive";
+    active: "active";
   }>>;
 }, z.core.$strict>;
 /** What a device that can be a proxy declares. */
 type BluetoothProxyProfile = z.output<typeof bluetoothProxyProfileSchema>;
+/**
+ * What a proxy that connects reports through its scanner's `gatt` without being asked: a value a
+ * characteristic the hub turned on notified, a link lost - one for each link when its session
+ * with the proxy drops - or how many connections it has free now.
+ */
+declare const bluetoothProxyGattEventSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
+  service: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  characteristic: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  data: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  kind: z.ZodLiteral<"notification">;
+}, z.core.$strip>, z.ZodObject<{
+  reason: z.ZodOptional<z.ZodString>;
+  address: z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>;
+  kind: z.ZodLiteral<"disconnected">;
+}, z.core.$strip>, z.ZodObject<{
+  free: z.ZodInt;
+  limit: z.ZodInt;
+  kind: z.ZodLiteral<"slots">;
+}, z.core.$strip>], "kind">;
+/** What a proxy reports on the links it holds, as written. */
+type BluetoothProxyGattEventInput = z.input<typeof bluetoothProxyGattEventSchema>;
+/** What a proxy reports on the links it holds. */
+type BluetoothProxyGattEvent = z.output<typeof bluetoothProxyGattEventSchema>;
 //#endregion
 //#region ../contracts/dist/registration.d.ts
 /**
@@ -332,33 +356,33 @@ type EntityStateClass = (typeof ENTITY_STATE_CLASSES)[number];
  */
 declare const declaredCapabilitiesSchema: z.ZodRecord<z.ZodEnum<{
   number: "number";
+  cover: "cover";
+  lock: "lock";
+  media_player: "media_player";
+  camera: "camera";
+  button: "button";
+  event: "event";
+  update: "update";
+  lawn_mower: "lawn_mower";
+  select: "select";
+  calendar: "calendar";
+  vacuum: "vacuum";
+  fan: "fan";
+  image: "image";
+  custom: "custom";
   on_off: "on_off";
   level: "level";
   color_hs: "color_hs";
   color_temp: "color_temp";
   effect: "effect";
-  cover: "cover";
-  lock: "lock";
   thermostat: "thermostat";
   sensor_numeric: "sensor_numeric";
   sensor_binary: "sensor_binary";
   sensor_text: "sensor_text";
-  media_player: "media_player";
-  camera: "camera";
-  button: "button";
-  update: "update";
-  lawn_mower: "lawn_mower";
-  select: "select";
   time_of_day: "time_of_day";
   date: "date";
   datetime: "datetime";
-  calendar: "calendar";
-  event: "event";
-  vacuum: "vacuum";
-  fan: "fan";
   location: "location";
-  image: "image";
-  custom: "custom";
 }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
 /** What an entity declares it can do, with the device's own limits for each. */
 type DeclaredCapabilities = z.output<typeof declaredCapabilitiesSchema>;
@@ -592,8 +616,8 @@ declare const stateReportSchema: z.ZodObject<{
       preset: z.ZodOptional<z.ZodNullable<z.ZodString>>;
       isOscillating: z.ZodOptional<z.ZodBoolean>;
       direction: z.ZodOptional<z.ZodEnum<{
-        forward: "forward";
         reverse: "reverse";
+        forward: "forward";
       }>>;
     }, z.core.$strip>>;
     location: z.ZodOptional<z.ZodObject<{
@@ -2210,7 +2234,7 @@ type BluetoothScannerOptions = {
 };
 /**
  * A Bluetooth proxy's channel to the Bluetooth broker: what it hears goes in here, and the house
- * sees it as heard by that proxy.
+ * sees it as heard by that proxy; and, for a proxy that connects, what happens on its links.
  */
 type BluetoothScanner = {
   /**
@@ -2219,6 +2243,12 @@ type BluetoothScanner = {
    * hears it.
    */
   report: (adverts: readonly BluetoothAdvertInput[]) => void;
+  /**
+   * Reports what happened on a link the hub opened through the proxy, unasked: a value a
+   * characteristic the hub turned on notified, a link lost - each of them when the session with
+   * the proxy drops - or how many connections it has free now. One that does not hold is dropped.
+   */
+  gatt: (event: BluetoothProxyGattEventInput) => void;
   /** Stops reporting: the proxy is no longer one, or its connection went. */
   close: () => void;
 };
@@ -2766,8 +2796,8 @@ declare const bundleManifestSchema: z.ZodObject<{
   }, z.core.$strict>>;
   bluetoothProxy: z.ZodOptional<z.ZodObject<{
     modes: z.ZodArray<z.ZodEnum<{
-      active: "active";
       passive: "passive";
+      active: "active";
     }>>;
   }, z.core.$strict>>;
   setup: z.ZodString;
@@ -3380,4 +3410,4 @@ type BundleFailure = {
   readonly vendorId?: string;
 };
 //#endregion
-export { EntityId as A, ReportedState as C, SerialLine as D, TransportSubscription as E, CapabilityState as M, JsonObject as N, BluetoothAdvert as O, PastReadings as S, TransportRequest as T, UdpPeer as _, LoadedListenSource as a, HistoryRange as b, SightingIdentity as c, BundleSdk as d, ManagedSocketClose as f, PlatformServices as g, ManagedUdpSocketOptions as h, LoadedDiscovery as i, CapabilityName as j, BluetoothAdvertInput as k, TemplateValue as l, ManagedSocketOptions as m, LoadedAccount as n, LoadedVendor as o, ManagedSocketHeaders as p, LoadedBundle as r, Association as s, BundleFailure as t, BluetoothScannerOptions as u, Claim as v, Discovered as w, Integration as x, DeviceDescriptor as y };
+export { BluetoothProxyGattEvent as A, ReportedState as C, SerialLine as D, TransportSubscription as E, CapabilityName as M, CapabilityState as N, BluetoothAdvert as O, JsonObject as P, PastReadings as S, TransportRequest as T, UdpPeer as _, LoadedListenSource as a, HistoryRange as b, SightingIdentity as c, BundleSdk as d, ManagedSocketClose as f, PlatformServices as g, ManagedUdpSocketOptions as h, LoadedDiscovery as i, EntityId as j, BluetoothAdvertInput as k, TemplateValue as l, ManagedSocketOptions as m, LoadedAccount as n, LoadedVendor as o, ManagedSocketHeaders as p, LoadedBundle as r, Association as s, BundleFailure as t, BluetoothScannerOptions as u, Claim as v, Discovered as w, Integration as x, DeviceDescriptor as y };

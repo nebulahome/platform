@@ -1,4 +1,4 @@
-import { N as JsonObject, l as TemplateValue } from "./chunks/node-index.js";
+import { P as JsonObject, l as TemplateValue } from "./chunks/node-index.js";
 import { z } from "zod";
 //#region src/schemas.d.ts
 /** Each file's schema, by the name its JSON Schema is written under. */
@@ -159,8 +159,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }, z.core.$strict>>;
     bluetoothProxy: z.ZodOptional<z.ZodObject<{
       modes: z.ZodArray<z.ZodEnum<{
-        active: "active";
         passive: "passive";
+        active: "active";
       }>>;
     }, z.core.$strict>>;
     setup: z.ZodString;
@@ -548,33 +548,33 @@ export declare const BUNDLE_FILE_SCHEMAS: {
       icon: z.ZodOptional<z.ZodString>;
       capabilities: z.ZodRecord<z.ZodEnum<{
         number: "number";
+        cover: "cover";
+        lock: "lock";
+        media_player: "media_player";
+        camera: "camera";
+        button: "button";
+        event: "event";
+        update: "update";
+        lawn_mower: "lawn_mower";
+        select: "select";
+        calendar: "calendar";
+        vacuum: "vacuum";
+        fan: "fan";
+        image: "image";
+        custom: "custom";
         on_off: "on_off";
         level: "level";
         color_hs: "color_hs";
         color_temp: "color_temp";
         effect: "effect";
-        cover: "cover";
-        lock: "lock";
         thermostat: "thermostat";
         sensor_numeric: "sensor_numeric";
         sensor_binary: "sensor_binary";
         sensor_text: "sensor_text";
-        media_player: "media_player";
-        camera: "camera";
-        button: "button";
-        update: "update";
-        lawn_mower: "lawn_mower";
-        select: "select";
         time_of_day: "time_of_day";
         date: "date";
         datetime: "datetime";
-        calendar: "calendar";
-        event: "event";
-        vacuum: "vacuum";
-        fan: "fan";
         location: "location";
-        image: "image";
-        custom: "custom";
       }> & z.core.$partial, z.ZodType<JsonObject, unknown, z.core.$ZodTypeInternals<JsonObject, unknown>>>;
       state: z.ZodRecord<z.ZodEnum<{
         number: "number";
@@ -724,8 +724,8 @@ export declare const BUNDLE_FILE_SCHEMAS: {
     }, z.core.$strict>>;
     bluetoothProxy: z.ZodOptional<z.ZodObject<{
       modes: z.ZodArray<z.ZodEnum<{
-        active: "active";
         passive: "passive";
+        active: "active";
       }>>;
     }, z.core.$strict>>;
   }, z.core.$strict>;
