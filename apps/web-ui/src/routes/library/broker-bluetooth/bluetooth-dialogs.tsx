@@ -386,7 +386,7 @@ export function AddProxyDialog(props: AddProxyDialogProps) {
               <AppIcon id="info" size={16} className="mt-0.5 shrink-0 text-foreground-subtle" />
               {t(
                 'brokers.bluetooth.proxy.listensOnly',
-                'A proxy only listens. Devices that need a connection, like a lock, still go through this server’s adapter.',
+                'A proxy that can connect also reaches devices that need a connection, like a lock; one that cannot only listens.',
               )}
             </p>
           </>

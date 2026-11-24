@@ -93,7 +93,7 @@ function bleReasonOf(reason: NonNullable<MatterStatus['ble']>['reason']): string
     case 'proxies-only':
       return translate(
         'brokers.matter.new.proxiesOnly',
-        'Bluetooth proxies only listen: pairing needs this server’s own adapter.',
+        'Pairing needs this server’s own adapter: Bluetooth proxies cannot pair.',
       );
     case 'desktop':
       return translate(

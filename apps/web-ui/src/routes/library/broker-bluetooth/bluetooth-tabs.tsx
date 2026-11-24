@@ -1,13 +1,14 @@
 /**
  * The Bluetooth broker's tabs: Overview, Devices and Scanners, and the host with no adapter.
  *
- * Overview is the health strip - the adapter, the proxies reporting, what is heard, the
- * connections only the adapter can hold - then the devices an integration recognises that the
+ * Overview is the health strip - the adapter, the proxies reporting, what is heard, the adapter's
+ * connections - then the devices an integration recognises that the
  * house does not have (Add, Ignore, the ignored in a fold) and those added lately. Devices is the
  * house's Bluetooth devices in a table: their signal as bars, the scanner that hears them best
  * (and how many others, listed on hover) and whether they listen or are connected. Scanners is a
- * row per scanner that opens to show and change it: its scan mode, what it forwards, its script,
- * the devices it hears best, and its actions.
+ * row per scanner that opens to show and change it: its scan mode, its connections (the adapter's,
+ * a proxy's that connects), what it forwards, its script, the devices it hears best, and its
+ * actions.
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -215,7 +216,7 @@ export function BluetoothOverview(props: BluetoothOverviewProps) {
           detail={
             adapter === null
               ? t('brokers.bluetooth.needsAdapter', 'Needs this server’s adapter')
-              : t('brokers.bluetooth.localOnly', 'Local adapter only: proxies only listen')
+              : t('brokers.bluetooth.localOnly', 'This server’s adapter; a proxy’s under Scanners')
           }
         />
       </HealthStrip>
@@ -711,8 +712,10 @@ function ScannerRow(
                 </span>
                 <CapabilityChip>{t('brokers.bluetooth.connects', 'Connects')}</CapabilityChip>
               </>
-            ) : (
+            ) : scanner.connections === null ? (
               <CapabilityChip>{t('brokers.bluetooth.listensOnly', 'Listens only')}</CapabilityChip>
+            ) : (
+              <CapabilityChip>{t('brokers.bluetooth.connects', 'Connects')}</CapabilityChip>
             )}
             {scanner.script?.isOutdated === true ? (
               <span className="inline-flex h-5.5 items-center gap-1 rounded-pill border border-warning/45 bg-warning/10 px-2 text-caption text-warning">
@@ -846,7 +849,7 @@ function ScannerRow(
               </span>
             )}
           </div>
-          {isAdapter ? (
+          {isAdapter || scanner.connections !== null ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-3.5">
               <span className="flex flex-col gap-0.5">
                 <span className="text-ui font-medium text-foreground">
@@ -866,7 +869,8 @@ function ScannerRow(
                     )}
               </span>
             </div>
-          ) : (
+          ) : null}
+          {isAdapter ? null : (
             <>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-3.5">
                 <span className="flex flex-col gap-0.5">

@@ -4,8 +4,8 @@
  *
  * As the boards draw a broker: the way back, the lit mark, the name and its line, the state and
  * how many adapters and proxies, **Settings** and **Add proxy** top right, then Overview, Devices,
- * Map, Nearby and Scanners. Proxies only listen: only the adapter can connect to a device, and the
- * page keeps that difference visible.
+ * Map, Nearby and Scanners. A proxy listens, and connects to a device too when its radio can: the
+ * Scanners say which, with each one's connections.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useState } from 'react';
