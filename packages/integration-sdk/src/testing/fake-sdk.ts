@@ -13,10 +13,12 @@ import { z } from 'zod';
 
 import {
   bluetoothAdvertSchema,
+  bluetoothProxyGattEventSchema,
   serialLineSchema,
   ValidationError,
   type BluetoothAdvert,
   type BluetoothAdvertInput,
+  type BluetoothProxyGattEvent,
   type SerialLine,
 } from '@nebulahome/contracts';
 import {
@@ -178,6 +180,9 @@ export type FakeBluetoothScanner = {
    * 16 bits; shorten it here too if a vendor's test ever reads one.
    */
   readonly adverts: readonly BluetoothAdvert[];
+
+  /** What it reported on its links through `gatt`, read as the broker reads it; nothing invalid. */
+  readonly gattEvents: readonly BluetoothProxyGattEvent[];
 
   /** Whether the bundle closed it, or opened another for the same proxy. */
   readonly isClosed: boolean;
@@ -699,6 +704,7 @@ export function createFakeSdk(options: FakeSdkOptions = {}): FakeSdk {
     scanner: (scannerOptions): BluetoothScanner => {
       const reports: (readonly BluetoothAdvertInput[])[] = [];
       const adverts: BluetoothAdvert[] = [];
+      const gattEvents: BluetoothProxyGattEvent[] = [];
       let isClosed = false;
 
       /** Stops it taking reports. */
@@ -719,6 +725,7 @@ export function createFakeSdk(options: FakeSdkOptions = {}): FakeSdk {
         options: scannerOptions,
         reports,
         adverts,
+        gattEvents,
 
         /**
          * Whether it was closed.
@@ -752,6 +759,19 @@ export function createFakeSdk(options: FakeSdkOptions = {}): FakeSdk {
             if (parsed.success) {
               adverts.push(parsed.data);
             }
+          }
+        },
+
+        /**
+         * Keeps what the proxy reported on its links, as the broker would take it.
+         *
+         * @param event - A notification, a link lost, or the slots free.
+         */
+        gatt: (event) => {
+          const parsed = bluetoothProxyGattEventSchema.safeParse(event);
+
+          if (!isClosed && parsed.success) {
+            gattEvents.push(parsed.data);
           }
         },
         close,

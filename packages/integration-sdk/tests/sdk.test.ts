@@ -838,6 +838,32 @@ describe('fake Bluetooth scanners', () => {
     ]);
   });
 
+  it('keeps what a proxy that connects reports on its links, read as the broker reads it', () => {
+    const fake = createFakeSdk();
+    const scanner = fake.sdk.bluetooth.scanner({ key: 'node.local', deviceKey: 'kitchen-node' });
+
+    scanner.gatt({
+      kind: 'notification',
+      address: 'c4:be:84:12:34:56',
+      service: 'cba20d00-224d-11e6-9fb8-0002a5d5c51b',
+      characteristic: 'cba20003-224d-11e6-9fb8-0002a5d5c51b',
+      data: '01FF',
+    });
+    scanner.gatt({ kind: 'slots', free: 2, limit: 3 });
+    scanner.gatt({ kind: 'slots', free: 2, limit: -1 });
+
+    expect(fake.bluetoothScanners[0]?.gattEvents).toEqual([
+      {
+        kind: 'notification',
+        address: 'C4:BE:84:12:34:56',
+        service: 'cba20d00-224d-11e6-9fb8-0002a5d5c51b',
+        characteristic: 'cba20003-224d-11e6-9fb8-0002a5d5c51b',
+        data: '01ff',
+      },
+      { kind: 'slots', free: 2, limit: 3 },
+    ]);
+  });
+
   it('closes the scanner a proxy had when it opens another, and takes nothing once closed', () => {
     const fake = createFakeSdk();
     const options = { key: 'plug.local', deviceKey: 'shellyplug-1' };

@@ -25,7 +25,12 @@ export {
 } from './modules.js';
 
 // The ops the hub sends a device playing a broker's role, and the `bluetooth` transport's GATT ops.
-export { BLUETOOTH_GATT_OPS, BLUETOOTH_PROXY_OPS, INFRARED_OPS } from '@nebulahome/contracts';
+export {
+  BLUETOOTH_GATT_OPS,
+  BLUETOOTH_PROXY_GATT_OPS,
+  BLUETOOTH_PROXY_OPS,
+  INFRARED_OPS,
+} from '@nebulahome/contracts';
 
 // The SDK the hub hands a module.
 export type {
@@ -66,10 +71,17 @@ export type {
 export type {
   BluetoothAdvert,
   BluetoothAdvertInput,
+  BluetoothProxyExchangeArgs,
   BluetoothProxyFilterArgs,
+  BluetoothProxyGattEvent,
+  BluetoothProxyGattEventInput,
   BluetoothProxyInstallArgs,
+  BluetoothProxyLinkArgs,
+  BluetoothProxyNotifyArgs,
   BluetoothProxyProfile,
+  BluetoothProxyReadArgs,
   BluetoothProxyState,
+  BluetoothProxyWriteArgs,
   BluetoothScanMode,
   InfraredCode,
   InfraredLearnArgs,

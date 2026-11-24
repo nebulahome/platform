@@ -3,6 +3,21 @@
 The SDK's version is the version of the integration contract the platform implements: a minor
 version adds to the contract, a major one breaks it, and a patch leaves it as it is.
 
+## 1.16.0
+
+- **Bluetooth connections through a proxy:** a proxy whose radio can hold links says so in
+  `bluetooth-proxy.state` with `connections: { free, limit }`, and the hub then sends it the
+  reserved `BLUETOOTH_PROXY_GATT_OPS` - `bluetooth-proxy.connect`, `disconnect`, `read`, `write`,
+  `exchange` and `notify`, by address and UUID, typed `BluetoothProxyLinkArgs`,
+  `BluetoothProxyReadArgs`, `BluetoothProxyWriteArgs`, `BluetoothProxyExchangeArgs` and
+  `BluetoothProxyNotifyArgs` - to reach a device its drivers ask for. The proxy reports what
+  happens unasked through its scanner's new `gatt(event)`: a notification, a link lost, its free
+  connections (`BluetoothProxyGattEventInput`); the fake SDK keeps them as `gattEvents`. The hub
+  picks the way - the server's adapter when it hears the device at -85 dBm or better, else the
+  proxy that hears it best with a connection free - keeps a link 5 s after its last request, sends
+  a device one request at a time, and gives a command to a Bluetooth device 10 s. A device's
+  driver changes nothing.
+
 ## 1.15.0
 
 - **Broker roles for code drivers:** a `kind: "code"` driver may say `bluetoothProxy` and

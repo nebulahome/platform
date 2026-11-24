@@ -262,15 +262,21 @@ any proxy - one carrying the same name, maker's and service data at most once a 
 that says some of what it knows only when asked - in a scan response - adds `"activeEveryMinutes":
 N` (1 to 1440): proxies rest passive, and every N minutes the hub asks the proxy hearing it best to
 scan actively until it hears the device again, 30 s at most. Its
-requests are GATT on the server's own adapter: `gatt.read { service, characteristic }` answers `{
-data }`, `gatt.write { service, characteristic, data, withResponse }`, `gatt.exchange { service,
-characteristic, notify, data, withResponse, timeoutMs }` - a request written to `characteristic`,
-answered `{ data }` with the first value `notify` notifies after it (`withResponse` false and 5 s
-unless said, 10 s at most) - and `gatt.notify { service, characteristic, isOn }`, whose values are
-delivered as `{ service, characteristic, data }` - hex throughout. They are refused when the server
-has no usable adapter, or only proxies hear the device: proxies listen and never connect - a
-command to a device linked to another way then goes that way (`twinsPrefer`, above).
-`BLUETOOTH_GATT_OPS` names them.
+requests are GATT: `gatt.read { service, characteristic }` answers `{ data }`, `gatt.write {
+service, characteristic, data, withResponse }`, `gatt.exchange { service, characteristic, notify,
+data, withResponse, timeoutMs }` - a request written to `characteristic`, answered `{ data }` with
+the first value `notify` notifies after it (`withResponse` false and 5 s unless said, 10 s at
+most) - and `gatt.notify { service, characteristic, isOn }`, whose values are delivered as `{
+service, characteristic, data }` - hex throughout. `BLUETOOTH_GATT_OPS` names them. The driver does
+not say how the device is reached: the hub connects through the server's adapter when it hears the
+device at -85 dBm or better, otherwise through the proxy that hears it best of those that connect
+and have a connection free, the next way tried when one fails to connect. It keeps a link 5 s
+after its last request, and while notifications are on, so a conversation's steps and a second
+command soon after find it open, and sends a device one request at a time. A command to a
+Bluetooth device has 10 s, every step included. A request is refused when nothing that hears the
+device can connect - no usable adapter, and no proxy that connects hears it - and a command to a
+device linked to another way then goes that way (`twinsPrefer`, above). A followed characteristic
+is not turned on again after its link was lost: ask again with the next command.
 
 A device spoken to in a **conversation** - a lock that hands out a session first and takes the
 command sealed with it, a blind that wants two frames - is a code driver with `continueCommand(
@@ -963,7 +969,7 @@ import them:
 | `openMqtt`           | an MQTT session with a client certificate, for a vendor's own broker                  |
 | `openModbus`         | a Modbus session through the hub's one connection to a server, closed with the vendor |
 | `openSerial`         | a serial port a device of the vendor holds, through the Serial broker                 |
-| `bluetooth.scanner`  | a Bluetooth proxy's channel to the Bluetooth broker, for what it hears                |
+| `bluetooth.scanner`  | a Bluetooth proxy's channel to the Bluetooth broker: what it hears, and its links     |
 | `defineStreamSource` | the contract a camera's stream source is written against                              |
 | `openRtsp`           | an RTSP(S) session over TCP, yielding a camera's H.264 as it comes                    |
 | `platform.mqtt`      | the house's MQTT broker the hub runs, with the hub's username; null if it cannot      |
@@ -992,9 +998,9 @@ catalogue carries it; `verifyVendor` is where the hub asks. Its types come from
 
 A device of the vendor may work for one of the platform's brokers: an **IR blaster** sends the
 codes of the remotes the Infrared broker keeps, a **Bluetooth proxy** listens for the Bluetooth
-broker. A declarative driver says so in its profile, a code driver (`"kind": "code"`) in its
-`driver.json`, with the same fields; a driver of any other kind cannot. The vendor's page shows the
-role:
+broker and, when its radio can, connects to devices for it. A declarative driver says so in its
+profile, a code driver (`"kind": "code"`) in its `driver.json`, with the same fields; a driver of
+any other kind cannot. The vendor's page shows the role:
 
 ```json
 {
@@ -1020,8 +1026,8 @@ The broker then sends the device **reserved ops** over its instance's own connec
 would go: `connection.send({ deviceKey, op, args }, signal)`, `deviceKey` the instance's first bound
 claim's and `signal` aborted at the op's timeout. The vendor's transport answers them in `send`:
 it resolves with the answer, or throws an error whose message is a sentence the page shows. The
-names are reserved - a vendor uses them for nothing else - and exported as `INFRARED_OPS` and
-`BLUETOOTH_PROXY_OPS`, their arguments' types beside them:
+names are reserved - a vendor uses them for nothing else - and exported as `INFRARED_OPS`,
+`BLUETOOTH_PROXY_OPS` and `BLUETOOTH_PROXY_GATT_OPS`, their arguments' types beside them:
 
 ```ts
 send: async (request, signal) => {
@@ -1098,6 +1104,39 @@ address in either case, `rssi` a whole number of dBm, the company ids in decimal
 case, a 128-bit UUID on the Bluetooth base shortened by the hub. One that does not hold is dropped.
 `report([])` says the proxy is alive: report at least every two minutes, or it shows offline. A
 device the owner did not make a proxy is not listened to.
+
+**A proxy that connects** - one whose radio can hold links to devices, an ESPHome node with
+`bluetooth_proxy: active: true` - says so in `state`: `connections: { free, limit }`. Absent, it
+only listens and is never asked to connect. The hub decides everything else - which way a device is
+reached, when to connect and when to let go, one request at a time per device - and the proxy
+carries out what it is sent on its own radio:
+
+| Op                           | Arguments                                                                     | Answer                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `bluetooth-proxy.connect`    | `{ address }`                                                                 | `{ mtu? }` once connected; throw when it cannot             |
+| `bluetooth-proxy.disconnect` | `{ address }`                                                                 | null; never throws                                          |
+| `bluetooth-proxy.read`       | `{ address, service, characteristic }`                                        | `{ data }`                                                  |
+| `bluetooth-proxy.write`      | `{ address, service, characteristic, data, withResponse }`                    | null, once written                                          |
+| `bluetooth-proxy.exchange`   | `{ address, service, characteristic, notify, data, withResponse, timeoutMs }` | `{ data }`, the first value `notify` notifies after writing |
+| `bluetooth-proxy.notify`     | `{ address, service, characteristic, isOn }`                                  | null; each value then comes through `gatt`                  |
+
+- `address` is upper case and carries no type: use the one the proxy last heard the address
+  advertise with. Services and characteristics are UUIDs, as the driver asked them - 16-bit
+  (`fee7`), 32-bit or 128-bit, lower case - for the proxy to find on the device; hex throughout. The
+  types are `BluetoothProxyLinkArgs` (connect, disconnect), `BluetoothProxyReadArgs`,
+  `BluetoothProxyWriteArgs`, `BluetoothProxyExchangeArgs` and `BluetoothProxyNotifyArgs`.
+- The ops of a command go with its deadline - 10 s for the whole command, every step of a
+  conversation included - as their `signal`: stop when it aborts. A `disconnect` the hub sends on
+  its own, 5 s after a link's last request, has 10 s. After a `connect` that failed or ran out of
+  time the hub sends `disconnect` too, in case the device connected after all.
+- The hub connects only through a proxy that heard the device in the last five minutes and has a
+  connection free, as it last said, one taken at once on each `connect`.
+- What happens unasked goes through the scanner's `gatt(event)`, a `BluetoothProxyGattEventInput`:
+  `{ kind: "notification", address, service, characteristic, data }` for each value of a
+  characteristic turned on; `{ kind: "disconnected", address, reason? }` for a link lost - one for
+  each link when the session with the device ends - which fails the requests waiting for it;
+  `{ kind: "slots", free, limit }` whenever its free connections change, another client of the
+  device taking one too. One that does not hold is dropped.
 
 ## A camera's picture
 
